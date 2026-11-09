@@ -48,7 +48,7 @@ export const KIND_INFO: Record<AutomationKind, { description: string; where: str
   ekinerja_session: {
     description:
       "Membuka e-Kinerja dengan sesi tersimpan agar cookie diperbarui & disimpan ulang. Bila sesi habis, Anda langsung diberi notifikasi.",
-    where: "Laporan Kinerja → Connector → Cek sesi",
+    where: "e-Kinerja → Connector → Cek sesi",
     path: "/kinerja/connector",
   },
   srikandi_session: {
@@ -57,14 +57,20 @@ export const KIND_INFO: Record<AutomationKind, { description: string; where: str
     where: "SRIKANDI → Connector → Cek sesi",
     path: "/srikandi/connector",
   },
+  siman_session: {
+    description:
+      "Membuka SIMAN dengan sesi tersimpan agar cookie diperbarui & disimpan ulang. Bila sesi habis, Anda langsung diberi notifikasi.",
+    where: "SIMAN → Connector → Cek sesi",
+    path: "/siman/connector",
+  },
   ekinerja_skp: {
     description: "Membaca daftar SKP & RHK tahun berjalan dari e-Kinerja.",
-    where: "Laporan Kinerja → Ambil dari e-Kinerja",
+    where: "e-Kinerja → Ambil dari e-Kinerja",
     path: "/kinerja",
   },
   ekinerja_renaksi: {
     description: "Membaca status, isi, dan feedback Rencana Aksi tiap bulan (Pantau e-Kinerja). Tidak mengisi apa pun.",
-    where: "Laporan Kinerja → Pantau e-Kinerja",
+    where: "e-Kinerja → Pantau e-Kinerja",
     path: "/kinerja",
   },
   srikandi_letters: {
@@ -88,6 +94,7 @@ export const KIND_INFO: Record<AutomationKind, { description: string; where: str
 export const KIND_RECORDS: Record<AutomationKind, RecordType[]> = {
   ekinerja_session: [],
   srikandi_session: [],
+  siman_session: [],
   ekinerja_skp: ["skp", "skp_target"],
   ekinerja_renaksi: ["action_plan_month", "action_plan_entry"],
   srikandi_letters: ["srikandi_letter", "para_resource"],

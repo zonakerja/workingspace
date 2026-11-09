@@ -134,6 +134,8 @@ services:
     ports:
       # Hanya untuk backend di laptop (bukan untuk dibuka ke jaringan)
       - "127.0.0.1:8642:8642"
+    # Jaringan sendiri: agen tidak boleh menjangkau PostgreSQL, Redis, storage, atau robot secara langsung (docs/AI-AGENT.md §26)
+    networks: [agent]
     shm_size: 1g
 
 volumes:
@@ -153,3 +155,5 @@ volumes:
 networks:
   default:
     name: lifeos-network
+  agent:
+    name: lifeos-agent-network

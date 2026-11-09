@@ -31,6 +31,8 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
   agenda, to-do, dan task hari itu. Opsional: buat templat sendiri `90-Templat/Harian.md` dan taruh `{{lifeos}}` di tempat ringkasan.
   Panel Info catatan kini punya **Catatan serupa** — bila tertulis "belum tersedia", jalankan **Indeks ulang** di Tools → Indeks
   Pengetahuan (butuh key embedding Gemini/OpenAI yang aktif).
+- [ ] **A26** Beri bidang pada pengetahuan Anda: menu **Knowledge** → tombol **Bidang** di banner → pilih atau ketik bidang (mis. BMN) → **Tandai semuanya**. Catatan baru cukup diberi properti `bidang: BMN`. Saat pindah bagian, tinggal ganti bidang aktif. PDF di vault tidak punya properti, jadi selalu ikut dipakai.
+- [ ] **A25** Ajarkan proses penerbitan PSP ke Claude: tiket masuk di SIMAN, lampiran Excel dari satker, dan cara memverifikasi ke master aset. Sertakan satu contoh Excel. Hermes akan menyusunnya sebagai skill + workflow bermodal yang Anda setujui di **Approval → Usulan Agen**, bukan fitur native.
 - [ ] **A24** Unggah templat Anda: **Tools → ONLYOFFICE → Templat dokumen → Unggah templat** (ONLYOFFICE harus menyala), lalu kabari Claude nama templatnya untuk dibuatkan skill. Sertakan contoh dokumen PSP (C5).
 - [ ] **A23** Pastikan penanda `no_naskah`, `pangkat_pengirim`, `nama_tujuan`, `hal`, `sifat` di templat: diisi SRIKANDI atau agen? (`jabatan_tujuan`, `jabatan_pengirim`, `nama_pengirim`, `nip_pengirim` sudah dipastikan milik SRIKANDI.)
 - [ ] **A22** Coba di menu Knowledge (layar ≥ 1280 px): **Ctrl+klik** tautan atau catatan di penjelajah = dua catatan berdampingan; klik di salah satu panel menjadikannya aktif. **Ctrl+P** → **Pecah catatan ini per judul…** (cek daftar catatan di pratinjau sebelum menekan tombol), **Pecah catatan di posisi kursor…** (mode sunting), dan saat menggabung/mengekstrak pilih posisi **Akhir bagian: judul**.
@@ -580,3 +582,5 @@ Telegram Anda yang diizinkan. Minta Claude menyiapkan service otomatis (systemd)
 | 2026-11-09 | A23 baru: pastikan penanda templat yang diisi SRIKANDI, setelah uji agen menyeluruh |
 | 2026-11-09 | A23 dipersempit (empat penanda dipastikan milik SRIKANDI); A24 baru: unggah templat lewat ONLYOFFICE |
 | 2026-11-09 | A8 ditandai ditunda sesuai keputusan uji robot |
+| 2026-11-09 | A25 baru: ajarkan proses PSP dari tiket SIMAN |
+| 2026-11-09 | A26 baru: tandai bidang pengetahuan |

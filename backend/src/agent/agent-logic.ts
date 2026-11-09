@@ -46,13 +46,22 @@ export function skillRunInput(skill: string, request: { id: string; title: strin
  * Perintah tugas dari Kebijakan Otomatis: skill sama dengan tombol, ditambah kewajiban menyerahkan daftar aset ke server
  * (keputusan akhir diambil server LifeOS menurut aturan pemilik, bukan oleh agen).
  */
-export function policyRunInput(skill: string, request: { id: string; title: string }, policyName: string) {
+export function policyRunInput(
+  skill: string,
+  request: { id: string; title: string },
+  policyName: string,
+  verifyAssets: boolean,
+) {
   return [
     skillRunInput(skill, request),
     "",
     `Tugas ini dijalankan otomatis oleh Kebijakan Otomatis "${policyName.replace(/\s+/g, " ").slice(0, 80)}".`,
-    "Bila berkas memuat daftar aset, serahkan semuanya lewat `submit_asset_check` sebelum membuat dokumen, lalu ikuti",
-    "`branch` pada responsnya. Keputusan akhir diambil server LifeOS — jangan meminta konfirmasi pengguna.",
+    ...(verifyAssets
+      ? [
+          "Bila berkas memuat daftar aset, serahkan semuanya lewat `submit_asset_check` sebelum membuat dokumen, lalu ikuti",
+          "`branch` pada responsnya. Keputusan akhir diambil server LifeOS — jangan meminta konfirmasi pengguna.",
+        ]
+      : ["Hasil kerja Anda akan diperiksa pemilik di Approval — jangan meminta konfirmasi pengguna."]),
   ].join("\n");
 }
 

@@ -62,7 +62,7 @@ export function PoliciesTab() {
         <Workflow className="size-8 text-module" />
         {status.configured
           ? "Kebijakan Otomatis hanya untuk pemilik agen (HERMES_OWNER_EMAIL)."
-          : "Agen Hermes belum diatur di server ini. Lihat Asisten Agen → Status & Skill."}
+          : "Agen Hermes belum diatur di server ini. Lihat AI Agent → Status & Skill."}
       </Card>
     );
   }
@@ -80,10 +80,10 @@ export function PoliciesTab() {
           <div className="min-w-0 flex-1 text-sm">
             <p className="font-semibold">Keputusan diambil server menurut aturan Anda — bukan oleh model AI</p>
             <p className="mt-1 text-muted-foreground">
-              Pengajuan baru yang cocok dengan aturan dikerjakan agen (skill), lalu server mencocokkan daftar aset ke
-              data master dan menghitung skor sendiri. Mulai dengan mode <b>Shadow</b> (hanya dicatat & dibandingkan
-              dengan keputusan Anda), naikkan ke <b>Otomatis</b> bila sudah sesuai. Mode Otomatis menyimpan konsep di
-              SRIKANDI setelah masa tunda — <b>Kirim Konsep & tanda tangan tetap Anda yang menekan</b>.
+              Pengajuan baru yang cocok dengan aturan dikerjakan agen (skill), lalu hasilnya masuk ke Approval untuk
+              Anda periksa. Persetujuan otomatis hanya tersedia bila server bisa memeriksa hasilnya sendiri, yaitu
+              dengan mencocokkan daftar aset ke data master. Mode Otomatis menyimpan konsep di SRIKANDI setelah masa
+              tunda — <b>Kirim Konsep & tanda tangan tetap Anda yang menekan</b>.
             </p>
           </div>
           <Button size="sm" onClick={() => setEditing("new")}>
@@ -129,7 +129,7 @@ export function PoliciesTab() {
       ) : data.policies.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
           <Workflow className="size-8 text-module" />
-          Belum ada aturan. Contoh: “PSP dari grup SATKER-A → skill penetapan-psp, skor aset ≥ 75%”.
+          Belum ada aturan. Contoh: “Surat dari grup SATKER-A → dikerjakan skill telaah-pengajuan”.
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-2">
@@ -178,10 +178,17 @@ function PolicyCard({
           <Badge variant="outline">{KIND_LABELS[p.requestKind] ?? p.requestKind}</Badge>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Skill <code>{p.skill}</code> · grup {p.groupCodes.length ? p.groupCodes.join(", ") : "semua"} · skor ≥{" "}
-          {p.threshold}% · cocok wajib: {p.criticalFields.map((f) => ASSET_FIELD_LABELS[f]).join(", ")} · maks.{" "}
-          {p.dailyLimit}/hari · tunda {p.holdMinutes} menit
-          {!p.registerTemplate && " · tanpa templat Register (tidak dikirim ke SRIKANDI)"}
+          Skill <code>{p.skill}</code> · grup {p.groupCodes.length ? p.groupCodes.join(", ") : "semua"}
+          {p.verifyAssets ? (
+            <>
+              {" "}
+              · skor ≥ {p.threshold}% · cocok wajib: {p.criticalFields.map((f) => ASSET_FIELD_LABELS[f]).join(", ")} ·
+              maks. {p.dailyLimit}/hari · tunda {p.holdMinutes} menit
+              {!p.registerTemplate && " · tanpa templat Register (tidak dikirim ke SRIKANDI)"}
+            </>
+          ) : (
+            " · hasil agen diserahkan ke Anda"
+          )}
         </p>
         <p className="mt-1 text-xs">
           {p.stats.decisions} keputusan · {p.stats.applied} diterapkan
@@ -232,7 +239,7 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
     }));
   const num = (value: string, fallback: number) =>
     value === "" || Number.isNaN(Number(value)) ? fallback : Number(value);
-  const valid = form.name.trim() && form.skill && form.criticalFields.length > 0;
+  const valid = form.name.trim() && form.skill && (!form.verifyAssets || form.criticalFields.length > 0);
 
   const save = () =>
     m.save.mutate(
@@ -261,7 +268,7 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
             id="policy-name"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
-            placeholder="PSP satker dengan aset tercatat"
+            placeholder="Telaah surat dari satker"
             maxLength={120}
           />
         </div>
@@ -311,7 +318,7 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
             <Input
               value={form.skill}
               onChange={(e) => set("skill", e.target.value.toLowerCase())}
-              placeholder="penetapan-psp"
+              placeholder="nama-skill"
             />
           )}
         </div>
@@ -323,96 +330,116 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
             </SelectTrigger>
             <SelectContent>
               {(Object.keys(POLICY_MODE_LABELS) as AgentPolicyMode[]).map((mode) => (
-                <SelectItem key={mode} value={mode}>
+                <SelectItem key={mode} value={mode} disabled={mode === "auto" && !form.verifyAssets}>
                   {POLICY_MODE_LABELS[mode]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="policy-threshold">Skor aset minimal (%)</Label>
-          <Input
-            id="policy-threshold"
-            type="number"
-            min={50}
-            max={100}
-            value={form.threshold}
-            onChange={(e) => set("threshold", num(e.target.value, 75))}
+        <label className="flex items-start gap-3 rounded-lg border p-3 sm:col-span-2">
+          <Switch
+            checked={form.verifyAssets}
+            onCheckedChange={(v) =>
+              setForm((f) => ({ ...f, verifyAssets: v, mode: !v && f.mode === "auto" ? "shadow" : f.mode }))
+            }
+            aria-label="Cocokkan daftar aset ke data master"
           />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="policy-tolerance">Toleransi selisih nilai (%)</Label>
-          <Input
-            id="policy-tolerance"
-            type="number"
-            min={0}
-            max={20}
-            step={0.5}
-            value={form.valueTolerance}
-            onChange={(e) => set("valueTolerance", num(e.target.value, 0))}
-          />
-        </div>
-        <div className="grid gap-1.5 sm:col-span-2">
-          <Label>Isian yang wajib sama dengan data master</Label>
-          <div className="flex flex-wrap gap-3">
-            {(Object.keys(ASSET_FIELD_LABELS) as AssetField[]).map((field) => (
-              <label key={field} className="flex items-center gap-1.5 text-sm">
-                <Checkbox
-                  checked={form.criticalFields.includes(field)}
-                  onCheckedChange={(v) => toggleField(field, v === true)}
-                />
-                {ASSET_FIELD_LABELS[field]}
-              </label>
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="policy-limit">Batas keputusan otomatis per hari</Label>
-          <Input
-            id="policy-limit"
-            type="number"
-            min={1}
-            max={100}
-            value={form.dailyLimit}
-            onChange={(e) => set("dailyLimit", num(e.target.value, 5))}
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="policy-hold">Masa tunda sebelum ke SRIKANDI (menit)</Label>
-          <Input
-            id="policy-hold"
-            type="number"
-            min={5}
-            max={1440}
-            value={form.holdMinutes}
-            onChange={(e) => set("holdMinutes", num(e.target.value, 15))}
-          />
-        </div>
-        <div className="grid gap-1.5 sm:col-span-2">
-          <Label>Templat Register Naskah Keluar</Label>
-          <Select
-            value={form.registerTemplate ?? "none"}
-            onValueChange={(v) => set("registerTemplate", v === "none" ? null : v)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Tanpa templat — tidak dikirim ke SRIKANDI</SelectItem>
-              {outgoings.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.subject || "(tanpa hal)"}
-                  {o.docType ? ` · ${o.docType}` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Isian SRIKANDI (jenis naskah, sifat, klasifikasi, penandatangan, tujuan, …) disalin dari entri ini; hal,
-            berkas, dan nomor diisi dari pengajuan. Buat entrinya dulu di SRIKANDI → Register Naskah Keluar.
-          </p>
-        </div>
+          <span className="text-sm">
+            <b>Cocokkan daftar aset ke data master</b>
+            <span className="block text-xs text-muted-foreground">
+              Hanya untuk proses yang memuat daftar aset. Tanpa pemeriksaan ini hasil agen selalu diserahkan ke Anda dan
+              mode Otomatis tidak tersedia.
+            </span>
+          </span>
+        </label>
+        {form.verifyAssets && (
+          <>
+            <div className="grid gap-1.5">
+              <Label htmlFor="policy-threshold">Skor aset minimal (%)</Label>
+              <Input
+                id="policy-threshold"
+                type="number"
+                min={50}
+                max={100}
+                value={form.threshold}
+                onChange={(e) => set("threshold", num(e.target.value, 75))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="policy-tolerance">Toleransi selisih nilai (%)</Label>
+              <Input
+                id="policy-tolerance"
+                type="number"
+                min={0}
+                max={20}
+                step={0.5}
+                value={form.valueTolerance}
+                onChange={(e) => set("valueTolerance", num(e.target.value, 0))}
+              />
+            </div>
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label>Isian yang wajib sama dengan data master</Label>
+              <div className="flex flex-wrap gap-3">
+                {(Object.keys(ASSET_FIELD_LABELS) as AssetField[]).map((field) => (
+                  <label key={field} className="flex items-center gap-1.5 text-sm">
+                    <Checkbox
+                      checked={form.criticalFields.includes(field)}
+                      onCheckedChange={(v) => toggleField(field, v === true)}
+                    />
+                    {ASSET_FIELD_LABELS[field]}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="policy-limit">Batas keputusan otomatis per hari</Label>
+              <Input
+                id="policy-limit"
+                type="number"
+                min={1}
+                max={100}
+                value={form.dailyLimit}
+                onChange={(e) => set("dailyLimit", num(e.target.value, 5))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="policy-hold">Masa tunda sebelum ke SRIKANDI (menit)</Label>
+              <Input
+                id="policy-hold"
+                type="number"
+                min={5}
+                max={1440}
+                value={form.holdMinutes}
+                onChange={(e) => set("holdMinutes", num(e.target.value, 15))}
+              />
+            </div>
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label>Templat Register Naskah Keluar</Label>
+              <Select
+                value={form.registerTemplate ?? "none"}
+                onValueChange={(v) => set("registerTemplate", v === "none" ? null : v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Tanpa templat — tidak dikirim ke SRIKANDI</SelectItem>
+                  {outgoings.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.subject || "(tanpa hal)"}
+                      {o.docType ? ` · ${o.docType}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Isian SRIKANDI (jenis naskah, sifat, klasifikasi, penandatangan, tujuan, …) disalin dari entri ini; hal,
+                berkas, dan nomor diisi dari pengajuan. Buat entrinya dulu di SRIKANDI → Register Naskah Keluar.
+              </p>
+            </div>
+          </>
+        )}
       </div>
       {form.mode === "auto" && (
         <p className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs text-warning">

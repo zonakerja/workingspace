@@ -15,6 +15,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import type { Response as ExpressResponse } from "express";
 import Anthropic from "@anthropic-ai/sdk";
+import { type MenuField, menuRunInput, normalizeMenuValues } from "../agent-menus/agent-menu-logic";
 import OpenAI from "openai";
 import { type AiEndpoint, anthropicBaseUrl } from "../ai/ai-endpoint";
 import { isUnsupportedFeatureError } from "../ai/providers/anthropic.client";
@@ -231,7 +232,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
       throw new UnprocessableEntityException("Agen belum diatur (HERMES_URL & HERMES_API_KEY di server).");
     }
     if (!this.isOwner(user)) {
-      throw new ForbiddenException("Asisten Agen hanya untuk pemilik agen (HERMES_OWNER_EMAIL).");
+      throw new ForbiddenException("AI Agent hanya untuk pemilik agen (HERMES_OWNER_EMAIL).");
     }
   }
 
@@ -707,9 +708,64 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Jalankan fitur buatan agen; hanya yang sudah disetujui pemilik. */
+  async runMenu(
+    user: AuthUser,
+    menu: {
+      id: string;
+      slug: string;
+      label: string;
+      skill: string;
+      instructions: string;
+      status: string;
+      form: unknown;
+    },
+    note?: string,
+    values?: Record<string, unknown>,
+  ) {
+    this.requireOwner(user);
+    if (menu.status !== "active") throw new UnprocessableEntityException("Setujui dulu di Approval → Usulan Agen.");
+    const clean = normalizeMenuValues(Array.isArray(menu.form) ? (menu.form as MenuField[]) : [], values);
+    if ("error" in clean) throw new UnprocessableEntityException(clean.error);
+    return this.start(user, {
+      kind: "skill",
+      input: menuRunInput(menu, note, clean),
+      sessionId: sessionIdFor(user.id, `menu-${menu.id}`),
+      skill: menu.skill,
+      menuId: menu.id,
+    });
+  }
+
+  /** Riwayat tugas satu menu, terbaru dulu. */
+  async menuRuns(userId: string, menuId: string) {
+    const rows = await this.prisma.agentRun.findMany({
+      where: { userId, menuId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    return rows.map((r) => ({
+      runId: r.hermesRunId ?? r.id,
+      startedAt: (r.startedAt ?? r.createdAt).toISOString(),
+      status: r.status,
+      output: r.output,
+      error: r.error,
+    }));
+  }
+
+  assertOwner(user: AuthUser) {
+    this.requireOwner(user);
+  }
+
   private async start(
     user: AuthUser,
-    run: { kind: "chat" | "skill"; input: string; sessionId: string; requestId?: string; skill?: string },
+    run: {
+      kind: "chat" | "skill";
+      input: string;
+      sessionId: string;
+      requestId?: string;
+      skill?: string;
+      menuId?: string;
+    },
   ) {
     const body = await this.call<{ run_id?: string; status?: string }>("/v1/runs", {
       method: "POST",
@@ -721,9 +777,10 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
         userId: user.id,
         hermesRunId: body.run_id,
         kind: run.kind,
-        trigger: run.kind === "chat" ? "chat" : "button",
+        trigger: run.menuId ? "menu" : run.kind === "chat" ? "chat" : "button",
         skill: run.skill ?? null,
         requestId: run.requestId ?? null,
+        menuId: run.menuId ?? null,
         input: run.input,
         status: "running",
         startedAt: new Date(),

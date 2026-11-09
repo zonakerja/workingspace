@@ -35,6 +35,7 @@ export interface PolicyInput {
   requestKind: string;
   groupCodes: string[];
   mode: string;
+  verifyAssets: boolean;
   threshold: number;
   criticalFields: string[];
   valueTolerance: number;
@@ -171,6 +172,11 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
         throw new UnprocessableEntityException("Entri Register yang dipilih sebagai templat tidak ditemukan.");
       });
     }
+    if (input.mode === "auto" && !input.verifyAssets) {
+      throw new UnprocessableEntityException(
+        "Mode Otomatis butuh pemeriksaan server. Nyalakan pencocokan data master, atau pakai mode Shadow.",
+      );
+    }
     const data = {
       ...input,
       groupCodes: input.groupCodes.map((g) => g.trim().toUpperCase()).filter(Boolean),
@@ -221,7 +227,7 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
         skill: policy.skill,
         requestId: request.id,
         policyId: policy.id,
-        input: policyRunInput(policy.skill, request, policy.name),
+        input: policyRunInput(policy.skill, request, policy.name, policy.verifyAssets),
         status: "queued",
       },
     });
@@ -237,6 +243,7 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
     const check = request.assetCheck as (AssetCheck & { available?: boolean }) | null;
     const decision = decidePolicy({
       mode: policy.mode,
+      verifyAssets: policy.verifyAssets,
       threshold: policy.threshold,
       check,
       masterAvailable: check?.available !== false,

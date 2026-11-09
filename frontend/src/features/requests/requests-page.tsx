@@ -28,6 +28,7 @@ import {
   TAB_STATUSES,
 } from "./request-utils";
 import { PoliciesTab } from "./policies-tab";
+import { ProposalsTab } from "./proposals-tab";
 import { ContactsTab } from "./whatsapp/contacts-tab";
 import { ConversationsTab } from "./whatsapp/conversations-tab";
 
@@ -66,6 +67,8 @@ export function Component() {
             <ContactsTab />
           ) : tab === "policies" ? (
             <PoliciesTab />
+          ) : tab === "proposals" ? (
+            <ProposalsTab />
           ) : (
             <RequestList
               tab={tab === "done" ? "done" : "queue"}

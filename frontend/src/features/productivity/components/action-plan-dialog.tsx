@@ -313,7 +313,7 @@ function ActionPlanForm({
         {entry?.status === "filled" && (
           <p className="rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
             Sudah terisi di e-Kinerja. Bila isinya diubah, entri ditandai Berubah dan baris indikatornya ditulis ulang
-            di e-Kinerja saat Anda menekan Kirim perubahan di Laporan Kinerja.
+            di e-Kinerja saat Anda menekan Kirim perubahan di menu e-Kinerja.
           </p>
         )}
         {source && (
@@ -367,7 +367,7 @@ function ActionPlanForm({
           <FieldLabel>RHK (Rencana Hasil Kerja) {plan.skp ? `· SKP ${skpPeriodLabel(plan.skp)}` : year}</FieldLabel>
           {plan.skp && yearTargets.length === 0 && (
             <FieldDescription className="text-warning">
-              RHK SKP ini belum diambil — buka tab Laporan Kinerja → Ambil dari e-Kinerja.
+              RHK SKP ini belum diambil — buka menu e-Kinerja → Ambil dari e-Kinerja.
             </FieldDescription>
           )}
           {yearTargets.length > 0 && (
@@ -518,7 +518,7 @@ function ActionPlanForm({
       )}
       <DialogFooter>
         {entry && (
-          // Status dihitung ulang seperti di Laporan Kinerja (status tersimpan bisa tertinggal, mis. RHK baru tersinkron)
+          // Status dihitung ulang seperti di menu e-Kinerja (status tersimpan bisa tertinggal, mis. RHK baru tersinkron)
           <Badge className={STATUS_STYLE[savedStatus!]}>{STATUS_LABELS[savedStatus!]}</Badge>
         )}
         <Button variant="outline" onClick={cancel} disabled={saving}>

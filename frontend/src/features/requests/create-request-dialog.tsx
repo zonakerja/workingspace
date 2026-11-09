@@ -53,7 +53,7 @@ export function CreateRequestDialog({
 
 function CreateRequestForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: (id: string) => void }) {
   const { create } = useRequestMutations();
-  const [kind, setKind] = useState<RequestKind>("psp");
+  const [kind, setKind] = useState<RequestKind>("surat");
   const [form, setForm] = useState({
     title: "",
     applicant: "",
@@ -128,7 +128,7 @@ function CreateRequestForm({ onCancel, onCreated }: { onCancel: () => void; onCr
             id="req-title"
             value={form.title}
             onChange={set("title")}
-            placeholder="mis. Permohonan PSP 3 unit laptop"
+            placeholder="mis. Permohonan dari satker"
             autoFocus
           />
         </div>

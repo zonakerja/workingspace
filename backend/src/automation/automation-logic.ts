@@ -28,6 +28,7 @@ export const DEFAULT_SCHEDULES: Record<AutomationKind, AutomationSchedule> = {
   // Jaga sesi tiap jam kerja (menit ke-30 agar tidak bertumpuk dengan sinkron menit ke-0)
   ekinerja_session: { mode: "hourly", minute: 30, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
   srikandi_session: { mode: "hourly", minute: 30, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
+  siman_session: { mode: "hourly", minute: 30, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
   ekinerja_skp: { mode: "daily", time: "07:00", days: EVERY_DAY, timezone: TZ },
   ekinerja_renaksi: { mode: "daily", time: "07:05", days: EVERY_DAY, timezone: TZ },
   srikandi_letters: { mode: "hourly", minute: 0, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
@@ -147,10 +148,11 @@ export function parseSchedulerId(id: string): { userId: string; kind: Automation
 
 // ---------------------------------------------------------------- Notifikasi (lonceng & toast di frontend)
 
-const SYSTEM_LABELS: Record<RobotSystem, string> = { ekinerja: "e-Kinerja", srikandi: "SRIKANDI" };
+const SYSTEM_LABELS: Record<RobotSystem, string> = { ekinerja: "e-Kinerja", srikandi: "SRIKANDI", siman: "SIMAN" };
 const CONNECTOR_PATHS: Record<RobotSystem, string> = {
   ekinerja: "/kinerja/connector",
   srikandi: "/srikandi/connector",
+  siman: "/siman/connector",
 };
 
 export interface AutomationAlert {
@@ -185,7 +187,7 @@ interface AlertJob {
  */
 export function automationAlerts(connectors: AlertConnector[], jobs: AlertJob[]): AutomationAlert[] {
   const alerts: AutomationAlert[] = [];
-  for (const system of ["ekinerja", "srikandi"] as const) {
+  for (const system of ["ekinerja", "srikandi", "siman"] as const) {
     const connector = connectors.find((c) => c.system === system);
     const label = SYSTEM_LABELS[system];
     const enabled = jobs.filter((j) => j.enabled && isAutomationKind(j.kind) && ROBOT_JOBS[j.kind].system === system);

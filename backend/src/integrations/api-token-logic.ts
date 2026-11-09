@@ -18,6 +18,7 @@ export const API_SCOPES = [
   "requests:read",
   "requests:write",
   "ai:model",
+  "agent:menus",
 ] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 
@@ -30,6 +31,7 @@ export const SCOPE_LABELS: Record<ApiScope, string> = {
   "requests:read": "Baca pengajuan & Antrian Verifikasi",
   "requests:write": "Catat pengajuan baru & jalankan analisis/telaah AI (persetujuan tetap oleh Anda)",
   "ai:model": "Model AI agen lewat LifeOS (memakai provider, API key & kuota Anda — key tidak pernah keluar)",
+  "agent:menus": "Usulkan fitur non-native: workflow & koneksi (tampil setelah Anda setujui di Approval)",
 };
 
 /** Token baru: `lifeos_pat_` + 32 byte acak (base64url) — cukup acak sehingga hash SHA-256 tanpa salt aman. */

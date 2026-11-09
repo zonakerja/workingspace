@@ -133,13 +133,14 @@ export const ASSET_FIELD_LABELS: Record<AssetField, string> = {
   nilai: "Nilai",
 };
 
-/** Nilai awal formulir aturan baru: mode shadow, ambang 75%, NUP & kode barang wajib cocok. */
+/** Nilai awal formulir aturan baru: mode shadow, tanpa pencocokan data master (hasil agen diserahkan ke pemilik). */
 export const defaultPolicyInput = (): AgentPolicyInput => ({
   name: "",
   skill: "",
-  requestKind: "psp",
+  requestKind: "surat",
   groupCodes: [],
   mode: "shadow",
+  verifyAssets: false,
   threshold: 75,
   criticalFields: ["nup", "kodeBarang"],
   valueTolerance: 0,
@@ -155,6 +156,7 @@ export const policyToInput = (p: AgentPolicyInput): AgentPolicyInput => ({
   requestKind: p.requestKind,
   groupCodes: p.groupCodes,
   mode: p.mode,
+  verifyAssets: p.verifyAssets,
   threshold: p.threshold,
   criticalFields: p.criticalFields,
   valueTolerance: p.valueTolerance,

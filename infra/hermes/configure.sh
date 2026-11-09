@@ -49,6 +49,24 @@ elif ! grep -q '/api/v1/mcp' "$CONFIG"; then
   echo "PERINGATAN: config.yaml sudah punya mcp_servers lain — tambahkan blok dari infra/hermes/lifeos-mcp.yaml manual."
 fi
 
+# Gateway membaca API_SERVER_KEY dari .env profil; tanpa baris ini API server tidak terbuka setelah container dimulai
+# ulang ("No messaging platforms enabled"). Nilai di .env menang atas env container, jadi selalu disamakan.
+ENV_FILE=/opt/data/.env
+if [ -n "${API_SERVER_KEY:-}" ] && ! grep -qxF "API_SERVER_KEY=$API_SERVER_KEY" "$ENV_FILE" 2>/dev/null; then
+  sed -i '/^API_SERVER_KEY=/d' "$ENV_FILE" 2>/dev/null || true
+  printf 'API_SERVER_KEY=%s\n' "$API_SERVER_KEY" >>"$ENV_FILE"
+  CHANGED=1
+fi
+
+# Batasi agen ke MCP LifeOS (docs/AI-AGENT.md §26). Terminal, berkas, kode, dan browser akan melewati semua pembatasan
+# fitur native karena dari container agen bisa menjangkau layanan lain secara langsung. Skill & memori tetap menyala.
+for toolset in terminal file code_execution browser web image_gen vision connections delegation cronjob computer_use; do
+  if hermes tools list --platform api_server 2>/dev/null | grep -qE "[^s]enabled +$toolset "; then
+    hermes tools disable --platform api_server "$toolset" >/dev/null
+    CHANGED=1
+  fi
+done
+
 if [ "$CHANGED" = 1 ]; then
   echo "Konfigurasi Hermes diperbarui (model lewat LifeOS + MCP LifeOS)."
   touch /opt/data/.lifeos-config-changed

@@ -162,6 +162,7 @@ model User {
   automationJobs        AutomationJob[]
   automationRuns        AutomationRun[]
   agentPolicies         AgentPolicy[]
+  agentMenus AgentMenu[]
   agentRuns             AgentRun[]
   /// Sakelar darurat Kebijakan Otomatis: true = tidak ada tugas/keputusan/kiriman otomatis baru
   agentAutoPaused       Boolean                @default(false) @map("agent_auto_paused")
@@ -1474,7 +1475,7 @@ model WaMessage {
 model RobotConnector {
   id                   String     @id @default(cuid())
   userId               String     @map("user_id")
-  /// srikandi | ekinerja
+  /// srikandi | ekinerja | siman
   system               String
   baseUrl              String     @map("base_url")
   /// Host tambahan yang boleh dibuka robot (mis. server SSO)
@@ -1662,6 +1663,8 @@ model AgentPolicy {
   groupCodes       Json     @default("[]") @map("group_codes")
   /// off | shadow (hanya mencatat) | auto (memutuskan & menyimpan konsep SRIKANDI)
   mode             String   @default("shadow")
+  /// Cocokkan daftar aset ke data master (server); tanpa ini hasil agen selalu diserahkan ke pemilik
+  verifyAssets     Boolean  @default(false) @map("verify_assets")
   /// Persen aset yang harus cocok (0–100)
   threshold        Int      @default(75)
   /// Kolom yang wajib sama persis: ["nup", "kodeBarang", …]
@@ -1682,6 +1685,34 @@ model AgentPolicy {
   @@map("agent_policies")
 }
 
+/// Fitur non-native buatan agen (docs/AI-AGENT.md §26): diusulkan Hermes, tampil setelah pemilik menyetujui di Approval.
+model AgentMenu {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  /// Alamat `/custom/<slug>`
+  slug         String
+  label        String
+  description  String
+  /// Key paket ikon aplikasi
+  icon         String   @default("bot")
+  /// Skill yang dijalankan menu ini
+  skill        String
+  /// Langkah kerja yang dikirim ke agen saat dijalankan
+  instructions String
+  /// workflow (AI Agent) | connection (Connection & MCP)
+  placement    String   @default("workflow")
+  /// Isian modal saat dijalankan: [{ name, label, type, required?, options?, help? }]
+  form         Json     @default("[]")
+  /// draft | active
+  status       String   @default("draft")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, slug])
+  @@map("agent_menus")
+}
+
 /// Tugas agen Hermes (chat, tombol skill, atau Kebijakan Otomatis) — tetap terlacak setelah backend restart.
 model AgentRun {
   id          String    @id @default(cuid())
@@ -1690,11 +1721,13 @@ model AgentRun {
   hermesRunId String?   @unique @map("hermes_run_id")
   /// chat | skill
   kind        String
-  /// button | policy | chat
+  /// button | policy | chat | menu
   trigger     String
   skill       String?
   requestId   String?   @map("request_id")
   policyId    String?   @map("policy_id")
+  /// Menu buatan agen yang memicu tugas ini
+  menuId      String?   @map("menu_id")
   input       String
   /// queued | running | completed | failed | cancelled | skipped
   status      String
@@ -1706,6 +1739,7 @@ model AgentRun {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([menuId])
   @@index([status])
   @@map("agent_runs")
 }

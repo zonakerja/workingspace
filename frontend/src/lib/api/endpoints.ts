@@ -389,9 +389,9 @@ export const knowledgeApi = {
       method: "POST",
       body: input,
     }),
+  /** Ganti nama tag di semua catatan vault (termasuk turunan) */
   assignField: (field: string) =>
     request<{ notes: number; failed: string[] }>("/knowledge/fields/assign", { method: "POST", body: { field } }),
-  /** Ganti nama tag di semua catatan vault (termasuk turunan) */
   renameTag: (input: { from: string; to: string }) =>
     request<{ notes: number; occurrences: number; failed?: string[] }>("/knowledge/tags/rename", {
       method: "POST",
@@ -600,6 +600,39 @@ export interface AgentRun {
   requestId?: string;
   skill?: string;
 }
+export interface AgentMenuField {
+  name: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "date" | "select";
+  required?: boolean;
+  options?: string[];
+  help?: string;
+}
+
+/** Fitur non-native buatan agen: workflow di AI Agent atau koneksi di Connection & MCP. */
+export interface AgentMenu {
+  id: string;
+  slug: string;
+  label: string;
+  description: string;
+  icon: string;
+  skill: string;
+  instructions: string;
+  placement: "workflow" | "connection";
+  form: AgentMenuField[];
+  status: "draft" | "active";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentMenuRun {
+  runId: string;
+  startedAt: string;
+  status: string;
+  output: string | null;
+  error: string | null;
+}
+
 export interface AgentRunSummary {
   runId: string;
   kind: "chat" | "skill";
@@ -625,6 +658,13 @@ export const agentApi = {
     request<{ runId: string; status: string }>("/agent/chat", { method: "POST", body: { message, conversation } }),
   runSkill: (requestId: string, skill: string) =>
     request<{ runId: string; status: string }>(`/agent/requests/${requestId}/run`, { method: "POST", body: { skill } }),
+  menus: () => request<AgentMenu[]>("/agent/menus"),
+  setMenuStatus: (id: string, status: AgentMenu["status"]) =>
+    request<AgentMenu>(`/agent/menus/${id}`, { method: "PATCH", body: { status } }),
+  removeMenu: (id: string) => request<{ ok: boolean }>(`/agent/menus/${id}`, { method: "DELETE" }),
+  runMenu: (id: string, body: { values?: Record<string, string>; note?: string }) =>
+    request<{ runId: string; status: string }>(`/agent/menus/${id}/run`, { method: "POST", body }),
+  menuRuns: (id: string) => request<AgentMenuRun[]>(`/agent/menus/${id}/runs`),
   policies: () => request<AgentPolicyList>("/agent/policies"),
   createPolicy: (input: AgentPolicyInput) => request<AgentPolicy>("/agent/policies", { method: "POST", body: input }),
   updatePolicy: (id: string, input: AgentPolicyInput) =>

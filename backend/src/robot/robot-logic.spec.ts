@@ -12,7 +12,8 @@ import {
 describe("konektor robot", () => {
   it("katalog sistem & nama sistem", () => {
     expect(isRobotSystem("srikandi")).toBe(true);
-    expect(isRobotSystem("siman")).toBe(false);
+    expect(isRobotSystem("siman")).toBe(true);
+    expect(isRobotSystem("lainnya")).toBe(false);
     expect(SYSTEM_INFO.srikandi.defaultUrl).toMatch(/^https:\/\//);
     expect(SYSTEM_INFO.srikandi.limits).toMatch(/tidak pernah menandatangani/);
   });

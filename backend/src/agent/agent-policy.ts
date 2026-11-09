@@ -1,6 +1,7 @@
 /**
  * Logika murni Kebijakan Otomatis (docs/AI-AGENT.md §24, diuji di `agent-policy.spec.ts`): verifikasi aset dari agen
- * terhadap data master, dan keputusan aturan. Yang memutuskan selalu kode ini atas aturan milik user — bukan model.
+ * terhadap data master (opsional per aturan), dan keputusan aturan. Yang memutuskan selalu kode ini atas aturan milik
+ * user — bukan model. Aturan tanpa pemeriksaan server tidak pernah menyetujui sendiri.
  */
 
 export const POLICY_MODES = ["off", "shadow", "auto"] as const;
@@ -143,6 +144,8 @@ export function matchPolicy<T extends PolicyLite>(
 
 export interface DecisionInput {
   mode: string;
+  /** Aturan ini mencocokkan daftar aset ke data master */
+  verifyAssets: boolean;
   threshold: number;
   check: AssetCheck | null;
   /** Sumber data master tersedia saat verifikasi */
@@ -170,13 +173,17 @@ const OPEN_STATUSES = ["baru", "diproses", "menunggu_verifikasi"];
 export function decidePolicy(input: DecisionInput): Decision {
   const reasons: string[] = [];
   if (!OPEN_STATUSES.includes(input.requestStatus)) reasons.push("Pengajuan sudah diputuskan.");
-  if (!input.masterAvailable) reasons.push("Data master aset tidak tersedia.");
-  if (!input.check) reasons.push("Agen tidak menyerahkan daftar aset untuk diverifikasi.");
-  else if (input.check.total === 0) reasons.push("Tidak ada aset yang terbaca dari berkas.");
-  else if (input.check.score < input.threshold) {
-    reasons.push(
-      `Aset cocok ${input.check.score}% (${input.check.matched}/${input.check.total}), di bawah ambang ${input.threshold}%.`,
-    );
+  if (!input.verifyAssets) {
+    reasons.push("Aturan ini tanpa pemeriksaan data oleh server, jadi hasil agen diserahkan ke Anda.");
+  } else {
+    if (!input.masterAvailable) reasons.push("Data master aset tidak tersedia.");
+    if (!input.check) reasons.push("Agen tidak menyerahkan daftar aset untuk diverifikasi.");
+    else if (input.check.total === 0) reasons.push("Tidak ada aset yang terbaca dari berkas.");
+    else if (input.check.score < input.threshold) {
+      reasons.push(
+        `Aset cocok ${input.check.score}% (${input.check.matched}/${input.check.total}), di bawah ambang ${input.threshold}%.`,
+      );
+    }
   }
   if (input.documents === 0) reasons.push("Agen belum membuat dokumen.");
   else if (input.unfilled?.length) {

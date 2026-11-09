@@ -13,6 +13,7 @@ export const ROBOT_JOB_KINDS = [
   "srikandi_letters",
   "srikandi_references",
   "srikandi_classifications",
+  "siman_session",
 ] as const;
 export type RobotJobKind = (typeof ROBOT_JOB_KINDS)[number];
 
@@ -27,6 +28,7 @@ export const ROBOT_JOBS: Record<RobotJobKind, { system: RobotSystem; label: stri
   srikandi_letters: { system: "srikandi", label: "Ambil Daftar Naskah Keluar" },
   srikandi_references: { system: "srikandi", label: "Ambil referensi" },
   srikandi_classifications: { system: "srikandi", label: "Ambil klasifikasi arsip" },
+  siman_session: { system: "siman", label: "Jaga sesi login" },
 };
 
 export const isRobotJobKind = (value: string): value is RobotJobKind =>
@@ -55,6 +57,7 @@ export function summarizeRobotJob(kind: RobotJobKind, result: unknown): string {
   switch (kind) {
     case "ekinerja_session":
     case "srikandi_session":
+    case "siman_session":
       return r.status === "active"
         ? "Sesi masih aktif — cookie diperbarui & disimpan"
         : "Sesi kedaluwarsa — login ulang";

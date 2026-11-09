@@ -8,6 +8,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
@@ -20,6 +21,8 @@ import type { Request, Response } from "express";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
+import { MENU_STATUSES, type MenuStatus } from "../agent-menus/agent-menu-logic";
+import { AgentMenusService } from "../agent-menus/agent-menus.service";
 import { API_SCOPES, bearerToken } from "../integrations/api-token-logic";
 import { ApiTokensService } from "../integrations/api-tokens.service";
 import { ASSET_FIELDS, POLICY_MODES } from "./agent-policy";
@@ -77,6 +80,9 @@ class AgentPolicyDto {
   @IsIn(POLICY_MODES)
   mode!: string;
 
+  @IsBoolean()
+  verifyAssets!: boolean;
+
   @IsInt()
   @Min(50)
   @Max(100)
@@ -109,6 +115,24 @@ class AgentPolicyDto {
   registerTemplate?: string | null;
 }
 
+class AgentMenuStatusDto {
+  @IsIn(MENU_STATUSES)
+  status!: MenuStatus;
+}
+
+class AgentMenuRunDto {
+  /** Catatan pemilik untuk satu kali jalan */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2_000)
+  note?: string;
+
+  /** Isian modal; diperiksa terhadap definisi modal fitur */
+  @IsOptional()
+  @IsObject()
+  values?: Record<string, unknown>;
+}
+
 class AgentPauseDto {
   @IsBoolean()
   paused!: boolean;
@@ -123,7 +147,41 @@ export class AgentController {
   constructor(
     private readonly agent: AgentService,
     private readonly policies: AgentPolicyService,
+    private readonly menus: AgentMenusService,
   ) {}
+
+  /** Fitur buatan agen; akun selain pemilik agen menerima daftar kosong. */
+  @Get("menus")
+  listMenus(@CurrentUser() user: AuthUser) {
+    return this.menus.list(user);
+  }
+
+  @Patch("menus/:id")
+  setMenuStatus(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: AgentMenuStatusDto) {
+    this.agent.assertOwner(user);
+    return this.menus.setStatus(user.id, id, dto.status);
+  }
+
+  @Delete("menus/:id")
+  removeMenu(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    this.agent.assertOwner(user);
+    return this.menus.remove(user.id, id);
+  }
+
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @HttpCode(200)
+  @Post("menus/:id/run")
+  async runMenu(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: AgentMenuRunDto) {
+    this.agent.assertOwner(user);
+    return this.agent.runMenu(user, await this.menus.get(user.id, id), dto.note, dto.values);
+  }
+
+  @Get("menus/:id/runs")
+  async menuRuns(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    this.agent.assertOwner(user);
+    await this.menus.get(user.id, id);
+    return this.agent.menuRuns(user.id, id);
+  }
 
   @Get("policies")
   listPolicies(@CurrentUser() user: AuthUser) {

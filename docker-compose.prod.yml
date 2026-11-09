@@ -117,6 +117,7 @@ services:
       - ./agents/hermes/skills:/app/agent-skills:ro
     networks:
       default:
+      agent:
         # Alamat backend yang dipakai MCP Hermes (sama dengan dev: infra/hermes/lifeos-mcp.yaml)
         aliases: [lifeos-api]
     deploy: { resources: { limits: { memory: "${BACKEND_MEM_LIMIT:-768m}" } } }
@@ -260,6 +261,8 @@ services:
       - hermes-data:/opt/data
       - ./agents/hermes/skills:/opt/data/skills/lifeos:ro
       - ./infra/hermes:/opt/lifeos:ro
+    # Jaringan sendiri: agen hanya menjangkau backend, bukan database, Redis, storage, atau robot (docs/AI-AGENT.md §26)
+    networks: [agent]
     shm_size: 1g
     deploy: { resources: { limits: { memory: "${HERMES_MEM_LIMIT:-1536m}" } } }
     logging: *logging
@@ -342,3 +345,7 @@ volumes:
   onlyoffice-fonts:
   hermes-data:
   syncthing-data:
+
+networks:
+  default:
+  agent:

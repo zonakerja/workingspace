@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useState } from "react";
 import { errorMessage } from "@/lib/api/client";
-import { type AgentRun, agentApi } from "@/lib/api/endpoints";
+import { type AgentMenu, type AgentRun, agentApi } from "@/lib/api/endpoints";
 import type { AgentPolicyInput } from "@/types/api";
 import { queryKeys } from "./query-keys";
 
@@ -15,6 +15,27 @@ export function useAgentSkills(enabled: boolean) {
 
 export function useAgentRuns(enabled: boolean) {
   return useQuery({ queryKey: queryKeys.agentRuns, queryFn: agentApi.runs, enabled, refetchInterval: 15_000 });
+}
+
+/** Fitur buatan agen; dipakai sidebar, jadi dimuat untuk semua akun (selain pemilik agen = kosong). */
+export function useAgentMenus() {
+  return useQuery({ queryKey: queryKeys.agentMenus, queryFn: agentApi.menus, refetchInterval: 60_000 });
+}
+
+export function useAgentMenuRuns(id: string, enabled = true) {
+  return useQuery({ queryKey: queryKeys.agentMenuRuns(id), queryFn: () => agentApi.menuRuns(id), enabled });
+}
+
+export function useAgentMenuMutations() {
+  const client = useQueryClient();
+  const onSuccess = () => client.invalidateQueries({ queryKey: queryKeys.agentMenus });
+  return {
+    setStatus: useMutation({
+      mutationFn: ({ id, status }: { id: string; status: AgentMenu["status"] }) => agentApi.setMenuStatus(id, status),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: agentApi.removeMenu, onSuccess }),
+  };
 }
 
 /** Agen siap dipakai user ini (diatur, pemilik, Hermes menyala). */

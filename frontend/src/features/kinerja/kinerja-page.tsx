@@ -5,7 +5,7 @@ import { entryStatus } from "@/features/productivity/lib/action-plan";
 import { RobotSettings } from "@/features/tools/robot/robot-settings";
 import { ActionPlanBoard } from "./action-plan-board";
 
-/** AI Agent → Laporan Kinerja: rencana aksi bulanan e-Kinerja (produk jadi dari Productivity) + SKP & RHK dari robot. */
+/** Connection & MCP → e-Kinerja: rencana aksi bulanan e-Kinerja (produk jadi dari Productivity) + SKP & RHK dari robot. */
 export function Component() {
   const { items } = useActionPlanEntries();
   const { items: targets } = useSkpTargets();

@@ -32,6 +32,8 @@ import { MODULES, ROLE_LABELS, type ModuleDef, visibleTabs } from "@/config/navi
 import { appLogoUrl, useAppSettings } from "@/data/use-app-settings";
 import { useLogout } from "@/data/use-auth";
 import { cn } from "@/lib/utils";
+import { useAgentMenus } from "@/data/use-agent";
+import { getAppIcon } from "@/lib/icons/icon-registry";
 import { useAuthStore } from "@/stores/auth-store";
 
 const isModuleActive = (module: ModuleDef, pathname: string) =>
@@ -68,6 +70,8 @@ export function AppSidebar() {
   const mainModules = visible.filter((m) => !m.sidebarGroup || m.sidebarGroup === "workspace");
   const agentModules = visible.filter((m) => m.sidebarGroup === "agent");
   const systemModules = visible.filter((m) => m.sidebarGroup === "system");
+  const { data: menus } = useAgentMenus();
+  const agentMenus = (menus ?? []).filter((m) => m.status === "active" && m.placement === "connection");
 
   // Render function (bukan komponen bersarang) agar item tidak di-remount tiap render
   const renderItem = (module: (typeof MODULES)[number]) => {
@@ -123,9 +127,41 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>AI Agent</SidebarGroupLabel>
+          <SidebarGroupLabel>Connection &amp; MCP</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">{agentModules.map(renderItem)}</SidebarMenu>
+            <SidebarMenu className="gap-1">
+              {agentModules.map(renderItem)}
+              {agentMenus.map((menu) => {
+                const path = `/custom/${menu.slug}`;
+                const active = pathname === path;
+                const Icon = getAppIcon(menu.icon, "bot").icon;
+                return (
+                  <SidebarMenuItem key={menu.id}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={menu.label}
+                      className={COLLAPSIBLE_ITEM_CLASS}
+                    >
+                      <NavLink to={path} onClick={closeMobile}>
+                        <span
+                          data-module="custom"
+                          className={cn(
+                            "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                            active
+                              ? "bg-module-gradient text-white shadow-sm shadow-module/30"
+                              : "bg-module/12 text-module",
+                          )}
+                        >
+                          <Icon className="size-4" />
+                        </span>
+                        <span>{menu.label}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

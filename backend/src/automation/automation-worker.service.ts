@@ -97,6 +97,7 @@ export class AutomationWorkerService implements OnModuleInit, OnModuleDestroy {
     switch (kind) {
       case "ekinerja_session":
       case "srikandi_session":
+      case "siman_session":
         return this.robot.check(user.id, ROBOT_JOBS[kind].system, trigger);
       case "ekinerja_skp":
         return this.robot.syncEkinerjaSkp(user, year, trigger);

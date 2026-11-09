@@ -5,7 +5,7 @@ import { createHmac } from "node:crypto";
  * Diuji di `robot-logic.spec.ts`.
  */
 
-export const ROBOT_SYSTEMS = ["srikandi", "ekinerja"] as const;
+export const ROBOT_SYSTEMS = ["srikandi", "ekinerja", "siman"] as const;
 export type RobotSystem = (typeof ROBOT_SYSTEMS)[number];
 
 export interface RobotSystemInfo {
@@ -46,13 +46,23 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
     defaultUrl: "",
     loginMarkers: [],
     flows: [
-      { label: "Isi / kirim perubahan Rencana Aksi bulanan dari Laporan Kinerja", scheduled: false },
+      { label: "Isi / kirim perubahan Rencana Aksi bulanan dari menu e-Kinerja", scheduled: false },
       { label: "Ambil SKP & RHK", scheduled: true },
       { label: "Pantau Rencana Aksi (status bulan, isi, feedback penilai)", scheduled: true },
       { label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true },
     ],
     limits:
       "Hanya mengisi bulan yang belum diajukan. Robot tidak pernah menekan Kirim Penilaian Ke Atasan dan tidak menyetujui penilaian.",
+  },
+  siman: {
+    label: "SIMAN",
+    description:
+      "Sistem Informasi Manajemen Aset Negara: tiket pengajuan dari satker dan tempat memasukkan surat keputusan.",
+    defaultUrl: "",
+    loginMarkers: [],
+    flows: [{ label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true }],
+    limits:
+      "Baru menjaga sesi login. Pengecekan tiket & unggah surat keputusan belum dibangun, jadi robot belum melakukan apa pun di dalam SIMAN.",
   },
 };
 

@@ -230,7 +230,8 @@ function ScopesDialog({ setup, onClose }: { setup: NonNullable<AgentStatus["setu
             <Settings2 className="size-4" /> Izin agen Hermes
           </DialogTitle>
           <DialogDescription>
-            Agen bekerja atas nama akun Anda. Persetujuan & pengiriman tetap hanya oleh Anda di Approval.
+            Agen bekerja atas nama akun Anda. Persetujuan & pengiriman tetap hanya oleh Anda di Approval. Izin baru
+            terbaca setelah Hermes dinyalakan ulang.
           </DialogDescription>
         </DialogHeader>
         <div className="flex max-h-[55svh] flex-col gap-2 overflow-y-auto">

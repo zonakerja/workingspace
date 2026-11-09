@@ -29,6 +29,7 @@ import {
   HeartPulse,
   Hourglass,
   Inbox,
+  Landmark,
   Layers,
   LayoutGrid,
   Library,
@@ -40,6 +41,7 @@ import {
   Package,
   Plug,
   Settings,
+  ShieldCheck,
   Settings2,
   Share2,
   Sparkles,
@@ -65,6 +67,8 @@ export type ModuleKey =
   | "agent"
   | "kinerja"
   | "srikandi"
+  | "siman"
+  | "custom"
   | "tools"
   | "settings"
   | "profile";
@@ -88,7 +92,7 @@ export interface ModuleDef {
   hiddenInSidebar?: boolean;
   /** Di sidebar tampil sebagai menu yang bisa dibuka berisi sub menu (= tab), seperti Pengaturan. */
   sidebarSubmenu?: boolean;
-  /** Kelompok sidebar: `workspace` (default), `agent` (AI Agent) atau `system` (Tools, Pengaturan). */
+  /** Kelompok sidebar: `workspace` (default), `agent` (Connection & MCP) atau `system` (Tools, Pengaturan). */
   sidebarGroup?: "workspace" | "agent" | "system";
 }
 
@@ -128,23 +132,6 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
-    key: "knowledge",
-    label: "Knowledge",
-    description: "Vault Obsidian Anda di LifeOS: jelajahi, sunting, graf tautan, tabel properti, dan kurasi Inbox.",
-    path: "/knowledge",
-    icon: BrainCircuit,
-    tabs: [
-      { id: "notes", label: "Catatan", icon: FileText },
-      { id: "graph", label: "Graf", icon: Waypoints },
-      { id: "table", label: "Tabel", icon: Table2 },
-      { id: "bases", label: "Bases", icon: Database },
-      { id: "canvas", label: "Canvas", icon: Frame },
-      { id: "tasks", label: "Tugas", icon: ListChecks },
-      { id: "inbox", label: "Inbox", icon: Inbox },
-      { id: "health", label: "Kesehatan", icon: HeartPulse },
-    ],
-  },
-  {
     key: "productivity",
     label: "Productivity",
     description: "Metode PARA: Projects, Areas, Resources, dan Archives.",
@@ -156,21 +143,6 @@ export const MODULES: ModuleDef[] = [
       { id: "areas", label: "Areas", icon: Grid2x2 },
       { id: "resources", label: "Resources", icon: BookOpen },
       { id: "archives", label: "Archives", icon: Archive },
-    ],
-  },
-  {
-    key: "requests",
-    label: "Approval",
-    description:
-      "Pengajuan & surat dari satker, instansi, atau masyarakat — lewat aplikasi, agen, atau bot WhatsApp: analisis kelengkapan, telaah, konsep jawaban, dan dokumen dari templat — semua menunggu persetujuan Anda.",
-    path: "/requests",
-    icon: Inbox,
-    tabs: [
-      { id: "queue", label: "Antrian Verifikasi", icon: ListTodo },
-      { id: "done", label: "Selesai", icon: CheckCheck },
-      { id: "whatsapp", label: "Percakapan WA", icon: MessageCircle },
-      { id: "contacts", label: "Grup & Kontak", icon: Contact },
-      { id: "policies", label: "Kebijakan Otomatis", icon: Workflow },
     ],
   },
   {
@@ -192,21 +164,54 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
+    key: "knowledge",
+    label: "Knowledge",
+    description: "Vault Obsidian Anda di LifeOS: jelajahi, sunting, graf tautan, tabel properti, dan kurasi Inbox.",
+    path: "/knowledge",
+    icon: BrainCircuit,
+    tabs: [
+      { id: "notes", label: "Catatan", icon: FileText },
+      { id: "graph", label: "Graf", icon: Waypoints },
+      { id: "table", label: "Tabel", icon: Table2 },
+      { id: "bases", label: "Bases", icon: Database },
+      { id: "canvas", label: "Canvas", icon: Frame },
+      { id: "tasks", label: "Tugas", icon: ListChecks },
+      { id: "inbox", label: "Inbox", icon: Inbox },
+      { id: "health", label: "Kesehatan", icon: HeartPulse },
+    ],
+  },
+  {
     key: "agent",
-    label: "Asisten Agen",
+    label: "AI Agent",
     description:
-      "Agen AI Hermes yang bekerja dengan data LifeOS: chat, skill dokumen bertemplat, dan tugas atas pengajuan — hasilnya selalu Anda periksa di Approval.",
+      "Agen AI Hermes yang bekerja dengan data LifeOS: chat dan workflow — hasilnya selalu Anda periksa di Approval.",
     path: "/agent",
     icon: BotMessageSquare,
-    sidebarGroup: "agent",
     tabs: [
       { id: "chat", label: "Chat", icon: MessagesSquare },
+      { id: "workflow", label: "Workflow", icon: Workflow },
       { id: "status", label: "Status & Skill", icon: Activity },
     ],
   },
   {
+    key: "requests",
+    label: "Approval",
+    description:
+      "Pengajuan & surat dari satker, instansi, atau masyarakat — lewat aplikasi, agen, atau bot WhatsApp: analisis kelengkapan, telaah, konsep jawaban, dan dokumen dari templat — semua menunggu persetujuan Anda.",
+    path: "/requests",
+    icon: Inbox,
+    tabs: [
+      { id: "queue", label: "Antrian Verifikasi", icon: ListTodo },
+      { id: "done", label: "Selesai", icon: CheckCheck },
+      { id: "whatsapp", label: "Percakapan WA", icon: MessageCircle },
+      { id: "contacts", label: "Grup & Kontak", icon: Contact },
+      { id: "policies", label: "Kebijakan Otomatis", icon: Workflow },
+      { id: "proposals", label: "Usulan Agen", icon: ShieldCheck },
+    ],
+  },
+  {
     key: "kinerja",
-    label: "Laporan Kinerja",
+    label: "e-Kinerja",
     description:
       "Rencana aksi bulanan e-Kinerja yang Anda pilih dari Productivity, dipetakan ke RHK SKP yang diambil robot — robot hanya mengisikan draf.",
     path: "/kinerja",
@@ -231,6 +236,27 @@ export const MODULES: ModuleDef[] = [
       { id: "references", label: "Referensi", icon: BookUser },
       { id: "connector", label: "Connector", icon: Bot },
     ],
+  },
+  {
+    key: "siman",
+    label: "SIMAN",
+    description:
+      "Koneksi ke SIMAN: mengecek tiket pengajuan dari satker dan memasukkan surat keputusan yang sudah jadi.",
+    path: "/siman",
+    icon: Landmark,
+    sidebarGroup: "agent",
+    tabs: [
+      { id: "process", label: "Cara Kerja", icon: Workflow },
+      { id: "connector", label: "Connector", icon: Bot },
+    ],
+  },
+  {
+    key: "custom",
+    label: "Connection & MCP",
+    description: "Koneksi buatan agen yang sudah Anda setujui.",
+    path: "/custom",
+    icon: Bot,
+    hiddenInSidebar: true,
   },
   {
     key: "tools",

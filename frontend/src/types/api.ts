@@ -132,7 +132,8 @@ export type ApiScope =
   | "ai:chat"
   | "requests:read"
   | "requests:write"
-  | "ai:model";
+  | "ai:model"
+  | "agent:menus";
 
 export interface ApiTokenInfo {
   id: string;
@@ -860,6 +861,8 @@ export interface AgentPolicyInput {
   requestKind: RequestKind;
   groupCodes: string[];
   mode: AgentPolicyMode;
+  /** Cocokkan daftar aset ke data master; tanpa ini hasil agen selalu diserahkan ke pemilik */
+  verifyAssets: boolean;
   threshold: number;
   criticalFields: AssetField[];
   valueTolerance: number;
@@ -1036,7 +1039,7 @@ export interface WaConversation {
 
 // ---------------------------------------------------------------- Konektor robot (SRIKANDI, e-Kinerja) & tautan publik
 
-export type RobotSystem = "srikandi" | "ekinerja";
+export type RobotSystem = "srikandi" | "ekinerja" | "siman";
 export type RobotConnectorStatus = "none" | "active" | "expired" | "error";
 
 export interface RobotConnector {
@@ -1085,7 +1088,8 @@ export type AutomationKind =
   | "srikandi_session"
   | "srikandi_letters"
   | "srikandi_references"
-  | "srikandi_classifications";
+  | "srikandi_classifications"
+  | "siman_session";
 export type AutomationTimezone = "Asia/Jakarta" | "Asia/Makassar" | "Asia/Jayapura";
 
 export type AutomationSchedule =

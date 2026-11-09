@@ -47,6 +47,8 @@ export const TOOL_LABELS: Record<string, string> = {
   update_request: "Simpan hasil kerja agen",
   create_request_document: "Buat dokumen dari templat",
   submit_asset_check: "Verifikasi aset",
+  list_agent_menus: "Daftar fitur buatan agen",
+  propose_agent_menu: "Usulkan fitur buatan agen",
 };
 
 /** Ringkasan argumen untuk tabel log: "query: sewa · limit: 3". */

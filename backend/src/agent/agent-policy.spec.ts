@@ -85,6 +85,7 @@ describe("decidePolicy", () => {
   });
   const base = {
     mode: "auto",
+    verifyAssets: true,
     threshold: 75,
     check: check(4, 5),
     masterAvailable: true,
@@ -109,6 +110,13 @@ describe("decidePolicy", () => {
     expect(decidePolicy({ ...base, check: null }).outcome).toBe("review");
     expect(decidePolicy({ ...base, check: { total: 0, matched: 0, score: 0, items: [] } }).outcome).toBe("review");
     expect(decidePolicy({ ...base, requestStatus: "disetujui" }).outcome).toBe("review");
+  });
+
+  it("tanpa pemeriksaan server tidak pernah menyetujui sendiri, walau semua syarat lain terpenuhi", () => {
+    const decision = decidePolicy({ ...base, verifyAssets: false, check: null, masterAvailable: false });
+    expect(decision).toMatchObject({ outcome: "review", apply: false });
+    expect(decision.reasons).toHaveLength(1);
+    expect(decision.reasons[0]).toContain("tanpa pemeriksaan data");
   });
 
   it("shadow, sakelar darurat, dan batas harian mencatat tanpa menjalankan", () => {

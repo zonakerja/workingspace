@@ -18,7 +18,8 @@ const noWait = () => Promise.resolve();
 
 describe("stripMetaPreamble", () => {
   it("catatan kerja model sebelum label pembicara dibuang", () => {
-    const leaked = "write detail within this outline. Correctly labeled speakers. Output directly.Pembicara 1: FBO ini.";
+    const leaked =
+      "write detail within this outline. Correctly labeled speakers. Output directly.Pembicara 1: FBO ini.";
     expect(stripMetaPreamble(leaked)).toBe("Pembicara 1: FBO ini.");
   });
 

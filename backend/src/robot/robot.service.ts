@@ -542,7 +542,7 @@ export class RobotService {
     await this.saveState(connector.id, result, false);
     if (!result.loggedIn) {
       await this.log(user.id, connector.id, "sync", result, { note: "Sesi kedaluwarsa — login ulang lalu coba lagi" });
-      throw new BadRequestException("Sesi e-Kinerja kedaluwarsa. Login ulang di Laporan Kinerja → Connector.");
+      throw new BadRequestException("Sesi e-Kinerja kedaluwarsa. Login ulang di e-Kinerja → Connector.");
     }
 
     const syncedAt = new Date().toISOString();
@@ -706,7 +706,7 @@ export class RobotService {
         await this.log(user.id, connector.id, "fill", result, {
           note: "Sesi kedaluwarsa — login ulang lalu coba lagi",
         });
-        throw new BadRequestException("Sesi e-Kinerja kedaluwarsa. Login ulang di Laporan Kinerja → Connector.");
+        throw new BadRequestException("Sesi e-Kinerja kedaluwarsa. Login ulang di e-Kinerja → Connector.");
       }
       if (dryRun) {
         // Periksa saja: tidak ada yang diubah di e-Kinerja (potret & impor tetap diperbarui dari bacaan)
@@ -834,7 +834,7 @@ export class RobotService {
     await this.saveState(connector.id, read, false);
     if (!read.loggedIn) {
       await this.log(user.id, connector.id, "sync", read, { note: "Sesi kedaluwarsa — login ulang lalu coba lagi" });
-      throw new BadRequestException("Sesi e-Kinerja kedaluwarsa. Login ulang di Laporan Kinerja → Connector.");
+      throw new BadRequestException("Sesi e-Kinerja kedaluwarsa. Login ulang di e-Kinerja → Connector.");
     }
     return read;
   }

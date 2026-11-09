@@ -1992,7 +1992,7 @@ try {
     return { s: res.status, d: await res.json().catch(() => null) };
   };
   r = await j("GET", "/integrations/scopes", null, at);
-  ok("integrations scopes", r.s === 200 && r.d.length === 8, r);
+  ok("integrations scopes", r.s === 200 && r.d.length === 9, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: [] }, at);
   ok("token without scopes 400", r.s === 400, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: ["admin:all"] }, at);
@@ -2309,6 +2309,86 @@ try {
       at,
     );
     ok("agent policy invalid input 400", r.s === 400, r);
+
+    // Menu buatan agen: non-pemilik kosong, agen hanya mengusulkan draf, mengubah menu aktif = kembali draf
+    r = await j("GET", "/agent/menus", null, pt);
+    ok("agent menus non-owner empty", r.s === 200 && r.d.length === 0, r);
+    const ownerLogin = await j("POST", "/auth/login", {
+      email: ADMIN_EMAIL,
+      password: process.env.SMOKE_ADMIN_PASSWORD ?? "123",
+    });
+    const ownerAt = ownerLogin.d?.accessToken;
+    const menuPat = await j("POST", "/integrations/tokens", { name: "Smoke menu", scopes: ["agent:menus"] }, ownerAt);
+    const menuBody = {
+      label: "Smoke Menu Uji",
+      description: "Menu uji smoke.",
+      skill: "telaah-pengajuan",
+      instructions: "Langkah uji.",
+    };
+    const proposed = await mcp(menuPat.d.token, "tools/call", { name: "propose_agent_menu", arguments: menuBody });
+    const proposedMenu = JSON.parse(proposed.d?.result?.content?.[0]?.text ?? "{}");
+    ok(
+      "mcp propose_agent_menu = draft",
+      proposedMenu.status === "draft" && proposedMenu.slug === "smoke-menu-uji",
+      proposed,
+    );
+    const badMenu = await mcp(menuPat.d.token, "tools/call", {
+      name: "propose_agent_menu",
+      arguments: { ...menuBody, skill: "Skill Salah" },
+    });
+    ok("mcp propose_agent_menu invalid = error result", badMenu.d?.result?.isError === true, badMenu);
+    const nativeMenu = await mcp(menuPat.d.token, "tools/call", {
+      name: "propose_agent_menu",
+      arguments: { ...menuBody, label: "Approval" },
+    });
+    ok("mcp propose_agent_menu rejects native feature", nativeMenu.d?.result?.isError === true, nativeMenu);
+    r = await j("GET", "/agent/menus", null, ownerAt);
+    const smokeMenu = r.d?.find?.((m) => m.slug === "smoke-menu-uji");
+    if (r.s === 200 && smokeMenu) {
+      ok("agent menu listed for owner", smokeMenu.status === "draft", r);
+      r = await j("POST", `/agent/menus/${smokeMenu.id}/run`, {}, ownerAt);
+      ok("agent menu draft cannot run", r.s === 422, r);
+      r = await j("PATCH", `/agent/menus/${smokeMenu.id}`, { status: "aktif" }, ownerAt);
+      ok("agent menu invalid status 400", r.s === 400, r);
+      r = await j("PATCH", `/agent/menus/${smokeMenu.id}`, { status: "active" }, ownerAt);
+      ok("agent menu activated", r.s === 200 && r.d.status === "active", r);
+      await mcp(menuPat.d.token, "tools/call", {
+        name: "propose_agent_menu",
+        arguments: { ...menuBody, instructions: "Langkah berubah." },
+      });
+      r = await j("GET", "/agent/menus", null, ownerAt);
+      const changed = r.d.find((m) => m.id === smokeMenu.id);
+      ok(
+        "agent changing active menu returns it to draft",
+        changed?.status === "draft" && changed.instructions === "Langkah berubah.",
+        r,
+      );
+      r = await j("PATCH", `/agent/menus/${smokeMenu.id}`, { status: "active" }, pt);
+      ok("agent menu status non-owner rejected", r.s === 403 || r.s === 422, r);
+      r = await j("DELETE", `/agent/menus/${smokeMenu.id}`, null, ownerAt);
+      ok("agent menu removed", r.s === 200, r);
+      // Mode Otomatis tanpa pemeriksaan server ditolak
+      r = await j(
+        "POST",
+        "/agent/policies",
+        {
+          name: "Smoke",
+          skill: "telaah-pengajuan",
+          requestKind: "surat",
+          groupCodes: [],
+          mode: "auto",
+          verifyAssets: false,
+          threshold: 75,
+          criticalFields: ["nup"],
+          valueTolerance: 0,
+          dailyLimit: 5,
+          holdMinutes: 15,
+        },
+        ownerAt,
+      );
+      ok("agent policy auto without verification rejected", r.s === 422, r);
+    }
+    await j("DELETE", `/integrations/tokens/${menuPat.d.id}`, null, ownerAt);
 
     r = await j("DELETE", `/requests/${reqId}`, null, at);
     ok("request delete", r.s === 200, r);
@@ -2670,14 +2750,14 @@ try {
     ok(
       "robot connectors (srikandi default url, no session)",
       r.s === 200 &&
-        r.d.length === 2 &&
+        r.d.length === 3 &&
         r.d.find((c) => c.system === "srikandi")?.baseUrl === "https://srikandi.arsip.go.id" &&
         r.d.every((c) => c.status === "none" && c.hasSession === false && !("sessionEnc" in c)),
       r,
     );
     r = await j("PATCH", "/robot/connectors/ekinerja", { baseUrl: "http://ekin.contoh.go.id" }, at);
     ok("robot connector rejects non-https url", r.s === 400, r);
-    r = await j("PATCH", "/robot/connectors/siman", { baseUrl: "https://x.go.id" }, at);
+    r = await j("PATCH", "/robot/connectors/tidak-ada", { baseUrl: "https://x.go.id" }, at);
     ok("robot unknown system 404", r.s === 404, r);
     r = await j("POST", "/robot/connectors/srikandi/check", null, at);
     ok("robot check without session 400", r.s === 400, r);
@@ -2822,9 +2902,9 @@ try {
   // ---- Otomasi terjadwal (tab Connector). User sementara tanpa sesi robot → tugas gagal sebelum sampai ke robot.
   r = await j("GET", "/automation/jobs", null, at);
   ok(
-    "automation jobs default (7, nonaktif, jadwal bawaan)",
+    "automation jobs default (8, nonaktif, jadwal bawaan)",
     r.s === 200 &&
-      r.d.length === 7 &&
+      r.d.length === 8 &&
       r.d.find((x) => x.kind === "srikandi_session")?.cron === "30 7-17 * * 1,2,3,4,5" &&
       r.d.every((x) => !x.enabled) &&
       r.d.find((x) => x.kind === "srikandi_letters")?.cron === "0 7-17 * * 1,2,3,4,5" &&
@@ -2849,7 +2929,7 @@ try {
   ok("automation schedule updated", r.s === 200 && r.d.cron === "30 6 * * 1,2,3,4,5", r);
   r = await j("PATCH", "/automation/jobs/ekinerja_skp", { schedule: { mode: "cron", pattern: "*/5 * * * *" } }, at);
   ok("automation too frequent cron 400", r.s === 400, r);
-  r = await j("PATCH", "/automation/jobs/siman_aset", { enabled: true }, at);
+  r = await j("PATCH", "/automation/jobs/tidak_ada", { enabled: true }, at);
   ok("automation unknown kind 404", r.s === 404, r);
   r = await j("POST", "/automation/jobs/srikandi_letters/run", null, at);
   const autoRunId = r.d?.id;

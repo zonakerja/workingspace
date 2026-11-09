@@ -27,9 +27,10 @@ import { formatDateTime } from "@/lib/dates";
 import { generateId } from "@/lib/ids";
 import { Link } from "react-router";
 import { AgentSetupCard } from "./agent-setup-card";
+import { WorkflowTab } from "./workflow-tab";
 
 /**
- * AI Agent → Asisten Agen: antarmuka LifeOS untuk agen Hermes (docs/AI-AGENT.md §23) — chat, status & skill, tugas
+ * AI Agent: antarmuka LifeOS untuk agen Hermes (docs/AI-AGENT.md §23) — chat, status & skill, tugas
  * terakhir. Hermes bekerja dengan data LifeOS lewat MCP; hasil resmi selalu masuk Approval untuk diperiksa pemilik.
  */
 export function Component() {
@@ -54,6 +55,8 @@ export function Component() {
           <NotReady status={status} />
         ) : tab === "status" ? (
           <StatusTab status={status} />
+        ) : tab === "workflow" ? (
+          <WorkflowTab />
         ) : (
           <ChatTab />
         )
@@ -66,7 +69,7 @@ function NotReady({ status }: { status: AgentStatus }) {
   const reason = !status.configured
     ? "Agen belum diatur di server (HERMES_URL & HERMES_API_KEY)."
     : !status.owner
-      ? "Asisten Agen hanya untuk pemilik agen (HERMES_OWNER_EMAIL) — Hermes bekerja dengan data akun pemilik."
+      ? "AI Agent hanya untuk pemilik agen (HERMES_OWNER_EMAIL) — Hermes bekerja dengan data akun pemilik."
       : "Hermes tidak menyala atau tidak dapat dihubungi.";
   return (
     <Empty>
@@ -181,7 +184,7 @@ function ChatTab() {
         {messages.length === 0 && !busy && (
           <p className="m-auto max-w-md text-center text-sm text-muted-foreground">
             Contoh: <em>“Pengajuan apa saja yang menunggu?”</em> atau{" "}
-            <em>“Telaah pengajuan PSP terbaru dengan skill telaah-pengajuan.”</em>
+            <em>“Telaah pengajuan terbaru dengan skill telaah-pengajuan.”</em>
           </p>
         )}
         {messages.map((m) => (

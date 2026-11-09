@@ -38,20 +38,21 @@ import {
 } from "./automation-utils";
 import { BrowserNotificationButton } from "./robot-alerts";
 
-const SYSTEM_LABELS: Record<RobotSystem, string> = { ekinerja: "e-Kinerja", srikandi: "SRIKANDI" };
+const SYSTEM_LABELS: Record<RobotSystem, string> = { ekinerja: "e-Kinerja", srikandi: "SRIKANDI", siman: "SIMAN" };
 const CONNECTOR_PATHS: Record<RobotSystem, string> = {
   ekinerja: "/kinerja/connector",
   srikandi: "/srikandi/connector",
+  siman: "/siman/connector",
 };
 
-/** Cara kerja + jadwal otomatis per sistem — bagian bawah tab Connector Laporan Kinerja & SRIKANDI. */
+/** Cara kerja + jadwal otomatis per sistem — bagian bawah tab Connector e-Kinerja, SRIKANDI & SIMAN. */
 export function AutomationJobs({ systems }: { systems?: RobotSystem[] } = {}) {
   const { data: jobs, isLoading } = useAutomationJobs();
   const robot = useRobotStatus();
   const { data: connectors } = useRobotConnectors();
   const [editing, setEditing] = useState<AutomationJob | null>(null);
   const [history, setHistory] = useState<AutomationJob | null>(null);
-  const groups = (["ekinerja", "srikandi"] as const).filter((s) => !systems || systems.includes(s));
+  const groups = (["ekinerja", "srikandi", "siman"] as const).filter((s) => !systems || systems.includes(s));
 
   if (isLoading || !jobs) return <Skeleton className="h-64 rounded-xl" />;
   return (

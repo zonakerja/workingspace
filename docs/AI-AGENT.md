@@ -1561,7 +1561,7 @@ mode auto dipakai sungguhan), sumber master OnTrack.
 |---|---|---|---|
 | 1 | Komunikasi Hermes ↔ Obsidian ↔ LifeOS | ✅ termasuk jawaban model sungguhan (2026-11-09) | Hasil di §25.1 |
 | 2 | Hermes membentuk skill & bekerja otomatis tanpa Approval; **Kirim Konsep di SRIKANDI tetap di tangan user** | 🚧 tahap 1 ✅ 2026-11-06 (§24.6) | Uji model sungguhan ✅ 2026-11-09 (§24.6). Sisa: skill `penetapan-psp` (A23, A24, C5), draf skill dari Hermes, pembatasan toolset Hermes, uji robot dengan data/robot dummy (ditunda atas keputusan user) |
-| 3 | Fitur Hermes seperti di aplikasi desktopnya, di dalam LifeOS | Belum | Daftar fitur yang diinginkan perlu dipastikan dengan user |
+| 3 | Fitur Hermes seperti di aplikasi desktopnya, di dalam LifeOS | Belum; arah 2026-11-09: AI Agent selayaknya Claude web/desktop, termasuk riwayat percakapan | Dikerjakan setelah proses PSP diajarkan |
 | 4 | Antarmuka Obsidian di LifeOS (Graph View, dsb.) | ✅ 2026-11-06, lanjutan K1–K11 ✅ 2026-11-09 | Menu **Knowledge** (dulu Pengetahuan) — rencana §25.2, hasil §25.4, lanjutan §25.6 & §25.7 |
 | 5 | Pembagian model: penalaran agen Claude dengan cadangan OpenAI; tugas biasa, RAG, chatbot dengan Gemini | ✅ 2026-11-06 | Cadangan per tugas di Pembagian tugas AI + cadangan di proxy agen (§25.3). Uji Claude sungguhan menunggu key/router user |
 
@@ -1838,3 +1838,52 @@ memakai dialog yang sama, belum diklik satu per satu.
 - **K9-B Heading:** isi sumber diawali `## <judul sumber>` dan perujuk menjadi `[[Tujuan#Judul sumber]]` (lebih presisi daripada Obsidian). Alternatif: seperti
   Obsidian, tanpa heading dan perujuk ke `[[Tujuan]]`. Bisa dimatikan per penggabungan.
 - **K9-C Canvas:** perbaiki sekaligus, termasuk celah ganti nama/pindah yang sudah ada. Alternatif: terpisah.
+
+## 26. Fitur native, fitur buatan agen, dan batasan Hermes (2026-11-09)
+
+**Arahan user**: aplikasi tidak boleh kaku, jadi proses seperti PSP dibangun Hermes sebagai fitur non-native, termasuk modalnya. Fitur native ditetapkan dan tidak boleh diubah, ditambah, atau dihapus Hermes. Perubahan non-native dikontrol lewat Approval. Pemrosesan terjadi di AI Agent & Approval. Kelompok koneksi bernama **Connection & MCP**.
+
+| Fitur native | Boleh dilakukan Hermes |
+|---|---|
+| Overview, Planner, Notes Space, Productivity, File Control | Menulis data sesuai izin MCP (mis. to-do). Fitur tidak bisa diubah |
+| Knowledge | Membaca, dan menulis usulan hanya ke `00-Inbox` |
+| AI Agent | Chat, menjalankan skill dan workflow yang disetujui |
+| Approval | Mencatat pengajuan & hasil kerja. Menyetujui, menolak, dan mengirim tetap oleh pemilik |
+| e-Kinerja, SRIKANDI, SIMAN | Tidak ada alat ubah. Robot dipicu pemilik atau jadwal baca-saja |
+| Tools, Pengaturan, Profil | Tidak ada akses |
+
+| Fitur buatan agen (non-native) | Aturan |
+|---|---|
+| Bentuk | Skill + `agent_menus`: workflow (tab Workflow di AI Agent) atau koneksi (menu di Connection & MCP), boleh dengan modal |
+| Modal | Data, bukan kode: isian text, textarea, number, date, select. Isian diperiksa server dan dikirim ke agen sebagai data |
+| Persetujuan | Selalu draf sampai disetujui di **Approval → Usulan Agen**. Agen mengubah fitur aktif = kembali draf. Agen tidak bisa menghapus |
+| Nama | Nama fitur native ditolak server, tanpa peka huruf besar/kecil |
+
+**Penegakan** (bukan hanya instruksi ke model):
+
+| Lapisan | Sebelum | Sesudah |
+|---|---|---|
+| Alat bawaan Hermes | terminal, file, code_execution, browser, web, dll. menyala | Hanya `skills`, `memory`, `todo`, `session_search` + MCP LifeOS (`configure.sh`) |
+| Jaringan | Satu jaringan dengan PostgreSQL, Redis, storage, robot (terjangkau, terbukti) | Jaringan `agent` sendiri; hanya backend yang terjangkau di produksi |
+| Kode aplikasi | Tidak terpasang di container (skill & infra baca saja) | Tetap |
+| API | Hanya alat MCP berizin | Tetap + `agent:menus` |
+
+Keterbatasan di laptop: port yang dipublikasikan WSL (mis. 5432) masih terjangkau lewat gateway jaringan container, tetapi agen tidak lagi punya alat untuk memakainya. Hermes tidak bisa membuka situs web, jadi skill yang butuh web harus lewat LifeOS. Compose produksi baru divalidasi konfigurasinya, belum dijalankan.
+
+**PSP & SIMAN**: tiket masuk di SIMAN berisi lampiran Excel dari satker → koneksi SIMAN mengecek tiket → agen memproses di AI Agent & Approval (verifikasi ke master aset, dokumen) → setelah produk jadi, surat keputusan dimasukkan lewat koneksi SIMAN. Caranya akan diajarkan user. Konektor robot SIMAN baru login + Jaga sesi; ini merevisi keputusan 2026-10-24 sebatas koneksi, data master tetap OnTrack.
+
+**Kebijakan Otomatis**: pencocokan aset opsional per aturan (`verify_assets`, bawaan mati). Tanpa itu hasil agen selalu ke pemilik dan mode Otomatis ditolak, karena server tidak punya dasar untuk memutuskan. Jenis PSP/penghapusan/pemanfaatan tetap label kategori.
+
+**Diuji**: unit, smoke, UI; Hermes dengan Claude Opus 5.5 sungguhan: usulan workflow bermodal jadi draf, nama "Approval" ditolak, disetujui, modal menolak kirim tanpa isian wajib, dijalankan dengan isian terkirim, data uji dihapus.
+
+**Keterbatasan**: modal belum bisa menerima berkas. Halaman fitur masih umum (belum ada tampilan khusus seperti tabel hasil verifikasi). `agents/hermes/skills` baca saja, jadi skill yang ditulis Hermes tersimpan di volumenya dan belum tampil di daftar skill LifeOS. Riwayat chat AI Agent belum disimpan.
+
+**Knowledge lintas bidang (dibangun 2026-11-09)**: satu vault untuk semua bidang; tiap catatan berproperti `bidang` (teks atau daftar, tanpa peka huruf besar/kecil). Pilihan **bidang aktif** di banner Knowledge berlaku per akun.
+
+| Dipakai bidang aktif | Tidak terpengaruh |
+|---|---|
+| Chatbot + catatan tertautnya, alat MCP `search_knowledge` (agen; `all_fields` = semua bidang atas permintaan pemilik), analisis & telaah Approval, bot WhatsApp | Penjelajah, pencarian, graf, tabel di menu Knowledge; data kerja (workspace); `read_knowledge_note` |
+
+Catatan tanpa bidang berlaku untuk semua bidang, begitu juga berkas PDF/lampiran vault karena tidak punya properti. Tombol **Tandai semuanya** memberi bidang ke catatan yang belum punya (templat & cermin dilewati, riwayat versi tercatat). Mengganti bidang aktif tidak perlu indeks ulang; menandai catatan menghitung ulang embedding catatan itu.
+
+**Berikutnya**: user mengajarkan proses PSP (TODO-USER A25) → Hermes menyusun skill + workflow → disetujui di Approval.

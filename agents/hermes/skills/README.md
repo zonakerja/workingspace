@@ -3,7 +3,7 @@
 Skill = prosedur kerja agen Hermes dalam format `SKILL.md` (standar agentskills.io): satu folder per skill, berisi
 frontmatter `name` + `description` lalu langkah kerja. Folder ini dipasang baca-saja ke container Hermes di
 `/opt/data/skills/lifeos` (`docker-compose.yml`, service `hermes`) sehingga skill tampil di Hermes sebagai kategori
-**lifeos** dan di LifeOS (Asisten Agen → Skill). Keputusan & rancangan: `docs/AI-AGENT.md` §22–§23.
+**lifeos** dan di LifeOS (AI Agent → Status & Skill). Keputusan & rancangan: `docs/AI-AGENT.md` §22–§23.
 
 Aturan untuk semua skill LifeOS:
 
@@ -15,10 +15,17 @@ Aturan untuk semua skill LifeOS:
   "perlu dicek", bukan ditebak.
 - Penanda SRIKANDI (`nomor_naskah`, `tanggal_naskah`, `ttd…`, `jabatan_tujuan…`, `jabatan_pengirim…`, `nama_pengirim…`, `nip_pengirim…`) dibiarkan kosong: SRIKANDI mengisinya dari formulir registrasi.
 
+Fitur buatan agen: proses yang sudah punya skill bisa diusulkan lewat alat MCP `propose_agent_menu` (izin `agent:menus`) sebagai
+workflow di AI Agent atau koneksi di Connection & MCP, boleh disertai modal (daftar isian). Berstatus draf sampai pemilik menyetujuinya
+di Approval → Usulan Agen; mengubah fitur aktif mengembalikannya ke draf. Fitur native tidak bisa diubah. Logika khusus satu proses
+(mis. PSP) ditulis di skill, bukan di kode aplikasi.
+
+Agen hanya punya alat `skills`, `memory`, `todo`, `session_search`, dan MCP LifeOS (`infra/hermes/configure.sh`).
+
 Menambah skill: buat folder `nama-skill/SKILL.md` (nama huruf kecil + tanda hubung), lalu `docker restart lifeos-hermes`.
 
 | Skill | Status |
 |---|---|
 | `telaah-pengajuan` | Umum: kelengkapan + telaah + konsep jawaban untuk satu pengajuan (uji alur) |
-| `penetapan-psp` | Menunggu contoh dokumen nyata dari pemilik (TODO-USER C5) |
+| `penetapan-psp` | Menunggu pemilik mengajarkan prosesnya: tiket SIMAN, lampiran Excel satker, verifikasi ke master aset (TODO-USER A25, C5) |
 | `panitia-penghapusan` | Menunggu contoh dokumen nyata dari pemilik (TODO-USER C5) |
