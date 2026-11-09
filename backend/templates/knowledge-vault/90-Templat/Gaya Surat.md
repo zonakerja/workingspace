@@ -1,6 +1,7 @@
 ---
 jenis: gaya
 status: berlaku
+bidang: []
 publik: false
 diperbarui: "{{date}}"
 ---

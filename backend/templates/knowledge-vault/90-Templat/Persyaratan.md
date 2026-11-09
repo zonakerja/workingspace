@@ -2,6 +2,7 @@
 jenis: persyaratan
 pengajuan: ""
 status: berlaku
+bidang: []
 dasar_hukum: ["[[Nama Peraturan]]"]
 publik: true
 diperbarui: "{{date}}"

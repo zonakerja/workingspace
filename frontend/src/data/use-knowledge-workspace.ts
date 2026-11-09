@@ -250,6 +250,7 @@ export function useKnowledgeActions() {
     }),
     deleteNote: useMutation({ mutationFn: knowledgeApi.deleteNote, onSuccess }),
     renameTag: useMutation({ mutationFn: knowledgeApi.renameTag, onSuccess }),
+    assignField: useMutation({ mutationFn: knowledgeApi.assignField, onSuccess }),
     mergeNote: useMutation({
       mutationFn: ({ id, ...input }: KnowledgeMergeInput & { id: string }) => knowledgeApi.mergeNote(id, input),
       onSuccess,

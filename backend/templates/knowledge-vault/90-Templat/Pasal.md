@@ -2,6 +2,7 @@
 jenis: pasal
 peraturan: "[[Nama Peraturan]]"
 status: berlaku
+bidang: []
 topik: []
 publik: true
 diperbarui: "{{date}}"

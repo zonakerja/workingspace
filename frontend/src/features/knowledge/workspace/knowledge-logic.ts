@@ -331,6 +331,38 @@ export function localGraph(graph: Pick<KnowledgeGraph, "edges">, centerId: strin
 }
 
 /** Tag beserta jumlah catatan (induk tag bertingkat `a/b` → `a` ikut dihitung), urut alami. */
+export const normalizeField = (field: string) => field.replace(/\s+/g, " ").trim().toLowerCase();
+export const sameField = (a: string, b: string) => normalizeField(a) === normalizeField(b);
+
+/** Bidang catatan (properti `bidang`, teks atau daftar). Sama dengan `noteFields` backend, tanpa mengubah penulisan. */
+export function noteFieldNames(properties: Record<string, unknown> | null | undefined) {
+  const raw = properties?.bidang;
+  const list = Array.isArray(raw) ? raw : typeof raw === "string" ? [raw] : [];
+  return list.filter((v): v is string => typeof v === "string" && !!v.trim()).map((v) => v.trim());
+}
+
+/** Daftar bidang dari catatan yang dipakai AI: templat, cermin 80-LifeOS, dan berkas lampiran tidak dihitung. */
+export function fieldCounts(notes: Pick<KnowledgeNoteListItem, "path" | "kind" | "properties">[]) {
+  const counts = new Map<string, { name: string; count: number }>();
+  let untagged = 0;
+  for (const note of notes) {
+    const top = note.path.split("/")[0];
+    if (note.kind !== "note" || top === "90-Templat" || isMirrorNote(note)) continue;
+    const names = noteFieldNames(note.properties);
+    if (!names.length) untagged++;
+    const seen = new Set<string>();
+    for (const name of names) {
+      const key = normalizeField(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const entry = counts.get(key);
+      if (entry) entry.count++;
+      else counts.set(key, { name, count: 1 });
+    }
+  }
+  return { fields: [...counts.values()].sort((a, b) => collator.compare(a.name, b.name)), untagged };
+}
+
 export function tagCounts(notes: Pick<KnowledgeNoteListItem, "tags">[]) {
   const counts = new Map<string, number>();
   for (const note of notes) {

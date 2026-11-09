@@ -133,7 +133,9 @@ describe("templat, kesehatan, preferensi", () => {
           { query: "x", color: "hitam" },
         ],
       }),
-    ).toEqual({ bookmarks: ["a.md"], graphGroups: [{ query: "tag:bmn", color: "green" }] });
+    ).toEqual({ bookmarks: ["a.md"], graphGroups: [{ query: "tag:bmn", color: "green" }], activeField: null });
+    expect(parsePrefs({ activeField: "  Keuangan   Negara " }).activeField).toBe("Keuangan Negara");
+    expect(parsePrefs({ activeField: 5 }).activeField).toBeNull();
     expect(moveBookmarks(["f/a.md", "f", "g.md"], "f", "h")).toEqual(["h/a.md", "h", "g.md"]);
     expect(moveBookmarks(["f/a.md", "g.md"], "f/a.md", null)).toEqual(["g.md"]);
   });

@@ -256,6 +256,8 @@ export function vaultHealth(notes: HealthNote[]) {
 export interface KnowledgePrefs {
   bookmarks: string[];
   graphGroups: { query: string; color: string }[];
+  /** Bidang yang dipakai AI untuk menjawab; null = semua bidang */
+  activeField: string | null;
 }
 
 export const GRAPH_COLORS = ["blue", "green", "orange", "red", "violet", "teal", "pink", "yellow"] as const;
@@ -280,7 +282,11 @@ export function parsePrefs(value: unknown): KnowledgePrefs {
         .map((g) => ({ query: g.query.trim().slice(0, 120), color: g.color }))
         .slice(0, 12)
     : [];
-  return { bookmarks, graphGroups };
+  const activeField =
+    typeof raw.activeField === "string" && raw.activeField.trim()
+      ? raw.activeField.replace(/\s+/g, " ").trim().slice(0, 60)
+      : null;
+  return { bookmarks, graphGroups, activeField };
 }
 
 /** Penanda ikut pindah saat catatan/folder dipindah; dihapus saat catatan dihapus (`to` null). */

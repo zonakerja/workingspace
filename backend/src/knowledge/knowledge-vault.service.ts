@@ -63,6 +63,7 @@ import { isExportPath } from "./vault-export";
 import { movedVersionPath, versionAction, versionsToPrune, type VersionReason } from "./vault-history";
 import { applyTaskToggle, parseTasks, type VaultTask } from "./vault-tasks";
 import {
+  noteFields,
   buildLinkResolver,
   EXPORT_DIR,
   INBOX_DIR,
@@ -1543,6 +1544,43 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
    * Ganti nama tag se-vault (K10): semua catatan yang memakai tag itu (properti & `#tag`, termasuk turunan) + kueri grup graf.
    * Cermin 80-LifeOS dilewati (ditimpa setiap sinkron). Setiap catatan yang berubah tercatat di riwayat versi.
    */
+  /** Tandai catatan yang belum punya bidang (mis. seluruh isi vault lama saat pertama memakai bidang). Berkas tetap catatan biasa. */
+  async assignField(userId: string, field: string) {
+    const value = field.replace(/\s+/g, " ").trim();
+    if (!value) throw new BadRequestException("Nama bidang wajib diisi.");
+    await this.scanNow(userId);
+    const base = await this.vaultBase(userId);
+    const rows = await this.prisma.knowledgeNote.findMany({
+      where: { userId, kind: "note" },
+      select: { path: true, frontmatter: true },
+    });
+    let notes = 0;
+    const failed: string[] = [];
+    for (const { path, frontmatter } of rows) {
+      if (isExportPath(path) || path.split("/")[0] === TEMPLATE_DIR) continue;
+      if (noteFields(frontmatter as Record<string, unknown> | null).length) continue;
+      const absolute = this.inVault(base, path);
+      const raw = await readFile(absolute, "utf8").catch(() => null);
+      if (raw === null) continue;
+      try {
+        await this.writeNoteFile(
+          userId,
+          path,
+          absolute,
+          raw,
+          updateFrontmatter(raw, { bidang: value }),
+          "before_properties",
+        );
+        notes++;
+      } catch {
+        // YAML rusak di satu catatan tidak menggagalkan yang lain; dilaporkan agar diperbaiki
+        failed.push(path);
+      }
+    }
+    await this.afterWrite(userId, null);
+    return { notes, failed };
+  }
+
   async renameTag(userId: string, input: { from: string; to: string }) {
     const from = cleanTag(input.from);
     const to = cleanTag(input.to);

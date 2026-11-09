@@ -1748,6 +1748,76 @@ try {
       at,
     );
     const tagNoteId = r.d?.id;
+    // Bidang aktif: AI hanya memakai bidang aktif + catatan tanpa bidang; catatan lain tetap ada
+    {
+      const mcp = async (token, method, params = {}) => {
+        const res = await fetch(`${B}/mcp`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${token}`,
+            "content-type": "application/json",
+            accept: "application/json, text/event-stream",
+          },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        });
+        return { s: res.status, d: await res.json().catch(() => null) };
+      };
+      const fieldStatus = await j("GET", "/knowledge/status", null, at);
+      if (fieldStatus.d?.configured && fieldStatus.d?.folder) {
+        const word = `BIDANGUJI${Date.now()}`;
+        const mkNote = async (title, field) =>
+          (
+            await j(
+              "POST",
+              "/knowledge/notes",
+              {
+                title: `${title} ${word}`,
+                content: `---\n${field ? `bidang: ${field}\n` : ""}status: berlaku\njenis: faq\n---\nIsi ${word}\n`,
+              },
+              at,
+            )
+          ).d?.id;
+        const alfa = await mkNote("Alfa", "Alfa");
+        const beta = await mkNote("Beta", "Beta");
+        const umum = await mkNote("Umum", null);
+        const fieldPat = await j(
+          "POST",
+          "/integrations/tokens",
+          { name: "Smoke bidang", scopes: ["knowledge:read"] },
+          at,
+        );
+        const cari = async (args = {}) => {
+          const res = await mcp(fieldPat.d.token, "tools/call", {
+            name: "search_knowledge",
+            arguments: { query: word, limit: 10, ...args },
+          });
+          const body = res.d?.result?.content?.[0]?.text ?? "";
+          return ["Alfa", "Beta", "Umum"].filter((n) => body.includes(`${n} ${word}`));
+        };
+        for (let i = 0; i < 40 && (await cari()).length < 3; i++) await new Promise((done) => setTimeout(done, 500));
+        ok("field none active = all notes", (await cari()).length === 3);
+        const prefsNow = (await j("GET", "/knowledge/prefs", null, at)).d;
+        r = await j("PUT", "/knowledge/prefs", { ...prefsNow, activeField: "ALFA" }, at);
+        ok("field active saved", r.s === 200 && r.d.activeField === "ALFA", r);
+        ok("field active limits search, untagged stays", (await cari()).join() === "Alfa,Umum");
+        ok("field all_fields overrides", (await cari({ all_fields: true })).length === 3);
+        r = await j("POST", "/knowledge/fields/assign", { field: " " }, at);
+        ok("field assign empty 400", r.s === 400, r);
+        r = await j("POST", "/knowledge/fields/assign", { field: "Alfa" }, at);
+        ok("field assign tags untagged only", r.s === 200 && r.d.notes >= 1, r);
+        const umumSource = await j("GET", `/knowledge/notes/${umum}/source`, null, at);
+        const betaSource = await j("GET", `/knowledge/notes/${beta}/source`, null, at);
+        ok(
+          "field assign content",
+          umumSource.d?.raw.includes("bidang: Alfa") && betaSource.d?.raw.includes("bidang: Beta"),
+          [umumSource.d?.raw, betaSource.d?.raw],
+        );
+        await j("PUT", "/knowledge/prefs", { ...prefsNow, activeField: null }, at);
+        for (const id of [alfa, beta, umum]) await j("DELETE", `/knowledge/notes/${id}`, null, at);
+        await j("DELETE", `/integrations/tokens/${fieldPat.d.id}`, null, at);
+      }
+    }
+
     r = await j("POST", "/knowledge/tags/rename", { from: oldTag, to: "dua kata" }, at);
     ok("knowledge tag rename invalid 400", r.s === 400, r);
     r = await j("POST", "/knowledge/tags/rename", { from: oldTag, to: newTag }, at);

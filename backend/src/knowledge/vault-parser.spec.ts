@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  fieldAllowed,
+  noteFields,
   buildLinkResolver,
   inboxFileName,
   inboxNote,
@@ -139,5 +141,19 @@ describe("berkas & folder", () => {
     const text = inboxNote({ title: "Sewa", content: "Isi", question: "Berapa lama?", now });
     expect(splitFrontmatter(text).frontmatter).toMatchObject({ status: "draf", publik: false, jenis: "faq" });
     expect(text).toContain("**Pertanyaan:** Berapa lama?");
+  });
+
+  it("bidang: teks atau daftar, tanpa peka huruf besar/kecil; catatan tanpa bidang berlaku untuk semua", () => {
+    expect(noteFields({ bidang: " BMN " })).toEqual(["bmn"]);
+    expect(noteFields({ bidang: ["BMN", "bmn", "Keuangan"] })).toEqual(["bmn", "keuangan"]);
+    expect(noteFields({ bidang: [] })).toEqual([]);
+    expect(noteFields(null)).toEqual([]);
+    expect(knowledgeMetadata("a.md", { bidang: "BMN" }).bidang).toEqual(["bmn"]);
+    expect(knowledgeMetadata("a.md", {})).not.toHaveProperty("bidang");
+    expect(fieldAllowed({ bidang: ["bmn"] }, null)).toBe(true);
+    expect(fieldAllowed({ bidang: ["bmn"] }, "BMN")).toBe(true);
+    expect(fieldAllowed({ bidang: ["bmn"] }, "Keuangan")).toBe(false);
+    expect(fieldAllowed({}, "Keuangan")).toBe(true);
+    expect(fieldAllowed(null, "Keuangan")).toBe(true);
   });
 });

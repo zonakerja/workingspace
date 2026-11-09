@@ -375,7 +375,7 @@ function VaultPicker() {
   const { data: folders = [], isLoading } = useKnowledgeFolders(true);
   const { setVault, createVault } = useKnowledgeMutations();
   const [selected, setSelected] = useState("");
-  const [newName, setNewName] = useState("Pengetahuan-BMN");
+  const [newName, setNewName] = useState("Pengetahuan");
   const onError = (error: unknown) => toast.error("Gagal", { description: errorMessage(error) });
 
   return (

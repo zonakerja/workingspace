@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "../../generated/prisma/client";
+import { fieldAllowed } from "../../knowledge/vault-parser";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AiService } from "../ai.service";
 import { AiIndexService } from "../index/ai-index.service";
@@ -83,6 +84,7 @@ export class AiChatService {
       this.index.search(userId, query, KNOWLEDGE_LIMIT, {
         collections: [KNOWLEDGE_COLLECTION],
         excludeStatuses: EXCLUDED_STATUSES,
+        useActiveField: true,
       }),
       this.index.search(userId, query, WORKSPACE_LIMIT, { collections: [WORKSPACE_COLLECTION] }),
     ]);
@@ -166,9 +168,12 @@ export class AiChatService {
         metadata: true,
       },
     });
+    const activeField = await this.index.activeField(userId);
     return chunks
       .map((c) => ({ ...c, metadata: (c.metadata as Record<string, unknown> | null) ?? null, linked: true }))
-      .filter((c) => !EXCLUDED_STATUSES.includes(String(c.metadata?.status ?? "")))
+      .filter(
+        (c) => !EXCLUDED_STATUSES.includes(String(c.metadata?.status ?? "")) && fieldAllowed(c.metadata, activeField),
+      )
       .sort((a, b) => neighbors.indexOf(a.sourceId) - neighbors.indexOf(b.sourceId))
       .slice(0, LINKED_LIMIT);
   }

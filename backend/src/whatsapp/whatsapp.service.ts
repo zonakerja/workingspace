@@ -539,6 +539,7 @@ export class WhatsappService implements OnModuleInit {
           excludeStatuses: PUBLIC_EXCLUDED,
           publicOnly: true,
           audienceGroup: contact.group?.code,
+          useActiveField: true,
         })
       : [];
     if (!hits.length) {

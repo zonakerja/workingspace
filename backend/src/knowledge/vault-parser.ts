@@ -165,6 +165,20 @@ export function noteStatus(path: string, frontmatter: Record<string, unknown> | 
   return null;
 }
 
+/** Bidang pengetahuan catatan (properti `bidang`, teks atau daftar), huruf kecil dan unik. */
+export function noteFields(frontmatter: Record<string, unknown> | null | undefined) {
+  return [...new Set(asList(frontmatter?.bidang).map(normalizeField).filter(Boolean))];
+}
+
+export const normalizeField = (field: string) => field.replace(/\s+/g, " ").trim().toLowerCase();
+
+/** Potongan dipakai bila tidak ada bidang aktif, catatannya tanpa bidang, atau bidangnya sama. */
+export function fieldAllowed(metadata: { bidang?: unknown } | null | undefined, active: string | null) {
+  if (!active) return true;
+  const fields = Array.isArray(metadata?.bidang) ? (metadata.bidang as string[]) : [];
+  return fields.length === 0 || fields.includes(normalizeField(active));
+}
+
 export interface KnowledgeMetadata {
   path: string;
   jenis?: string;
@@ -172,6 +186,8 @@ export interface KnowledgeMetadata {
   publik?: boolean;
   /** Kode grup kontak yang boleh memakai catatan ini lewat bot (huruf besar), selain catatan publik */
   grup?: string[];
+  /** Bidang pengetahuan (huruf kecil); kosong = berlaku untuk semua bidang */
+  bidang?: string[];
   topik?: string[];
   tags?: string[];
   diperbarui?: string;
@@ -189,6 +205,8 @@ export function knowledgeMetadata(path: string, frontmatter: Record<string, unkn
     .map((code) => code.trim().toUpperCase())
     .filter(Boolean);
   if (grup.length) meta.grup = grup;
+  const bidang = noteFields(frontmatter);
+  if (bidang.length) meta.bidang = bidang;
   const topik = asList(frontmatter?.topik);
   if (topik.length) meta.topik = topik;
   if (tags.length) meta.tags = tags;

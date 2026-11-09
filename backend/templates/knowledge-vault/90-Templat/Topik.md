@@ -1,6 +1,7 @@
 ---
 jenis: topik
 status: berlaku
+bidang: []
 dasar_hukum: ["[[Nama Peraturan]]"]
 topik: []
 publik: true

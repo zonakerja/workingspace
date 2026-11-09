@@ -28,6 +28,7 @@ import { formatDateTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { KnowledgeNoteListItem, KnowledgeTree } from "@/types/api";
 import { DailyNoteButton } from "../daily-note-button";
+import { ActiveFieldButton } from "./active-field-button";
 import { GraphTab } from "./graph-tab";
 import { HealthTab, InboxTab } from "./inbox-health-tabs";
 import { createResolver, folderOf, type NotePane } from "./knowledge-logic";
@@ -132,6 +133,7 @@ export function Component() {
 function HeroActions() {
   return (
     <>
+      <ActiveFieldButton />
       <DailyNoteButton />
       <Button size="sm" variant="secondary" onClick={() => openWorkspaceDialog({ kind: "quick-switcher" })}>
         <Search /> Buka cepat <Kbd className="hidden xl:inline-flex">Ctrl O</Kbd>

@@ -4,6 +4,7 @@ nomor: ""
 tahun:
 tentang: ""
 status: berlaku
+bidang: []
 mencabut: []
 dicabut_oleh: ""
 topik: []

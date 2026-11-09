@@ -36,6 +36,7 @@ import {
   MoveFolderDto,
   MoveNoteDto,
   NotePropertiesDto,
+  AssignFieldDto,
   RenameTagDto,
   RestoreVersionDto,
   SaveBaseDto,
@@ -194,6 +195,13 @@ export class KnowledgeController {
   }
 
   /** Ganti nama tag di semua catatan vault. */
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @HttpCode(200)
+  @Post("fields/assign")
+  assignField(@CurrentUser() user: AuthUser, @Body() dto: AssignFieldDto) {
+    return this.vault.assignField(user.id, dto.field);
+  }
+
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @HttpCode(200)
   @Post("tags/rename")

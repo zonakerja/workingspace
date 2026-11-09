@@ -314,6 +314,7 @@ export class RequestsService {
       await this.index.search(user.id, query, 6, {
         collections: [KNOWLEDGE_COLLECTION],
         excludeStatuses: EXCLUDED_STATUSES,
+        useActiveField: true,
       }),
     ]);
     const profile = await this.profile(user.id);
@@ -359,6 +360,7 @@ export class RequestsService {
       await this.index.search(user.id, query, 8, {
         collections: [KNOWLEDGE_COLLECTION],
         excludeStatuses: EXCLUDED_STATUSES,
+        useActiveField: true,
       }),
     ]);
     const profile = await this.profile(user.id);

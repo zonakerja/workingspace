@@ -1,6 +1,7 @@
 ---
 jenis: faq
 status: berlaku
+bidang: []
 topik: []
 dasar_hukum: ["[[Nama Peraturan]]"]
 publik: true

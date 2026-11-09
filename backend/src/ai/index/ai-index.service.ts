@@ -10,10 +10,17 @@ import { RECORD_TABLES, type RecordType, type TableSpec } from "../../records/re
 import { REDIS_CLIENT } from "../../redis/redis.module";
 import { AiService, type EmbeddingCredential } from "../ai.service";
 import { AiProviderError } from "../providers/ai-client";
+import { parsePrefs } from "../../knowledge/vault-editor";
 import { AiIndexQueueService } from "./ai-index-queue.service";
 import { embedDocuments, embedQuery } from "./embedding";
 import { KNOWLEDGE_VAULT_CONTEXT } from "../../knowledge/knowledge-constants";
-import { EXPORT_DIR, knowledgeMetadata, noteIndexText, TEMPLATE_DIR } from "../../knowledge/vault-parser";
+import {
+  EXPORT_DIR,
+  knowledgeMetadata,
+  noteIndexText,
+  TEMPLATE_DIR,
+  normalizeField,
+} from "../../knowledge/vault-parser";
 import {
   ASSET_SOURCE,
   chunkSource,
@@ -79,6 +86,8 @@ export interface SearchOptions {
   publicOnly?: boolean;
   /** Bersama `publicOnly`: juga potongan khusus grup kontak ini (`metadata.grup` memuat kode, huruf besar) */
   audienceGroup?: string;
+  /** Hanya bidang aktif pemilik (`knowledge_prefs.activeField`) + catatan tanpa bidang */
+  useActiveField?: boolean;
 }
 
 /** Status pengindeksan per user di Redis (bukan data penting → TTL 30 hari). */
@@ -434,15 +443,22 @@ export class AiIndexService {
     };
   }
 
+  /** Bidang pengetahuan yang dipakai AI menjawab; null = semua bidang. */
+  async activeField(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { knowledgePrefs: true } });
+    return parsePrefs(user?.knowledgePrefs).activeField;
+  }
+
   /**
    * Pencarian gabungan: kemiripan makna (pgvector, cosine) + kata persis (full-text PostgreSQL, penting untuk nomor
    * arsip/kode), digabung dengan Reciprocal Rank Fusion. Tanpa key embedding (Gemini/OpenAI) hanya pencarian kata.
    */
   async search(userId: string, query: string, limit = 8, options: SearchOptions = {}): Promise<SearchHit[]> {
-    const { only, collections, excludeStatuses, publicOnly, audienceGroup } = options;
+    const { only, collections, excludeStatuses, publicOnly, audienceGroup, useActiveField } = options;
     if (only && only.length === 0) return [];
     if (collections && collections.length === 0) return [];
     const candidates = Math.max(limit * 3, 20);
+    const activeField = useActiveField ? await this.activeField(userId) : null;
     // Filter: sumber tertentu (notebook), koleksi, status (mis. dicabut), publik
     const filters = [
       only
@@ -460,6 +476,11 @@ export class AiIndexService {
           ? Prisma.sql`AND metadata->>'publik' = 'true'`
           : Prisma.empty,
     ];
+    if (activeField) {
+      filters.push(
+        Prisma.sql`AND (coalesce(metadata->'bidang', '[]'::jsonb) = '[]'::jsonb OR metadata->'bidang' @> ${JSON.stringify([normalizeField(activeField)])}::jsonb)`,
+      );
+    }
     const scope = Prisma.join(filters, " ");
     type Row = Omit<SearchHit, "score"> & { contentHash: string };
     const keyword = await this.prisma.$queryRaw<Row[]>`

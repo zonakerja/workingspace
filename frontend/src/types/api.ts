@@ -1271,6 +1271,8 @@ export type KnowledgeGraphColor = "blue" | "green" | "orange" | "red" | "violet"
 export interface KnowledgePrefs {
   bookmarks: string[];
   graphGroups: { query: string; color: KnowledgeGraphColor }[];
+  /** Bidang yang dipakai AI untuk menjawab; kosong = semua bidang */
+  activeField?: string | null;
 }
 
 /** Catatan serupa menurut embedding indeks (`available: false` = catatan ini belum punya vektor). */

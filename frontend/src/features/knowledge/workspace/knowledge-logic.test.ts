@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { KnowledgeNoteListItem } from "@/types/api";
 import {
+  fieldCounts,
+  noteFieldNames,
+  sameField,
   buildTree,
   calloutTone,
   createResolver,
@@ -185,5 +188,31 @@ describe("kueri graf & tabel", () => {
     });
     expect(openNoteSearch("?note=a&with=b", "b", undefined, "primary", false).search).toBe("note=b");
     expect(openNoteSearch("?note=a&with=b", "a", undefined, "primary", true).search).toBe("note=a");
+  });
+
+  it("fieldCounts: bidang tanpa peka huruf besar/kecil, templat & cermin tidak dihitung", () => {
+    const row = (path: string, properties: Record<string, unknown> | null, kind: "note" | "file" = "note") => ({
+      path,
+      kind,
+      properties,
+    });
+    expect(
+      fieldCounts([
+        row("a.md", { bidang: "BMN" }),
+        row("b.md", { bidang: ["bmn", "Keuangan"] }),
+        row("c.md", null),
+        row("d.pdf", null, "file"),
+        row("90-Templat/x.md", { bidang: "Templat" }),
+        row("80-LifeOS/x.md", { sumber: "lifeos", bidang: "Cermin" }),
+      ]),
+    ).toEqual({
+      fields: [
+        { name: "BMN", count: 2 },
+        { name: "Keuangan", count: 1 },
+      ],
+      untagged: 1,
+    });
+    expect(sameField(" bmn ", "BMN")).toBe(true);
+    expect(noteFieldNames({ bidang: [" A ", 1, ""] })).toEqual(["A"]);
   });
 });

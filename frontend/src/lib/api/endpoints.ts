@@ -389,6 +389,8 @@ export const knowledgeApi = {
       method: "POST",
       body: input,
     }),
+  assignField: (field: string) =>
+    request<{ notes: number; failed: string[] }>("/knowledge/fields/assign", { method: "POST", body: { field } }),
   /** Ganti nama tag di semua catatan vault (termasuk turunan) */
   renameTag: (input: { from: string; to: string }) =>
     request<{ notes: number; occurrences: number; failed?: string[] }>("/knowledge/tags/rename", {

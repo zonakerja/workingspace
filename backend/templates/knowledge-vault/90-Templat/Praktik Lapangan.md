@@ -1,6 +1,7 @@
 ---
 jenis: praktik
 status: berlaku
+bidang: []
 topik: []
 dasar_hukum: []
 publik: false

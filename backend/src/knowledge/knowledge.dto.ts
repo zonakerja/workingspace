@@ -299,6 +299,14 @@ export class ExtractNoteDto extends ComposeTargetDto {
   after?: "link" | "embed" | "none";
 }
 
+export class AssignFieldDto {
+  @ApiProperty({ description: "Bidang untuk semua catatan yang belum punya bidang" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  field: string;
+}
+
 export class RenameTagDto {
   @ApiProperty({ description: "Tag lama (tanpa #)" })
   @IsString()
