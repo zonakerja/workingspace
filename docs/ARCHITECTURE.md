@@ -209,6 +209,13 @@ berkas (`sourceType = "asset"`) — dengan embedding `gemini-embedding-2` 768 di
 - **Pencarian** `GET /ai/index/search?q=&limit=`: kemiripan makna (pgvector cosine, indeks HNSW) + kata persis
   (full-text `simple`, indeks GIN — penting untuk nomor arsip/kode) digabung **Reciprocal Rank Fusion**, duplikat isi
   (berkas yang diunggah berulang) dibuang. Gagal embedding pertanyaan → kata kunci saja. `GET /ai/index` = status.
+- **Pencarian Pintar** `GET /ai/search?q=&mode=text|meaning` (Ctrl+K → tab Pintar; logika murni + test `smart-search.ts`):
+  menemukan item & isi berkas semua modul **tanpa model generatif**. `text` = kata persis + awalan kata (`to_tsquery` dari kata
+  yang disaring) + judul memuat kueri (didahulukan), tanpa biaya AI; semua kata tidak ditemukan bersama → cukup salah satu kata.
+  `meaning` = ditambah satu embedding pertanyaan. Kandidat dibatasi 2 potongan per sumber (`perSource`, jendela
+  `row_number()`, tanpa HNSW) agar dokumen besar tidak memenuhi hasil; hasil satu baris per sumber + modul (resource berstatus
+  kearsipan = File Control) + cuplikan (record: nilai bermakna saja, `readableRecordText`). Hanya data milik sendiri; bidang
+  aktif **tidak** dipakai (tugasnya menemukan, bukan menjawab). Indeks dimatikan → `indexEnabled: false`.
 - **Indeks khusus di migrasi SQL** (tidak bisa dinyatakan di Prisma): HNSW dibuat sebagai **indeks parsial**
   (`WHERE embedding IS NOT NULL`) agar tidak dianggap drift oleh Prisma — query vektor wajib menyertakan kondisi itu;
   GIN berupa indeks ekspresi `to_tsvector('simple', title || ' ' || content)`.

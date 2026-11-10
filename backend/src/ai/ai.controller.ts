@@ -23,7 +23,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
 import { AI_MAX_ATTACHMENT_BYTES, AI_MAX_ATTACHMENTS, AiService } from "./ai.service";
-import { GenerateAiDto, SaveAiProviderDto, SearchAiIndexDto, UpdateAiSettingsDto } from "./dto/ai.dto";
+import { GenerateAiDto, SaveAiProviderDto, SearchAiIndexDto, SmartSearchDto, UpdateAiSettingsDto } from "./dto/ai.dto";
 import { AiIndexQueueService } from "./index/ai-index-queue.service";
 import { AiIndexService } from "./index/ai-index.service";
 
@@ -124,5 +124,12 @@ export class AiController {
   @Get("index/search")
   searchIndex(@CurrentUser() user: AuthUser, @Query() query: SearchAiIndexDto) {
     return this.index.search(user.id, query.q, query.limit);
+  }
+
+  /** Pencarian Pintar (Ctrl+K): item & berkas semua modul. Mode `text` tanpa AI, `meaning` = satu embedding. */
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get("search")
+  smartSearch(@CurrentUser() user: AuthUser, @Query() query: SmartSearchDto) {
+    return this.index.smartSearch(user.id, query.q.trim(), query.mode ?? "text");
   }
 }

@@ -496,6 +496,26 @@ try {
       hits[0].title === "Catatan: Rapat koordinasi",
     hits,
   );
+  // Pencarian Pintar (Ctrl+K): awalan kata saat mengetik, satu baris per item, modul & cuplikan, tanpa AI
+  r = await j("GET", "/ai/search?q=zebra77&mode=text", null, at);
+  const smartHit = r.d?.results?.find((x) => x.sourceId === "rag-1");
+  ok(
+    "smart search prefix",
+    r.s === 200 &&
+      r.d.indexEnabled === true &&
+      r.d.semantic === false &&
+      smartHit?.module === "notes" &&
+      smartHit.title === "Rapat koordinasi" &&
+      smartHit.snippet.includes("ZEBRA7781") &&
+      r.d.results.filter((x) => x.sourceId === "rag-1").length === 1,
+    r,
+  );
+  r = await j("GET", "/ai/search?q=koordinasi%20zebra7781%20tidakadakata&mode=text", null, at);
+  ok("smart search any-word fallback", r.s === 200 && r.d.results.some((x) => x.sourceId === "rag-1"), r);
+  r = await j("GET", "/ai/search?q=z", null, at);
+  ok("smart search too short 400", r.s === 400, r);
+  r = await j("GET", "/ai/search?q=zebra&mode=ai", null, at);
+  ok("smart search bad mode 400", r.s === 400, r);
   r = await j("DELETE", "/records/free_note/rag-1", null, at);
   ok("ai index record removed", !!(await waitSearch("ZEBRA7781", (d) => Array.isArray(d) && d.length === 0)));
 

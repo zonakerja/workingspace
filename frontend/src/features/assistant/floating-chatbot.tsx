@@ -330,7 +330,7 @@ function ChatBody({ conversationId, onCreated }: { conversationId: string | null
       {
         conversationId: conversationId ?? undefined,
         message: text,
-        snapshot: buildLifeosContext(data, "chat"),
+        snapshot: buildLifeosContext(data),
         today: todayLabel(),
       },
       {

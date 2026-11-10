@@ -16,6 +16,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { AiProvider } from "../../generated/prisma/client";
+import { SMART_SEARCH_MODES, type SmartSearchMode } from "../index/smart-search";
 
 export class SaveAiProviderDto {
   @ApiPropertyOptional({ description: "API key baru; kosongkan untuk mempertahankan key yang tersimpan" })
@@ -138,6 +139,19 @@ export class GenerateAiDto {
   @MinLength(1, { message: "Prompt wajib diisi." })
   @MaxLength(1_000_000)
   prompt: string;
+}
+
+export class SmartSearchDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(2, { message: "Ketik minimal 2 huruf." })
+  @MaxLength(200)
+  q: string;
+
+  @ApiPropertyOptional({ enum: SMART_SEARCH_MODES, default: "text" })
+  @IsOptional()
+  @IsIn(SMART_SEARCH_MODES)
+  mode?: SmartSearchMode;
 }
 
 export class SearchAiIndexDto {

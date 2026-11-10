@@ -58,11 +58,10 @@ const section = <T>(items: T[], line: (item: T) => string, limit: number) =>
   items.map(line).join("\n").substring(0, limit) || "Kosong";
 
 /**
- * Konteks data user untuk prompt AI, dengan ID `app:<type>:<id>` agar AI bisa
+ * Ringkasan data user yang dikirim chatbot melayang (`snapshot`), dengan ID `app:<type>:<id>` agar AI bisa
  * membuat link yang dapat diklik (lihat `resolveAppLink`).
  */
-export function buildLifeosContext(data: LifeosData, variant: "search" | "chat") {
-  const isSearch = variant === "search";
+export function buildLifeosContext(data: LifeosData) {
   const parts = [
     [
       "RESOURCES",
@@ -77,52 +76,19 @@ export function buildLifeosContext(data: LifeosData, variant: "search" | "chat")
       "AI NOTES",
       section(
         data.aiNotes.filter((n) => n.aiSummary),
-        (n) =>
-          isSearch
-            ? `- ID: app:ainote:${n.id} | Judul: ${n.title} | Info: ${n.aiSummary?.substring(0, 250)}`
-            : `- ID: app:ainote:${n.id} | Judul: ${n.title}`,
-        isSearch ? 3000 : 1500,
+        (n) => `- ID: app:ainote:${n.id} | Judul: ${n.title}`,
+        1500,
       ),
     ],
-    ...(isSearch
-      ? [
-          [
-            "FREE NOTES",
-            section(
-              data.freeNotes.filter((n) => n.content),
-              (n) => `- ID: app:freenote:${n.id} | Judul: ${n.title} | Info: ${n.content?.substring(0, 200)}`,
-              2000,
-            ),
-          ],
-        ]
-      : []),
     [
       "AGENDA",
-      section(
-        data.schedules,
-        (s) => `- ID: app:schedule:${s.id} | ${s.title} (Tgl: ${scheduleStart(s)})`,
-        isSearch ? 2000 : 1500,
-      ),
+      section(data.schedules, (s) => `- ID: app:schedule:${s.id} | ${s.title} (Tgl: ${scheduleStart(s)})`, 1500),
     ],
+    ["PROJECTS", section(data.projects, (p) => `- ID: app:project:${p.id} | ${p.title}`, 1000)],
     [
-      "PROJECTS",
-      section(
-        data.projects,
-        (p) =>
-          isSearch
-            ? `- ID: app:project:${p.id} | ${p.title} (Deadline: ${p.deadline})`
-            : `- ID: app:project:${p.id} | ${p.title}`,
-        isSearch ? 2000 : 1000,
-      ),
+      "SUB AREA/KEGIATAN/SUB KEGIATAN (AREA)",
+      section(data.activities, (a) => `- ID: app:activity:${a.id} | ${a.title}`, 1000),
     ],
-    ...(!isSearch
-      ? [
-          [
-            "SUB AREA/KEGIATAN/SUB KEGIATAN (AREA)",
-            section(data.activities, (a) => `- ID: app:activity:${a.id} | ${a.title}`, 1000),
-          ],
-        ]
-      : []),
     [
       "PROJECT ACTIONS / TASKS",
       section(

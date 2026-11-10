@@ -12,6 +12,18 @@ import { AiService, type EmbeddingCredential } from "../ai.service";
 import { AiProviderError } from "../providers/ai-client";
 import { parsePrefs } from "../../knowledge/vault-editor";
 import { AiIndexQueueService } from "./ai-index-queue.service";
+import {
+  displayTitle,
+  groupBySource,
+  likePattern,
+  moduleOf,
+  prefixTsQuery,
+  queryTerms,
+  readableRecordText,
+  searchSnippet,
+  type SmartModule,
+  type SmartSearchMode,
+} from "./smart-search";
 import { embedDocuments, embedQuery } from "./embedding";
 import { KNOWLEDGE_VAULT_CONTEXT } from "../../knowledge/knowledge-constants";
 import {
@@ -88,6 +100,33 @@ export interface SearchOptions {
   audienceGroup?: string;
   /** Hanya bidang aktif pemilik (`knowledge_prefs.activeField`) + catatan tanpa bidang */
   useActiveField?: boolean;
+  /** false = hanya pencarian kata (tanpa embedding pertanyaan, tanpa biaya AI) */
+  semantic?: boolean;
+  /**
+   * Pencarian saat mengetik: kata boleh belum lengkap (awalan) dan judul yang memuat kueri ikut (didahulukan).
+   * `"any"` = cukup salah satu kata (cadangan bila semua kata tidak ditemukan bersama).
+   */
+  prefix?: boolean | "any";
+  /** Maks. potongan per sumber di antara kandidat (hasil beragam; dokumen besar tidak mendominasi) */
+  perSource?: number;
+}
+
+export interface SmartSearchResult {
+  sourceType: string;
+  sourceId: string;
+  module: SmartModule;
+  title: string;
+  snippet: string;
+  matches: number;
+  /** Status kearsipan resource (File Control) */
+  archivalStatus?: string | null;
+  /** Berkas: jenis & nama asli */
+  mimeType?: string | null;
+  fileName?: string | null;
+  /** Sumber My Notebook: notebook pemiliknya */
+  notebookId?: string | null;
+  /** Catatan / canvas vault: path */
+  path?: string | null;
 }
 
 /** Status pengindeksan per user di Redis (bukan data penting → TTL 30 hari). */
@@ -454,7 +493,15 @@ export class AiIndexService {
    * arsip/kode), digabung dengan Reciprocal Rank Fusion. Tanpa key embedding (Gemini/OpenAI) hanya pencarian kata.
    */
   async search(userId: string, query: string, limit = 8, options: SearchOptions = {}): Promise<SearchHit[]> {
-    const { only, collections, excludeStatuses, publicOnly, audienceGroup, useActiveField } = options;
+    const {
+      only,
+      collections,
+      excludeStatuses,
+      publicOnly,
+      audienceGroup,
+      useActiveField,
+      semantic: useVector = true,
+    } = options;
     if (only && only.length === 0) return [];
     if (collections && collections.length === 0) return [];
     const candidates = Math.max(limit * 3, 20);
@@ -483,28 +530,64 @@ export class AiIndexService {
     }
     const scope = Prisma.join(filters, " ");
     type Row = Omit<SearchHit, "score"> & { contentHash: string };
-    const keyword = await this.prisma.$queryRaw<Row[]>`
-      SELECT id, source_type AS "sourceType", source_id AS "sourceId", chunk_index AS "chunkIndex", title, content,
-             collection, metadata, content_hash AS "contentHash"
-      FROM ai_chunks
-      WHERE user_id = ${userId} ${scope}
-        AND to_tsvector('simple', title || ' ' || content) @@ websearch_to_tsquery('simple', ${query})
-      ORDER BY ts_rank(to_tsvector('simple', title || ' ' || content), websearch_to_tsquery('simple', ${query})) DESC
-      LIMIT ${candidates}`;
+    const prefixQuery = options.prefix ? prefixTsQuery(query, options.prefix === "any") : "";
+    // Kata persis (websearch) + awalan kata saat mengetik + judul yang memuat kueri (nomor naskah, nama berkas)
+    const tsQuery =
+      options.prefix === "any" && prefixQuery
+        ? Prisma.sql`to_tsquery('simple', ${prefixQuery})`
+        : prefixQuery
+          ? Prisma.sql`(websearch_to_tsquery('simple', ${query}) || to_tsquery('simple', ${prefixQuery}))`
+          : Prisma.sql`websearch_to_tsquery('simple', ${query})`;
+    const titleMatch = options.prefix ? Prisma.sql`OR title ILIKE ${likePattern(query)}` : Prisma.empty;
+    // Urutan saat mengetik: judul memuat seluruh kueri → judul memuat lebih banyak kata kueri → peringkat teks
+    const terms = options.prefix ? queryTerms(query) : [];
+    const titleFirst = options.prefix
+      ? Prisma.sql`(title ILIKE ${likePattern(query)}) DESC, (${
+          terms.length
+            ? Prisma.join(
+                terms.map((term) => Prisma.sql`(title ILIKE ${likePattern(term)})::int`),
+                " + ",
+              )
+            : Prisma.sql`0`
+        }) DESC,`
+      : Prisma.empty;
+    const columns = Prisma.sql`id, source_type AS "sourceType", source_id AS "sourceId", chunk_index AS "chunkIndex",
+      title, content, collection, metadata, content_hash AS "contentHash"`;
+    /**
+     * `perSource`: maks. N potongan per sumber sebelum diberi peringkat, agar satu dokumen besar (ratusan potongan) tidak
+     * memenuhi semua kandidat. Tanpa itu = urutan biasa (memakai indeks HNSW).
+     */
+    const ranked = (where: Prisma.Sql, order: Prisma.Sql) =>
+      options.perSource
+        ? Prisma.sql`
+          SELECT ${columns} FROM (
+            SELECT *, row_number() OVER (PARTITION BY source_type, source_id ORDER BY ${order}) AS per_source_rank
+            FROM ai_chunks WHERE ${where}
+          ) ranked
+          WHERE per_source_rank <= ${options.perSource}
+          ORDER BY ${order}
+          LIMIT ${candidates}`
+        : Prisma.sql`SELECT ${columns} FROM ai_chunks WHERE ${where} ORDER BY ${order} LIMIT ${candidates}`;
+    const keyword = await this.prisma.$queryRaw<Row[]>(
+      ranked(
+        Prisma.sql`user_id = ${userId} ${scope}
+          AND (to_tsvector('simple', title || ' ' || content) @@ ${tsQuery} ${titleMatch})`,
+        Prisma.sql`${titleFirst} ts_rank(to_tsvector('simple', title || ' ' || content), ${tsQuery}) DESC`,
+      ),
+    );
 
     let semantic: Row[] = [];
-    const embedding = await this.ai.embeddingCredential(userId);
+    const embedding = useVector ? await this.ai.embeddingCredential(userId) : null;
     const vector = embedding ? await this.embedQuery(userId, embedding, query) : null;
     if (vector && embedding) {
       const literal = toVectorLiteral(vector);
       // `embedding IS NOT NULL` wajib agar indeks HNSW parsial terpakai; hanya vektor dari model yang sama yang sebanding
-      semantic = await this.prisma.$queryRaw<Row[]>(Prisma.sql`
-        SELECT id, source_type AS "sourceType", source_id AS "sourceId", chunk_index AS "chunkIndex", title, content,
-             collection, metadata, content_hash AS "contentHash"
-        FROM ai_chunks
-        WHERE user_id = ${userId} AND embedding IS NOT NULL AND model = ${embedding.model} ${scope}
-        ORDER BY embedding <=> ${literal}::vector
-        LIMIT ${candidates}`);
+      semantic = await this.prisma.$queryRaw<Row[]>(
+        ranked(
+          Prisma.sql`user_id = ${userId} AND embedding IS NOT NULL AND model = ${embedding.model} ${scope}`,
+          Prisma.sql`embedding <=> ${literal}::vector`,
+        ),
+      );
     }
     // Berkas yang sama bisa diunggah berkali-kali (asset berbeda, isi identik) → tampilkan satu kali saja
     const seen = new Set<string>();
@@ -515,6 +598,65 @@ export class AiIndexService {
         void contentHash;
         return hit;
       });
+  }
+
+  /**
+   * Pencarian Pintar (Ctrl+K): satu baris per item/berkas dari semua modul, dengan cuplikan. Mode `text` tanpa biaya AI;
+   * `meaning` menambah kemiripan makna (satu embedding pertanyaan). Hanya data milik sendiri yang terindeks; tidak
+   * memakai bidang aktif karena tugasnya menemukan, bukan menjawab.
+   */
+  async smartSearch(userId: string, query: string, mode: SmartSearchMode, limit = 40) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { aiIndexEnabled: true } });
+    if (!user?.aiIndexEnabled) return { indexEnabled: false, semantic: false, results: [] as SmartSearchResult[] };
+    const semantic = mode === "meaning" && !!(await this.ai.embeddingCredential(userId));
+    const options = { semantic: mode === "meaning", prefix: true, perSource: 2 } as const;
+    let hits = await this.search(userId, query, limit * 3, options);
+    // Semua kata tidak ditemukan bersama → cukup salah satu kata
+    if (!hits.length && queryTerms(query).length > 1)
+      hits = await this.search(userId, query, limit * 3, { ...options, prefix: "any" });
+    const groups = groupBySource(hits).slice(0, limit);
+    const idsOf = (type: string) => groups.filter((g) => g.hit.sourceType === type).map((g) => g.hit.sourceId);
+    const [resources, assets, sources] = await Promise.all([
+      idsOf("para_resource").length
+        ? this.prisma.resource.findMany({
+            where: { userId, clientId: { in: idsOf("para_resource") } },
+            select: { clientId: true, archivalStatus: true },
+          })
+        : [],
+      idsOf(ASSET_SOURCE).length
+        ? this.prisma.asset.findMany({
+            where: { userId, id: { in: idsOf(ASSET_SOURCE) } },
+            select: { id: true, originalName: true, mimeType: true },
+          })
+        : [],
+      idsOf(NOTEBOOK_SOURCE).length
+        ? this.prisma.notebookSource.findMany({
+            where: { id: { in: idsOf(NOTEBOOK_SOURCE) }, notebook: { userId } },
+            select: { id: true, notebookId: true },
+          })
+        : [],
+    ]);
+    const archival = new Map(resources.map((r) => [r.clientId, r.archivalStatus]));
+    const files = new Map(assets.map((a) => [a.id, a]));
+    const notebooks = new Map(sources.map((s) => [s.id, s.notebookId]));
+    const results = groups.map(({ hit, matches }): SmartSearchResult => {
+      const status = archival.get(hit.sourceId) ?? null;
+      const file = files.get(hit.sourceId);
+      const path = hit.metadata?.path;
+      return {
+        sourceType: hit.sourceType,
+        sourceId: hit.sourceId,
+        module: moduleOf(hit.sourceType, status),
+        title: file?.originalName ?? displayTitle(hit.title),
+        snippet: searchSnippet(isIndexedType(hit.sourceType) ? readableRecordText(hit.content) : hit.content, query),
+        matches,
+        ...(hit.sourceType === "para_resource" ? { archivalStatus: status } : {}),
+        ...(file ? { mimeType: file.mimeType, fileName: file.originalName } : {}),
+        ...(hit.sourceType === NOTEBOOK_SOURCE ? { notebookId: notebooks.get(hit.sourceId) ?? null } : {}),
+        ...(typeof path === "string" ? { path } : {}),
+      };
+    });
+    return { indexEnabled: true, semantic, results };
   }
 
   /** Embedding pertanyaan; gagal (kuota, key ditolak) → null sehingga pencarian tetap jalan dengan kata kunci saja. */

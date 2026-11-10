@@ -8,6 +8,7 @@ export const queryKeys = {
   uploads: ["uploads"] as const,
   aiSettings: ["ai-settings"] as const,
   aiIndex: ["ai-index"] as const,
+  smartSearch: (q: string, mode: string) => ["ai-index", "smart-search", mode, q] as const,
   aiProfile: ["ai-profile"] as const,
   aiConversations: ["ai-chat", "conversations"] as const,
   aiConversationMessages: (id: string) => ["ai-chat", "conversations", id, "messages"] as const,

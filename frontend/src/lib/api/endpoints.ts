@@ -82,6 +82,8 @@ import type {
   OfficeVersions,
   AiIndexStatus,
   AiSearchHit,
+  SmartSearchMode,
+  SmartSearchResponse,
   AiProviderId,
   AiProviderInput,
   AiRouting,
@@ -312,6 +314,8 @@ export const aiApi = {
   indexStatus: () => request<AiIndexStatus>("/ai/index"),
   rebuildIndex: () => request<{ queued: boolean }>("/ai/index/rebuild", { method: "POST" }),
   searchIndex: (q: string, limit = 8) => request<AiSearchHit[]>("/ai/index/search", { query: { q, limit } }),
+  /** Pencarian Pintar (Ctrl+K): `text` tanpa AI, `meaning` = satu embedding pertanyaan */
+  smartSearch: (q: string, mode: SmartSearchMode) => request<SmartSearchResponse>("/ai/search", { query: { q, mode } }),
   test: (provider: AiProviderId) => request<AiGenerateResult>(`/ai/settings/${provider}/test`, { method: "POST" }),
   /** Mulai transkrip berkas audio tersimpan (pekerjaan latar belakang; berkas yang sama tidak dikerjakan dua kali). */
   startTranscribe: (uploadId: string) =>

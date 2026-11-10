@@ -200,6 +200,32 @@ export interface KnowledgeExtractInput extends KnowledgeComposeInput {
 /** Catatan berkala di menu Knowledge: harian, mingguan (minggu ISO), bulanan */
 export type KnowledgePeriod = "day" | "week" | "month";
 
+export type SmartSearchMode = "text" | "meaning";
+export type SmartModule = "planner" | "notes" | "productivity" | "file_control" | "files" | "knowledge" | "other";
+
+/** Satu item/berkas hasil Pencarian Pintar (potongan terbaik + jumlah potongan cocok). */
+export interface SmartSearchResult {
+  sourceType: string;
+  sourceId: string;
+  module: SmartModule;
+  title: string;
+  snippet: string;
+  matches: number;
+  archivalStatus?: string | null;
+  mimeType?: string | null;
+  fileName?: string | null;
+  notebookId?: string | null;
+  path?: string | null;
+}
+
+export interface SmartSearchResponse {
+  /** Sakelar Indeks Pengetahuan; mati = tidak ada hasil */
+  indexEnabled: boolean;
+  /** Kemiripan makna benar-benar dipakai (mode makna + ada key embedding) */
+  semantic: boolean;
+  results: SmartSearchResult[];
+}
+
 export interface AiChatCitation {
   n: number;
   /** Record type, `asset`, `obsidian` (catatan vault), atau `obsidian_canvas` (berkas canvas, sourceId = path) */
