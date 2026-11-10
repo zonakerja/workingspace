@@ -101,8 +101,9 @@ export class UploadsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  /** Hapus = pindah ke Sampah. `?discard=1` = buang permanen unggahan yang belum pernah disimpan (batal unggah). */
   @Delete(":id")
-  remove(@Param("id") id: string, @CurrentUser() user: AuthUser) {
-    return this.uploads.remove(id, user);
+  remove(@Param("id") id: string, @CurrentUser() user: AuthUser, @Query("discard") discard?: string) {
+    return this.uploads.remove(id, user, { trash: discard !== "1" && discard !== "true" });
   }
 }

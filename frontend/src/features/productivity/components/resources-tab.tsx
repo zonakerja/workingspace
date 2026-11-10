@@ -370,8 +370,8 @@ export function ResourcesTab() {
           !deletingFile
             ? "Anda yakin ingin menghapus item ini secara permanen dari database?"
             : (deletingFileShared
-                ? "Resource ini akan dihapus permanen. Berkasnya tetap disimpan karena masih dipakai di tempat lain (lampiran item lain / arsip)."
-                : "Resource ini beserta berkasnya di storage akan dihapus permanen.") +
+                ? "Resource ini dipindah ke Sampah dan bisa dipulihkan selama 30 hari. Berkasnya tetap di tempat karena masih dipakai di tempat lain (lampiran item lain / arsip)."
+                : "Resource ini beserta berkasnya dipindah ke Sampah dan bisa dipulihkan selama 30 hari.") +
               (deletingInFileControl
                 ? " Resource ini juga terdaftar di File Control (Gantung) dan ikut keluar dari sana."
                 : "") +

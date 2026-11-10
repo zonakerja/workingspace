@@ -162,7 +162,9 @@ model User {
   automationJobs        AutomationJob[]
   automationRuns        AutomationRun[]
   agentPolicies         AgentPolicy[]
-  agentMenus AgentMenu[]
+  agentMenus            AgentMenu[]
+  trashItems            TrashItem[]
+  agentActions          AgentAction[]
   agentRuns             AgentRun[]
   /// Sakelar darurat Kebijakan Otomatis: true = tidak ada tugas/keputusan/kiriman otomatis baru
   agentAutoPaused       Boolean                @default(false) @map("agent_auto_paused")
@@ -1742,4 +1744,64 @@ model AgentRun {
   @@index([menuId])
   @@index([status])
   @@map("agent_runs")
+}
+
+/// Sampah: item yang dihapus (oleh user atau agen) dan masih bisa dipulihkan sampai `expiresAt`, lalu dihapus permanen.
+/// Record domain tetap memakai `deleted_at` di tabelnya (entri ini hanya penanda); berkas & entitas lain disimpan
+/// sebagai salinan isi (`snapshot`) dengan objek storage yang belum dihapus.
+model TrashItem {
+  id         String   @id @default(cuid())
+  /// Pemilik data (bukan selalu yang menghapus: kolaborator bisa menghapus turunan item milik user lain)
+  userId     String   @map("user_id")
+  /// record | asset | request | notebook | vault_note
+  kind       String
+  /// Record type untuk kind = record
+  recordType String?  @map("record_type")
+  /// clientId record / id berkas / id entitas
+  itemId     String   @map("item_id")
+  title      String
+  /// Penghapusan yang terjadi bersamaan (mis. project + action + berkasnya) dipulihkan bersama
+  batchId    String   @map("batch_id")
+  actorId    String?  @map("actor_id")
+  /// user | agent
+  source     String   @default("user")
+  snapshot   Json?
+  deletedAt  DateTime @default(now()) @map("deleted_at") @db.Timestamptz(3)
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deletedAt])
+  @@index([userId, kind, itemId])
+  @@index([expiresAt])
+  @@map("trash_items")
+}
+
+/// Aksi agen atas data kerja pemilik: buat & ubah langsung dijalankan dan bisa dibatalkan (isi sebelumnya disimpan),
+/// hapus hanya permintaan yang menunggu persetujuan pemilik (lalu masuk Sampah).
+model AgentAction {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  /// create | update | delete
+  kind       String
+  recordType String    @map("record_type")
+  clientId   String    @map("client_id")
+  title      String
+  /// Isi record sebelum aksi (update) — dipakai Batalkan
+  before     Json?
+  /// Isi record sesudah aksi (create/update) — Batalkan ditolak bila record sudah berubah lagi
+  after      Json?
+  /// Alasan dari agen (wajib untuk hapus)
+  reason     String?
+  /// Turunan yang ikut terhapus bila hapus disetujui: [[type, clientId], ...]
+  children   Json?
+  /// applied | undone | pending | approved | rejected | failed
+  status     String
+  message    String?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  decidedAt  DateTime? @map("decided_at") @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@map("agent_actions")
 }

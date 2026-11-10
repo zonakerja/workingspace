@@ -51,8 +51,10 @@ import {
   UserRound,
   Users,
   Waypoints,
+  Trash2,
   Wrench,
   type LucideIcon,
+  History,
 } from "lucide-react";
 import type { UserRole } from "@/types/api";
 
@@ -190,6 +192,7 @@ export const MODULES: ModuleDef[] = [
     tabs: [
       { id: "chat", label: "Chat", icon: MessagesSquare },
       { id: "workflow", label: "Workflow", icon: Workflow },
+      { id: "actions", label: "Riwayat Aksi", icon: History },
       { id: "status", label: "Status & Skill", icon: Activity },
     ],
   },
@@ -262,7 +265,7 @@ export const MODULES: ModuleDef[] = [
     key: "tools",
     label: "Tools",
     description:
-      "Alat bantu kerja yang dipakai di seluruh aplikasi: editor dokumen ONLYOFFICE, basis pengetahuan, dan indeks pengetahuan AI (RAG).",
+      "Alat bantu kerja yang dipakai di seluruh aplikasi: editor dokumen ONLYOFFICE, basis pengetahuan, indeks pengetahuan AI (RAG), dan Sampah.",
     path: "/tools",
     icon: Wrench,
     sidebarSubmenu: true,
@@ -271,6 +274,7 @@ export const MODULES: ModuleDef[] = [
       { id: "onlyoffice", label: "ONLYOFFICE", icon: FilePen },
       { id: "knowledge", label: "Basis Pengetahuan", icon: Library },
       { id: "index", label: "Indeks Pengetahuan", icon: DatabaseZap },
+      { id: "trash", label: "Sampah", icon: Trash2 },
     ],
   },
   {

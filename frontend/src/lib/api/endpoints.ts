@@ -1,3 +1,4 @@
+import { withTrashToast } from "@/lib/trash-toast";
 import { apiUrl, request } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type {
@@ -83,6 +84,8 @@ import type {
   AiIndexStatus,
   AiSearchHit,
   SmartSearchMode,
+  TrashItemInfo,
+  AgentActionInfo,
   SmartSearchResponse,
   AiProviderId,
   AiProviderInput,
@@ -210,10 +213,12 @@ export const recordsApi = {
       body: { payload, userId, ...options },
     }),
   remove: (type: RecordType, clientId: string, userId?: string) =>
-    request<{ success: boolean }>(`/records/${type}/${encodeURIComponent(clientId)}`, {
-      method: "DELETE",
-      query: { userId },
-    }),
+    withTrashToast(
+      request<{ success: boolean; batchId?: string | null }>(`/records/${type}/${encodeURIComponent(clientId)}`, {
+        method: "DELETE",
+        query: { userId },
+      }),
+    ),
 };
 
 export const uploadsApi = {
@@ -226,7 +231,11 @@ export const uploadsApi = {
     return request<UploadedAsset>("/uploads", { method: "POST", body: form });
   },
   list: (take = 50) => request<UploadedAsset[]>("/uploads", { query: { take } }),
-  remove: (id: string) => request<{ success: boolean }>(`/uploads/${id}`, { method: "DELETE" }),
+  /** Hapus berkas tersimpan → Sampah (bisa dipulihkan 30 hari). */
+  remove: (id: string) =>
+    withTrashToast(request<{ success: boolean; batchId?: string }>(`/uploads/${id}`, { method: "DELETE" })),
+  /** Buang permanen unggahan yang belum pernah disimpan (batal unggah, form ditutup) — tidak masuk Sampah. */
+  discard: (id: string) => request<{ success: boolean }>(`/uploads/${id}`, { method: "DELETE", query: { discard: 1 } }),
   /** Metadata + hasil ekstraksi teks (PDF/DOCX/XLSX/teks; gambar lewat OCR Gemini) yang dikerjakan backend. */
   metadata: (id: string) => request<AssetMetadata>(`/uploads/${id}/metadata`),
   /** Link sementara (10 menit) yang bisa dibuka di tab baru / <img>. */
@@ -297,6 +306,29 @@ export const officeApi = {
     if (!response.ok) throw new Error(`Versi tidak dapat diunduh (status ${response.status}).`);
     return response.blob();
   },
+};
+
+export const agentActionsApi = {
+  list: (status?: AgentActionInfo["status"]) =>
+    request<AgentActionInfo[]>("/agent/actions", { query: status ? { status } : undefined }),
+  pendingCount: () => request<{ count: number }>("/agent/actions/pending-count"),
+  undo: (id: string, force = false) =>
+    request<{ status: string }>(`/agent/actions/${id}/undo`, { method: "POST", body: { force } }),
+  approve: (id: string) =>
+    request<{ status: string; removed: number; files?: number }>(`/agent/actions/${id}/approve`, { method: "POST" }),
+  reject: (id: string, note?: string) =>
+    request<{ status: string }>(`/agent/actions/${id}/reject`, { method: "POST", body: { note } }),
+};
+
+export const trashApi = {
+  list: () => request<TrashItemInfo[]>("/trash"),
+  restore: (selector: { ids?: string[]; batchId?: string }) =>
+    request<{ restored: string[]; failed: { id: string; title: string; message: string }[] }>("/trash/restore", {
+      method: "POST",
+      body: selector,
+    }),
+  purge: (selector: { ids?: string[]; batchId?: string; all?: boolean }) =>
+    request<{ purged: number }>("/trash/purge", { method: "POST", body: selector }),
 };
 
 export const aiApi = {
@@ -420,7 +452,8 @@ export const knowledgeApi = {
       method: "POST",
       body: input,
     }),
-  deleteNote: (id: string) => request<{ trash: string }>(`/knowledge/notes/${id}`, { method: "DELETE" }),
+  deleteNote: (id: string) =>
+    withTrashToast(request<{ trash: string; batchId?: string }>(`/knowledge/notes/${id}`, { method: "DELETE" })),
   unlinked: (id: string) => request<KnowledgeUnlinkedMention[]>(`/knowledge/notes/${id}/unlinked`),
   similar: (id: string) => request<KnowledgeSimilar>(`/knowledge/notes/${id}/similar`),
   tasks: () => request<KnowledgeTasks>("/knowledge/tasks"),
@@ -440,14 +473,22 @@ export const knowledgeApi = {
   saveCanvas: (input: { path: string; data: Record<string, unknown>; baseHash: string }) =>
     request<KnowledgeBaseFile>("/knowledge/canvases/file", { method: "PUT", body: input }),
   deleteCanvas: (path: string) =>
-    request<{ trash: string }>(`/knowledge/canvases/file?path=${encodeURIComponent(path)}`, { method: "DELETE" }),
+    withTrashToast(
+      request<{ trash: string; batchId?: string }>(`/knowledge/canvases/file?path=${encodeURIComponent(path)}`, {
+        method: "DELETE",
+      }),
+    ),
   baseFile: (path: string) => request<KnowledgeBaseFile>(`/knowledge/bases/file?path=${encodeURIComponent(path)}`),
   createBase: (input: { folder?: string; name: string }) =>
     request<KnowledgeBaseFile>("/knowledge/bases", { method: "POST", body: input }),
   saveBase: (input: { path: string; data: Record<string, unknown>; baseHash: string }) =>
     request<KnowledgeBaseFile>("/knowledge/bases/file", { method: "PUT", body: input }),
   deleteBase: (path: string) =>
-    request<{ trash: string }>(`/knowledge/bases/file?path=${encodeURIComponent(path)}`, { method: "DELETE" }),
+    withTrashToast(
+      request<{ trash: string; batchId?: string }>(`/knowledge/bases/file?path=${encodeURIComponent(path)}`, {
+        method: "DELETE",
+      }),
+    ),
   /** Centang / buka lagi tugas vault → ditulis balik ke berkasnya */
   toggleTask: (input: { noteId: string; index: number; raw: string; done: boolean; today: string }) =>
     request<{ ok: true; line: number }>("/knowledge/tasks/toggle", { method: "POST", body: input }),
@@ -463,7 +504,9 @@ export const knowledgeApi = {
   moveFolder: (from: string, to: string) =>
     request<{ path: string }>("/knowledge/folders/move", { method: "POST", body: { from, to } }),
   deleteFolder: (path: string) =>
-    request<{ trash: string }>("/knowledge/folders", { method: "DELETE", query: { path } }),
+    withTrashToast(
+      request<{ trash: string; batchId?: string }>("/knowledge/folders", { method: "DELETE", query: { path } }),
+    ),
 };
 
 /** My Notebook: sumber + chat RAG bersitasi + ringkasan Studio + catatan notebook. */
@@ -474,7 +517,8 @@ export const notebooksApi = {
   get: (id: string) => request<NotebookDetail>(`/notebooks/${id}`),
   update: (id: string, input: { title?: string; description?: string | null; icon?: string | null }) =>
     request<NotebookDetail>(`/notebooks/${id}`, { method: "PATCH", body: input }),
-  remove: (id: string) => request<{ success: boolean }>(`/notebooks/${id}`, { method: "DELETE" }),
+  remove: (id: string) =>
+    withTrashToast(request<{ success: boolean; batchId?: string }>(`/notebooks/${id}`, { method: "DELETE" })),
   addSource: (id: string, input: AddNotebookSourceInput) =>
     request<NotebookSource>(`/notebooks/${id}/sources`, { method: "POST", body: input }),
   updateSource: (id: string, sourceId: string, input: { enabled?: boolean; title?: string }) =>
@@ -513,7 +557,8 @@ export const requestsApi = {
   create: (input: RequestInput) => request<RequestDetail>("/requests", { method: "POST", body: input }),
   update: (id: string, input: RequestUpdate) =>
     request<RequestDetail>(`/requests/${id}`, { method: "PATCH", body: input }),
-  remove: (id: string) => request<{ success: boolean }>(`/requests/${id}`, { method: "DELETE" }),
+  remove: (id: string) =>
+    withTrashToast(request<{ success: boolean; batchId?: string }>(`/requests/${id}`, { method: "DELETE" })),
   analyze: (id: string) =>
     request<{ request: RequestDetail; fallback?: unknown }>(`/requests/${id}/analyze`, { method: "POST" }),
   review: (id: string) =>

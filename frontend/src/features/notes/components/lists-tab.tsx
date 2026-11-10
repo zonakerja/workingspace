@@ -443,7 +443,7 @@ export function ListsTab() {
         noteKey={deleting ? noteKey("list", deleting.id) : null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Hapus List?"
-        description="List dan semua item di dalamnya akan dihapus permanen."
+        description="List dan semua item di dalamnya dipindah ke Sampah dan bisa dipulihkan selama 30 hari."
         itemName={deleting?.title}
         onConfirm={() => {
           if (deleting) setItems((prev) => prev.filter((l) => l.id !== deleting.id));

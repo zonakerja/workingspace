@@ -18,7 +18,7 @@ import { useAuthStore } from "@/stores/auth-store";
 async function sweep() {
   for (const entry of sweepable(readPending(), PAGE_ID, Date.now())) {
     try {
-      await uploadsApi.remove(entry.id);
+      await uploadsApi.discard(entry.id);
     } catch (error) {
       const gone = error instanceof ApiError && [403, 404].includes(error.status);
       if (!gone) continue; // jaringan / server bermasalah → coba lagi pada sapuan berikutnya
@@ -52,7 +52,7 @@ export function usePendingUploadsJanitor() {
       updatePending((entries) => abandonOwner(entries, PAGE_ID));
       const token = useAuthStore.getState().accessToken;
       for (const entry of mine) {
-        void fetch(apiUrl(`/uploads/${entry.id}`), {
+        void fetch(apiUrl(`/uploads/${entry.id}?discard=1`), {
           method: "DELETE",
           keepalive: true,
           credentials: "include",

@@ -606,7 +606,7 @@ export class RobotService {
         ids,
         new Set(usedRows.map((r) => r.targetId).filter((id): id is string => !!id)),
       );
-      for (const id of plan.remove) await this.records.remove("skp_target", id, {}, user);
+      for (const id of plan.remove) await this.records.remove("skp_target", id, {}, user, { trash: false });
       for (const id of plan.stale) {
         const current = await this.records.findOne("skp_target", id, {}, user);
         await this.records.upsert("skp_target", id, { payload: { ...current.payload, stale: true } }, user);
@@ -726,7 +726,7 @@ export class RobotService {
         const target = fresh.targets.find((t) => t.id === entry.targetId);
         if (entry.deleted) {
           if (result.status === "filled") {
-            await this.records.remove("action_plan_entry", entry.id, {}, user);
+            await this.records.remove("action_plan_entry", entry.id, {}, user, { trash: false });
             // Brankas bukti entri yang dihapus ikut dihapus: tautannya tidak lagi dirujuk e-Kinerja
             await this.vaults.removeForEntry(user, entry.id, (entry as { vaultId?: string }).vaultId);
           }
@@ -1241,7 +1241,7 @@ export class RobotService {
         existing.map((e) => e.clientId),
         ids,
       ))
-        await this.records.remove("srikandi_reference", id, {}, user);
+        await this.records.remove("srikandi_reference", id, {}, user, { trash: false });
       counts[category] = ids.length;
       pages[category] = group.pages ?? 1;
       if (typeof group.total === "number") totals[category] = group.total;

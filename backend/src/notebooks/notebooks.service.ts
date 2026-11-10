@@ -3,9 +3,21 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { AssetExtractionStatus, NotebookSourceKind, Prisma, type NotebookSource } from "../generated/prisma/client";
+import {
+  AssetExtractionStatus,
+  type Notebook,
+  type NotebookMessage,
+  type NotebookNote,
+  NotebookSourceKind,
+  Prisma,
+  type NotebookSource,
+  type TrashItem,
+} from "../generated/prisma/client";
+import { restorableRow, toSnapshot } from "../trash/trash-restore";
+import { TrashService } from "../trash/trash.service";
 import { AiService } from "../ai/ai.service";
 import { AiIndexQueueService } from "../ai/index/ai-index-queue.service";
 import { AiIndexService } from "../ai/index/ai-index.service";
@@ -79,7 +91,7 @@ const EXTRACTION_REASONS: Record<string, string> = {
  * menjawab hanya dari sumber dengan sitasi, ringkasan Studio, dan catatan hasil. Semua data milik user sendiri.
  */
 @Injectable()
-export class NotebooksService {
+export class NotebooksService implements OnModuleInit {
   private readonly logger = new Logger(NotebooksService.name);
 
   constructor(
@@ -89,7 +101,41 @@ export class NotebooksService {
     private readonly indexQueue: AiIndexQueueService,
     private readonly uploads: UploadsService,
     private readonly storage: ObjectStorageService,
+    private readonly trash: TrashService,
   ) {}
+
+  /** Notebook yang dihapus disalin utuh ke Sampah (sumber, catatan, chat); berkas unggahannya masuk Sampah bersama. */
+  onModuleInit() {
+    this.trash.registerHandler("notebook", {
+      restore: (item) => this.restoreFromTrash(item),
+      purge: async () => undefined,
+    });
+  }
+
+  private async restoreFromTrash(item: TrashItem) {
+    const snapshot = item.snapshot as unknown as NotebookTrashSnapshot | null;
+    if (!snapshot?.notebook?.id) throw new Error("Salinan notebook tidak lengkap.");
+    if (await this.prisma.notebook.findUnique({ where: { id: snapshot.notebook.id } })) return;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.notebook.create({
+        data: restorableRow(snapshot.notebook, ["summary"]) as unknown as Prisma.NotebookUncheckedCreateInput,
+      });
+      if (snapshot.sources.length)
+        await tx.notebookSource.createMany({
+          data: snapshot.sources as unknown as Prisma.NotebookSourceCreateManyInput[],
+        });
+      if (snapshot.notes.length)
+        await tx.notebookNote.createMany({ data: snapshot.notes as unknown as Prisma.NotebookNoteCreateManyInput[] });
+      if (snapshot.messages.length)
+        await tx.notebookMessage.createMany({
+          data: snapshot.messages.map((m) =>
+            restorableRow(m, ["citations", "attachments"]),
+          ) as unknown as Prisma.NotebookMessageCreateManyInput[],
+        });
+    });
+    // Potongan indeks sumber teks/web dibuang saat dihapus → diindeks ulang
+    for (const source of snapshot.sources) if (source.content !== null) await this.enqueueIndex(item.userId, source.id);
+  }
 
   // ---------------------------------------------------------------- Notebook
 
@@ -134,14 +180,32 @@ export class NotebooksService {
     });
   }
 
+  /** Hapus = pindah ke Sampah (notebook, sumber, catatan, chat, dan berkas unggahannya; bisa dipulihkan 30 hari). */
   async remove(user: AuthUser, id: string) {
-    await this.own(user.id, id);
-    const sources = await this.prisma.notebookSource.findMany({ where: { notebookId: id } });
+    const notebook = await this.own(user.id, id);
+    const [sources, notes, messages] = await Promise.all([
+      this.prisma.notebookSource.findMany({ where: { notebookId: id } }),
+      this.prisma.notebookNote.findMany({ where: { notebookId: id } }),
+      this.prisma.notebookMessage.findMany({ where: { notebookId: id } }),
+    ]);
     const images = await this.messageImageIds(id);
-    await this.prisma.notebook.delete({ where: { id } });
-    for (const source of sources) await this.cleanupSource(user, source);
-    await this.removeUploads(user, images);
-    return { success: true };
+    const batchId = await this.prisma.$transaction(async (tx) => {
+      await tx.notebook.delete({ where: { id } });
+      return this.trash.add(
+        {
+          userId: user.id,
+          kind: "notebook",
+          itemId: id,
+          title: notebook.title,
+          actorId: user.id,
+          snapshot: toSnapshot({ notebook, sources, notes, messages } satisfies NotebookTrashSnapshot),
+        },
+        tx,
+      );
+    });
+    for (const source of sources) await this.cleanupSource(user, source, true);
+    await this.removeUploads(user, images, true);
+    return { success: true, batchId };
   }
 
   // ---------------------------------------------------------------- Sumber
@@ -429,7 +493,7 @@ export class NotebooksService {
   }
 
   /** Hapus lampiran chat; berkas dengan context lain (bukan unggahan chat) tidak pernah dihapus dari sini. */
-  private async removeUploads(user: AuthUser, ids: string[]) {
+  private async removeUploads(user: AuthUser, ids: string[], trash = false) {
     const unique = [...new Set(ids)];
     if (!unique.length) return;
     const chatUploads = await this.prisma.asset.findMany({
@@ -437,7 +501,7 @@ export class NotebooksService {
       select: { id: true },
     });
     for (const { id } of chatUploads) {
-      await this.uploads.remove(id, user).catch((error: unknown) => {
+      await this.uploads.remove(id, user, { trash }).catch((error: unknown) => {
         this.logger.warn(`Berkas ${id} gagal dihapus: ${error instanceof Error ? error.message : error}`);
       });
     }
@@ -548,14 +612,14 @@ export class NotebooksService {
   }
 
   /** Bersihkan data turunan sumber yang dihapus: berkas unggahan notebook & potongan indeks teks/web. */
-  private async cleanupSource(user: AuthUser, source: NotebookSource) {
+  private async cleanupSource(user: AuthUser, source: NotebookSource, trash = false) {
     if (source.kind === NotebookSourceKind.upload && source.assetId) {
       // Hanya berkas yang diunggah langsung ke notebook yang ikut dihapus; berkas yang dipilih dari LifeOS (lampiran,
       // resource, dsb.) tetap utuh. Juga tidak dihapus bila masih dipakai sumber notebook lain.
       const asset = await this.prisma.asset.findUnique({ where: { id: source.assetId }, select: { context: true } });
       const others = await this.prisma.notebookSource.count({ where: { assetId: source.assetId } });
       if (asset?.context === NOTEBOOK_UPLOAD_CONTEXT && !others) {
-        await this.uploads.remove(source.assetId, user).catch((error: unknown) => {
+        await this.uploads.remove(source.assetId, user, { trash }).catch((error: unknown) => {
           this.logger.warn(
             `Berkas sumber ${source.assetId} gagal dihapus: ${error instanceof Error ? error.message : error}`,
           );
@@ -713,3 +777,11 @@ export class NotebooksService {
     };
   }
 }
+
+/** Salinan notebook di Sampah (lihat `NotebooksService.remove`). */
+type NotebookTrashSnapshot = {
+  notebook: Notebook;
+  sources: NotebookSource[];
+  notes: NotebookNote[];
+  messages: NotebookMessage[];
+};

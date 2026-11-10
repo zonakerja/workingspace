@@ -266,8 +266,8 @@ export function AiNotesTab() {
         title="Hapus Notes AI?"
         description={
           deleting && uploadIdsOf(deleting).length > 0
-            ? "Catatan beserta audio/dokumen lampirannya akan dihapus permanen."
-            : "Catatan ini akan dihapus permanen."
+            ? "Catatan beserta audio/dokumen lampirannya dipindah ke Sampah dan bisa dipulihkan selama 30 hari."
+            : "Catatan ini dipindah ke Sampah dan bisa dipulihkan selama 30 hari."
         }
         itemName={deleting?.title || "Tanpa Judul"}
         onConfirm={() => {

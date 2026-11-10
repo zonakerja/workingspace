@@ -236,7 +236,7 @@ function ActionPlanForm({
   const cancel = () => {
     for (const file of uploaded) {
       untrackPendingUpload(file.id);
-      void uploadsApi.remove(file.id).catch(() => undefined);
+      void uploadsApi.discard(file.id).catch(() => undefined);
     }
     onDone();
   };
@@ -255,7 +255,7 @@ function ActionPlanForm({
       const kept = docChoice === VAULT ? vaultSelected : [];
       for (const file of uploaded) {
         untrackPendingUpload(file.id);
-        if (!kept.includes(file.id)) void uploadsApi.remove(file.id).catch(() => undefined);
+        if (!kept.includes(file.id)) void uploadsApi.discard(file.id).catch(() => undefined);
       }
       // Brankas lama yang tidak dipakai lagi (bukti diganti ke link lain) dihapus agar tautannya tidak lagi berlaku
       if (entry?.vaultId && resolved.vaultId !== entry.vaultId)

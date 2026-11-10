@@ -29,6 +29,7 @@ import {
 } from "./request-utils";
 import { PoliciesTab } from "./policies-tab";
 import { ProposalsTab } from "./proposals-tab";
+import { usePendingDeleteCount } from "@/data/use-agent-actions";
 import { ContactsTab } from "./whatsapp/contacts-tab";
 import { ConversationsTab } from "./whatsapp/conversations-tab";
 
@@ -42,6 +43,7 @@ export function Component() {
   const { data } = useRequests();
   const queueCount = data?.filter((r) => TAB_STATUSES.queue.includes(r.status)).length ?? 0;
   const waiting = data?.filter((r) => r.status === "menunggu_verifikasi").length ?? 0;
+  const { data: deletes } = usePendingDeleteCount();
   return (
     <ModulePage
       module="requests"
@@ -55,6 +57,9 @@ export function Component() {
           <>
             <Badge className="bg-white/20 text-white">{queueCount} dalam antrian</Badge>
             {waiting > 0 && <Badge className="bg-white/20 text-white">{waiting} menunggu verifikasi</Badge>}
+            {!!deletes?.count && (
+              <Badge className="bg-white/20 text-white">{deletes.count} permintaan hapus dari agen</Badge>
+            )}
           </>
         )
       }

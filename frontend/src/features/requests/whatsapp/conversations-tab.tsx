@@ -323,7 +323,7 @@ function SimulatorCard({ onSent }: { onSent: (phone: string) => void }) {
       setFiles([]);
       onSent(message.phone);
     } catch (error) {
-      await Promise.allSettled(uploaded.map((id) => uploadsApi.remove(id)));
+      await Promise.allSettled(uploaded.map((id) => uploadsApi.discard(id)));
       toast.error(errorMessage(error));
     } finally {
       setSending(false);

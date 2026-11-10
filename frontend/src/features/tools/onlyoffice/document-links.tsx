@@ -250,7 +250,7 @@ function UploadFinalForm({
         await officeApi.setDraft(asset.id, draftId);
       } catch (err) {
         // Tautan ditolak → berkas yang baru diunggah dibuang agar tidak menjadi sampah di storage
-        await uploadsApi.remove(asset.id).catch(() => undefined);
+        await uploadsApi.discard(asset.id).catch(() => undefined);
         throw err;
       }
       const now = new Date().toISOString();

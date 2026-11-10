@@ -67,7 +67,7 @@ import {
   uploadIdsOf,
 } from "../lib/notes-logic";
 import { CancelledError, DOCUMENT_ACCEPT, readFileText } from "../lib/read-file-text";
-import { mergeOrphanIds, removeUploads, removeUploadsCollectForbidden } from "../lib/remove-uploads";
+import { discardUploads, mergeOrphanIds, releaseUploads, removeUploadsCollectForbidden } from "../lib/remove-uploads";
 import { SummaryStyleDialog } from "./summary-style-dialog";
 import { usePermissions } from "@/hooks/use-permissions";
 import { CommentsPanel } from "@/features/sharing/comments-panel";
@@ -222,7 +222,7 @@ export function AiNoteEditor({
       .then((asset) => {
         sessionUploadsRef.current.add(asset.id);
         // Editor sudah ditutup (perubahan dibuang) sebelum upload selesai → berkas tidak dipakai
-        if (unmountedRef.current) removeUploads([asset.id]);
+        if (unmountedRef.current) discardUploads([asset.id]);
         // Dicatat sampai catatan disimpan: tab di-reload/ditutup sebelum Simpan → berkas dibersihkan janitor
         else trackPendingUpload(asset.id);
         return asset;
@@ -471,7 +471,7 @@ export function AiNoteEditor({
     const toSave = { ...draft, fileAttachments: draft.fileAttachments?.filter((doc) => doc.uploadId) };
     onPersist(toSave);
     const unused = unreferencedUploads([...uploadIdsOf(note), ...sessionUploadsRef.current], draft);
-    if (!note.share) removeUploads(unused);
+    if (!note.share) releaseUploads(unused, sessionUploadsRef.current);
     else if (unused.length) {
       // Notes AI bersama: berkas milik pemilik tidak boleh dihapus kolaborator → dicatat untuk dibersihkan pemilik
       const saved = toSave;
@@ -496,7 +496,7 @@ export function AiNoteEditor({
   };
 
   const discard = () => {
-    removeUploads(unreferencedUploads(sessionUploadsRef.current, note));
+    discardUploads(unreferencedUploads(sessionUploadsRef.current, note));
     releaseSessionUploads();
     leave();
   };

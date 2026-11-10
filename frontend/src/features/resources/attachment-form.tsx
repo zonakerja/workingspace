@@ -113,7 +113,7 @@ export function AttachmentForm({
     pendingUploadRef.current = null;
     if (id) {
       untrackPendingUpload(id);
-      void uploadsApi.remove(id).catch(() => undefined);
+      void uploadsApi.discard(id).catch(() => undefined);
     }
   };
   useEffect(() => () => discardPending(), []);

@@ -4,10 +4,23 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
   UnauthorizedException,
 } from "@nestjs/common";
+import { ModuleRef } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
-import { AssetStatus } from "../generated/prisma/client";
+import {
+  type Asset,
+  AssetExtractionStatus,
+  AssetStatus,
+  type AssetVersion,
+  Prisma,
+  type PublicLink,
+  type TrashItem,
+} from "../generated/prisma/client";
+import { AiIndexQueueService } from "../ai/index/ai-index-queue.service";
+import { type TrashSource } from "../trash/trash-logic";
+import { TrashService } from "../trash/trash.service";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { unlink } from "node:fs/promises";
@@ -37,8 +50,32 @@ const ASSET_INCLUDE = {
   },
 } as const;
 
+/** Salinan berkas di Sampah (lihat `UploadsService.moveToTrash`). */
+type AssetTrashSnapshot = {
+  asset: Omit<Asset, "createdAt" | "updatedAt" | "versionedAt"> & {
+    createdAt: string;
+    updatedAt: string;
+    versionedAt: string | null;
+  };
+  versions: (Omit<AssetVersion, "createdAt"> & { createdAt: string })[];
+  extraction: {
+    status: AssetExtractionStatus;
+    extractedText: string | null;
+    summary: string | null;
+    metadata: unknown;
+    error: string | null;
+    completedAt: string | null;
+  } | null;
+  publicLinks: (Omit<PublicLink, "createdAt" | "expiresAt" | "lastAccessAt"> & {
+    createdAt: string;
+    expiresAt: string | null;
+    lastAccessAt: string | null;
+  })[];
+  finalIds: string[];
+};
+
 @Injectable()
-export class UploadsService {
+export class UploadsService implements OnModuleInit {
   private readonly logger = new Logger(UploadsService.name);
 
   constructor(
@@ -47,7 +84,16 @@ export class UploadsService {
     private readonly queue: ExtractionQueueService,
     private readonly jwt: JwtService,
     private readonly shareAccess: ShareAccessService,
+    private readonly trash: TrashService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  onModuleInit() {
+    this.trash.registerHandler("asset", {
+      restore: (item) => this.restoreFromTrash(item),
+      purge: (item) => this.purgeFromTrash(item),
+    });
+  }
 
   async upload(file: Express.Multer.File, user: AuthUser, context?: string, ownerId?: string) {
     try {
@@ -219,8 +265,12 @@ export class UploadsService {
     return { asset, stream: await this.storage.getObject(asset.objectKey) };
   }
 
-  /** Hanya pemilik, atau kolaborator yang mengunggahnya (mis. membatalkan upload di item bersama). */
-  async remove(id: string, user: AuthUser) {
+  /**
+   * Hanya pemilik, atau kolaborator yang mengunggahnya (mis. membatalkan upload di item bersama).
+   * `trash: true` = pindah ke Sampah (baris disimpan sebagai salinan, objek storage dibiarkan sampai masa simpan habis);
+   * bawaan = hapus permanen (unggahan yang belum pernah disimpan, pembersihan internal modul lain).
+   */
+  async remove(id: string, user: AuthUser, options: { trash?: boolean; source?: TrashSource } = {}) {
     const asset = await this.findAccessible(id, user);
     if (asset.userId !== user.id && asset.uploadedById !== user.id) {
       throw new ForbiddenException("Hanya pemilik yang dapat menghapus file ini.");
@@ -238,6 +288,7 @@ export class UploadsService {
         "Berkas masih menjadi bukti di brankas digital renaksi. Keluarkan dari brankas dulu.",
       );
     }
+    if (options.trash) return this.moveToTrash(asset.id, user, options.source);
     // Versi lama (editor ONLYOFFICE) ikut terhapus (cascade); objek storage-nya dihapus di bawah
     const versions = await this.prisma.assetVersion.findMany({
       where: { assetId: asset.id },
@@ -256,6 +307,101 @@ export class UploadsService {
         );
     }
     return { success: true };
+  }
+
+  /**
+   * Baris berkas + versi + hasil ekstraksi + tautan publik disalin ke Sampah lalu dihapus dari tabel (berkas tidak lagi
+   * terlihat di mana pun); objek storage tetap ada sehingga pemulihan membuat ulang baris dengan ID yang sama dan
+   * lampiran yang merujuknya kembali berfungsi tanpa membaca/OCR ulang.
+   */
+  private async moveToTrash(id: string, user: AuthUser, source?: TrashSource) {
+    const full = await this.prisma.asset.findUniqueOrThrow({
+      where: { id },
+      include: { versions: true, extraction: true, publicLinks: true, finals: { select: { id: true } } },
+    });
+    const { versions, extraction, publicLinks, finals, ...asset } = full;
+    const snapshot = {
+      asset,
+      versions,
+      extraction: extraction
+        ? {
+            status: extraction.status,
+            extractedText: extraction.extractedText,
+            summary: extraction.summary,
+            metadata: extraction.metadata,
+            error: extraction.error,
+            completedAt: extraction.completedAt,
+          }
+        : null,
+      publicLinks,
+      finalIds: finals.map((f) => f.id),
+    };
+    const batchId = await this.prisma.$transaction(async (tx) => {
+      await tx.aiChunk.deleteMany({ where: { sourceType: ASSET_SOURCE, sourceId: id } });
+      await tx.asset.delete({ where: { id } });
+      return this.trash.add(
+        {
+          userId: asset.userId,
+          kind: "asset",
+          itemId: id,
+          title: asset.originalName,
+          actorId: user.id,
+          source,
+          snapshot: JSON.parse(JSON.stringify(snapshot)) as Prisma.InputJsonValue,
+        },
+        tx,
+      );
+    });
+    return { success: true, trashed: true, batchId };
+  }
+
+  private async restoreFromTrash(item: TrashItem) {
+    const snapshot = item.snapshot as unknown as AssetTrashSnapshot | null;
+    if (!snapshot?.asset) throw new Error("Salinan berkas tidak lengkap.");
+    if (await this.prisma.asset.findUnique({ where: { id: item.itemId } })) return;
+    const { asset, versions, extraction, publicLinks, finalIds } = snapshot;
+    const completed = extraction?.status === AssetExtractionStatus.completed && !!extraction.extractedText;
+    await this.prisma.$transaction(async (tx) => {
+      const draftExists = asset.draftId ? !!(await tx.asset.findUnique({ where: { id: asset.draftId } })) : false;
+      await tx.asset.create({
+        data: {
+          ...asset,
+          draftId: draftExists ? asset.draftId : null,
+          extraction: {
+            create: completed
+              ? {
+                  status: extraction.status,
+                  extractedText: extraction.extractedText,
+                  summary: extraction.summary,
+                  metadata: (extraction.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+                  completedAt: extraction.completedAt,
+                }
+              : {},
+          },
+        },
+      });
+      if (versions.length) await tx.assetVersion.createMany({ data: versions, skipDuplicates: true });
+      if (publicLinks.length) await tx.publicLink.createMany({ data: publicLinks, skipDuplicates: true });
+      if (finalIds.length)
+        await tx.asset.updateMany({ where: { id: { in: finalIds }, draftId: null }, data: { draftId: asset.id } });
+    });
+    // Teks hasil baca disimpan di Sampah → langsung diindeks; selain itu dibaca ulang
+    // Antrean indeks diambil saat dipakai: modul AI bergantung pada modul ini, jadi tidak diinjeksi lewat konstruktor
+    if (completed)
+      void this.moduleRef
+        .get(AiIndexQueueService, { strict: false })
+        .enqueueSource(asset.userId, ASSET_SOURCE, asset.id);
+    else await this.queue.enqueue(asset.id).catch(() => undefined);
+  }
+
+  private async purgeFromTrash(item: TrashItem) {
+    const snapshot = item.snapshot as unknown as AssetTrashSnapshot | null;
+    if (!snapshot?.asset) return;
+    // Berkas yang sudah dipulihkan lewat jalur lain tidak boleh kehilangan objeknya
+    if (await this.prisma.asset.findUnique({ where: { id: item.itemId } })) return;
+    for (const objectKey of [snapshot.asset.objectKey, ...snapshot.versions.map((v) => v.objectKey)]) {
+      await this.storage.deleteObject(objectKey);
+    }
   }
 
   /**

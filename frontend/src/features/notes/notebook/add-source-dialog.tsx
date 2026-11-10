@@ -127,7 +127,7 @@ function UploadSource({ notebookId, onDone }: { notebookId: string; onDone: () =
       } catch (error) {
         if (assetId) {
           untrackPendingUpload(assetId);
-          void uploadsApi.remove(assetId).catch(() => undefined);
+          void uploadsApi.discard(assetId).catch(() => undefined);
         }
         toast.error(`${file.name} gagal ditambahkan`, { description: errorMessage(error) });
       }

@@ -11,7 +11,9 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { type FSWatcher, watch } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { cp, mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { type TrashItem } from "../generated/prisma/client";
+import { TrashService } from "../trash/trash.service";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { AiIndexQueueService } from "../ai/index/ai-index-queue.service";
 import { AiIndexService } from "../ai/index/ai-index.service";
@@ -171,7 +173,13 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     private readonly uploads: UploadsService,
     private readonly indexQueue: AiIndexQueueService,
     private readonly aiIndex: AiIndexService,
+    private readonly trash: TrashService,
   ) {
+    // Catatan/folder/base/canvas yang dihapus ada di .trash vault; Sampah LifeOS bisa mengembalikannya ke tempat semula
+    this.trash.registerHandler("vault_note", {
+      restore: (item) => this.restoreVaultTrash(item),
+      purge: (item) => this.purgeVaultTrash(item),
+    });
     const dir = config.get<string>("KNOWLEDGE_VAULTS_DIR");
     this.root = dir ? resolve(dir) : null;
     this.aiIndex.registerSourceLoader(CANVAS_SOURCE, {
@@ -1629,15 +1637,61 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     return trashPath;
   }
 
+  private async recordVaultTrash(
+    userId: string,
+    path: string,
+    trashPath: string,
+    type: VaultTrashSnapshot["type"],
+    title: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { knowledgeVault: true } });
+    const snapshot: VaultTrashSnapshot = { vault: user?.knowledgeVault ?? "", path, trashPath, type };
+    return this.trash.add({ userId, kind: "vault_note", itemId: path, title, actorId: userId, snapshot });
+  }
+
+  /**
+   * Kembalikan dari .trash ke path semula; path sudah terpakai → "nama (pulihan)". Ditolak bila vault sudah diganti
+   * atau berkasnya sudah dikosongkan dari .trash (mis. lewat Obsidian).
+   */
+  private async restoreVaultTrash(item: TrashItem) {
+    const snapshot = item.snapshot as unknown as VaultTrashSnapshot | null;
+    if (!snapshot?.trashPath) throw new Error("Salinan vault tidak lengkap.");
+    const user = await this.prisma.user.findUnique({ where: { id: item.userId }, select: { knowledgeVault: true } });
+    if (!user?.knowledgeVault || user.knowledgeVault !== snapshot.vault)
+      throw new Error("Vault sudah diganti; pulihkan dari folder .trash vault lama.");
+    const base = this.vaultPath(snapshot.vault);
+    const source = this.inVault(base, snapshot.trashPath);
+    if (!(await stat(source).catch(() => null))) throw new Error("Berkas sudah tidak ada di .trash vault.");
+    let target = snapshot.path;
+    for (let n = 1; await stat(this.inVault(base, target)).catch(() => null); n += 1) {
+      const dot = snapshot.type === "folder" ? -1 : snapshot.path.lastIndexOf(".");
+      const stem = dot > 0 ? snapshot.path.slice(0, dot) : snapshot.path;
+      const ext = dot > 0 ? snapshot.path.slice(dot) : "";
+      target = `${stem} (pulihan${n > 1 ? ` ${n}` : ""})${ext}`;
+    }
+    const absolute = this.inVault(base, target);
+    await mkdir(dirname(absolute), { recursive: true });
+    await rename(source, absolute);
+    if (snapshot.type === "canvas") await this.indexQueue.enqueueSource(item.userId, CANVAS_SOURCE, target);
+    await this.afterWrite(item.userId, null);
+  }
+
+  private async purgeVaultTrash(item: TrashItem) {
+    const snapshot = item.snapshot as unknown as VaultTrashSnapshot | null;
+    if (!snapshot?.trashPath || !snapshot.vault || !this.root) return;
+    await rm(this.inVault(this.vaultPath(snapshot.vault), snapshot.trashPath), { recursive: true, force: true });
+  }
+
   async deleteNote(userId: string, id: string) {
     const note = await this.findEditable(userId, id);
     const trash = await this.toTrash(await this.vaultBase(userId), note.path);
+    const batchId = await this.recordVaultTrash(userId, note.path, trash, "note", note.title);
     await this.updatePrefs(userId, (prefs) => ({
       ...prefs,
       bookmarks: moveBookmarks(prefs.bookmarks, note.path, null),
     }));
     await this.afterWrite(userId, null);
-    return { trash };
+    return { trash, batchId };
   }
 
   async deleteFolder(userId: string, input: string) {
@@ -1646,9 +1700,10 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     if (!(await stat(this.inVault(base, path)).catch(() => null))?.isDirectory())
       throw new NotFoundException("Folder tidak ditemukan.");
     const trash = await this.toTrash(base, path);
+    const batchId = await this.recordVaultTrash(userId, path, trash, "folder", path);
     await this.updatePrefs(userId, (prefs) => ({ ...prefs, bookmarks: moveBookmarks(prefs.bookmarks, path, null) }));
     await this.afterWrite(userId, null);
-    return { trash };
+    return { trash, batchId };
   }
 
   /** Catatan yang menyebut judul/alias catatan ini tanpa `[[tautan]]` (Obsidian "Unlinked mentions"). */
@@ -1889,8 +1944,9 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     if (!(await stat(this.inVault(base, path)).catch(() => null)))
       throw new NotFoundException("Berkas canvas tidak ditemukan.");
     const trash = await this.toTrash(base, path);
+    const batchId = await this.recordVaultTrash(userId, path, trash, "canvas", baseName(path));
     await this.indexQueue.enqueueSource(userId, CANVAS_SOURCE, path);
-    return { trash };
+    return { trash, batchId };
   }
 
   private basePath(input: string) {
@@ -1936,7 +1992,9 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     const base = await this.vaultBase(userId);
     if (!(await stat(this.inVault(base, path)).catch(() => null)))
       throw new NotFoundException("Berkas base tidak ditemukan.");
-    return { trash: await this.toTrash(base, path) };
+    const trash = await this.toTrash(base, path);
+    const batchId = await this.recordVaultTrash(userId, path, trash, "base", baseName(path));
+    return { trash, batchId };
   }
 
   /** Kesehatan vault: properti bermasalah, tautan rusak, catatan yatim, judul ganda. */
@@ -2031,3 +2089,11 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     return { data: await readFile(absolute), mime };
   }
 }
+
+/** Penanda item vault di Sampah: isi tetap di `.trash` vault, Sampah hanya tahu asal & letaknya. */
+type VaultTrashSnapshot = {
+  vault: string;
+  path: string;
+  trashPath: string;
+  type: "note" | "folder" | "base" | "canvas";
+};

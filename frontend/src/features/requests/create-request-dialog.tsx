@@ -88,7 +88,7 @@ function CreateRequestForm({ onCancel, onCreated }: { onCancel: () => void; onCr
       toast.success("Pengajuan dicatat.");
       onCreated(request.id);
     } catch (error) {
-      await Promise.allSettled(uploaded.map((id) => uploadsApi.remove(id)));
+      await Promise.allSettled(uploaded.map((id) => uploadsApi.discard(id)));
       toast.error(errorMessage(error));
     } finally {
       setSaving(false);

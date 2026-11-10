@@ -96,7 +96,7 @@ export function NewOfficeDocumentPicker({
           { title: title?.trim() || file.name.replace(/\.[^.]+$/, ""), context, ownerId },
         );
       } finally {
-        await uploadsApi.remove(uploaded.id).catch(() => undefined);
+        await uploadsApi.discard(uploaded.id).catch(() => undefined);
       }
     });
   };

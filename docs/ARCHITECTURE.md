@@ -636,6 +636,28 @@ Keluar, referensi, klasifikasi arsip). Pengisian Renaksi & pendaftaran naskah **
   `Content-Security-Policy: sandbox`, konten aktif (HTML/SVG/JS) dipaksa diunduh. Link unduh memakai secret turunan
   (`JWT_ACCESS_SECRET:download`), berlaku 10 menit, tidak bisa dipakai login.
 
+### 3.13 Sampah & aksi agen (`src/trash/`, `src/agent-actions/`, Tools → Sampah, AI Agent → Riwayat Aksi)
+
+Semua penghapusan (user maupun agen) masuk tabel `trash_items` dan bisa dipulihkan selama 30 hari; pembersihan otomatis tiap 6 jam
+menghapus permanen yang kedaluwarsa. Hapus beruntun oleh pelaku yang sama dalam 20 detik = satu kelompok (dipulihkan bersama).
+
+| Jenis | Saat dihapus | Saat dipulihkan | Dihapus permanen |
+|---|---|---|---|
+| Record domain | `deleted_at` (seperti sebelumnya) + entri | `deleted_at` dikosongkan, diindeks ulang | baris dihapus |
+| Berkas | baris + versi + hasil ekstraksi + tautan publik disalin, baris dihapus, objek storage tetap | baris dibuat ulang dengan ID sama, teks hasil baca dipasang lagi (tanpa OCR) | objek storage dihapus |
+| Pengajuan | baris disalin, berkasnya ke Sampah (kelompok sama) | baris dibuat ulang | — |
+| Notebook | notebook + sumber + catatan + chat disalin, berkas unggahan ke Sampah | dibuat ulang, sumber teks diindeks ulang | — |
+| Catatan/folder/base/canvas vault | tetap `.trash` vault + entri | dipindah kembali (nama terpakai → "(pulihan)") | dihapus dari `.trash` |
+
+Tidak masuk Sampah: centang rutinitas & log (`NO_TRASH_RECORD_TYPES`), hapus oleh sinkron robot, dan unggahan yang belum pernah disimpan
+(`DELETE /uploads/:id?discard=1`).
+
+**Aksi agen**: alat MCP umum (`describe_record_types`, `list_records`, `get_record`, `create_record`, `update_record`,
+`request_delete_record`) menulis lewat `RecordsService` dan mencatat `agent_actions`. Buat/ubah langsung berlaku dan bisa dibatalkan
+(isi sebelumnya disimpan; ditolak bila data sudah berubah lagi kecuali dipaksa). Hapus hanya permintaan; disetujui pemilik = item +
+turunannya (+ berkas miliknya yang tidak dipakai data lain) masuk Sampah bertanda agen. Setiap hapus yang masuk Sampah mengembalikan
+`batchId`; frontend menampilkan notifikasi "Pulihkan" untuk kelompok itu (`lib/trash-toast.ts`). Jenis hasil sinkron robot & log hanya bisa dibaca agen.
+
 ## 4. Database
 
 Konvensi: model Prisma PascalCase, **tabel & kolom snake_case**, timestamp `timestamptz(3)` (UTC), FK ke `users`

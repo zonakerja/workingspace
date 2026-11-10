@@ -2026,6 +2026,134 @@ try {
   ok("token create (plain token once)", r.s === 201 && r.d.token?.startsWith("lifeos_pat_") && r.d.expiresAt, r);
   const pat = r.d.token;
   const patId = r.d.id;
+  // Aksi agen atas data kerja: buat/ubah bisa dibatalkan, hapus hanya permintaan yang menunggu persetujuan → Sampah
+  {
+    const tool = async (name, args) => {
+      const res = await mcp(pat, "tools/call", { name, arguments: args });
+      const raw = res.d?.result?.content?.[0]?.text ?? "";
+      let out = raw;
+      try {
+        out = JSON.parse(raw);
+      } catch {
+        // pesan galat berupa teks biasa
+      }
+      return { isError: !!res.d?.result?.isError, out };
+    };
+    let t = await tool("create_record", { type: "para_project", payload: { title: "Smoke agen project" } });
+    ok("agent create record", !t.isError && t.out.created && t.out.id?.startsWith("ag-"), t);
+    const projectId = t.out.id;
+    t = await tool("create_record", {
+      type: "para_task",
+      payload: { title: "Smoke agen task", projectId, priority: "low" },
+    });
+    const taskId = t.out.id;
+    t = await tool("update_record", { type: "para_task", id: taskId, changes: { priority: "high" } });
+    ok("agent update record (partial)", t.out.updated && t.out.changed.join() === "priority", t);
+    const updateAction = t.out.actionId;
+    t = await tool("create_record", { type: "srikandi_letter", payload: { title: "x" } });
+    ok("agent cannot write robot-synced type", t.isError, t);
+    r = await j("POST", `/agent/actions/${updateAction}/undo`, {}, at);
+    t = await tool("get_record", { type: "para_task", id: taskId });
+    ok("agent undo restores before", r.s === 200 && t.out.payload.priority === "low", [r, t]);
+    t = await tool("request_delete_record", { type: "para_project", id: projectId, reason: "Smoke: tidak dipakai" });
+    ok("agent delete is only a request", t.out.pending && t.out.alsoDeleted === 1, t);
+    t = await tool("get_record", { type: "para_project", id: projectId });
+    ok("agent delete request deletes nothing", !t.isError, t);
+    const deleteAction = (await j("GET", "/agent/actions?status=pending", null, at)).d.find(
+      (a) => a.clientId === projectId,
+    );
+    r = await j("POST", `/agent/actions/${deleteAction.id}/approve`, null, at);
+    ok("agent delete approved → removed with child", r.s === 200 && r.d.removed === 2, r);
+    r = await j("GET", "/trash", null, at);
+    const agentTrash = r.d.filter((x) => x.itemId === projectId || x.itemId === taskId);
+    ok(
+      "trash: agent items in one batch",
+      agentTrash.length === 2 &&
+        agentTrash.every((x) => x.source === "agent") &&
+        agentTrash[0].batchId === agentTrash[1].batchId,
+      agentTrash,
+    );
+    r = await j("POST", "/trash/restore", { batchId: agentTrash[0].batchId }, at);
+    ok("trash restore batch", r.s === 200 && r.d.restored.length === 2, r);
+    r = await j("GET", `/records/para_task/${taskId}`, null, at);
+    ok("trash restored record readable", r.s === 200, r);
+    await j("DELETE", `/records/para_task/${taskId}`, null, at);
+    await j("DELETE", `/records/para_project/${projectId}`, null, at);
+    const leftover = (await j("GET", "/trash", null, at)).d
+      .filter((x) => x.itemId === projectId || x.itemId === taskId)
+      .map((x) => x.id);
+    r = await j("POST", "/trash/purge", { ids: leftover }, at);
+    ok("trash purge", r.s === 200 && r.d.purged === 2, r);
+    r = await j("POST", "/trash/restore", { ids: leftover }, at);
+    ok("trash restore after purge 404", r.s === 404, r);
+    // Berkas: hapus → Sampah (tidak terbaca), discard → permanen
+    const blob = new FormData();
+    blob.append("file", new Blob(["smoke sampah"], { type: "text/plain" }), "smoke-sampah.txt");
+    const up = await fetch(`${B}/uploads`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${at}` },
+      body: blob,
+    }).then((x) => x.json());
+    r = await j("DELETE", `/uploads/${up.id}`, null, at);
+    ok("upload delete → trash", r.s === 200 && r.d.trashed === true, r);
+    r = await j("GET", `/uploads/${up.id}/metadata`, null, at);
+    ok("trashed upload hidden", r.s === 404, r);
+    const fileEntry = (await j("GET", "/trash", null, at)).d.find((x) => x.itemId === up.id);
+    r = await j("POST", "/trash/restore", { ids: [fileEntry.id] }, at);
+    r = await j("GET", `/uploads/${up.id}/metadata`, null, at);
+    ok("trashed upload restored", r.s === 200, r);
+    r = await j("DELETE", `/uploads/${up.id}?discard=1`, null, at);
+    r = await j("GET", "/trash", null, at);
+    ok("upload discard not in trash", r.s === 200 && !r.d.some((x) => x.itemId === up.id), r);
+    // Hapus agen yang disetujui: berkas milik item ikut ke Sampah, berkas yang masih dipakai Resource dibiarkan
+    const mkFile = async (name) => {
+      const fd = new FormData();
+      fd.append("file", new Blob([name], { type: "text/plain" }), name);
+      return fetch(`${B}/uploads`, { method: "POST", headers: { authorization: `Bearer ${at}` }, body: fd }).then((x) =>
+        x.json(),
+      );
+    };
+    const own = await mkFile("smoke-milik-task.txt");
+    const shared = await mkFile("smoke-dipakai-resource.txt");
+    await j(
+      "PUT",
+      "/records/para_resource/smoke-res-dipakai",
+      { payload: { title: "Smoke resource", type: "file", uploadId: shared.id } },
+      at,
+    );
+    t = await tool("create_record", {
+      type: "para_task",
+      payload: {
+        title: "Smoke task berlampiran",
+        resources: [
+          { id: "a1", type: "file", title: "milik", uploadId: own.id },
+          { id: "a2", type: "file", title: "dipakai", uploadId: shared.id },
+        ],
+      },
+    });
+    const fileTaskId = t.out.id;
+    t = await tool("request_delete_record", { type: "para_task", id: fileTaskId, reason: "Smoke berkas" });
+    r = await j("POST", `/agent/actions/${t.out.actionId}/approve`, null, at);
+    ok("agent approve trashes owned file only", r.s === 200 && r.d.files === 1, r);
+    r = await j("GET", `/uploads/${shared.id}/metadata`, null, at);
+    ok("file still used by resource kept", r.s === 200, r);
+    const fileBatch = (await j("GET", "/trash", null, at)).d.filter(
+      (x) => x.itemId === fileTaskId || x.itemId === own.id,
+    );
+    ok(
+      "task + its file in one batch",
+      fileBatch.length === 2 && fileBatch[0].batchId === fileBatch[1].batchId,
+      fileBatch,
+    );
+    await j("POST", "/trash/purge", { batchId: fileBatch[0].batchId }, at);
+    r = await j("DELETE", "/records/para_resource/smoke-res-dipakai", null, at);
+    ok("record delete returns batchId", r.s === 200 && typeof r.d.batchId === "string", r);
+    await j("POST", "/trash/purge", { batchId: r.d.batchId }, at);
+    r = await j("DELETE", `/uploads/${shared.id}`, null, at);
+    ok("upload delete returns batchId", r.s === 200 && typeof r.d.batchId === "string", r);
+    await j("POST", "/trash/purge", { batchId: r.d.batchId }, at);
+  }
+
   r = await j("GET", "/integrations/tokens", null, at);
   // Akun admin dev bisa punya token "Agen Hermes (otomatis)" dari Siapkan agen → cek token smoke saja
   ok(
@@ -2060,7 +2188,9 @@ try {
     .join(",");
   ok(
     "mcp tools/list filtered by scopes",
-    r.s === 200 && toolNames === "create_todo,list_agenda,list_open_tasks,search_workspace",
+    r.s === 200 &&
+      toolNames ===
+        "create_record,create_todo,describe_record_types,get_record,list_agenda,list_open_tasks,list_records,request_delete_record,search_workspace,update_record",
     toolNames,
   );
   r = await mcp(pat, "tools/call", { name: "create_todo", arguments: { title: "Smoke MCP todo", date: "2026-10-25" } });

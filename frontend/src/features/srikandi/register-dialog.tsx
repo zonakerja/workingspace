@@ -66,7 +66,7 @@ export function RegisterDialog({ open, entry, isNew, onClose }: RegisterDialogPr
   const discardSession = () => {
     for (const id of sessionUploads.current) {
       untrackPendingUpload(id);
-      void uploadsApi.remove(id).catch(() => undefined);
+      void uploadsApi.discard(id).catch(() => undefined);
     }
     sessionUploads.current.clear();
   };
@@ -79,13 +79,14 @@ export function RegisterDialog({ open, entry, isNew, onClose }: RegisterDialogPr
   const save = (next: SrikandiOutgoing) => {
     const kept = new Set([next.file?.uploadId, ...(next.attachments ?? []).map((a) => a.uploadId)]);
     // Berkas milik register yang dilepas (lama maupun sesi ini) dihapus setelah disimpan
-    const dropped = [...(entry && !isNew ? ownedUploadIds(entry) : []), ...sessionUploads.current].filter(
-      (id) => !kept.has(id),
-    );
+    // Berkas lama yang tersimpan → Sampah; unggahan sesi ini yang tidak dipakai → dibuang permanen
+    const dropped = (entry && !isNew ? ownedUploadIds(entry) : []).filter((id) => !kept.has(id));
+    const unused = [...sessionUploads.current].filter((id) => !kept.has(id));
     upsert(next);
     for (const id of sessionUploads.current) untrackPendingUpload(id);
     sessionUploads.current.clear();
     for (const id of dropped) void uploadsApi.remove(id).catch(() => undefined);
+    for (const id of unused) void uploadsApi.discard(id).catch(() => undefined);
     onClose();
   };
 

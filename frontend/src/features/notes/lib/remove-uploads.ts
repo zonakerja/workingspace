@@ -1,8 +1,19 @@
 import { uploadsApi } from "@/lib/api/endpoints";
 
-/** Hapus berkas dari object storage tanpa mengganggu user bila gagal (mis. sudah terhapus). */
+/** Pindahkan berkas tersimpan ke Sampah tanpa mengganggu user bila gagal (mis. sudah terhapus). */
 export const removeUploads = (ids: string[]) => {
   ids.forEach((id) => void uploadsApi.remove(id).catch(() => undefined));
+};
+
+/** Buang permanen unggahan sesi yang belum pernah tersimpan (tidak masuk Sampah). */
+export const discardUploads = (ids: string[]) => {
+  ids.forEach((id) => void uploadsApi.discard(id).catch(() => undefined));
+};
+
+/** Pisahkan berkas tersimpan (→ Sampah) dari unggahan sesi ini (→ dibuang permanen). */
+export const releaseUploads = (ids: string[], session: Set<string>) => {
+  removeUploads(ids.filter((id) => !session.has(id)));
+  discardUploads(ids.filter((id) => session.has(id)));
 };
 
 /**

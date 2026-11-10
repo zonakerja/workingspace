@@ -494,7 +494,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (record type `action_plan_month` — potret bulan Rencana Aksi e-Kinerja) + `20261031140000_public_vaults` (brankas digital + log
   akses) + `20261101120000_automation_jobs` (jadwal & riwayat otomasi) + `20261106130000_ai_router_endpoints` (jalur router per kredensial AI) + `20261106140000_knowledge_prefs` (preferensi menu Knowledge) + `20261106120000_agent_policies` (Kebijakan Otomatis,
   `agent_runs`, sakelar darurat, `requests.asset_check`/`auto_decision`) + `20261107120000_knowledge_note_versions` (riwayat versi
-  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal). Migrasi baru → lihat docs/SETUP.md §10
+  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen). Migrasi baru → lihat docs/SETUP.md §10
     (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`, lalu cek
     drift dengan `--exit-code`; shadow DB dari `SHADOW_DATABASE_URL`).
 - **Records API**: `GET /records/:type?from&to` (milik sendiri + item bersama bertanda `share`), `PUT
@@ -533,6 +533,31 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   `ONLYOFFICE_FONTS_DIR` (validasi `fontKind`/`safeFontFileName`); `diagnostics` juga khusus admin. **Konsep ↔ dokumen
   final**: `assets.draft_id` (final → konsep, SetNull), `GET /office/files/:id/links`, `PUT /office/files/:id/draft`,
   `GET /office/links?ids=`, `GET /office/link-candidates` (aturan `isDraftFormat`/`finalLinkError` + test).
+- **Sampah** (`src/trash/`, `@Global`, logika murni + test `trash-logic.ts`, keputusan user 2026-11-10): **semua hapus** oleh user
+  maupun agen bisa dipulihkan 30 hari (`TRASH_RETENTION_DAYS`), lalu dihapus permanen otomatis (`purgeExpired` tiap 6 jam). Tabel
+  `trash_items` (kind `record | asset | request | notebook | vault_note`, `batchId` = hapus beruntun oleh pelaku yang sama dalam 20 dtk =
+  satu kelompok yang dipulihkan bersama, `source` user | agent, `snapshot`). Modul pemilik data mendaftarkan
+  `TrashService.registerHandler(kind, { restore, purge })`. **Record** tetap `deleted_at` di tabelnya (`RecordsService.remove` mencatat
+  entri; tulis ulang record ber-ID sama = `trash.forget`; purge = hapus baris); jenis toggle/log `NO_TRASH_RECORD_TYPES` (completion,
+  log) dan hapus oleh sinkron robot (`{ trash: false }`) tidak masuk Sampah. **Berkas**: `DELETE /uploads/:id` = salinan baris + versi +
+  hasil ekstraksi + tautan publik ke Sampah, objek storage dibiarkan; pulih = baris dibuat ulang dengan **ID sama** (lampiran kembali
+  berfungsi) dan teks hasil baca dipasang lagi tanpa OCR ulang; `?discard=1` = buang permanen unggahan yang belum pernah disimpan;
+  `UploadsService.remove(id, user)` tanpa opsi tetap permanen (pembersihan internal). **Pengajuan** & **Notebook** (sumber, catatan, chat)
+  disalin utuh + berkasnya ke kelompok yang sama; **catatan/folder/base/canvas vault** tetap di `.trash` vault, Sampah memindahkannya
+  kembali (nama terpakai → "(pulihan)"; vault diganti / `.trash` dikosongkan → gagal dengan pesan). Setiap hapus yang masuk Sampah mengembalikan `batchId` (record, berkas, Pengajuan,
+  Notebook, vault) untuk tombol Pulihkan. Endpoint `GET /trash`,
+  `POST /trash/restore { ids? | batchId? }`, `POST /trash/purge { ids? | batchId? | all? }`. Baris salinan → `restorableRow` (JSON null →
+  `Prisma.DbNull`).
+- **Aksi agen atas data kerja** (`src/agent-actions/`, logika murni + test `agent-action-logic.ts`, keputusan user 2026-11-10): MCP
+  `describe_record_types`, `list_records`, `get_record` (`workspace:read`) dan `create_record`, `update_record` (patch: hanya key yang
+  dikirim, `null` = hapus key), `request_delete_record` (`workspace:write`) lewat `RecordsService` (isolasi, berbagi, audit, indeks
+  berlaku; hanya data milik sendiri). Jenis hasil sinkron robot & log = baca saja (`AGENT_READONLY_TYPES`). Tabel `agent_actions`
+  (kind create | update | delete, `before`/`after`, status applied | undone | pending | approved | rejected | failed). Buat/ubah langsung
+  & **bisa dibatalkan** (`POST /agent/actions/:id/undo { force? }`: record sudah berubah lagi → 409, sudah dihapus → 410, batalkan
+  "buat" = ke Sampah). **Hapus = permintaan** sampai pemilik `approve` / `reject` (`/agent/actions/:id/…`); disetujui = item +
+  turunannya (`ShareAccessService.descendantsOf`, tanpa Notes AI tertaut) ke Sampah bertanda agen, beserta berkas milik item itu
+  yang tidak lagi dirujuk record hidup lain (`RecordsService.liveUploadIds`; sumber Notebook / bukti brankas ditolak UploadsService). `GET /agent/actions?status=`,
+  `GET /agent/actions/pending-count`. Agen tetap tidak punya jalur hapus langsung.
 - **Health**: `/health` (readiness, 503 bila dependensi down), `/health/live` (liveness).
 - **Seed**: `src/database/seed.ts` (dev: akun demo via `prisma db seed` → `tsx`; production: super admin dari env,
   `node dist/database/seed.js`).
@@ -1142,6 +1167,18 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   konektor dihapus (keputusan user) — rekaman halaman lewat **Rekam halaman ini** di tayangan; endpoint
   `/connectors/:system/capture` tetap untuk pemetaan oleh Claude & smoke. RHK dari robot menyimpan **RHK pimpinan yang
   diintervensi** (`leader`) + indikatornya (`leaderIndicator`); tombol Edit/Hapus RHK di sel SKP draft dibuang saat membaca.
+- **Sampah & aksi agen** (keputusan user 2026-11-10): **Tools → Sampah** (`features/tools/trash/`, hook `data/use-trash.ts`, logika murni +
+  test `trash-utils.ts`): kelompok per tindakan (Pulihkan semua / per item / Hapus permanen / Kosongkan, penanda Anda vs Agen,
+  sisa hari). **AI Agent → Riwayat Aksi** (`action-history-tab.tsx`, tampil walau Hermes mati; logika + test `action-utils.ts`):
+  perubahan per field + Batalkan (409 → dialog "Tetap batalkan"). **Approval → Usulan Agen**: kartu `DeleteRequestsCard` (untuk semua
+  user, di atas batas pemilik Hermes) + penanda jumlah di banner Approval; hook `data/use-agent-actions.ts`. **Hapus berkas dari
+  frontend**: berkas yang pernah tersimpan → `uploadsApi.remove` (Sampah); unggahan sesi yang belum pernah disimpan (batal unggah,
+  form ditutup, pembersih unggahan yatim, `useAttachmentCleanup().discardUploads`, unggahan sesi editor Notes lewat `releaseUploads`) →
+  `uploadsApi.discard`. **Notifikasi Pulihkan** (`lib/trash-toast.ts`): fungsi hapus di `endpoints.ts` dibungkus `withTrashToast` → respons
+  ber-`batchId` memunculkan satu notifikasi per kelompok ("n item dipindah ke Sampah · Pulihkan") yang memulihkan lewat
+  `POST /trash/restore` lalu memuat ulang cache. Fungsi hapus baru yang masuk Sampah → bungkus juga. Teks konfirmasi hapus: "dipindah ke
+  Sampah dan bisa dipulihkan selama 30 hari", bukan "dihapus permanen" (kecuali yang memang permanen: unggahan belum tersimpan, catatan di
+  dalam notebook, isian di dalam item).
 - **Komponen umum**: `ConfirmDialog`, `SectionCard`, `RenameDialog`, `SearchableSelect`, `PaginationControl`+`paginate()`,
   `Markdown`, `PriorityBadge`, `PageLoader`, `DateRangeFilter`, `SearchInput`.
 - **Paginasi daftar**: `usePagination(items, ukuranAwal)` (`hooks/use-pagination.ts`) → `{ pageItems, setPage,
@@ -1271,6 +1308,7 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | Susunan menu baru, grup Connection & MCP (e-Kinerja, SRIKANDI, SIMAN), fitur native dikunci, Hermes dibatasi alat & jaringannya, workflow bermodal buatan agen + Approval → Usulan Agen | ✅ 2026-11-09 — unit, smoke, lint, typecheck; UI diuji; Hermes (Claude Opus 5.5) sungguhan: usulan bermodal jadi draf, nama "Approval" ditolak server, disetujui, modal dijalankan, data uji dihapus. Compose produksi baru divalidasi, belum dijalankan. **Belum**: login robot ke SIMAN sungguhan, alur tiket & unggah SK, modal berisian berkas |
 | Bidang aktif Knowledge (properti `bidang`, pilihan di banner, tandai catatan sekaligus) | ✅ 2026-11-09 — unit, smoke (filter terbukti lewat MCP `search_knowledge`), UI. **Belum** diuji terpisah dengan model sungguhan: chatbot, Approval, bot WhatsApp (memakai filter pencarian yang sama) |
 | Pencarian Pintar Ctrl+K (item & isi berkas semua modul, mode Kata tanpa AI / Makna dengan embedding, filter modul) | ✅ 2026-11-10 — unit backend +8 & frontend +4, smoke +4, lint, typecheck, build, UI diuji (desktop & HP; klik arsip → File Control, berkas → pratinjau, mode Makna dengan embedding Gemini sungguhan). **Belum**: item yang dibagikan orang lain (tetap di tab Cepat), navigasi panah keyboard di hasil Pintar |
+| Sampah (semua hapus bisa dipulihkan 30 hari: record, berkas, Pengajuan, Notebook, catatan vault) + aksi agen atas semua data kerja (buat/ubah bisa dibatalkan, hapus wajib persetujuan) | ✅ 2026-11-10 — unit backend +10 & frontend +7, smoke +19, uji API (tiap jenis hapus → pulih), UI (Sampah, Usulan Agen, Riwayat Aksi), Hermes (Claude) sungguhan: buat → ubah → minta hapus, melapor menunggu persetujuan. Lanjutan: berkas lampiran ikut ke Sampah saat hapus agen disetujui (yang masih dipakai Resource/arsip dilindungi), notifikasi "Pulihkan" setelah setiap hapus, teks dialog hapus diganti "dipindah ke Sampah" — smoke +5, UI Planner hapus → Pulihkan diuji |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -2085,6 +2123,19 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 - 2026-11-09 — **Bidang aktif Knowledge** (permintaan user: pindah tim/direktorat; rekomendasi diterima): satu vault untuk semua bidang, tiap catatan berproperti `bidang`, satu bidang aktif membatasi jawaban AI, bot, dan agen. Vault per bidang ditolak karena pengetahuan lama tidak terbaca saat vault diganti. Catatan tanpa bidang tetap dipakai agar vault lama tidak mendadak kosong jawabannya; penanda sekaligus disediakan. Disimpan per akun (bukan per browser) karena bot WhatsApp & agen berjalan tanpa browser. Mengubah bidang aktif tidak perlu indeks ulang (filter saat mencari); menandai catatan = potongan catatan itu ditulis ulang karena metadata ikut hash, jadi embedding-nya dihitung lagi. Nama bawaan vault baru menjadi `Pengetahuan`, peta topik templat dibuat umum.
 - 2026-11-09 — **Revisi: Connection & MCP + fitur native dikunci** (permintaan user, menggantikan nama Agentic AI di entri berikut): grup bernama **Connection & MCP**; fitur native = Workspace, Sistem, Tools, dan tiga koneksi bawaan; Hermes hanya bisa membuat fitur non-native (workflow bermodal di AI Agent, atau koneksi) yang menunggu persetujuan di **Approval → Usulan Agen**. Pemrosesan selalu di AI Agent & Approval; SIMAN hanya koneksi (cek tiket, memasukkan SK). Modal berupa data, bukan kode: agen tidak bisa menyisipkan skrip. **Pembatasan nyata, bukan sekadar instruksi**: pemeriksaan membuktikan Hermes bisa menjangkau PostgreSQL, Redis, dan storage dari containernya, dan terminal & eksekusi kode menyala, jadi batasan bisa dilewati. Maka alat bawaan dimatikan (hanya `skills`, `memory`, `todo`, `session_search` + MCP), dan Hermes dipindah ke jaringan sendiri. Ini mencabut keputusan 2026-11-06 "alat bawaan dibiarkan menyala". Di laptop port layanan yang dipublikasikan WSL masih terjangkau lewat gateway, tetapi agen tidak lagi punya alat untuk memakainya; di produksi port itu tidak dipublikasikan. Data kerja tetap boleh ditulis lewat MCP sesuai izin (to-do, Inbox, pengajuan), karena itu data, bukan fitur. Kunci logika aset di formulir aturan Approval masih native karena itulah pemeriksaan server untuk mode Otomatis.
 - 2026-11-09 — **Susunan menu & PSP bukan fitur tetap** (permintaan user): Workspace = Overview, Planner, Notes Space, Productivity, File Control, Knowledge, AI Agent (dulu Asisten Agen, ditafsirkan dari daftar user), Approval; grup AI Agent → **Agentic AI** berisi e-Kinerja (dulu Laporan Kinerja), SRIKANDI, SIMAN. Kata user: PSP tidak memakai daftar aset manual, melainkan tiket masuk berlampiran Excel dari satker yang diverifikasi ke master aset, dan prosesnya akan diajarkan user. Maka: bawaan PSP di formulir dibuang (jenis bawaan "Surat"), pencocokan aset menjadi opsional per aturan dan tanpa itu mode auto ditolak (tanpa pemeriksaan server, persetujuan otomatis berarti model yang memutuskan). **Hermes bisa mengusulkan menu Agentic AI** (`propose_agent_menu`), draf sampai pemilik mengaktifkan, sejalan dengan keputusan 2026-11-06 "skill buatan Hermes = draf yang diaktifkan user". Halaman menu dibuat umum (Jalankan, catatan, riwayat) karena bentuk proses belum diajarkan. Jenis pengajuan PSP/penghapusan/pemanfaatan tetap sebagai label kategori (dipakai bot WhatsApp), tanpa logika khusus. **Merevisi keputusan 2026-10-24 "tidak ada robot SIMAN"** sebatas konektor login + Jaga sesi, karena tiket hanya ada di SIMAN; sumber data master tetap direncanakan OnTrack sampai user mengajarkan prosesnya. Riwayat chat & AI Agent ala Claude dikerjakan nanti.
+- 2026-11-10 — **Sampah & aksi agen di semua fitur** (permintaan user: Hermes harus bisa beraksi di semua fitur tanpa menyentuh fitur
+  native; hapus oleh Hermes hanya setelah approval; soft delete agar approval tanpa membaca bisa dibatalkan). Keputusan user: Sampah untuk
+  **semua** penghapusan (juga oleh user sendiri), simpan **30 hari**, ubah oleh agen **bisa dibatalkan** (bukan approval), agen menulis
+  **semua record data kerja**. Rancangan: record tetap `deleted_at` (sudah disaring di semua query), entitas lain disalin sebagai snapshot
+  (bukan kolom `deleted_at` baru di `assets` yang dibaca puluhan query) dan objek storage baru dihapus saat masa simpan habis. Kelompok
+  hapus ditentukan selang waktu per pelaku (bukan ID dari browser) agar tidak menyentuh puluhan pemanggil hapus. Unggahan yang belum
+  pernah disimpan dibuang permanen (`discard`) agar Sampah tidak dipenuhi berkas batal. Sinkron robot & toggle/log tidak masuk Sampah.
+  Ditemukan saat uji: impor `AiModule` ke `UploadsModule` mengubah urutan inisialisasi dan menjatuhkan backend → antrean indeks
+  diambil lewat `ModuleRef`; Batalkan atas data yang sudah dihapus menghidupkannya lagi diam-diam → ditolak 410 dengan arahan ke Sampah;
+  rincian perubahan menampilkan `userId` → disembunyikan. Lanjutan (perintah user "lakukan pekerjaan yang belum"): berkas lampiran
+  ikut ke Sampah saat hapus agen disetujui; notifikasi Pulihkan dipasang di lapisan API (bukan di tiap modul); ditemukan saat uji:
+  pembersih unggahan sesi bersama (`discardUploads`) & editor Notes masih memakai hapus biasa sehingga unggahan batal ikut ke Sampah, dan
+  teks dialog hapus masih "dihapus permanen".
 - 2026-11-10 — **Pencarian AI → Pencarian Pintar** (permintaan user: pembeda dari chatbot melayang = mencari semua item & berkas
   Productivity, Planner, Notes, File Control; ditanyakan apakah cukup Redis). Tidak memakai model generatif dan tidak memakai Redis
   sebagai mesin cari: indeks PostgreSQL yang sudah ada (full-text + pgvector, hak akses per user) dipakai lewat endpoint baru;
@@ -2202,6 +2253,12 @@ Mengganti model/dimensi embedding = migrasi kolom `vector(N)` + indeks HNSW baru
 `registerSourceLoader(sourceType, { load, loadAll })`, contoh Canvas di `KnowledgeVaultService`), jenis pemotongan di `chunkSource`, label sumber di
 `knowledge-index-settings.tsx` & `citationTarget` (`knowledge-utils.ts`) agar sitasi bisa dibuka. Aturan menjawab / bagian prompt →
 `buildAssistantPrompt` (+ test). Status yang tidak boleh dipakai menjawab → `EXCLUDED_STATUSES`.
+
+**Membuat entitas baru bisa dipulihkan dari Sampah**: entitas dengan `deleted_at` sendiri → catat `trash.add` saat hapus + handler yang
+mengosongkan `deleted_at`; entitas tanpa `deleted_at` → salin baris (+ anak) sebagai `snapshot` (`toSnapshot`) di transaksi yang sama
+dengan hapusnya, handler `restore` membuat ulang dengan ID sama (`restorableRow` untuk kolom JSON) dan `purge` menghapus sisa di luar
+database (objek storage, berkas). Berkas milik entitas → `uploads.remove(id, user, { trash: true })` agar masuk kelompok yang sama.
+Label jenis baru → `KIND_LABELS`/`RECORD_LABELS` (`trash-utils.ts`).
 
 **Menambah tool MCP** (agen AI): tool baru di `LifeosMcpService.createServer` (`src/integrations/lifeos-mcp.service.ts`)
 di dalam blok cakupan yang sesuai (`can("…")`), handler dibungkus `run(nama, …)` agar tercatat di log aktivitas, input
@@ -2510,6 +2567,9 @@ utama tetap < 500 kB (cek output `npm run build`).
   dari ref data terkini (`latest.current`) lalu `setState(nilai)`.
 - `components={{ x: () => … }}` di ReactMarkdown membuat tipe komponen baru tiap render, jadi React memasang ulang isinya (state hilang, diagram digambar ulang). Komponen yang punya state / kerja mahal wajib di tingkat modul (`NotePre`).
 - Node `writeFileSync` di Windows kadang gagal `UNKNOWN` (errno -4094) saat dev server / pengawas sedang membuka berkas — sementara; ulangi. Skrip yang mengubah beberapa berkas bisa berhenti di tengah: cek berkas sebelumnya sudah tertulis.
+- Menambah impor modul (mis. `forwardRef(() => AiModule)` di `UploadsModule`) bisa mengubah urutan pembuatan provider: `KnowledgeVaultService`
+  memanggil `AiIndexService.registerSourceLoader` di konstruktor dan gagal "Cannot read properties of undefined (reading 'set')", backend
+  tidak menyala. Untuk dependensi satu arah yang jarang dipakai, ambil lewat `ModuleRef.get(X, { strict: false })` saat dipakai.
 - Kunci robot (`RobotService.exclusive`) dan sesi login jarak jauh ada di **memori satu proses backend** — jangan menjalankan
   backend lebih dari satu instans (kunci tidak berlaku lintas proses). Menguji "Jalankan sekarang" / menyalakan jadwal di akun
   yang punya sesi Connector = robot membuka SRIKANDI/e-Kinerja sungguhan → uji pakai user tanpa sesi (smoke) kecuali user

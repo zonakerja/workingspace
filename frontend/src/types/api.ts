@@ -200,6 +200,37 @@ export interface KnowledgeExtractInput extends KnowledgeComposeInput {
 /** Catatan berkala di menu Knowledge: harian, mingguan (minggu ISO), bulanan */
 export type KnowledgePeriod = "day" | "week" | "month";
 
+/** Aksi agen atas data kerja: buat/ubah (bisa dibatalkan) atau permintaan hapus (menunggu persetujuan). */
+export interface AgentActionInfo {
+  id: string;
+  kind: "create" | "update" | "delete";
+  recordType: string;
+  clientId: string;
+  title: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  reason: string | null;
+  children: [string, string][] | null;
+  status: "applied" | "undone" | "pending" | "approved" | "rejected" | "failed";
+  message: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+/** Satu item di Sampah (dihapus, masih bisa dipulihkan sampai `expiresAt`). */
+export interface TrashItemInfo {
+  id: string;
+  kind: "record" | "asset" | "request" | "notebook" | "vault_note";
+  recordType: string | null;
+  itemId: string;
+  title: string;
+  batchId: string;
+  actorId: string | null;
+  source: "user" | "agent";
+  deletedAt: string;
+  expiresAt: string;
+}
+
 export type SmartSearchMode = "text" | "meaning";
 export type SmartModule = "planner" | "notes" | "productivity" | "file_control" | "files" | "knowledge" | "other";
 

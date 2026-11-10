@@ -14,6 +14,7 @@ export interface DomainDelegate {
   upsert(args: object): Promise<DomainRow>;
   update(args: object): Promise<DomainRow>;
   updateMany(args: object): Promise<{ count: number }>;
+  deleteMany(args: object): Promise<{ count: number }>;
   count(args: object): Promise<number>;
   groupBy(args: object): Promise<{ userId: string; _count: { _all: number } }[]>;
 }

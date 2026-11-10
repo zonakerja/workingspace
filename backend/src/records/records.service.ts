@@ -1,11 +1,13 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { AuditAction, Prisma } from "../generated/prisma/client";
 import { AiIndexQueueService } from "../ai/index/ai-index-queue.service";
-import { isIndexedType } from "../ai/index/index-text";
+import { INDEXED_TYPES, isIndexedType } from "../ai/index/index-text";
+import { NO_TRASH_RECORD_TYPES, recordTitle, type TrashSource } from "../trash/trash-logic";
+import { TrashService } from "../trash/trash.service";
 import { AuthUser } from "../common/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { ShareAccessService } from "../sharing/share-access.service";
-import { type SharePermission, accessKey, atLeast, parentRefsOf } from "../sharing/share-graph";
+import { type SharePermission, accessKey, atLeast, collectUploadIds, parentRefsOf } from "../sharing/share-graph";
 import { ListRecordsQueryDto } from "./dto/list-records-query.dto";
 import { RecordOwnerQueryDto } from "./dto/record-owner-query.dto";
 import { UpsertRecordDto } from "./dto/upsert-record.dto";
@@ -58,13 +60,43 @@ function isArchivalData(type: RecordType, payload?: Payload) {
  * item milik user lain yang dibagikan kepadanya (`shares`, lihat `src/sharing/`).
  */
 @Injectable()
-export class RecordsService {
+export class RecordsService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     // Perubahan data diindeks ulang untuk RAG di latar belakang (tidak menahan respons)
     private readonly indexQueue: AiIndexQueueService,
     private readonly shareAccess: ShareAccessService,
+    private readonly trash: TrashService,
   ) {}
+
+  /** Record yang dihapus tetap di tabelnya (`deleted_at`); Sampah memulihkan atau menghapus barisnya permanen. */
+  onModuleInit() {
+    this.trash.registerHandler("record", {
+      restore: (item) => this.restoreDeleted(this.parseType(item.recordType ?? ""), item.itemId, item.userId),
+      purge: async (item) => {
+        const type = this.parseType(item.recordType ?? "");
+        await domainDelegate(this.prisma, type).deleteMany({
+          where: { userId: item.userId, clientId: item.itemId, deletedAt: { not: null } },
+        });
+      },
+    });
+  }
+
+  private async restoreDeleted(type: RecordType, clientId: string, ownerId: string) {
+    const spec: TableSpec = RECORD_TABLES[type];
+    const row = await this.prisma.$transaction(async (tx) => {
+      const table = domainDelegate(tx, type);
+      const found = await table.findUnique({ where: { userId_clientId: { userId: ownerId, clientId } } });
+      if (!found) throw new NotFoundException("Data sudah dihapus permanen.");
+      if (!found.deletedAt) return found;
+      const saved = await table.update({ where: { id: found.id }, data: { deletedAt: null } });
+      const actor = { id: ownerId } as AuthUser;
+      if (spec.audit) await this.audit(tx, type, actor, ownerId, clientId, undefined, rowToPayload(spec, saved));
+      return saved;
+    });
+    this.shareAccess.invalidate();
+    if (isIndexedType(type)) void this.indexQueue.enqueueSource(row.userId, type, clientId);
+  }
 
   parseType(type: string): RecordType {
     if (!Object.hasOwn(RECORD_TABLES, type)) {
@@ -169,10 +201,21 @@ export class RecordsService {
     });
     if (userId !== user.id) this.shareAccess.invalidate();
     if (isIndexedType(type)) void this.indexQueue.enqueueSource(row.userId, type, clientId);
+    // Record yang ditulis ulang (dibuat lagi dengan ID sama) tidak lagi berada di Sampah
+    await this.trash.forget(row.userId, "record", clientId, type);
     return toApiRecord(type, spec, row);
   }
 
-  async remove(type: RecordType, clientId: string, query: RecordOwnerQueryDto, user: AuthUser) {
+  /** Hapus = pindah ke Sampah (bisa dipulihkan selama masa simpan). `source: "agent"` = dihapus atas persetujuan untuk agen. */
+  async remove(
+    type: RecordType,
+    clientId: string,
+    query: RecordOwnerQueryDto,
+    user: AuthUser,
+    options: { source?: TrashSource; trash?: boolean } = {},
+  ) {
+    // Sinkron robot menghapus data yang sudah tidak ada di sistem asal → tidak masuk Sampah (diisi lagi oleh sinkron)
+    const toTrash = options.trash !== false && !NO_TRASH_RECORD_TYPES.has(type);
     const spec: TableSpec = RECORD_TABLES[type];
     const ownerId = query.userId ?? user.id;
     if (ownerId !== user.id) {
@@ -182,7 +225,7 @@ export class RecordsService {
       if (entry.root) throw new ForbiddenException("Hanya pemilik yang dapat menghapus item yang dibagikan.");
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const batchId = await this.prisma.$transaction(async (tx) => {
       const table = domainDelegate(tx, type);
       const row = await table.findUnique({ where: { userId_clientId: { userId: ownerId, clientId } } });
       if (!row || row.deletedAt) throw new NotFoundException("Record tidak ditemukan.");
@@ -190,11 +233,38 @@ export class RecordsService {
         where: { id: row.id },
         data: { deletedAt: new Date() },
       });
-      if (spec.audit) await this.audit(tx, type, user, row.userId, clientId, rowToPayload(spec, row), undefined);
+      const payload = rowToPayload(spec, row);
+      if (spec.audit) await this.audit(tx, type, user, row.userId, clientId, payload, undefined);
+      if (!toTrash) return null;
+      return this.trash.add(
+        {
+          userId: row.userId,
+          kind: "record",
+          recordType: type,
+          itemId: clientId,
+          title: recordTitle(payload, INDEXED_TYPES[type] ?? type),
+          actorId: user.id,
+          source: options.source,
+        },
+        tx,
+      );
     });
     if (ownerId !== user.id) this.shareAccess.invalidate();
     if (isIndexedType(type)) void this.indexQueue.enqueueSource(ownerId, type, clientId);
-    return { success: true };
+    return { success: true, batchId };
+  }
+
+  /**
+   * Semua ID berkas yang dirujuk record hidup milik user (lampiran, Resource Global, snapshot arsip, audio, …) — berkas
+   * di sini masih dipakai sehingga tidak ikut dibuang saat item lain dihapus.
+   */
+  async liveUploadIds(userId: string) {
+    const ids = new Set<string>();
+    for (const type of Object.keys(RECORD_TABLES) as RecordType[]) {
+      const rows = await domainDelegate(this.prisma, type).findMany({ where: { userId, deletedAt: null } });
+      for (const row of rows) collectUploadIds(rowToPayload(RECORD_TABLES[type], row), ids);
+    }
+    return ids;
   }
 
   /** Riwayat audit kearsipan atas data milik user sendiri. */

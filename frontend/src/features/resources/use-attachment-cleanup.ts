@@ -29,7 +29,7 @@ const collectUploadIds = (value: unknown, into: Set<string>, depth = 0) => {
   }
 };
 
-/** Hapus berkas dari storage tanpa mengganggu user bila gagal (mis. sudah terhapus). */
+/** Pindahkan berkas ke Sampah tanpa mengganggu user bila gagal (mis. sudah terhapus). */
 const removeUploadsQuietly = (ids: string[]) => {
   ids.forEach((id) => void uploadsApi.remove(id).catch(() => undefined));
 };
@@ -122,7 +122,11 @@ export function useAttachmentCleanup() {
   );
 
   /** Hapus berkas yang baru diunggah tetapi tidak jadi disimpan (tanpa pertanyaan, tanpa ringkasan). */
-  const discardUploads = useCallback((uploadIds: string[]) => removeUploadsQuietly(uploadIds), []);
+  // Unggahan sesi yang belum pernah tersimpan → dibuang permanen (tidak masuk Sampah)
+  const discardUploads = useCallback(
+    (uploadIds: string[]) => uploadIds.forEach((id) => void uploadsApi.discard(id).catch(() => undefined)),
+    [],
+  );
 
   return { referenced, release, discardUploads };
 }

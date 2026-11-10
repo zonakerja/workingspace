@@ -1845,7 +1845,7 @@ memakai dialog yang sama, belum diklik satu per satu.
 
 | Fitur native | Boleh dilakukan Hermes |
 |---|---|
-| Overview, Planner, Notes Space, Productivity, File Control | Menulis data sesuai izin MCP (mis. to-do). Fitur tidak bisa diubah |
+| Overview, Planner, Notes Space, Productivity, File Control, e-Kinerja, SRIKANDI | Membaca & menulis data kerja lewat `list_records` / `create_record` / `update_record` (bisa dibatalkan pemilik); hapus hanya `request_delete_record` yang menunggu persetujuan di Approval → Usulan Agen, lalu masuk Sampah. Fitur tidak bisa diubah |
 | Knowledge | Membaca, dan menulis usulan hanya ke `00-Inbox` |
 | AI Agent | Chat, menjalankan skill dan workflow yang disetujui |
 | Approval | Mencatat pengajuan & hasil kerja. Menyetujui, menolak, dan mengirim tetap oleh pemilik |
@@ -1885,5 +1885,11 @@ Keterbatasan di laptop: port yang dipublikasikan WSL (mis. 5432) masih terjangka
 | Chatbot + catatan tertautnya, alat MCP `search_knowledge` (agen; `all_fields` = semua bidang atas permintaan pemilik), analisis & telaah Approval, bot WhatsApp | Penjelajah, pencarian, graf, tabel di menu Knowledge; data kerja (workspace); `read_knowledge_note` |
 
 Catatan tanpa bidang berlaku untuk semua bidang, begitu juga berkas PDF/lampiran vault karena tidak punya properti. Tombol **Tandai semuanya** memberi bidang ke catatan yang belum punya (templat & cermin dilewati, riwayat versi tercatat). Mengganti bidang aktif tidak perlu indeks ulang; menandai catatan menghitung ulang embedding catatan itu.
+
+**Aksi data & Sampah (2026-11-10)**: Hermes kini bisa menginput transaksi di semua data kerja (agenda, to-do, project, action/task, catatan,
+resource, arsip, renaksi, register, …) tanpa menyentuh kode fitur. Setiap buat/ubah tercatat di AI Agent → Riwayat Aksi dan bisa dibatalkan;
+hapus selalu berupa permintaan yang diputuskan pemilik. Semua penghapusan (oleh pemilik maupun yang disetujui untuk agen) masuk Tools → Sampah
+selama 30 hari. Diuji dengan Hermes (Claude) sungguhan: buat task → ubah prioritas → minta hapus, dan agen melaporkan bahwa task menunggu
+persetujuan. Data hasil sinkron robot (SKP/RHK, naskah & referensi SRIKANDI, potret bulan renaksi) dan log hanya bisa dibaca agen.
 
 **Berikutnya**: user mengajarkan proses PSP (TODO-USER A25) → Hermes menyusun skill + workflow → disetujui di Approval.

@@ -247,7 +247,7 @@ export function FreeNotesTab() {
         noteKey={deleting ? noteKey("free", deleting.id) : null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Hapus Catatan?"
-        description="Catatan ini akan dihapus permanen."
+        description="Catatan ini dipindah ke Sampah dan bisa dipulihkan selama 30 hari."
         itemName={deleting?.title || "Tanpa Judul"}
         onConfirm={() => {
           const note = deleting;

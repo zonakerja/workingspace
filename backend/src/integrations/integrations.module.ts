@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AgentActionsModule } from "../agent-actions/agent-actions.module";
 import { AgentMenusModule } from "../agent-menus/agent-menus.module";
 import { AiModule } from "../ai/ai.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
@@ -11,7 +12,15 @@ import { LifeosMcpService } from "./lifeos-mcp.service";
 
 /** Integrasi agen: token akses pribadi + MCP server LifeOS (docs/AI-AGENT.md tahap 3). */
 @Module({
-  imports: [AgentMenusModule, AiModule, KnowledgeModule, RecordsModule, RequestsModule, WhatsappModule],
+  imports: [
+    AgentActionsModule,
+    AgentMenusModule,
+    AiModule,
+    KnowledgeModule,
+    RecordsModule,
+    RequestsModule,
+    WhatsappModule,
+  ],
   controllers: [IntegrationsController, McpController],
   providers: [ApiTokensService, LifeosMcpService],
   exports: [ApiTokensService],

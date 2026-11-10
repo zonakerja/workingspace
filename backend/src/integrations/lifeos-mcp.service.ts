@@ -8,7 +8,10 @@ import { EXCLUDED_STATUSES } from "../ai/chat/ai-chat-context";
 import { AiIndexService } from "../ai/index/ai-index.service";
 import { KNOWLEDGE_COLLECTION, WORKSPACE_COLLECTION } from "../ai/index/index-text";
 import { KnowledgeVaultService } from "../knowledge/knowledge-vault.service";
+import { RECORD_TABLES, type RecordType } from "../records/record-schema";
 import { RecordsService } from "../records/records.service";
+import { AGENT_WRITABLE_TYPES, compactPayload, describeRecordType } from "../agent-actions/agent-action-logic";
+import { AgentActionsService } from "../agent-actions/agent-actions.service";
 import { KIND_LABELS, REQUEST_KINDS, REQUEST_STATUSES, STATUS_LABELS } from "../requests/request-logic";
 import { AssetVerificationService } from "../requests/asset-verification.service";
 import { RequestsService } from "../requests/requests.service";
@@ -19,6 +22,8 @@ import { ApiTokensService, type TokenPrincipal } from "./api-tokens.service";
 
 /** Batas rentang tanggal `list_agenda` agar agen tidak menarik seluruh riwayat sekaligus. */
 const MAX_AGENDA_DAYS = 62;
+const RECORD_TYPE_NAMES = Object.keys(RECORD_TABLES) as [RecordType, ...RecordType[]];
+const WRITABLE_TYPE_NAMES = AGENT_WRITABLE_TYPES as [RecordType, ...RecordType[]];
 const EXCERPT_CHARS = 600;
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
@@ -41,6 +46,10 @@ const INSTRUCTIONS = [
   "Pengajuan yang Anda catat/analisis selalu berupa konsep di Antrian Verifikasi; persetujuan & pengiriman hanya oleh pemilik.",
   "Fitur native LifeOS (Workspace, Sistem, Tools, e-Kinerja, SRIKANDI, SIMAN) tidak boleh diubah, ditambah, atau dihapus.",
   "Proses baru dibangun sebagai skill + fitur non-native lewat propose_agent_menu, yang menunggu persetujuan pemilik.",
+  "Data kerja (agenda, to-do, project, task, catatan, resource, arsip, …) dibaca dengan list_records/get_record dan ditulis",
+  "dengan create_record/update_record sesuai permintaan pengguna; panggil describe_record_types bila ragu nama field.",
+  "Setiap buat/ubah tercatat dan bisa dibatalkan pemilik. Anda TIDAK bisa menghapus: request_delete_record hanya membuat",
+  "permintaan yang menunggu persetujuan pemilik di Approval — sampaikan itu kepada pengguna.",
 ].join(" ");
 
 /**
@@ -60,6 +69,7 @@ export class LifeosMcpService {
     private readonly whatsapp: WhatsappService,
     private readonly assets: AssetVerificationService,
     private readonly menus: AgentMenusService,
+    private readonly actions: AgentActionsService,
   ) {}
 
   createServer(principal: TokenPrincipal) {
@@ -253,6 +263,82 @@ export class LifeosMcpService {
           });
         }),
       );
+
+      server.registerTool(
+        "describe_record_types",
+        {
+          title: "Jenis data kerja",
+          description:
+            "Daftar jenis data kerja LifeOS beserta field utamanya dan apakah boleh ditulis agen. Panggil sebelum membuat/mengubah data yang belum Anda kenal.",
+          inputSchema: { type: z.enum(RECORD_TYPE_NAMES).optional().describe("Satu jenis saja (bawaan = semua)") },
+        },
+        run("describe_record_types", async ({ type }: { type?: RecordType }) =>
+          text(type ? describeRecordType(type) : RECORD_TYPE_NAMES.map((t) => describeRecordType(t))),
+        ),
+      );
+
+      server.registerTool(
+        "list_records",
+        {
+          title: "Daftar data kerja",
+          description:
+            "Daftar data kerja milik pemilik (dan yang dibagikan kepadanya) untuk satu jenis, bisa disaring kata & rentang tanggal. Teks panjang dipotong; pakai get_record untuk isi lengkap.",
+          inputSchema: {
+            type: z.enum(RECORD_TYPE_NAMES),
+            query: z.string().max(200).optional().describe("Kata yang harus ada (judul/isi)"),
+            from: z.string().optional().describe("YYYY-MM-DD (jenis yang punya tanggal)"),
+            to: z.string().optional().describe("YYYY-MM-DD"),
+            limit: z.number().int().min(1).max(100).optional(),
+          },
+        },
+        run(
+          "list_records",
+          async ({
+            type,
+            query,
+            from,
+            to,
+            limit,
+          }: {
+            type: RecordType;
+            query?: string;
+            from?: string;
+            to?: string;
+            limit?: number;
+          }) => {
+            if ((from && !isYmd(from)) || (to && !isYmd(to))) return failure("Format tanggal harus YYYY-MM-DD.");
+            const rows = await this.records.findMany(type, { from, to, light: "1" }, principal.user);
+            const words = (query ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+            const matched = rows.filter((r) => {
+              if (!words.length) return true;
+              const hay = JSON.stringify(r.payload).toLowerCase();
+              return words.every((w) => hay.includes(w));
+            });
+            const items = matched.slice(0, limit ?? 30).map((r) => ({
+              id: r.clientId,
+              shared: r.share ? { owner: r.share.ownerName, permission: r.share.permission } : undefined,
+              payload: compactPayload(r.payload as Record<string, unknown>),
+            }));
+            return text({ total: matched.length, items });
+          },
+        ),
+      );
+
+      server.registerTool(
+        "get_record",
+        {
+          title: "Buka data kerja",
+          description: "Isi lengkap satu data kerja milik pemilik.",
+          inputSchema: { type: z.enum(RECORD_TYPE_NAMES), id: z.string().min(1).max(200) },
+        },
+        run("get_record", async ({ type, id }: { type: RecordType; id: string }) => {
+          const record = await this.records.findOne(type, id, {}, principal.user);
+          return text({
+            id: record.clientId,
+            payload: compactPayload(record.payload as Record<string, unknown>, 20_000),
+          });
+        }),
+      );
     }
 
     if (can("workspace:write")) {
@@ -280,6 +366,70 @@ export class LifeosMcpService {
           };
           await this.records.upsert("todo", id, { payload }, principal.user);
           return text({ created: true, id, title: payload.title, date: ymd, priority: payload.priority });
+        }),
+      );
+      server.registerTool(
+        "create_record",
+        {
+          title: "Buat data kerja",
+          description:
+            "Buat satu data kerja baru (agenda, to-do, project, action/task, catatan, resource, arsip, …) sesuai permintaan pengguna. Tercatat dan bisa dibatalkan pemilik.",
+          inputSchema: {
+            type: z.enum(WRITABLE_TYPE_NAMES),
+            payload: z.record(z.string(), z.unknown()).describe("Isi record; nama field lihat describe_record_types"),
+          },
+        },
+        run("create_record", async ({ type, payload }: { type: RecordType; payload: Record<string, unknown> }) => {
+          const result = await this.actions.create(principal.user, type, payload);
+          return text({ created: true, id: result.id, actionId: result.actionId });
+        }),
+      );
+
+      server.registerTool(
+        "update_record",
+        {
+          title: "Ubah data kerja",
+          description:
+            "Ubah sebagian isi satu data kerja milik pemilik: hanya field yang dikirim yang berubah, null = kosongkan field. Isi sebelumnya disimpan sehingga pemilik bisa membatalkan.",
+          inputSchema: {
+            type: z.enum(WRITABLE_TYPE_NAMES),
+            id: z.string().min(1).max(200),
+            changes: z.record(z.string(), z.unknown()),
+          },
+        },
+        run(
+          "update_record",
+          async ({ type, id, changes }: { type: RecordType; id: string; changes: Record<string, unknown> }) => {
+            const result = await this.actions.update(principal.user, type, id, changes);
+            return text(
+              result.actionId
+                ? { updated: true, id, changed: result.changed, actionId: result.actionId }
+                : { updated: false, id, message: "Tidak ada perubahan." },
+            );
+          },
+        ),
+      );
+
+      server.registerTool(
+        "request_delete_record",
+        {
+          title: "Minta hapus data kerja",
+          description:
+            "Ajukan penghapusan satu data kerja milik pemilik. TIDAK langsung menghapus: menunggu persetujuan pemilik di Approval → Usulan Agen; setelah disetujui item (dan turunannya) masuk Sampah dan bisa dipulihkan 30 hari.",
+          inputSchema: {
+            type: z.enum(WRITABLE_TYPE_NAMES),
+            id: z.string().min(1).max(200),
+            reason: z.string().min(3).max(500).describe("Alasan penghapusan untuk dibaca pemilik"),
+          },
+        },
+        run("request_delete_record", async ({ type, id, reason }: { type: RecordType; id: string; reason: string }) => {
+          const result = await this.actions.requestDelete(principal.user, type, id, reason);
+          return text({
+            pending: true,
+            actionId: result.actionId,
+            message: "Permintaan hapus menunggu persetujuan pemilik di Approval → Usulan Agen.",
+            ...(result.children ? { alsoDeleted: result.children } : {}),
+          });
         }),
       );
     }

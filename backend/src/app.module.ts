@@ -19,12 +19,14 @@ import { RecordsModule } from "./records/records.module";
 import { RequestsModule } from "./requests/requests.module";
 import { RobotModule } from "./robot/robot.module";
 import { AgentModule } from "./agent/agent.module";
+import { AgentActionsModule } from "./agent-actions/agent-actions.module";
 import { AutomationModule } from "./automation/automation.module";
 import { WhatsappModule } from "./whatsapp/whatsapp.module";
 import { RedisModule } from "./redis/redis.module";
 import { SettingsModule } from "./settings/settings.module";
 import { SharingModule } from "./sharing/sharing.module";
 import { ObjectStorageModule } from "./storage/object-storage.module";
+import { TrashModule } from "./trash/trash.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { UsersModule } from "./users/users.module";
 
@@ -37,6 +39,7 @@ import { UsersModule } from "./users/users.module";
     PrismaModule,
     RedisModule,
     ObjectStorageModule,
+    TrashModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -53,6 +56,7 @@ import { UsersModule } from "./users/users.module";
     WhatsappModule,
     RobotModule,
     AgentModule,
+    AgentActionsModule,
     AutomationModule,
     NotebooksModule,
     OfficeModule,

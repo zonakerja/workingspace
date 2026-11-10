@@ -168,7 +168,7 @@ export function PhysicalReferenceManager() {
         open={!!deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Hapus Referensi?"
-        description="Data lokasi ini beserta seluruh sub-wadahnya akan dihapus permanen."
+        description="Data lokasi ini beserta seluruh sub-wadahnya dipindah ke Sampah dan bisa dipulihkan selama 30 hari."
         itemName={deleting ? `${deleting.code} - ${deleting.name}` : undefined}
         confirmLabel="Hapus"
         onConfirm={() => {

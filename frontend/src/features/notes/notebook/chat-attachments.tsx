@@ -56,7 +56,7 @@ export function useChatAttachments() {
     if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
     if (item.uploadId) {
       untrackPendingUpload(item.uploadId);
-      void uploadsApi.remove(item.uploadId).catch(() => undefined);
+      void uploadsApi.discard(item.uploadId).catch(() => undefined);
     }
   };
 
@@ -109,7 +109,7 @@ export function useChatAttachments() {
           uploadId = asset.id;
           if (!stillThere(key)) {
             // Sudah dihapus dari baki sebelum unggahan selesai
-            void uploadsApi.remove(asset.id).catch(() => undefined);
+            void uploadsApi.discard(asset.id).catch(() => undefined);
             return;
           }
           trackPendingUpload(asset.id);

@@ -11,6 +11,7 @@ import { useAgentMenuMutations, useAgentMenus, useAgentStatus } from "@/data/use
 import { errorMessage } from "@/lib/api/client";
 import type { AgentMenu } from "@/lib/api/endpoints";
 import { getAppIcon } from "@/lib/icons/icon-registry";
+import { DeleteRequestsCard } from "./delete-requests-card";
 
 const PLACEMENT_LABELS: Record<AgentMenu["placement"], string> = {
   workflow: "AI Agent → Workflow",
@@ -37,9 +38,12 @@ export function ProposalsTab() {
 
   if (status && !status.owner) {
     return (
-      <Card className="p-10 text-center text-sm text-muted-foreground">
-        Usulan agen hanya untuk pemilik agen (HERMES_OWNER_EMAIL).
-      </Card>
+      <div className="grid grid-cols-1 gap-3">
+        <DeleteRequestsCard />
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          Usulan fitur agen hanya untuk pemilik agen (HERMES_OWNER_EMAIL).
+        </Card>
+      </div>
     );
   }
   const drafts = (menus ?? []).filter((x) => x.status === "draft");
@@ -47,6 +51,7 @@ export function ProposalsTab() {
 
   return (
     <div className="grid grid-cols-1 gap-3">
+      <DeleteRequestsCard />
       <Card className="flex items-start gap-3 p-4">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-module-soft text-module">
           <ShieldCheck className="size-5" />

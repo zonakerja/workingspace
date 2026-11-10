@@ -123,6 +123,18 @@ export class ShareAccessService {
     return { ownerId, ownerName, records, uploads };
   }
 
+  /**
+   * Turunan satu item milik `ownerId` yang ikut terhapus bersamanya (project → action & agenda; area → sub area, kegiatan,
+   * project & isinya). Notes AI yang tertaut ke agenda tidak ikut (catatan pribadi, sama seperti hapus dari aplikasi).
+   */
+  async descendantsOf(ownerId: string, type: string, id: string): Promise<[string, string][]> {
+    const root: ShareRoot = { type, id, permission: "edit" };
+    const access = expandDescendants([root], await this.loadStructure(ownerId, [root]));
+    return [...access.values()]
+      .filter((e) => !e.root && e.type !== "ai_note")
+      .map((e): [string, string] => [e.type, e.id]);
+  }
+
   /** Kolom relasi pemilik yang diperlukan untuk menurunkan turunan root. */
   private async loadStructure(ownerId: string, roots: ShareRoot[]): Promise<ShareStructure> {
     const types = new Set(roots.map((r) => r.type));

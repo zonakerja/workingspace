@@ -1,5 +1,14 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { AssetExtractionStatus, Prisma, type Request } from "../generated/prisma/client";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from "@nestjs/common";
+import { restorableRow, toSnapshot } from "../trash/trash-restore";
+import { TrashService } from "../trash/trash.service";
+import { AssetExtractionStatus, Prisma, type Request, type TrashItem } from "../generated/prisma/client";
 import { chatCitations, EXCLUDED_STATUSES, numberSources } from "../ai/chat/ai-chat-context";
 import { AiService } from "../ai/ai.service";
 import { AiIndexService } from "../ai/index/ai-index.service";
@@ -95,7 +104,7 @@ const LIST_SELECT = {
  * lalu dokumen dibuat dari templat instansi. Semua keluaran agen berstatus konsep sampai diverifikasi pengguna.
  */
 @Injectable()
-export class RequestsService {
+export class RequestsService implements OnModuleInit {
   private readonly logger = new Logger(RequestsService.name);
   private readonly statusListeners: RequestStatusListener[] = [];
   private readonly createdListeners: RequestCreatedListener[] = [];
@@ -106,7 +115,33 @@ export class RequestsService {
     private readonly index: AiIndexService,
     private readonly uploads: UploadsService,
     private readonly storage: ObjectStorageService,
+    private readonly trash: TrashService,
   ) {}
+
+  /** Pengajuan yang dihapus disalin ke Sampah; berkasnya masuk Sampah di kelompok yang sama. */
+  onModuleInit() {
+    this.trash.registerHandler("request", {
+      restore: (item) => this.restoreFromTrash(item),
+      purge: async () => undefined,
+    });
+  }
+
+  private async restoreFromTrash(item: TrashItem) {
+    const row = item.snapshot as unknown as Request | null;
+    if (!row?.id) throw new Error("Salinan pengajuan tidak lengkap.");
+    if (await this.prisma.request.findUnique({ where: { id: row.id } })) return;
+    const contact = row.waContactId
+      ? await this.prisma.waContact.findUnique({ where: { id: row.waContactId }, select: { id: true } })
+      : null;
+    await this.prisma.request.create({
+      data: restorableRow({ ...row, waContactId: contact ? row.waContactId : null }, [
+        "analysis",
+        "reviewCitations",
+        "assetCheck",
+        "autoDecision",
+      ]) as unknown as Prisma.RequestUncheckedCreateInput,
+    });
+  }
 
   onStatusChange(listener: RequestStatusListener) {
     this.statusListeners.push(listener);
@@ -294,13 +329,27 @@ export class RequestsService {
     return this.get(user.id, id);
   }
 
+  /** Hapus = pindah ke Sampah bersama berkas pemohon & dokumen hasilnya (bisa dipulihkan 30 hari). */
   async remove(user: AuthUser, id: string) {
     const request = await this.own(user.id, id);
-    await this.prisma.request.delete({ where: { id } });
+    const batchId = await this.prisma.$transaction(async (tx) => {
+      await tx.request.delete({ where: { id } });
+      return this.trash.add(
+        {
+          userId: user.id,
+          kind: "request",
+          itemId: id,
+          title: request.title,
+          actorId: user.id,
+          snapshot: toSnapshot(request),
+        },
+        tx,
+      );
+    });
     for (const file of [...asList<Attachment>(request.attachments), ...asList<GeneratedDocument>(request.documents)]) {
-      await this.removeUpload(user, file.uploadId);
+      await this.removeUpload(user, file.uploadId, true);
     }
-    return { success: true };
+    return { success: true, batchId };
   }
 
   // ---------------------------------------------------------------- Agen AI
@@ -636,8 +685,8 @@ export class RequestsService {
     }
   }
 
-  private async removeUpload(user: AuthUser, uploadId: string) {
-    await this.uploads.remove(uploadId, user).catch((error) => {
+  private async removeUpload(user: AuthUser, uploadId: string, trash = false) {
+    await this.uploads.remove(uploadId, user, { trash }).catch((error) => {
       if (!(error instanceof NotFoundException)) {
         this.logger.warn(
           `Berkas pengajuan ${uploadId} gagal dihapus: ${error instanceof Error ? error.message : error}`,

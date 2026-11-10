@@ -125,7 +125,7 @@ function DeleteWithFilesBody({
                         ? "Dipakai di tempat lain — tetap disimpan"
                         : kept
                           ? "Dipertahankan → Resource Global"
-                          : "Akan dihapus permanen"}
+                          : "Ke Sampah"}
                     </span>
                   </span>
                   {isShared ? (
@@ -147,7 +147,9 @@ function DeleteWithFilesBody({
       <DialogFooter className="items-center gap-2 sm:justify-between">
         <span className="text-xs text-muted-foreground">
           {files.length > 0 &&
-            (removeCount > 0 ? `${removeCount} berkas akan dihapus permanen` : "Tidak ada berkas yang dihapus")}
+            (removeCount > 0
+              ? `${removeCount} berkas dipindah ke Sampah (bisa dipulihkan 30 hari)`
+              : "Tidak ada berkas yang dihapus")}
         </span>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

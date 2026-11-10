@@ -28,6 +28,7 @@ import { generateId } from "@/lib/ids";
 import { Link } from "react-router";
 import { AgentSetupCard } from "./agent-setup-card";
 import { WorkflowTab } from "./workflow-tab";
+import { ActionHistoryTab } from "./action-history-tab";
 
 /**
  * AI Agent: antarmuka LifeOS untuk agen Hermes (docs/AI-AGENT.md §23) — chat, status & skill, tugas
@@ -51,7 +52,9 @@ export function Component() {
       }
     >
       {(tab) =>
-        !status ? null : !ready && tab !== "status" ? (
+        tab === "actions" ? (
+          <ActionHistoryTab />
+        ) : !status ? null : !ready && tab !== "status" ? (
           <NotReady status={status} />
         ) : tab === "status" ? (
           <StatusTab status={status} />

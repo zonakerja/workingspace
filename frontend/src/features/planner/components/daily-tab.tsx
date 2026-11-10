@@ -654,7 +654,7 @@ export function DailyTab() {
         open={!!deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Hapus Tugas?"
-        description="Tugas ini akan dihapus permanen:"
+        description="Tugas ini dipindah ke Sampah (bisa dipulihkan 30 hari):"
         itemName={deleting?.title}
         files={deletingFiles}
         shared={deleting?.isProd ? cleanup.referenced(deleting.resources ?? []) : undefined}

@@ -477,7 +477,7 @@ export function TaskManager({ owner, ownerType, headerExtra }: TaskManagerProps)
         open={!!deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Hapus ${label}?`}
-        description={`${label} ini akan dihapus permanen:`}
+        description={`${label} ini dipindah ke Sampah (bisa dipulihkan 30 hari):`}
         itemName={deleting?.title}
         files={deletingFiles}
         shared={deleting ? cleanup.referenced(deleting.resources ?? []) : undefined}

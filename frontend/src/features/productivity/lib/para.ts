@@ -164,7 +164,7 @@ export const deleteDescription = (
     impact.scheduleCount ? `${impact.scheduleCount} agenda` : "",
   ].filter(Boolean);
   return parts.length > 0
-    ? `${label} ini beserta ${joinParts(parts)} di dalamnya akan dihapus permanen. Gunakan Arsipkan bila ingin menyimpannya.`
+    ? `${label} ini beserta ${joinParts(parts)} di dalamnya dipindah ke Sampah dan bisa dipulihkan selama 30 hari. Gunakan Arsipkan bila ingin menyimpannya.`
     : "Anda yakin ingin menghapus item ini secara permanen?";
 };
 
