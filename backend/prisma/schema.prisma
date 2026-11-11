@@ -165,6 +165,7 @@ model User {
   agentMenus            AgentMenu[]
   trashItems            TrashItem[]
   agentActions          AgentAction[]
+  mcpConnections        McpConnection[]
   agentRuns             AgentRun[]
   /// Sakelar darurat Kebijakan Otomatis: true = tidak ada tugas/keputusan/kiriman otomatis baru
   agentAutoPaused       Boolean                @default(false) @map("agent_auto_paused")
@@ -1804,4 +1805,42 @@ model AgentAction {
   @@index([userId, createdAt])
   @@index([userId, status])
   @@map("agent_actions")
+}
+
+/// Koneksi ke server MCP aplikasi luar (Canva, Notion, GitHub, …): LifeOS menjadi klien MCP. Kredensial (token / OAuth)
+/// terenkripsi dan tidak pernah dikirim ke browser maupun ke agen; agen memakai alatnya lewat MCP LifeOS bila diizinkan.
+model McpConnection {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  name          String
+  /// Bagian alamat halaman /mcp-app/<slug>, unik per user
+  slug          String
+  url           String
+  /// Kunci katalog (canva, notion, …) atau null = alamat sendiri
+  preset        String?
+  icon          String?
+  /// none | token | oauth
+  authType      String    @map("auth_type")
+  /// Token bearer terenkripsi (authType token)
+  tokenEnc      String?   @map("token_enc")
+  /// Data OAuth terenkripsi: client information, tokens, code verifier
+  oauthEnc      String?   @map("oauth_enc")
+  /// Nilai state OAuth yang sedang menunggu callback
+  oauthState    String?   @unique @map("oauth_state")
+  /// new | connected | auth_required | error
+  status        String    @default("new")
+  statusMessage String?   @map("status_message")
+  /// Daftar alat terakhir: [{ name, title, description, readOnly, destructive }]
+  tools         Json      @default("[]")
+  /// Agen boleh melihat & memakai alat koneksi ini
+  agentEnabled  Boolean   @default(false) @map("agent_enabled")
+  /// Agen boleh memakai alat yang bisa mengubah data di aplikasi itu (selain alat baca)
+  allowWrite    Boolean   @default(false) @map("allow_write")
+  lastCheckedAt DateTime? @map("last_checked_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, slug])
+  @@map("mcp_connections")
 }

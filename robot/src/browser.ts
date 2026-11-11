@@ -27,7 +27,14 @@ import {
   rowKey,
   syncPlan,
 } from "./ekinerja-renaksi.js";
-import { classifyFields, infoDialogButton, loginStage, pickSubmit } from "./login-form.js";
+import {
+  classifyFields,
+  infoDialogButton,
+  isRememberCheckbox,
+  loginStage,
+  pickLoginEntry,
+  pickSubmit,
+} from "./login-form.js";
 import {
   mergeReferenceItems,
   parseReferenceRows,
@@ -1349,7 +1356,7 @@ export class BrowserPool {
       });
       const messages = Array.from(
         document.querySelectorAll(
-          "[role=alert], .alert, .swal2-html-container, .swal2-title, .toast, .invalid-feedback, .text-danger, .error-message",
+          "[role=alert], .alert, .swal2-html-container, .swal2-title, .toast, .invalid-feedback, .text-danger, .error-message, .validation-summary-errors",
         ),
       )
         .filter(visible)
@@ -1361,6 +1368,7 @@ export class BrowserPool {
     return {
       fields: classifyFields(data.fields),
       submit: pickSubmit(data.buttons),
+      entry: pickLoginEntry(data.buttons),
       message: data.messages.join(" · ").slice(0, 300) || undefined,
     };
   }
@@ -1392,6 +1400,35 @@ export class BrowserPool {
     if (!clip) return undefined;
     const image = await page.screenshot({ type: "png", clip, fullPage: true }).catch(() => undefined);
     return image?.toString("base64");
+  }
+
+  /** Centang kotak "ingat browser/perangkat ini" yang terlihat (sesi tersimpan lebih lama); kotak lain tidak disentuh. */
+  private async checkRemember(page: Page) {
+    const indexes = await page
+      .evaluate(() =>
+        Array.from(document.querySelectorAll("input[type=checkbox]"))
+          .map((el, index) => {
+            const input = el as HTMLInputElement;
+            const labels = input.labels ? Array.from(input.labels).map((l) => l.textContent) : [];
+            el.setAttribute("data-lifeos-check", String(index));
+            const box = input.getBoundingClientRect();
+            return {
+              index,
+              checked: input.checked,
+              visible: box.width > 0 || labels.length > 0,
+              text: [...labels, input.name, input.id, input.getAttribute("aria-label")].join(" "),
+            };
+          })
+          .filter((c) => !c.checked && c.visible),
+      )
+      .catch(() => []);
+    for (const c of indexes) {
+      if (!isRememberCheckbox(c.text)) continue;
+      await page
+        .locator(`[data-lifeos-check="${c.index}"]`)
+        .check({ force: true, timeout: 2_000 })
+        .catch(() => undefined);
+    }
   }
 
   private async fill(page: Page, index: number | undefined, value: string) {
@@ -1470,10 +1507,19 @@ export class BrowserPool {
     const { page, markers } = this.live(id);
     const info = await this.describe(page, markers);
     if (info.loggedIn) return { ...info, stage: "done" as const };
-    const form = await this.scan(page);
+    let form = await this.scan(page);
+    // Beranda dengan tombol "Login" yang mengalihkan ke SSO (mis. SIMAN → KemenkeuID): klik dulu, lalu pindai lagi
+    if (form.fields.password === undefined && form.entry !== null) {
+      await page.locator(`[data-lifeos-button="${form.entry}"]`).click({ timeout: 5_000 });
+      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+      await page.waitForTimeout(1_200);
+      if ((await this.describe(page, markers)).loggedIn) return this.loginState(page, markers);
+      form = await this.scan(page);
+    }
     if (form.fields.password === undefined) return this.loginState(page, markers);
     await this.fill(page, form.fields.username, credentials.username);
     await this.fill(page, form.fields.password, credentials.password);
+    await this.checkRemember(page);
     if (form.fields.captcha === undefined) await this.submit(page, form.submit, form.fields.password);
     return this.loginState(page, markers);
   }
@@ -1506,6 +1552,7 @@ export class BrowserPool {
       } else {
         await this.fill(page, form.fields.otp[0], value);
       }
+      await this.checkRemember(page);
       await this.submit(page, form.submit, form.fields.otp.at(-1));
     }
     return this.loginState(page, markers);

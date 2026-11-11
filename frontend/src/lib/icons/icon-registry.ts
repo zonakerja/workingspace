@@ -1,5 +1,6 @@
 import {
   Activity,
+  Plug,
   AlarmClock,
   Apple,
   Archive,
@@ -308,6 +309,7 @@ export const APP_ICONS: AppIcon[] = [
   i("monitor", Monitor, "Komputer", "teknologi", "komputer layar desktop"),
   i("smartphone", Smartphone, "Ponsel", "teknologi", "hp ponsel aplikasi mobile"),
   i("code", Code, "Pemrograman", "teknologi", "coding program developer sprint"),
+  i("plug", Plug, "Koneksi", "teknologi", "koneksi plugin integrasi aplikasi mcp sambung"),
   i("server", Server, "Server", "teknologi", "server infrastruktur deploy"),
   i("database", Database, "Data", "teknologi", "data database basis data"),
   i("cpu", Cpu, "Hardware", "teknologi", "hardware perangkat keras"),

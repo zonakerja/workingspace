@@ -20,6 +20,7 @@ import { RequestsModule } from "./requests/requests.module";
 import { RobotModule } from "./robot/robot.module";
 import { AgentModule } from "./agent/agent.module";
 import { AgentActionsModule } from "./agent-actions/agent-actions.module";
+import { McpConnectionsModule } from "./mcp-connections/mcp-connections.module";
 import { AutomationModule } from "./automation/automation.module";
 import { WhatsappModule } from "./whatsapp/whatsapp.module";
 import { RedisModule } from "./redis/redis.module";
@@ -57,6 +58,7 @@ import { UsersModule } from "./users/users.module";
     RobotModule,
     AgentModule,
     AgentActionsModule,
+    McpConnectionsModule,
     AutomationModule,
     NotebooksModule,
     OfficeModule,

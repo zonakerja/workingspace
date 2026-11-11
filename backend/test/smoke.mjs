@@ -2012,7 +2012,7 @@ try {
     return { s: res.status, d: await res.json().catch(() => null) };
   };
   r = await j("GET", "/integrations/scopes", null, at);
-  ok("integrations scopes", r.s === 200 && r.d.length === 9, r);
+  ok("integrations scopes", r.s === 200 && r.d.length === 10, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: [] }, at);
   ok("token without scopes 400", r.s === 400, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: ["admin:all"] }, at);
@@ -2026,6 +2026,35 @@ try {
   ok("token create (plain token once)", r.s === 201 && r.d.token?.startsWith("lifeos_pat_") && r.d.expiresAt, r);
   const pat = r.d.token;
   const patId = r.d.id;
+  // Koneksi aplikasi MCP luar: katalog, validasi alamat, kredensial tidak pernah dikembalikan, izin agen
+  {
+    r = await j("GET", "/mcp-connections/presets", null, at);
+    ok("mcp apps presets", r.s === 200 && r.d.some((p) => p.key === "canva" && p.authType === "oauth"), r);
+    r = await j("POST", "/mcp-connections", { name: "x", url: "ftp://contoh.com/mcp" }, at);
+    ok("mcp apps invalid url 400", r.s === 400, r);
+    r = await j(
+      "POST",
+      "/mcp-connections",
+      { name: "Smoke Apl", url: "http://localhost:9/mcp", authType: "token", token: "rahasia-smoke" },
+      at,
+    );
+    ok("mcp apps create hides token", r.s === 201 && r.d.hasToken && !JSON.stringify(r.d).includes("rahasia-smoke"), r);
+    const appId = r.d.id;
+    r = await j("POST", `/mcp-connections/${appId}/connect`, null, at);
+    ok("mcp apps unreachable → error status", r.s === 200 && r.d.connection.status === "error", r);
+    r = await j("GET", `/mcp-connections/smoke-apl`, null, at);
+    ok("mcp apps get by slug", r.s === 200 && r.d.id === appId, r);
+    const appsPat = (await j("POST", "/integrations/tokens", { name: "Smoke apps", scopes: ["mcp:apps"] }, at)).d;
+    r = await mcp(appsPat.token, "tools/call", {
+      name: "call_app_tool",
+      arguments: { connection: "smoke-apl", tool: "apa_saja", arguments: {} },
+    });
+    ok("mcp apps agent blocked when not allowed", r.d?.result?.isError === true, r);
+    await j("DELETE", `/integrations/tokens/${appsPat.id}`, null, at);
+    r = await j("DELETE", `/mcp-connections/${appId}`, null, at);
+    ok("mcp apps delete", r.s === 200, r);
+  }
+
   // Aksi agen atas data kerja: buat/ubah bisa dibatalkan, hapus hanya permintaan yang menunggu persetujuan → Sampah
   {
     const tool = async (name, args) => {

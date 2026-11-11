@@ -133,7 +133,8 @@ export type ApiScope =
   | "requests:read"
   | "requests:write"
   | "ai:model"
-  | "agent:menus";
+  | "agent:menus"
+  | "mcp:apps";
 
 export interface ApiTokenInfo {
   id: string;
@@ -199,6 +200,46 @@ export interface KnowledgeExtractInput extends KnowledgeComposeInput {
 
 /** Catatan berkala di menu Knowledge: harian, mingguan (minggu ISO), bulanan */
 export type KnowledgePeriod = "day" | "week" | "month";
+
+export type McpAuthType = "none" | "token" | "oauth";
+
+export interface McpPreset {
+  key: string;
+  name: string;
+  description: string;
+  url: string;
+  authType: McpAuthType;
+  icon: string;
+  hint: string;
+}
+
+export interface McpToolSummary {
+  name: string;
+  title: string | null;
+  description: string;
+  readOnly: boolean;
+  destructive: boolean;
+}
+
+/** Koneksi ke server MCP aplikasi luar (kredensial tidak pernah dikirim ke browser). */
+export interface McpConnectionInfo {
+  id: string;
+  name: string;
+  slug: string;
+  url: string;
+  preset: string | null;
+  icon: string | null;
+  authType: McpAuthType;
+  hasToken: boolean;
+  authorized?: boolean;
+  status: "new" | "connected" | "auth_required" | "error";
+  statusMessage: string | null;
+  tools: McpToolSummary[];
+  agentEnabled: boolean;
+  allowWrite: boolean;
+  lastCheckedAt: string | null;
+  createdAt: string;
+}
 
 /** Aksi agen atas data kerja: buat/ubah (bisa dibatalkan) atau permintaan hapus (menunggu persetujuan). */
 export interface AgentActionInfo {

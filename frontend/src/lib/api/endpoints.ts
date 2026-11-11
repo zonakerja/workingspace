@@ -86,6 +86,9 @@ import type {
   SmartSearchMode,
   TrashItemInfo,
   AgentActionInfo,
+  McpAuthType,
+  McpConnectionInfo,
+  McpPreset,
   SmartSearchResponse,
   AiProviderId,
   AiProviderInput,
@@ -306,6 +309,39 @@ export const officeApi = {
     if (!response.ok) throw new Error(`Versi tidak dapat diunduh (status ${response.status}).`);
     return response.blob();
   },
+};
+
+export interface McpConnectionInput {
+  name?: string;
+  url?: string;
+  preset?: string;
+  authType?: McpAuthType;
+  token?: string;
+  icon?: string;
+  agentEnabled?: boolean;
+  allowWrite?: boolean;
+}
+
+/** Koneksi aplikasi MCP luar (Canva, Notion, …). */
+export const mcpConnectionsApi = {
+  presets: () => request<McpPreset[]>("/mcp-connections/presets"),
+  list: () => request<McpConnectionInfo[]>("/mcp-connections"),
+  get: (idOrSlug: string) => request<McpConnectionInfo>(`/mcp-connections/${encodeURIComponent(idOrSlug)}`),
+  create: (input: McpConnectionInput) =>
+    request<McpConnectionInfo>("/mcp-connections", { method: "POST", body: input }),
+  update: (id: string, input: McpConnectionInput) =>
+    request<McpConnectionInfo>(`/mcp-connections/${id}`, { method: "PATCH", body: input }),
+  remove: (id: string) => request<{ success: boolean }>(`/mcp-connections/${id}`, { method: "DELETE" }),
+  connect: (id: string) =>
+    request<{ connection?: McpConnectionInfo; authorizationUrl?: string }>(`/mcp-connections/${id}/connect`, {
+      method: "POST",
+    }),
+  refresh: (id: string) => request<McpConnectionInfo>(`/mcp-connections/${id}/refresh`, { method: "POST" }),
+  call: (id: string, tool: string, args: Record<string, unknown>) =>
+    request<{ isError: boolean; text: string }>(`/mcp-connections/${id}/call`, {
+      method: "POST",
+      body: { tool, arguments: args },
+    }),
 };
 
 export const agentActionsApi = {

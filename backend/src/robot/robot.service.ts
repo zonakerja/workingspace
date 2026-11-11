@@ -24,6 +24,7 @@ import {
   type StorageState,
 } from "./robot-client";
 import {
+  connectorHosts,
   isRobotSystem,
   normalizeHosts,
   normalizeSystemUrl,
@@ -271,13 +272,19 @@ export class RobotService {
     const result = [];
     for (const system of ROBOT_SYSTEMS) {
       // upsert: dua permintaan pertama yang bersamaan tidak bentrok membuat baris yang sama
-      const row =
+      let row =
         rows.find((r) => r.system === system) ??
         (await this.prisma.robotConnector.upsert({
           where: { userId_system: { userId, system } },
           create: { userId, system, baseUrl: SYSTEM_INFO[system].defaultUrl },
           update: {},
         }));
+      // Konektor lama tanpa alamat mendapat alamat bawaan yang kini tersedia (mis. SIMAN)
+      if (!row.baseUrl && SYSTEM_INFO[system].defaultUrl)
+        row = await this.prisma.robotConnector.update({
+          where: { id: row.id },
+          data: { baseUrl: SYSTEM_INFO[system].defaultUrl },
+        });
       result.push(this.view(row));
     }
     return result;
@@ -346,7 +353,10 @@ export class RobotService {
     if (event.type === "goto") {
       const connector = this.prisma.robotConnector.findUniqueOrThrow({ where: { id: live.connectorId } });
       return connector.then((c) => {
-        if (typeof event.url !== "string" || !urlInConnector(event.url, c.baseUrl, asList(c.extraHosts))) {
+        if (
+          typeof event.url !== "string" ||
+          !urlInConnector(event.url, c.baseUrl, connectorHosts(c.system, asList(c.extraHosts)))
+        ) {
           throw new BadRequestException("Alamat di luar sistem konektor ini.");
         }
         return this.robot.input(sessionId, event);
@@ -393,7 +403,10 @@ export class RobotService {
     const connector = await this.connector(userId, system);
     this.requireSession(connector);
     try {
-      const result = await this.robot.check(this.target(connector));
+      const result = await this.robot.check({
+        ...this.target(connector),
+        homeUrl: SYSTEM_INFO[connector.system as RobotSystem]?.homeUrl,
+      });
       const saved = await this.saveState(connector.id, result, false);
       await this.log(userId, connector.id, "check", result, {
         note: result.loggedIn ? "Sesi masih aktif" : "Sesi kedaluwarsa — perlu login ulang",
@@ -413,7 +426,7 @@ export class RobotService {
     const connector = await this.connector(userId, system);
     this.requireSession(connector);
     const target = url.trim() || connector.baseUrl;
-    if (!urlInConnector(target, connector.baseUrl, asList(connector.extraHosts))) {
+    if (!urlInConnector(target, connector.baseUrl, connectorHosts(connector.system, asList(connector.extraHosts)))) {
       throw new BadRequestException("Alamat di luar sistem konektor ini.");
     }
     try {
@@ -1392,7 +1405,7 @@ export class RobotService {
     }
     return {
       baseUrl: connector.baseUrl,
-      extraHosts: asList(connector.extraHosts),
+      extraHosts: connectorHosts(connector.system, asList(connector.extraHosts)),
       loginMarkers: [...SYSTEM_INFO[connector.system as RobotSystem].loginMarkers, ...asList(connector.loginMarkers)],
       storageState,
     };

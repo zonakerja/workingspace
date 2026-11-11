@@ -3,6 +3,7 @@ import { AgentActionsModule } from "../agent-actions/agent-actions.module";
 import { AgentMenusModule } from "../agent-menus/agent-menus.module";
 import { AiModule } from "../ai/ai.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
+import { McpConnectionsModule } from "../mcp-connections/mcp-connections.module";
 import { RecordsModule } from "../records/records.module";
 import { RequestsModule } from "../requests/requests.module";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
@@ -17,6 +18,7 @@ import { LifeosMcpService } from "./lifeos-mcp.service";
     AgentMenusModule,
     AiModule,
     KnowledgeModule,
+    McpConnectionsModule,
     RecordsModule,
     RequestsModule,
     WhatsappModule,

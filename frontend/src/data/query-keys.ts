@@ -9,6 +9,8 @@ export const queryKeys = {
   aiSettings: ["ai-settings"] as const,
   aiIndex: ["ai-index"] as const,
   trash: ["trash"] as const,
+  mcpConnections: ["mcp-connections"] as const,
+  mcpPresets: ["mcp-connections", "presets"] as const,
   agentActions: (status?: string) => ["agent-actions", status ?? "all"] as const,
   agentActionsPending: ["agent-actions", "pending-count"] as const,
   smartSearch: (q: string, mode: string) => ["ai-index", "smart-search", mode, q] as const,

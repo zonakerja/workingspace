@@ -71,6 +71,8 @@ export type ModuleKey =
   | "srikandi"
   | "siman"
   | "custom"
+  | "mcp"
+  | "mcpapp"
   | "tools"
   | "settings"
   | "profile";
@@ -94,8 +96,11 @@ export interface ModuleDef {
   hiddenInSidebar?: boolean;
   /** Di sidebar tampil sebagai menu yang bisa dibuka berisi sub menu (= tab), seperti Pengaturan. */
   sidebarSubmenu?: boolean;
-  /** Kelompok sidebar: `workspace` (default), `agent` (Connection & MCP) atau `system` (Tools, Pengaturan). */
-  sidebarGroup?: "workspace" | "agent" | "system";
+  /**
+   * Kelompok sidebar: `workspace` (default), `ai` (AI Agent: Knowledge, AI Agent, Approval), `connection` (Connection & MCP)
+   * atau `system` (Tools, Pengaturan).
+   */
+  sidebarGroup?: "workspace" | "ai" | "connection" | "system";
 }
 
 /** Sumber tunggal navigasi: sidebar, router, breadcrumb, hero halaman. */
@@ -167,6 +172,7 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: "knowledge",
+    sidebarGroup: "ai",
     label: "Knowledge",
     description: "Vault Obsidian Anda di LifeOS: jelajahi, sunting, graf tautan, tabel properti, dan kurasi Inbox.",
     path: "/knowledge",
@@ -184,6 +190,7 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: "agent",
+    sidebarGroup: "ai",
     label: "AI Agent",
     description:
       "Agen AI Hermes yang bekerja dengan data LifeOS: chat dan workflow — hasilnya selalu Anda periksa di Approval.",
@@ -198,6 +205,7 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: "requests",
+    sidebarGroup: "ai",
     label: "Approval",
     description:
       "Pengajuan & surat dari satker, instansi, atau masyarakat — lewat aplikasi, agen, atau bot WhatsApp: analisis kelengkapan, telaah, konsep jawaban, dan dokumen dari templat — semua menunggu persetujuan Anda.",
@@ -219,7 +227,7 @@ export const MODULES: ModuleDef[] = [
       "Rencana aksi bulanan e-Kinerja yang Anda pilih dari Productivity, dipetakan ke RHK SKP yang diambil robot — robot hanya mengisikan draf.",
     path: "/kinerja",
     icon: ClipboardList,
-    sidebarGroup: "agent",
+    sidebarGroup: "connection",
     tabs: [
       { id: "plan", label: "Rencana Aksi", icon: ClipboardList },
       { id: "connector", label: "Connector", icon: Bot },
@@ -232,7 +240,7 @@ export const MODULES: ModuleDef[] = [
       "Register naskah keluar sebelum didaftarkan ke SRIKANDI, lalu naskah ber-TTD diambil robot kembali ke LifeOS — tanda tangan & pengiriman tetap oleh Anda.",
     path: "/srikandi",
     icon: FileSignature,
-    sidebarGroup: "agent",
+    sidebarGroup: "connection",
     tabs: [
       { id: "register", label: "Register Naskah Keluar", icon: FilePlus2 },
       { id: "outgoing", label: "Daftar Naskah Keluar", icon: FileSignature },
@@ -247,11 +255,28 @@ export const MODULES: ModuleDef[] = [
       "Koneksi ke SIMAN: mengecek tiket pengajuan dari satker dan memasukkan surat keputusan yang sudah jadi.",
     path: "/siman",
     icon: Landmark,
-    sidebarGroup: "agent",
+    sidebarGroup: "connection",
     tabs: [
       { id: "process", label: "Cara Kerja", icon: Workflow },
       { id: "connector", label: "Connector", icon: Bot },
     ],
+  },
+  {
+    key: "mcp",
+    label: "Aplikasi MCP",
+    description:
+      "Sambungkan aplikasi yang punya server MCP (Canva, Notion, GitHub, …). Aplikasi yang tersambung tampil di Connection & MCP dan alatnya bisa dipakai agen bila Anda izinkan.",
+    path: "/mcp",
+    icon: Plug,
+    sidebarGroup: "connection",
+  },
+  {
+    key: "mcpapp",
+    label: "Aplikasi MCP",
+    description: "Aplikasi luar yang tersambung lewat MCP.",
+    path: "/mcp-app",
+    icon: Plug,
+    hiddenInSidebar: true,
   },
   {
     key: "custom",

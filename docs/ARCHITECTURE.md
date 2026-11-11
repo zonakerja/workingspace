@@ -437,6 +437,12 @@ Tahap 3 [AI-AGENT.md](AI-AGENT.md) §18. Agen AI luar (Hermes, Claude Desktop, n
 - **Log aktivitas agen** (`agent_activity_logs`): setiap pemanggilan tool (token, argumen diringkas, ok/error, pesan);
   token dicabut → log tetap (`token_id` SetNull, `token_name` tersimpan).
 - Paket: `@modelcontextprotocol/sdk` (CJS `dist/cjs` lewat subpath `…/server/mcp.js`) + `zod` 4 (peer SDK).
+- **Arah sebaliknya: LifeOS sebagai klien MCP** (`src/mcp-connections/`, 2026-11-10). User menyambungkan aplikasi luar (Canva,
+  Notion, Linear, GitHub, alamat lain) dari menu Connection & MCP → Aplikasi MCP. Kredensial (token / OAuth dengan pendaftaran
+  klien dinamis + PKCE) disimpan terenkripsi di `mcp_connections` dan hanya dipakai backend; daftar alat disalin dari `tools/list`.
+  Agen memakai aplikasi lewat alat LifeOS `list_app_tools` / `call_app_tool` (cakupan `mcp:apps`) dengan izin per aplikasi: baca
+  selalu, ubah bila diizinkan, hapus (`destructiveHint`) tidak pernah, karena aksi di aplikasi luar tidak bisa dipulihkan dari
+  Sampah. Rincian: CLAUDE.md §8 "Koneksi aplikasi MCP luar".
 
 ### 3.8 Pengajuan satker, mesin templat & Antrian Verifikasi (`src/requests/`, menu Pengajuan)
 

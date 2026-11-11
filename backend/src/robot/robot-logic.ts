@@ -15,6 +15,13 @@ export interface RobotSystemInfo {
   defaultUrl: string;
   /** Penanda alamat halaman login khusus sistem (selain penanda umum di service robot) */
   loginMarkers: string[];
+  /** Host lain yang selalu boleh dibuka robot untuk sistem ini (mis. halaman SSO), selain host tambahan isian pengguna */
+  defaultHosts: string[];
+  /**
+   * Halaman yang dibuka untuk Cek sesi / Jaga sesi bila alamat konektor adalah halaman login (kosong = alamat konektor).
+   * Sesi habis = dialihkan ke halaman login.
+   */
+  homeUrl?: string;
   /** Pekerjaan robot pada sistem ini; `scheduled` = tugas baca-saja yang bisa dijadwalkan (sub-tab Otomasi terjadwal) */
   flows: { label: string; scheduled: boolean }[];
   /** Batas tindakan robot pada sistem ini */
@@ -27,6 +34,7 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
     description: "Aplikasi umum bidang kearsipan dinamis (ANRI): naskah dinas keluar/masuk, disposisi, TTE.",
     defaultUrl: "https://srikandi.arsip.go.id",
     loginMarkers: ["/auth/login"],
+    defaultHosts: [],
     flows: [
       {
         label: "Daftarkan naskah dari tab Register: isi formulir Registrasi Naskah Keluar lalu Simpan konsep",
@@ -45,6 +53,7 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
     description: "Aplikasi kinerja pegawai: SKP, rencana aksi, realisasi & bukti dukung bulanan.",
     defaultUrl: "",
     loginMarkers: [],
+    defaultHosts: [],
     flows: [
       { label: "Isi / kirim perubahan Rencana Aksi bulanan dari menu e-Kinerja", scheduled: false },
       { label: "Ambil SKP & RHK", scheduled: true },
@@ -58,8 +67,11 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
     label: "SIMAN",
     description:
       "Sistem Informasi Manajemen Aset Negara: tiket pengajuan dari satker dan tempat memasukkan surat keputusan.",
-    defaultUrl: "",
-    loginMarkers: [],
+    // Halaman /login hanya berisi tombol Login yang mengalihkan ke KemenkeuID (sso.kemenkeu.go.id): Username, Password, OTP
+    defaultUrl: "https://siman.kemenkeu.go.id/login",
+    loginMarkers: ["siman.kemenkeu.go.id/login", "sso.kemenkeu.go.id"],
+    defaultHosts: ["sso.kemenkeu.go.id"],
+    homeUrl: "https://siman.kemenkeu.go.id/profile",
     flows: [{ label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true }],
     limits:
       "Baru menjaga sesi login. Pengecekan tiket & unggah surat keputusan belum dibangun, jadi robot belum melakukan apa pun di dalam SIMAN.",
@@ -101,6 +113,11 @@ export function normalizeHosts(values: string[]) {
     .filter((h) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(h));
   return [...new Set(hosts)].slice(0, 10);
 }
+
+/** Host yang boleh dibuka robot untuk satu konektor: host bawaan sistem + host tambahan isian pengguna (tanpa ganda). */
+export const connectorHosts = (system: string, extraHosts: string[]) => [
+  ...new Set([...(SYSTEM_INFO[system as RobotSystem]?.defaultHosts ?? []), ...extraHosts]),
+];
 
 /** URL halaman yang dieksplor harus berada di host konektor (alamat utama atau host tambahan, termasuk subdomain). */
 export function urlInConnector(url: string, baseUrl: string, extraHosts: string[]) {

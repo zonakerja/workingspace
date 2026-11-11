@@ -31,6 +31,8 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
   agenda, to-do, dan task hari itu. Opsional: buat templat sendiri `90-Templat/Harian.md` dan taruh `{{lifeos}}` di tempat ringkasan.
   Panel Info catatan kini punya **Catatan serupa** — bila tertulis "belum tersedia", jalankan **Indeks ulang** di Tools → Indeks
   Pengetahuan (butuh key embedding Gemini/OpenAI yang aktif).
+- [ ] **A29** Sambungkan aplikasi lewat MCP: menu **Connection & MCP → Aplikasi MCP** → pilih Canva (atau Notion/Linear) → **Sambungkan** → izinkan di jendela yang terbuka. GitHub memakai token akses pribadi. Aplikasi muncul di sidebar; di halamannya coba satu alat baca dengan tombol **Coba**. Agar Hermes bisa memakainya: nyalakan **Izinkan agen** di halaman aplikasi, lalu **AI Agent → Siapkan agen** dengan izin "Pakai alat aplikasi MCP" dan restart Hermes. Bila alamat katalog berubah, pakai **Aplikasi lain** dengan alamat dari dokumentasi aplikasinya.
+- [ ] **A28** Login SIMAN: menu **SIMAN → Connector** → **Login otomatis**. Robot membuka halaman SIMAN, mengklik Login, lalu mengisi Username & Password di KemenkeuID; ketik **OTP** saat diminta. Bila gagal, pakai **Login manual (tayangan)**. Alamat sudah terisi otomatis.
 - [ ] **A27** Coba Sampah & persetujuan hapus: buka **Approval → Usulan Agen**, ada permintaan hapus uji dari Hermes ("[UJI-HERMES] Cek Sampah"). Setujui → buka **Tools → Sampah** → **Pulihkan**, lalu hapus lagi bila tidak perlu. Riwayat perubahan agen ada di **AI Agent → Riwayat Aksi** (tombol Batalkan). Semua yang Anda hapus sendiri juga masuk Sampah selama 30 hari.
 - [ ] **A26** Beri bidang pada pengetahuan Anda: menu **Knowledge** → tombol **Bidang** di banner → pilih atau ketik bidang (mis. BMN) → **Tandai semuanya**. Catatan baru cukup diberi properti `bidang: BMN`. Saat pindah bagian, tinggal ganti bidang aktif. PDF di vault tidak punya properti, jadi selalu ikut dipakai.
 - [ ] **A25** Ajarkan proses penerbitan PSP ke Claude: tiket masuk di SIMAN, lampiran Excel dari satker, dan cara memverifikasi ke master aset. Sertakan satu contoh Excel. Hermes akan menyusunnya sebagai skill + workflow bermodal yang Anda setujui di **Approval → Usulan Agen**, bukan fitur native.
@@ -586,3 +588,5 @@ Telegram Anda yang diizinkan. Minta Claude menyiapkan service otomatis (systemd)
 | 2026-11-09 | A25 baru: ajarkan proses PSP dari tiket SIMAN |
 | 2026-11-09 | A26 baru: tandai bidang pengetahuan |
 | 2026-11-10 | A27 baru: coba Sampah & persetujuan hapus dari agen |
+| 2026-11-10 | A28 baru: login SIMAN lewat KemenkeuID |
+| 2026-11-10 | A29 baru: sambungkan aplikasi lewat MCP (Canva dsb.) |

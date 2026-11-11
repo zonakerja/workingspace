@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { classifyFields, type FieldInfo, loginStage, pickSubmit, validAnswer, validCredentials } from "./login-form.js";
+import {
+  classifyFields,
+  type FieldInfo,
+  loginStage,
+  isRememberCheckbox,
+  pickLoginEntry,
+  pickSubmit,
+  validAnswer,
+  validCredentials,
+} from "./login-form.js";
 
 const field = (index: number, type: string, text: string, extra: Partial<FieldInfo> = {}): FieldInfo => ({
   index,
@@ -67,6 +76,31 @@ describe("pengenalan formulir login", () => {
     expect(validCredentials({ username: "u", password: "p" })).toBe(true);
     expect(validCredentials({ username: "", password: "p" })).toBe(false);
     expect(validCredentials({ username: "u", password: "p".repeat(201) })).toBe(false);
+  });
+});
+
+describe("KemenkeuID (SSO SIMAN)", () => {
+  it("mengenali kolom OTP bernama code dan kotak ingat browser", () => {
+    const fields: FieldInfo[] = [{ index: 0, type: "text", text: "code", maxLength: null, inputMode: "" }];
+    expect(classifyFields(fields).otp).toEqual([0]);
+    const captcha: FieldInfo[] = [{ index: 0, type: "text", text: "captcha code", maxLength: null, inputMode: "" }];
+    expect(classifyFields(captcha)).toMatchObject({ captcha: 0, otp: [] });
+    expect(isRememberCheckbox("Ingat browser ini? RememberBrowser")).toBe(true);
+    expect(isRememberCheckbox("Saya setuju syarat")).toBe(false);
+  });
+});
+
+describe("tombol pembuka halaman login", () => {
+  it("mengenali tombol Login persis, bukan tautan lain", () => {
+    const buttons = [
+      { index: 0, text: "Mode Pelatihan" },
+      { index: 1, text: "  Login " },
+      { index: 2, text: "Lupa login?" },
+    ];
+    expect(pickLoginEntry(buttons)).toBe(1);
+    expect(pickLoginEntry([{ index: 0, text: "Masuk" }])).toBe(0);
+    expect(pickLoginEntry([{ index: 0, text: "Login sebagai admin dan hapus" }])).toBeNull();
+    expect(pickLoginEntry([{ index: 0, text: "Materi & User Manual" }])).toBeNull();
   });
 });
 

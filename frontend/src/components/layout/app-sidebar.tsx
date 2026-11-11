@@ -33,6 +33,7 @@ import { appLogoUrl, useAppSettings } from "@/data/use-app-settings";
 import { useLogout } from "@/data/use-auth";
 import { cn } from "@/lib/utils";
 import { useAgentMenus } from "@/data/use-agent";
+import { useMcpConnections } from "@/data/use-mcp-connections";
 import { getAppIcon } from "@/lib/icons/icon-registry";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -68,10 +69,12 @@ export function AppSidebar() {
 
   const visible = MODULES.filter((m) => !m.hiddenInSidebar);
   const mainModules = visible.filter((m) => !m.sidebarGroup || m.sidebarGroup === "workspace");
-  const agentModules = visible.filter((m) => m.sidebarGroup === "agent");
+  const aiModules = visible.filter((m) => m.sidebarGroup === "ai");
+  const connectionModules = visible.filter((m) => m.sidebarGroup === "connection");
   const systemModules = visible.filter((m) => m.sidebarGroup === "system");
   const { data: menus } = useAgentMenus();
   const agentMenus = (menus ?? []).filter((m) => m.status === "active" && m.placement === "connection");
+  const { data: mcpApps } = useMcpConnections();
 
   // Render function (bukan komponen bersarang) agar item tidak di-remount tiap render
   const renderItem = (module: (typeof MODULES)[number]) => {
@@ -127,10 +130,45 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
+          <SidebarGroupLabel>AI Agent</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1">{aiModules.map(renderItem)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupLabel>Connection &amp; MCP</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {agentModules.map(renderItem)}
+              {connectionModules.filter((m) => m.key !== "mcp").map(renderItem)}
+              {(mcpApps ?? []).map((app) => {
+                const path = `/mcp-app/${app.slug}`;
+                const active = pathname === path;
+                const Icon = getAppIcon(app.icon, "plug").icon;
+                return (
+                  <SidebarMenuItem key={app.id}>
+                    <SidebarMenuButton asChild isActive={active} tooltip={app.name} className={COLLAPSIBLE_ITEM_CLASS}>
+                      <NavLink to={path} onClick={closeMobile}>
+                        <span
+                          data-module="mcpapp"
+                          className={cn(
+                            "relative flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                            active
+                              ? "bg-module-gradient text-white shadow-sm shadow-module/30"
+                              : "bg-module/12 text-module",
+                          )}
+                        >
+                          <Icon className="size-4" />
+                          {app.status !== "connected" && (
+                            <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warning" />
+                          )}
+                        </span>
+                        <span>{app.name}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
               {agentMenus.map((menu) => {
                 const path = `/custom/${menu.slug}`;
                 const active = pathname === path;
@@ -161,6 +199,7 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+              {connectionModules.filter((m) => m.key === "mcp").map(renderItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

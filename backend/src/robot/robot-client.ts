@@ -125,7 +125,7 @@ export class RobotClient {
     await this.call(`/sessions/${encodeURIComponent(id)}`, { method: "DELETE" }, 10_000).catch(() => undefined);
   }
 
-  check(target: RobotTarget) {
+  check(target: RobotTarget & { homeUrl?: string }) {
     return this.json<PageInfo & { storageState: StorageState }>("/check", target);
   }
 

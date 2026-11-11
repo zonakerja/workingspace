@@ -12,6 +12,7 @@ import { RECORD_TABLES, type RecordType } from "../records/record-schema";
 import { RecordsService } from "../records/records.service";
 import { AGENT_WRITABLE_TYPES, compactPayload, describeRecordType } from "../agent-actions/agent-action-logic";
 import { AgentActionsService } from "../agent-actions/agent-actions.service";
+import { McpConnectionsService } from "../mcp-connections/mcp-connections.service";
 import { KIND_LABELS, REQUEST_KINDS, REQUEST_STATUSES, STATUS_LABELS } from "../requests/request-logic";
 import { AssetVerificationService } from "../requests/asset-verification.service";
 import { RequestsService } from "../requests/requests.service";
@@ -70,6 +71,7 @@ export class LifeosMcpService {
     private readonly assets: AssetVerificationService,
     private readonly menus: AgentMenusService,
     private readonly actions: AgentActionsService,
+    private readonly apps: McpConnectionsService,
   ) {}
 
   createServer(principal: TokenPrincipal) {
@@ -810,6 +812,53 @@ export class LifeosMcpService {
               "Tersimpan sebagai draf. Beri tahu pemilik agar memeriksa dan menyetujuinya di Approval → Usulan Agen.",
           });
         }),
+      );
+    }
+
+    if (can("mcp:apps")) {
+      server.registerTool(
+        "list_app_tools",
+        {
+          title: "Alat aplikasi tersambung",
+          description:
+            "Daftar aplikasi luar (Canva, Notion, GitHub, …) yang disambungkan pemilik dan diizinkan untuk agen, beserta alatnya. allowed=false = butuh izin pemilik (alat tulis) atau tidak pernah boleh (alat hapus).",
+          inputSchema: {},
+        },
+        run("list_app_tools", async () => {
+          const catalog = await this.apps.agentCatalog(principal.user);
+          return text(catalog.length ? catalog : "Belum ada aplikasi yang disambungkan & diizinkan untuk agen.");
+        }),
+      );
+
+      server.registerTool(
+        "call_app_tool",
+        {
+          title: "Jalankan alat aplikasi",
+          description:
+            "Jalankan satu alat aplikasi tersambung atas nama pemilik (kredensial tetap di LifeOS). Hanya alat dengan allowed=true di list_app_tools; jalankan sesuai permintaan pengguna.",
+          inputSchema: {
+            connection: z.string().min(1).max(80).describe("Nilai connection dari list_app_tools"),
+            tool: z.string().min(1).max(200),
+            arguments: z.record(z.string(), z.unknown()).optional(),
+          },
+        },
+        run(
+          "call_app_tool",
+          async ({
+            connection,
+            tool,
+            arguments: args,
+          }: {
+            connection: string;
+            tool: string;
+            arguments?: Record<string, unknown>;
+          }) => {
+            const result = await this.apps.callTool(principal.user, connection, tool, args ?? {}, true);
+            return result.isError
+              ? failure(result.text || "Alat mengembalikan galat.")
+              : text(result.text || "(tanpa isi)");
+          },
+        ),
       );
     }
 

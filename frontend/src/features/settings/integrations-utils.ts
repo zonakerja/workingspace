@@ -49,6 +49,14 @@ export const TOOL_LABELS: Record<string, string> = {
   submit_asset_check: "Verifikasi aset",
   list_agent_menus: "Daftar fitur buatan agen",
   propose_agent_menu: "Usulkan fitur buatan agen",
+  describe_record_types: "Jenis data kerja",
+  list_records: "Daftar data kerja",
+  get_record: "Buka data kerja",
+  create_record: "Buat data kerja",
+  update_record: "Ubah data kerja",
+  request_delete_record: "Minta hapus data kerja",
+  list_app_tools: "Alat aplikasi tersambung",
+  call_app_tool: "Jalankan alat aplikasi",
 };
 
 /** Ringkasan argumen untuk tabel log: "query: sewa · limit: 3". */

@@ -19,6 +19,7 @@ export const API_SCOPES = [
   "requests:write",
   "ai:model",
   "agent:menus",
+  "mcp:apps",
 ] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 
@@ -26,12 +27,13 @@ export const SCOPE_LABELS: Record<ApiScope, string> = {
   "knowledge:read": "Baca basis pengetahuan (cari & buka catatan vault)",
   "knowledge:write": "Tulis usulan ke Inbox vault Obsidian",
   "workspace:read": "Baca data kerja (cari data, agenda, to-do & task)",
-  "workspace:write": "Buat to-do",
+  "workspace:write": "Buat & ubah data kerja (bisa dibatalkan) dan ajukan hapus (menunggu persetujuan Anda)",
   "ai:chat": "Tanya asisten LifeOS (memakai provider & kuota AI Anda)",
   "requests:read": "Baca pengajuan & Antrian Verifikasi",
   "requests:write": "Catat pengajuan baru & jalankan analisis/telaah AI (persetujuan tetap oleh Anda)",
   "ai:model": "Model AI agen lewat LifeOS (memakai provider, API key & kuota Anda — key tidak pernah keluar)",
   "agent:menus": "Usulkan fitur non-native: workflow & koneksi (tampil setelah Anda setujui di Approval)",
+  "mcp:apps": "Pakai alat aplikasi MCP yang Anda izinkan (Canva, Notion, …; kredensial tetap di LifeOS)",
 };
 
 /** Token baru: `lifeos_pat_` + 32 byte acak (base64url) — cukup acak sehingga hash SHA-256 tanpa salt aman. */

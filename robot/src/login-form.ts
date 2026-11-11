@@ -28,8 +28,9 @@ export interface LoginFields {
 }
 
 const CAPTCHA = /captcha|kode keamanan|kode gambar|security code|verification image|kode pada gambar/;
+// `code` saja = kolom OTP KemenkeuID (input#code); kolom CAPTCHA berlabel "captcha code" sudah tertangkap lebih dulu
 const OTP =
-  /\botp\b|one-time-code|authenticator|\btoken\b|kode verifikasi|verification code|\b2fa\b|\bmfa\b|totp|kode otp|kode autentikasi|kode authenticator/;
+  /\botp\b|one-time-code|authenticator|\btoken\b|kode verifikasi|verification code|\b2fa\b|\bmfa\b|totp|kode otp|kode autentikasi|kode authenticator|kode unik|(^|\s)code(\s|$)/;
 const USERNAME = /nama pengguna|username|user ?name|user ?id|\bnip\b|email|\blogin\b|\bakun\b|\buser\b/;
 const TEXTUAL = new Set(["text", "email", "tel", "number", ""]);
 
@@ -69,6 +70,25 @@ export function classifyFields(fields: FieldInfo[]): LoginFields {
 
 const SUBMIT = /masuk|login|log in|sign in|verifikasi|verify|lanjut|lanjutkan|kirim|submit|konfirmasi|^ok$/;
 const NOT_SUBMIT = /lupa|forgot|daftar|register|refresh|muat ulang|lihat|tampilkan|batal|kembali|privasi|bantuan/;
+
+/** Kotak "ingat browser/perangkat ini" (mis. RememberBrowser KemenkeuID): dicentang agar sesi tersimpan lebih lama. */
+const REMEMBER = /remember|ingat (saya|browser|perangkat)|ingat browser|trust this (browser|device)|percayai perangkat/;
+
+export function isRememberCheckbox(text: string) {
+  return REMEMBER.test(text.replace(/\s+/g, " ").trim().toLowerCase());
+}
+
+/** Teks tombol pembuka halaman login (persis, mis. tombol "Login" di beranda yang mengalihkan ke SSO). */
+const LOGIN_ENTRY = /^(login|log in|masuk|sign in|login sso|masuk dengan sso|login dengan kemenkeuid)$/;
+
+/**
+ * Halaman login tanpa kolom kata sandi (beranda dengan tombol Login yang mengalihkan ke SSO): tombol yang teksnya persis
+ * "Login"/"Masuk"/"Sign in". Hanya berpindah halaman — tidak ada isian yang dikirim. Null = tidak ada tombol seperti itu.
+ */
+export function pickLoginEntry(buttons: ButtonInfo[]): number | null {
+  const found = buttons.find((b) => LOGIN_ENTRY.test(b.text.replace(/\s+/g, " ").trim().toLowerCase()));
+  return found ? found.index : null;
+}
 
 /** Tombol kirim formulir: teks seperti Masuk/Login/Verifikasi, bukan Lupa sandi/Daftar/Muat ulang CAPTCHA. */
 export function pickSubmit(buttons: ButtonInfo[]): number | null {

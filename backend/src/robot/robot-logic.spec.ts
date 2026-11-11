@@ -7,6 +7,7 @@ import {
   robotSessionKey,
   SYSTEM_INFO,
   urlInConnector,
+  connectorHosts,
 } from "./robot-logic";
 
 describe("konektor robot", () => {
@@ -35,6 +36,19 @@ describe("konektor robot", () => {
     expect(normalizeSystemUrl("http://localhost:8080")).toBe("http://localhost:8080");
     expect(normalizeSystemUrl("https://user:pw@contoh.go.id")).toBeNull();
     expect(normalizeSystemUrl("bukan url")).toBeNull();
+  });
+
+  it("SIMAN: alamat bawaan, SSO KemenkeuID diizinkan, penanda login", () => {
+    expect(SYSTEM_INFO.siman.defaultUrl).toBe("https://siman.kemenkeu.go.id/login");
+    expect(connectorHosts("siman", ["sso.kemenkeu.go.id", "lain.go.id"])).toEqual(["sso.kemenkeu.go.id", "lain.go.id"]);
+    expect(connectorHosts("srikandi", [])).toEqual([]);
+    expect(
+      urlInConnector(
+        "https://sso.kemenkeu.go.id/Home/Index",
+        SYSTEM_INFO.siman.defaultUrl,
+        connectorHosts("siman", []),
+      ),
+    ).toBe(true);
   });
 
   it("normalizeHosts & urlInConnector", () => {
