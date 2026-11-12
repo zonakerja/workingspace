@@ -316,7 +316,7 @@ export function ChatPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4">
         {!isLoading && renderSummary && <div className="mb-4">{renderSummary(messages.length > 0)}</div>}
         {isLoading ? (
-          <div className="flex justify-center py-10">
+          <div className="flex justify-center py-8">
             <Spinner className="size-5" />
           </div>
         ) : messages.length === 0 ? (

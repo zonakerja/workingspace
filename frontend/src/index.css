@@ -372,19 +372,19 @@
 /* Isi editor teks kaya (Catatan Bebas, Tiptap). Warna dari token desain agar benar di mode terang & gelap. */
 @layer components {
   .rich-text {
-    @apply text-base leading-relaxed break-words;
+    @apply text-sm leading-relaxed break-words;
   }
   .rich-text > * + * {
-    @apply mt-3;
+    @apply mt-2;
   }
   .rich-text h1 {
-    @apply mt-6 border-b pb-2 text-2xl font-extrabold;
+    @apply mt-5 border-b pb-1.5 text-xl font-extrabold;
   }
   .rich-text h2 {
-    @apply mt-5 text-xl font-bold;
+    @apply mt-4 text-lg font-bold;
   }
   .rich-text h3 {
-    @apply mt-4 text-lg font-bold text-module;
+    @apply mt-3 text-base font-bold text-module;
   }
   .rich-text ul {
     @apply list-disc pl-6;
@@ -421,10 +421,10 @@
     @apply border-l-4 border-module/40 pl-4 text-muted-foreground italic;
   }
   .rich-text code {
-    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm;
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-xs;
   }
   .rich-text pre {
-    @apply overflow-x-auto rounded-xl bg-muted p-3 font-mono text-sm;
+    @apply overflow-x-auto rounded-xl bg-muted p-3 font-mono text-xs;
   }
   .rich-text pre code {
     @apply bg-transparent p-0;
@@ -437,7 +437,7 @@
     @apply font-medium text-module underline underline-offset-2;
   }
   .rich-text hr {
-    @apply my-6 border-t-2;
+    @apply my-4 border-t-2;
   }
   .rich-text hr.ProseMirror-selectednode {
     @apply border-module;

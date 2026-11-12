@@ -170,12 +170,12 @@ function ProcessForm({ file, onDone }: { file: ArchiveFile; onDone: () => void }
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <div className="flex min-h-0 flex-1 flex-col">
-        <DialogHeader className="border-b p-6">
-          <DialogTitle className="text-xl">Proses Arsip</DialogTitle>
+        <DialogHeader className="border-b p-4">
+          <DialogTitle className="text-lg">Proses Arsip</DialogTitle>
           <DialogDescription className="font-mono">ID Registrasi: {form.archiveRegId}</DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto p-6">
-          <FieldGroup className="gap-5">
+        <div className="flex-1 overflow-y-auto p-4">
+          <FieldGroup className="gap-4">
             <div className="grid grid-cols-2 gap-3">
               {(
                 [
@@ -188,19 +188,19 @@ function ProcessForm({ file, onDone }: { file: ArchiveFile; onDone: () => void }
                   type="button"
                   onClick={() => patch({ archivalStatus: t.id })}
                   className={cn(
-                    "flex flex-col items-center gap-2 rounded-2xl border p-4 text-xs font-bold transition-all",
+                    "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-all",
                     form.archivalStatus === t.id
                       ? "border-module bg-module text-module-foreground shadow-md ring-2 ring-module/30"
                       : "bg-card text-muted-foreground hover:bg-module-soft hover:text-module",
                   )}
                 >
-                  <t.icon className="size-5" />
+                  <t.icon className="size-4" />
                   {t.label}
                 </button>
               ))}
             </div>
 
-            <div className="space-y-4 rounded-2xl border bg-muted/40 p-4">
+            <div className="space-y-4 rounded-xl border bg-muted/40 p-3">
               <Field data-invalid={!!errors.classificationId}>
                 <FieldLabel>
                   Klasifikasi Arsip <span className="text-destructive">*</span>
@@ -304,7 +304,7 @@ function ProcessForm({ file, onDone }: { file: ArchiveFile; onDone: () => void }
             </div>
 
             {form.archivalStatus === "digital" && (
-              <div className="space-y-4 rounded-2xl border p-4">
+              <div className="space-y-4 rounded-xl border p-3">
                 <h4 className="flex items-center gap-2 text-xs font-bold text-success uppercase">
                   <HardDrive className="size-4" /> Lokasi Digital / Sistem
                 </h4>
@@ -349,7 +349,7 @@ function ProcessForm({ file, onDone }: { file: ArchiveFile; onDone: () => void }
             )}
 
             {form.archivalStatus === "physical" && (
-              <div className="space-y-4 rounded-2xl border p-4">
+              <div className="space-y-4 rounded-xl border p-3">
                 <div className="flex items-center justify-between">
                   <h4 className="flex items-center gap-2 text-xs font-bold text-module uppercase">
                     <MapPin className="size-4" /> Lokasi Simpan Fisik
@@ -430,7 +430,7 @@ function ProcessForm({ file, onDone }: { file: ArchiveFile; onDone: () => void }
         </DialogFooter>
       </div>
 
-      <aside className="flex flex-col items-center justify-center gap-6 border-t bg-muted/40 p-6 md:w-96 md:border-t-0 md:border-l">
+      <aside className="flex flex-col items-center justify-center gap-4 border-t bg-muted/40 p-4 md:w-96 md:border-t-0 md:border-l">
         <h4 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Preview Label Cetak</h4>
         <div className="w-full overflow-x-auto">
           <ArchiveLabel

@@ -35,23 +35,24 @@ export function AppHeader({ actions }: { actions?: ReactNode }) {
   const { module, tab } = useCurrentLocation();
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/80 px-3 backdrop-blur md:px-4">
+    <header className="sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/80 px-3 backdrop-blur md:px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
+      <Breadcrumb className="min-w-0">
+        <BreadcrumbList className="flex-nowrap">
+          {/* HP: hanya nama tab agar header tetap satu baris (nama modul ada di banner) */}
+          <BreadcrumbItem className={tab ? "hidden sm:inline-flex" : undefined}>
             {tab ? (
               <span className="text-muted-foreground">{module.label}</span>
             ) : (
-              <BreadcrumbPage className="font-semibold">{module.label}</BreadcrumbPage>
+              <BreadcrumbPage className="truncate font-semibold">{module.label}</BreadcrumbPage>
             )}
           </BreadcrumbItem>
           {tab && (
             <>
-              <BreadcrumbSeparator />
+              <BreadcrumbSeparator className="hidden sm:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage className="font-semibold">{tab.label}</BreadcrumbPage>
+                <BreadcrumbPage className="truncate font-semibold">{tab.label}</BreadcrumbPage>
               </BreadcrumbItem>
             </>
           )}

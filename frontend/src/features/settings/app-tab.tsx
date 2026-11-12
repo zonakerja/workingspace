@@ -145,7 +145,7 @@ function AppSettingsForm({ settings }: { settings: AppSettings }) {
             </Field>
           </div>
 
-          <FieldSet className="rounded-2xl border bg-muted/40 p-4 md:p-5">
+          <FieldSet className="rounded-2xl border bg-muted/40 p-4 md:p-4">
             <FieldLegend>Teks Sambutan (Halaman Login)</FieldLegend>
             <FieldGroup className="gap-4">
               <Field>

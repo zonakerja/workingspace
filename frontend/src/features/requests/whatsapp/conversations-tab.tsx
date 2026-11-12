@@ -66,7 +66,7 @@ export function ConversationsTab() {
           {phone ? (
             <Thread phone={phone} onBack={() => setPhone(null)} />
           ) : (
-            <Card className="flex h-full min-h-60 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+            <Card className="flex h-full min-h-60 items-center justify-center p-4 text-center text-sm text-muted-foreground">
               Pilih percakapan untuk melihat isi dan membalas.
             </Card>
           )}

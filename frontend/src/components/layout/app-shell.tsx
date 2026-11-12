@@ -35,7 +35,7 @@ export function AppShell() {
             </>
           }
         />
-        <main className="flex-1 p-3 pb-24 md:p-6 md:pb-24">
+        <main className="flex-1 p-3 pb-24 md:px-5 md:pt-4 md:pb-24">
           <Suspense fallback={<PageLoader />}>
             <Outlet />
           </Suspense>

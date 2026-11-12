@@ -81,7 +81,7 @@ function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 rounded-2xl border bg-module-soft/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border bg-module-soft/50 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h3 className="flex items-center gap-2 font-bold">
             <Sparkles className="size-4 text-module" /> My Notebook
@@ -127,7 +127,7 @@ function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
                 tabIndex={0}
                 onClick={() => onOpen(notebook.id)}
                 onKeyDown={(e) => e.key === "Enter" && onOpen(notebook.id)}
-                className="group relative flex cursor-pointer flex-col gap-3 rounded-2xl border bg-card p-5 transition-all hover:border-module/40 hover:shadow-md"
+                className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border bg-card p-3 transition-all hover:border-module/40 hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="flex size-11 items-center justify-center rounded-xl bg-module-soft text-module">
@@ -156,7 +156,7 @@ function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
                   </DropdownMenu>
                 </div>
                 <div className="min-w-0">
-                  <h4 className="line-clamp-2 text-lg font-bold">{notebook.title}</h4>
+                  <h4 className="line-clamp-2 text-base font-bold">{notebook.title}</h4>
                   {notebook.description && (
                     <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{notebook.description}</p>
                   )}
@@ -403,7 +403,7 @@ function NotebookView({ id, onBack }: { id: string; onBack: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div ref={headerRef} className="flex scroll-mt-[4.25rem] items-center gap-2">
+      <div ref={headerRef} className="flex scroll-mt-[3.75rem] items-center gap-2">
         <Button variant="ghost" size="icon" aria-label="Kembali ke daftar notebook" onClick={onBack}>
           <ChevronLeft />
         </Button>
@@ -411,7 +411,7 @@ function NotebookView({ id, onBack }: { id: string; onBack: () => void }) {
           <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-lg font-bold">{notebook.title}</h3>
+          <h3 className="truncate text-base font-bold">{notebook.title}</h3>
           {notebook.description && <p className="truncate text-xs text-muted-foreground">{notebook.description}</p>}
         </div>
         <Button variant="ghost" size="icon-sm" aria-label="Ubah notebook" onClick={() => setEditing(true)}>
@@ -424,7 +424,7 @@ function NotebookView({ id, onBack }: { id: string; onBack: () => void }) {
         // Desktop: dua kolom — Sumber + Studio | Chat (lebar, dengan ringkasan di atasnya). Tinggi = layar dikurangi
         // header aplikasi (3,5rem) + judul notebook & jarak (± 4,5rem) + sedikit ruang bawah, sehingga area kerja
         // memenuhi layar laptop biasa (± 650 px) setelah digulir otomatis
-        <div className="grid h-[calc(100svh-8.75rem)] min-h-[26rem] grid-cols-[18rem_minmax(0,1fr)] gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="grid h-[calc(100svh-8.25rem)] min-h-[26rem] grid-cols-[18rem_minmax(0,1fr)] gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <div className="min-h-0 min-w-0">{side}</div>
           <div className="flex min-h-0 flex-col">
             {chatExpanded ? (

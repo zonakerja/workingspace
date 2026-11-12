@@ -178,7 +178,7 @@ export function TaskManager({ owner, ownerType, headerExtra }: TaskManagerProps)
     <li
       key={key}
       className={cn(
-        "group flex flex-col rounded-2xl border p-4 transition-shadow hover:shadow-md",
+        "group flex flex-col rounded-xl border px-3 py-2.5 transition-shadow hover:shadow-md",
         task.completed ? "bg-muted/50 opacity-70" : "bg-card",
       )}
     >
@@ -204,7 +204,7 @@ export function TaskManager({ owner, ownerType, headerExtra }: TaskManagerProps)
             </h4>
           </div>
           {task.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>}
-          <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+          <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
             {task.dueDate && (
               <span className="flex items-center gap-1">
                 <CalendarDays className="size-3" /> {formatNumericDate(task.dueDate)}
@@ -221,7 +221,7 @@ export function TaskManager({ owner, ownerType, headerExtra }: TaskManagerProps)
           </div>
         </div>
         {isProject && (
-          <label className="flex flex-col items-end gap-1">
+          <label className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold text-muted-foreground uppercase">Bobot</span>
             <Input
               type="number"
@@ -262,9 +262,9 @@ export function TaskManager({ owner, ownerType, headerExtra }: TaskManagerProps)
         )}
       </div>
       {!!task.resources?.length && (
-        <div className="mt-3 border-t pt-3">
-          <p className="mb-2 text-[10px] font-bold text-muted-foreground uppercase">Lampiran:</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t pt-2">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase">Lampiran:</span>
+          <div className="contents">
             {task.resources.map((res, i) => (
               <AttachmentChip key={`${res.id}-${i}`} res={res} prefix={res.number || `#${i + 1}`} />
             ))}
@@ -293,7 +293,7 @@ export function TaskManager({ owner, ownerType, headerExtra }: TaskManagerProps)
               )}
             </div>
             <h2
-              className="mt-1 line-clamp-2 text-lg font-extrabold tracking-tight md:line-clamp-1 md:text-xl"
+              className="mt-1 line-clamp-2 text-base font-extrabold tracking-tight md:line-clamp-1 md:text-lg"
               title={owner.title}
             >
               {owner.title}
@@ -442,7 +442,7 @@ export function TaskManager({ owner, ownerType, headerExtra }: TaskManagerProps)
             </EmptyHeader>
           </Empty>
         ) : (
-          <ul className="flex flex-col gap-2.5">
+          <ul className="flex flex-col gap-2">
             {entries.map((entry) =>
               entry.kind === "task" ? (
                 renderTask(entry.task, entry.key)
@@ -598,7 +598,7 @@ function TimelineView({
   } as const;
 
   return (
-    <ol className="relative flex flex-col gap-6 border-l-2 border-border pl-6">
+    <ol className="relative flex flex-col gap-2.5 border-l-2 border-border pl-6">
       {events.map((event) => (
         <li key={event.key} className="relative">
           <span
@@ -615,7 +615,7 @@ function TimelineView({
               <Check className="size-3" strokeWidth={3} />
             )}
           </span>
-          <div className="rounded-2xl border bg-card p-4 transition-shadow hover:shadow-md">
+          <div className="rounded-xl border bg-card px-3 py-2.5 transition-shadow hover:shadow-md">
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <Badge className={style[event.kind].badge}>{style[event.kind].label}</Badge>
               <span className="font-mono text-xs text-muted-foreground">{event.dateLabel}</span>
@@ -623,17 +623,17 @@ function TimelineView({
             {event.scheduleId ? (
               <button
                 type="button"
-                className="text-left text-base font-bold hover:underline"
+                className="text-left text-sm font-bold hover:underline"
                 onClick={() => setParams({ agenda: event.scheduleId }, { replace: false })}
               >
                 {event.title}
               </button>
             ) : (
-              <h4 className="text-base font-bold">{event.title}</h4>
+              <h4 className="text-sm font-bold">{event.title}</h4>
             )}
-            {event.description && <p className="mt-1 text-sm text-muted-foreground">{event.description}</p>}
+            {event.description && <p className="mt-0.5 text-xs text-muted-foreground">{event.description}</p>}
             {(event.resource || event.attachments.length > 0) && (
-              <div className="mt-3 flex flex-wrap gap-2 border-t border-dashed pt-3">
+              <div className="mt-2 flex flex-wrap gap-1.5 border-t border-dashed pt-2">
                 {event.resource && (
                   <button
                     type="button"
@@ -704,8 +704,8 @@ function TaskForm({
 
   return (
     <div className="flex h-full min-h-0 flex-col animate-in slide-in-from-bottom-4">
-      <div className="flex items-center justify-between gap-3 border-b p-5 pr-16">
-        <h3 className="text-xl font-bold">{task ? `Edit ${label}` : `Buat ${label} Baru`}</h3>
+      <div className="flex items-center justify-between gap-3 border-b p-4 pr-16">
+        <h3 className="text-lg font-bold">{task ? `Edit ${label}` : `Buat ${label} Baru`}</h3>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => void guardedClose(cancel)}>
             Batal
@@ -713,7 +713,7 @@ function TaskForm({
           <Button onClick={save}>Simpan {label}</Button>
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
         <FieldGroup className="gap-4">
           <Field>
             <FieldLabel htmlFor="task-form-title">Nama {label}</FieldLabel>

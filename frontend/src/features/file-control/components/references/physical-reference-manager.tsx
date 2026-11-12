@@ -44,7 +44,7 @@ export function PhysicalReferenceManager() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
-          <h3 className="text-lg font-bold">Referensi Lokasi Fisik</h3>
+          <h3 className="text-base font-bold">Referensi Lokasi Fisik</h3>
           <p className="text-sm text-muted-foreground">Manajemen struktur penyimpanan arsip fisik.</p>
         </div>
         {canEdit && (
@@ -107,7 +107,7 @@ export function PhysicalReferenceManager() {
             {paginate(filtered, page, pageSize).map((item) => (
               <div
                 key={item.id}
-                className="group flex flex-col justify-between rounded-2xl border bg-card p-5 transition-all hover:border-module/40 hover:shadow-lg"
+                className="group flex flex-col justify-between rounded-2xl border bg-card p-4 transition-all hover:border-module/40 hover:shadow-lg"
               >
                 <div>
                   <div className="mb-3 flex items-start justify-between">

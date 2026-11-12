@@ -89,7 +89,7 @@ function TaskQuickDialogInner({ task, kind, open, onOpenChange, onSave }: TaskQu
             </DialogTitle>
           </DialogHeader>
           {form && (
-            <div className="-mx-1 flex flex-1 flex-col gap-5 overflow-y-auto px-1">
+            <div className="-mx-1 flex flex-1 flex-col gap-4 overflow-y-auto px-1">
               <FieldGroup className="gap-4">
                 <Field>
                   <FieldLabel htmlFor="task-title">Nama {label}</FieldLabel>
@@ -144,7 +144,7 @@ function TaskQuickDialogInner({ task, kind, open, onOpenChange, onSave }: TaskQu
                 </div>
               </FieldGroup>
 
-              <div className="flex flex-col gap-3 rounded-2xl border bg-muted/40 p-4">
+              <div className="flex flex-col gap-3 rounded-xl border bg-muted/40 p-3">
                 <div className="flex items-center justify-between">
                   <h4 className="flex items-center gap-2 text-sm font-bold">
                     <FolderOpen className="size-4 text-module" /> Resources / Lampiran

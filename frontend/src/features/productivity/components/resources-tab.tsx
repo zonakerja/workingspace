@@ -172,10 +172,10 @@ export function ResourcesTab() {
   const linkBadges = useOfficeLinkBadges(pageItems.map((res) => res.uploadId));
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <ParaInfo icon={BookOpen} {...PARA_INFO.resources} />
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-        <h3 className="text-xl font-bold">Resources & Assets</h3>
+        <h3 className="text-base font-bold">Resources & Assets</h3>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
           <SearchInput value={search} onChange={setSearch} />
           <DateRangeFilter
@@ -236,7 +236,7 @@ export function ResourcesTab() {
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground italic">
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground italic">
                   Tidak ada resource ditemukan.
                 </TableCell>
               </TableRow>

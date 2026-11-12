@@ -29,7 +29,7 @@ export function ParaCalendar({ projects, tasks, onDateClick }: ParaCalendarProps
   return (
     <Card className="gap-0 overflow-hidden py-0">
       <div className="flex flex-col items-center justify-between gap-3 border-b p-4 md:flex-row">
-        <h3 className="text-lg font-bold">Calendar Overview</h3>
+        <h3 className="text-base font-bold">Calendar Overview</h3>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -70,7 +70,7 @@ export function ParaCalendar({ projects, tasks, onDateClick }: ParaCalendarProps
       </div>
       <div className="grid grid-cols-7">
         {Array.from({ length: firstDay }, (_, i) => (
-          <div key={`e-${i}`} className="min-h-20 border-r border-b md:min-h-24" />
+          <div key={`e-${i}`} className="min-h-16 border-r border-b md:min-h-20" />
         ))}
         {Array.from({ length: daysInMonth }, (_, i) => {
           const date = new Date(year, m, i + 1);
@@ -84,7 +84,7 @@ export function ParaCalendar({ projects, tasks, onDateClick }: ParaCalendarProps
               type="button"
               onClick={() => onDateClick(date)}
               className={cn(
-                "flex min-h-20 flex-col gap-1 border-r border-b p-1 text-left transition-colors hover:bg-module-soft md:min-h-24",
+                "flex min-h-16 flex-col gap-1 border-r border-b p-1 text-left transition-colors hover:bg-module-soft md:min-h-20",
                 isToday && "bg-module-soft/60",
               )}
             >
@@ -152,9 +152,9 @@ export function DayDetailDialog({
           <DialogDescription className="text-xs font-bold tracking-wider text-module uppercase">
             Agenda Harian
           </DialogDescription>
-          <DialogTitle className="text-2xl font-extrabold">{date ? formatFullDate(date) : ""}</DialogTitle>
+          <DialogTitle className="text-lg font-extrabold">{date ? formatFullDate(date) : ""}</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-5 overflow-y-auto">
+        <div className="flex flex-col gap-4 overflow-y-auto">
           {running.length > 0 && (
             <section className="flex flex-col gap-2">
               <h4 className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase">

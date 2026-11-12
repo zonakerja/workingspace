@@ -46,10 +46,10 @@ export function AreasTab({
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <ParaInfo icon={Grid2x2} {...PARA_INFO.areas} />
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold">Areas</h3>
+        <h3 className="text-base font-bold">Areas</h3>
         {canEdit && (
           <Button onClick={() => setEditing("new")}>
             <Plus /> New Area

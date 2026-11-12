@@ -603,6 +603,22 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   via `data-module` → `bg-module`, `text-module`, `bg-module-soft`, `bg-module-gradient`, `text-module-foreground`;
   status `success | warning | info | destructive`. Font Figtree. Setiap halaman memakai `<ModulePage module="...">`.
   Pakai komponen shadcn; jangan membuat modal/tombol custom.
+- **Tampilan ringkas (wajib, keputusan user 2026-11-12)**: ruang kerja diutamakan, laptop acuan 1366×768 (konten modul
+  mulai ± 215 px dari atas, dulu ± 330 px). Ukuran baku: header aplikasi `h-12`; `main` `p-3 md:px-5 md:pt-4`;
+  `ModulePage` = banner **satu baris** ± 88 px (`px-5 py-4 rounded-3xl`, ikon 44 px, judul `text-xl md:text-2xl`, `HeroStat`
+  di samping judul, deskripsi `line-clamp-1`, aksi di kanan; di HP aksi satu baris yang bisa digeser); prop `compactHero` =
+  banner ± 70 px (ikon 36 px, `text-lg md:text-xl`) **khusus Knowledge** (keputusan user: sudah pas). Tab = pil membulat
+  seperti semula (wadah `rounded-2xl p-1`, item `rounded-xl px-3 py-1.5 text-[13px]`); jarak antarbagian `gap-3`. Kartu shadcn `--card-spacing` 16 px (`size="sm"` 12 px); `SectionCard` ikon 32 px, judul 15 px,
+  deskripsi `text-xs`; Dialog/AlertDialog `p-5 gap-4 rounded-3xl`, `DialogHeader` `gap-1.5`, judul modal maks. `text-lg`; form shadcn
+  `FieldSet` `gap-4`, `FieldGroup` `gap-4` (bersarang `gap-3`), `Field` label–input `gap-2`, `Textarea` `py-2`; tabel shadcn
+  kepala `h-9`, sel `px-3 py-2`; `Empty` `p-8` (di kartu `py-6`). **Di dalam modal**: kotak bagian `rounded-xl p-3`
+  (bukan `rounded-2xl p-4`), baris Action/Task/Agenda/Timeline `px-3 py-2.5 rounded-xl` judul `text-sm`, label & isian
+  pendek sebaris (mis. "Bobot [20]", "Lampiran: chip…"), tombol pilihan (Fisik/Digital) ikon di samping teks. Di fitur: jarak grid
+  halaman `gap-4` (bukan 5/6), kartu item `p-3`–`p-4` `rounded-xl`/`rounded-2xl` (bukan `rounded-3xl`), baris daftar
+  `px-3 py-2` `rounded-lg`, judul bagian `text-base`, angka statistik `text-3xl`–`text-4xl` (bukan 5xl); **kartu ringkasan/statistik boleh
+  lebih tinggi** (keputusan user: mis. Productivity `p-4`, ikon di atas, angka `text-3xl`); tombol aksi kartu satu baris mendatar (bukan kolom). Teks penjelasan panjang di atas
+  daftar = satu baris yang bisa dibuka (`<details>`, contoh `ParaInfo`). Halaman pengaturan/Tools/Profil `max-w-5xl`.
+  Jangan menambah blok tinggi di atas daftar/ruang kerja; perubahan tampilan **tidak** boleh menyentuh logika/alur.
 - **Bundle**: rute, halaman login, `Markdown` (react-markdown + KaTeX, `markdown-renderer.tsx`), `html5-qrcode`, dan
   editor Catatan Bebas (Tiptap + tinta, chunk `free-note-editor` ±485 kB) dimuat malas. Chunk utama ±440 kB (termasuk host editor ONLYOFFICE; sejak tahap 3 floating-ui/popper ikut chunk utama —
   sebelumnya chunk terpisah yang tetap dimuat saat start); tanpa
@@ -649,7 +665,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   dikirim sebagai `snapshot` (`buildLifeosContext`); chip sitasi → `citationTarget` (`features/knowledge/knowledge-utils.ts`
   + test: catatan vault → `openKnowledgeNote(id)` = dialog global `KnowledgeNoteHost` di AppShell, berkas → `previewFile`,
   record → `recordSourcePath`); "Simpan ke Inbox" (`answerForInbox`: `[n]` → `[[judul]]`). **Menu Knowledge** (dulu "Pengetahuan", label diganti 2026-11-06) (`/knowledge/:tab`,
-  Workspace setelah Notes Space, warna `--mod-knowledge`, `features/knowledge/workspace/`, banner `ModulePage` standar = vault + jumlah catatan & tautan + `HeroActions`, hook `data/use-knowledge-workspace.ts`,
+  Workspace setelah Notes Space, warna `--mod-knowledge`, `features/knowledge/workspace/`, banner `ModulePage compactHero` (lebih rendah dari modul lain, keputusan user 2026-11-12) = vault + jumlah catatan & tautan + `HeroActions`, hook `data/use-knowledge-workspace.ts`,
   logika murni + test `knowledge-logic.ts`): tab **Catatan** (`?note=<id>&h=<judul>`; ≥ 1280 px tiga kolom penjelajah | catatan |
   info, 1024–1279 px penjelajah + Catatan/Info, di bawahnya tab — satu tata letak saja yang dirender; penjelajah dengan menu klik
   kanan & seret-lepas, Cari kata/makna, Tag, Penanda; pembaca `NoteMarkdown` = `[[tautan]]` + pratinjau hover, `![[sematan]]`,
@@ -754,8 +770,8 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   dibuat **padat** (header 1 baris berikon; item 1 baris ± 34 px: ikon jenis · judul terpotong · status sumber / tanggal catatan;
   jumlah karakter terbaca tidak ditampilkan ke user; **klik sumber = buka dokumen aslinya**: berkas → modal pratinjau,
   web → tab baru, item LifeOS → menu asalnya (resource berkas/link langsung dibuka), hanya teks tempelan tampil di dialog; kolom grid wajib `min-w-0` agar judul panjang tidak melebarkan kolom)
-  (`fill`, baris grid 11:9) dan tinggi area kerja `100svh − 8.75rem` + gulir otomatis ke judul notebook
-  (`scroll-mt-[4.25rem]` = tepat di bawah header aplikasi, satu-satunya elemen sticky) sehingga area kerja memenuhi
+  (`fill`, baris grid 11:9) dan tinggi area kerja `100svh − 8.25rem` + gulir otomatis ke judul notebook
+  (`scroll-mt-[3.75rem]` = tepat di bawah header aplikasi 48 px, satu-satunya elemen sticky) sehingga area kerja memenuhi
   layar laptop 1366×768; chat bisa **diperbesar ke modal** (tombol ⤢; kolom chat menjadi penanda, isi prompt & lampiran
   dipegang induk lewat `useChatComposer` agar tidak hilang saat panel di-mount ulang); kanan **Chat lebar**
   dengan **kartu Ringkasan** di atas percakapan (`SummaryCard` di `notebook-panels.tsx`, bisa dilipat, terbuka otomatis
@@ -960,7 +976,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     selesai/ditunda bisa muncul; Overview utama memakai `runningProjects`) dan masih berlabel Inggris ("Calendar
     Overview", "Recent Active Projects", "Task Completion", "Time Elapsed"; form Project juga "Start Date", "Area of
     Responsibility"); tab Areas belum punya pencarian.
-- **Kalender Harian** (`planner-calendar.tsx`): sel tinggi tetap 56–64 px (bukan persegi); penanda dari `summarizeDay()`
+- **Kalender Harian** (`planner-calendar.tsx`): sel tinggi tetap 44–48 px (bukan persegi; dulu 56–64 px); penanda dari `summarizeDay()`
   (`planner-logic.ts`, sumber sama dengan daftar Harian) — titik penuh = ada yang belum selesai, lingkaran = semua
   selesai (todo/task/rutinitas yang sudah selesai tetap ditandai); hover tanggal → tooltip ringkasan agenda, rutinitas,
   to-do (maks. 4 per bagian).
@@ -1334,6 +1350,7 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | Pencarian Pintar Ctrl+K (item & isi berkas semua modul, mode Kata tanpa AI / Makna dengan embedding, filter modul) | ✅ 2026-11-10 — unit backend +8 & frontend +4, smoke +4, lint, typecheck, build, UI diuji (desktop & HP; klik arsip → File Control, berkas → pratinjau, mode Makna dengan embedding Gemini sungguhan). **Belum**: item yang dibagikan orang lain (tetap di tab Cepat), navigasi panah keyboard di hasil Pintar |
 | Sampah (semua hapus bisa dipulihkan 30 hari: record, berkas, Pengajuan, Notebook, catatan vault) + aksi agen atas semua data kerja (buat/ubah bisa dibatalkan, hapus wajib persetujuan) | ✅ 2026-11-10 — unit backend +10 & frontend +7, smoke +19, uji API (tiap jenis hapus → pulih), UI (Sampah, Usulan Agen, Riwayat Aksi), Hermes (Claude) sungguhan: buat → ubah → minta hapus, melapor menunggu persetujuan. Lanjutan: berkas lampiran ikut ke Sampah saat hapus agen disetujui (yang masih dipakai Resource/arsip dilindungi), notifikasi "Pulihkan" setelah setiap hapus, teks dialog hapus diganti "dipindah ke Sampah" — smoke +5, UI Planner hapus → Pulihkan diuji |
 | Koneksi aplikasi MCP luar (Canva, Notion, Linear, GitHub, alamat lain; token/OAuth; menu per aplikasi di Connection & MCP; agen lewat `call_app_tool` dengan izin per aplikasi) + grup sidebar AI Agent + login SIMAN lewat KemenkeuID | ✅ 2026-11-10 — unit backend & frontend, smoke +7, uji API dengan server MCP tiruan 19/19 (token, OAuth penuh, aturan agen), UI desktop & HP. **Belum**: aplikasi sungguhan (butuh akun user; alamat katalog dari dokumentasi publik), Hermes memakai alat aplikasi, login SIMAN sungguhan (A28) |
+| Tampilan ringkas seluruh aplikasi (header, banner modul satu baris, tab, kartu, dialog, kartu statistik, kartu arsip, penjelasan PARA dapat dibuka) | ✅ 2026-11-12 — lint, typecheck, unit (313), format, build; UI diuji 1366×768 & 375 px di semua modul (tanpa luberan horizontal; konten mulai ± 215 px, dulu ± 330 px; revisi banner/tab/kartu ringkasan sesuai arahan user); hanya kelas tampilan, logika/alur tidak berubah; modal utama (Project, Area, Agenda lihat & form, Proses Arsip, Approval, Notes AI) diperiksa di browser. **Belum**: modal yang jarang dipakai (robot, brankas, register SRIKANDI) hanya lewat aturan umum, belum dilihat satu per satu |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -1343,8 +1360,9 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 1. Menunggu user: unggah templat (TODO-USER A24), kepastian penanda `no_naskah`, `pangkat_pengirim`, `nama_tujuan`, `hal`, `sifat` (A23), **mengajarkan proses PSP** (tiket SIMAN → lampiran Excel satker → verifikasi ke master aset; A25) dan contoh dokumen (C5). Proses itu dibangun Hermes sebagai skill + workflow bermodal yang disetujui di Approval, **bukan fitur native**. Koneksi SIMAN = cek tiket & memasukkan SK; pemrosesan di AI Agent & Approval. Saat diajarkan, putuskan sumber data master (OnTrack) dan cara membaca Excel, serta bangun robot tiket & unggah SK dengan data dummy dulu.
 2. Bidang aktif sudah ada; pemilik perlu menandai catatan lamanya (TODO-USER A26).
 3. Uji robot ditunda atas keputusan user sampai Knowledge & AI Agent matang, dimulai dengan data dummy / robot dummy. Robot boleh menyala, tetapi jangan menjalankan alurnya ke SRIKANDI/e-Kinerja sungguhan untuk uji.
-4. Commit lokal bisa belum di-push (cek `git status -sb`): push hanya atas perintah user, lalu user mengecek CI.
-5. Peta jalan no. 3 = **AI Agent selayaknya Claude web/desktop** (permintaan user 2026-11-09, dikerjakan nanti): riwayat percakapan tersimpan, daftar percakapan, dan pengalaman chat yang sepadan. Agen juga belum bisa menyimpan skill ke folder yang dibaca LifeOS (`agents/hermes/skills` baca saja), jadi skill buatan Hermes belum muncul di daftar skill LifeOS.
+4. **Tampilan ringkas (2026-11-12)** sudah di-commit (`style(ui): compact layout across modules and dialogs`), belum di-push. Modal yang jarang dipakai (robot, brankas, Register SRIKANDI) belum dilihat satu per satu.
+5. Commit lokal bisa belum di-push (cek `git status -sb`): push hanya atas perintah user, lalu user mengecek CI.
+6. Peta jalan no. 3 = **AI Agent selayaknya Claude web/desktop** (permintaan user 2026-11-09, dikerjakan nanti): riwayat percakapan tersimpan, daftar percakapan, dan pengalaman chat yang sepadan. Agen juga belum bisa menyimpan skill ke folder yang dibaca LifeOS (`agents/hermes/skills` baca saja), jadi skill buatan Hermes belum muncul di daftar skill LifeOS.
 
 ## 12. Log Keputusan
 
@@ -2183,6 +2201,21 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   kosong karena semua kata wajib → cadangan salah satu kata; cuplikan record berisi kolom teknis → hanya nilai bermakna. Varian
   `"search"` `buildLifeosContext` dihapus (hanya dipakai tab AI lama; keluaran chatbot sama).
 - 2026-11-09 — **Kesinambungan chat** (permintaan user: chat akan dihapus): pekerjaan tertunda di-commit per topik (belum di-push); knowledge dari chat dipindahkan ke §11 "Lanjutan yang disepakati", §15, `docs/AI-AGENT.md` §25, `docs/TODO-USER.md`. Saat itu robot dinyalakan atas permintaan user: 0 jadwal otomasi aktif, 0 aturan kebijakan non-off, 0 kiriman tertunda.
+- 2026-11-12 — **Tampilan ringkas** (permintaan user: banyak kartu besar, ruang kerja kurang leluasa; tidak boleh mengubah kode
+  alur/proses). Dikerjakan bertahap: (1) kerangka — header 56 → 48 px, padding `main`, banner `ModulePage` dari ± 150 px menjadi
+  ± 65 px (satu baris, statistik di samping judul), tab lebih kecil; di HP aksi banner digeser mendatar dan breadcrumb hanya nama tab;
+  (2) komponen bersama — jarak kartu shadcn 24 → 16 px, `SectionCard`, Dialog/AlertDialog/Sheet/Empty lebih rapat; (3) per modul —
+  skrip penggantian kelas (`p-5/6` → `p-4`, `gap-5/6` → `gap-4`, `rounded-3xl` → `rounded-2xl`, kosong `py-10/12` → `py-8`, dsb.) lalu
+  penyesuaian tangan: kartu Rutinitas Overview, kartu statistik Productivity mendatar, `ParaInfo` jadi `<details>` satu baris, kartu
+  arsip File Control (aksi mendatar, ikon kecil), filter sub-tab File Control `size="sm"`, kalender Harian 44–48 px & Productivity
+  64–80 px, chat AI Agent setinggi layar, halaman Tools/Pengaturan/Profil `max-w-5xl`. Tinggi area kerja Notebook ikut header baru
+  (`100svh − 8.25rem`, `scroll-mt-[3.75rem]`); tinggi area Knowledge tetap (kini muat tanpa banyak menggulir). Aturan baku di §8b
+  "Tampilan ringkas". Lanjutan (permintaan user: modal & fitur di dalamnya): komponen form shadcn (`Field*` jarak 28 → 16 px, label–input 12 → 8 px),
+  tabel (kepala 48 → 36 px), header dialog, judul modal maks. `text-lg`, kotak bagian di 16 berkas modal, baris Action/Task/Agenda &
+  Timeline di modal Project/Area (6 item terlihat, dulu 4), info & Hasil di detail Agenda, tombol media Proses Arsip, judul editor
+  Notes, daftar Jadwal & Rutinitas Planner (judul text-sm, keterangan text-xs, ikon 40 px). Lembar Catatan Bebas: isi editor `.rich-text` (index.css) text-sm, H1/H2/H3 = xl/lg/base, kepala lembar & judul catatan lebih kecil. Revisi user hari yang sama: banner sedikit ditinggikan (± 88 px) kecuali Knowledge (`compactHero`,
+  sudah pas), tab kembali membulat seperti semula, kartu ringkasan Productivity kembali tinggi (ikon di atas, angka `text-3xl`);
+  ukuran keseluruhan lainnya disetujui. Label Inggris Productivity (celah lama) sengaja tidak diubah: di luar cakupan tampilan.
 
 ## 13. Konvensi Kode
 
@@ -2621,6 +2654,10 @@ utama tetap < 500 kB (cek output `npm run build`).
 
 - Uji tampilan HP: setelah `resize_window` preset mobile, **muat ulang halaman** sebelum menilai tangkapan layar (tanpa itu layout tampak terpotong walau ukuran elemen benar). Tombol bulat bergambar pohon palem di kiri bawah saat dev = TanStack Query Devtools, tidak ada di build produksi. Kunci `bull:automation:repeat:auto:…` tersisa di Redis bisa hanya bekas job; yang menjadwalkan = isi zset `bull:automation:repeat` (kosong = tidak ada jadwal).
 - Transkrip audio: jawaban Gemini sukses bukan berarti lengkap — periksa kata per menit (rapat ± 120–130). `promptFeedback.blockReason` tanpa `finishReason` = penolakan, bukan sambungan putus; mengulang model yang sama tidak membantu. Rekaman MediaRecorder bisa ber-Segment/Cluster berukuran pasti + SeekHead + Cues: uji pemotongan pada rekaman asli, bukan hanya data buatan. `fetch` Node memutus permintaan yang menunggu header > 5 menit. Mengubah kode backend me-restart proses dan membuang pekerjaan transkrip di memori.
+- Tinggi header aplikasi (`app-header.tsx`, `h-12`) dipakai di hitungan tinggi tetap: Notebook (`h-[calc(100svh-8.25rem)]`,
+  `scroll-mt-[3.75rem]`), Knowledge/Graf/Canvas/Tabel (`100svh-12.5rem` dst.), chat AI Agent (`100svh-20rem`). Mengubah header /
+  banner / padding `main` → cek ulang semua `grep -rn "100svh" src`. Python **tidak** terpasang di laptop: skrip bantu (mis.
+  penggantian kelas massal) ditulis `.mjs` dan dijalankan `node`.
 
 ## 16. Memori & Kesinambungan Antar-Chat
 

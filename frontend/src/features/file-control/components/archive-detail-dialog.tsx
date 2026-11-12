@@ -138,15 +138,15 @@ function ArchiveDetail({ file, onClose }: { file: ArchiveFile; onClose: () => vo
 
   return (
     <>
-      <DialogHeader className="border-b p-6">
-        <DialogTitle className="text-xl">Detail Arsip</DialogTitle>
+      <DialogHeader className="border-b p-4">
+        <DialogTitle className="text-lg">Detail Arsip</DialogTitle>
         <DialogDescription className="flex flex-wrap items-center gap-2 font-mono">
           {file.archiveRegId || "-"}
           <SharedBadge item={file} recordType={file.isArchived ? undefined : "para_resource"} />
         </DialogDescription>
       </DialogHeader>
 
-      <div className="flex-1 space-y-6 overflow-y-auto p-6">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         <div
           className={cn(
             "flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between",
@@ -214,7 +214,7 @@ function ArchiveDetail({ file, onClose }: { file: ArchiveFile; onClose: () => vo
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-4">
           <Info label="Nomor Dokumen">{file.number || "-"}</Info>
           <Info label="Tanggal Dokumen">{dateText(file.date)}</Info>
           <Info label="Judul / Nama Berkas" className="col-span-2">

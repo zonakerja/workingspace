@@ -64,7 +64,7 @@ export function RobotSettings({ systems }: { systems?: RobotConnector["system"][
     <Tabs
       value={tab}
       onValueChange={(v) => setSub(v === "automation" ? "automation" : null)}
-      className="mx-auto w-full max-w-5xl gap-5"
+      className="mx-auto w-full max-w-5xl gap-4"
     >
       <TabsList className="w-full sm:w-fit">
         <TabsTrigger value="settings" className="flex-1 sm:flex-none">
@@ -76,7 +76,7 @@ export function RobotSettings({ systems }: { systems?: RobotConnector["system"][
           {activeJobs > 0 && <Badge className="bg-module-soft text-module">{activeJobs} aktif</Badge>}
         </TabsTrigger>
       </TabsList>
-      <TabsContent value="settings" className="flex flex-col gap-5">
+      <TabsContent value="settings" className="flex flex-col gap-4">
         <ServiceCard status={status.data} loading={status.isLoading} />
         {isLoading || !connectors ? (
           <Skeleton className="h-64 rounded-xl" />
@@ -94,7 +94,7 @@ export function RobotSettings({ systems }: { systems?: RobotConnector["system"][
           ))
         )}
       </TabsContent>
-      <TabsContent value="automation" className="flex flex-col gap-5">
+      <TabsContent value="automation" className="flex flex-col gap-4">
         <AutomationJobs systems={systems} />
       </TabsContent>
       <RemoteBrowserDialog

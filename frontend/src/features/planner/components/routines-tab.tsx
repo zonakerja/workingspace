@@ -114,14 +114,14 @@ export function RoutinesTab() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-2">
           {pageItems.map((r) => {
             const frozen = isRoutineFrozenOn(r, today);
             return (
               <li
                 key={r.id}
                 className={cn(
-                  "flex flex-col gap-3 rounded-2xl border p-4 transition-colors md:flex-row md:items-center md:justify-between",
+                  "flex flex-col gap-3 rounded-xl border px-3.5 py-3 transition-colors md:flex-row md:items-center md:justify-between",
                   r.archived
                     ? "bg-muted/60 opacity-80"
                     : frozen
@@ -129,10 +129,10 @@ export function RoutinesTab() {
                       : "bg-card hover:border-module/30",
                 )}
               >
-                <div className="flex min-w-0 items-center gap-4">
+                <div className="flex min-w-0 items-center gap-3">
                   <span
                     className={cn(
-                      "flex size-11 shrink-0 items-center justify-center rounded-2xl",
+                      "flex size-10 shrink-0 items-center justify-center rounded-xl",
                       r.archived
                         ? "bg-muted text-muted-foreground"
                         : frozen
@@ -141,16 +141,16 @@ export function RoutinesTab() {
                     )}
                   >
                     {r.archived ? (
-                      <Archive className="size-5" />
+                      <Archive className="size-4" />
                     ) : frozen ? (
-                      <Snowflake className="size-5" />
+                      <Snowflake className="size-4" />
                     ) : (
-                      <RefreshCw className="size-5" />
+                      <RefreshCw className="size-4" />
                     )}
                   </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="truncate text-base font-bold">{r.title}</h4>
+                      <h4 className="truncate text-sm font-bold">{r.title}</h4>
                       {frozen && (
                         <Badge className="bg-info text-info-foreground">
                           <Snowflake /> Sedang Freeze

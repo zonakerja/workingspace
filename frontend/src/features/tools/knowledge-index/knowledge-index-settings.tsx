@@ -67,7 +67,7 @@ export function KnowledgeIndexSettings() {
   const { data, isLoading, error } = useAiSettings();
   if (isLoading) return <PageLoader />;
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       {data ? (
         <AiIndexCard settings={data} />
       ) : (

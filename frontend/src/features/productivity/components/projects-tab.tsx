@@ -51,10 +51,10 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
     .filter((p) => !range || isProjectActiveIn(p, range[0], range[1], today));
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <ParaInfo icon={Layers} {...PARA_INFO.projects} />
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-        <h3 className="text-xl font-bold">Active Projects</h3>
+        <h3 className="text-base font-bold">Active Projects</h3>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
           <SearchInput value={search} onChange={setSearch} placeholder="Cari Project..." />
           <DateRangeFilter

@@ -128,7 +128,7 @@ function CompleteTaskForm({
   };
 
   return (
-    <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1">
+    <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
       <FieldGroup className="gap-4">
         <div className={withWeight ? "grid grid-cols-2 gap-3" : "flex flex-col gap-4"}>
           <Field>
@@ -170,7 +170,7 @@ function CompleteTaskForm({
         </div>
       </FieldGroup>
 
-      <section className="flex flex-col gap-3 rounded-2xl border bg-muted/40 p-4">
+      <section className="flex flex-col gap-3 rounded-xl border bg-muted/40 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="flex items-center gap-2 text-sm font-bold">

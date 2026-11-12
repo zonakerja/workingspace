@@ -183,7 +183,7 @@ function ChatTab() {
       }
       contentClassName="flex flex-col gap-3"
     >
-      <div className="flex min-h-64 flex-col gap-2 rounded-lg bg-muted/30 p-3">
+      <div className="flex min-h-[max(16rem,calc(100svh-20rem))] flex-col gap-2 rounded-lg bg-muted/30 p-3">
         {messages.length === 0 && !busy && (
           <p className="m-auto max-w-md text-center text-sm text-muted-foreground">
             Contoh: <em>“Pengajuan apa saja yang menunggu?”</em> atau{" "}

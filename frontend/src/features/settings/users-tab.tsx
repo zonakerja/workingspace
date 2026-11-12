@@ -109,7 +109,7 @@ export function UsersTab() {
           {users.map((u) => (
             <li
               key={u.id}
-              className="flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-colors hover:bg-muted/40 md:flex-row md:items-center md:justify-between"
+              className="flex flex-col gap-3 rounded-xl border bg-card p-3 transition-colors hover:bg-muted/40 md:flex-row md:items-center md:justify-between"
             >
               <div className="flex min-w-0 items-start gap-3">
                 <Avatar className="size-10">

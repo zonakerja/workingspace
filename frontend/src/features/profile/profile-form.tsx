@@ -109,7 +109,7 @@ function ProfileFormInner({ user }: { user: PublicUser }) {
             </Field>
           </div>
 
-          <FieldSet className="rounded-2xl border bg-muted/40 p-4 md:p-5">
+          <FieldSet className="rounded-2xl border bg-muted/40 p-4 md:p-4">
             <FieldLegend className="flex items-center gap-2">
               <LockKeyhole className="size-4 text-module" /> Ganti Password
             </FieldLegend>

@@ -238,11 +238,12 @@ export function ArchiveListTab({ tab }: { tab: ArchiveListTabId }) {
         : null;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {subTabs && (
         <ToggleGroup
           type="single"
           variant="outline"
+          size="sm"
           value={subTab}
           onValueChange={(v) => {
             if (!v) return;
@@ -256,7 +257,7 @@ export function ArchiveListTab({ tab }: { tab: ArchiveListTabId }) {
             <ToggleGroupItem
               key={t.id}
               value={t.id}
-              className="flex-1 gap-2 data-[state=on]:bg-module-soft data-[state=on]:text-module"
+              className="flex-1 gap-1.5 text-xs data-[state=on]:bg-module-soft data-[state=on]:text-module"
             >
               <t.icon /> {t.label}
             </ToggleGroupItem>
@@ -300,7 +301,7 @@ export function ArchiveListTab({ tab }: { tab: ArchiveListTabId }) {
       ) : (
         <>
           {(tab === "physical" || tab === "digital") && subTab === "inactive" ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {renderSection(
                 "Siap Dimusnahkan (Expired & Non-Permanen)",
                 filtered.filter((r) => r.dynamicStatus === "expired" && !r.isVital && !isPermanent(jraOf(r))),

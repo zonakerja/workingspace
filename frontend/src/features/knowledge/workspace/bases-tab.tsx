@@ -221,7 +221,7 @@ function BaseView({ path, onDeleted }: { path: string; onDeleted: () => void }) 
   if (isLoading) return <Spinner className="m-6" />;
   if (error || !file)
     return (
-      <p className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+      <p className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
         {errorMessage(error)}
       </p>
     );
@@ -373,7 +373,7 @@ function BaseResults({
 }) {
   if (!result.rows.length) {
     return (
-      <Empty className="rounded-2xl border bg-card py-10">
+      <Empty className="rounded-2xl border bg-card py-6">
         <EmptyHeader>
           <EmptyDescription>Tidak ada catatan yang cocok dengan filter ini.</EmptyDescription>
         </EmptyHeader>

@@ -112,24 +112,24 @@ export function ContainerInfoDialog({
   return (
     <Dialog open={!!containerProp} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[90svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="flex-row items-center gap-3 border-b p-6">
-          <ContainerIcon type={container.type} className="size-12" />
+        <DialogHeader className="flex-row items-center gap-3 border-b p-4">
+          <ContainerIcon type={container.type} className="size-9" />
           <div>
             <p className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
               {CONTAINER_STYLE[container.type].label}
             </p>
-            <DialogTitle className="text-xl">{container.name}</DialogTitle>
+            <DialogTitle className="text-lg">{container.name}</DialogTitle>
             <DialogDescription className="font-mono">{container.code}</DialogDescription>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 space-y-5 overflow-y-auto bg-muted/40 p-6">
+        <div className="flex-1 space-y-4 overflow-y-auto bg-muted/40 p-4">
           {isTree ? (
             <>
               <p className="border-b pb-2 text-sm font-bold">Rincian Isi Penyimpanan:</p>
               {container.type === "location"
                 ? children(container.id).map((rack) => (
-                    <div key={rack.id} className="space-y-3 rounded-2xl border bg-card/60 p-4">
+                    <div key={rack.id} className="space-y-3 rounded-xl border bg-card/60 p-3">
                       <p className="flex w-max items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-sm font-bold text-primary">
                         <CONTAINER_STYLE.rack.icon className="size-4" /> Rak: {rack.name}
                         <span className="rounded bg-primary/15 px-2 py-0.5 font-mono text-xs">{rack.code}</span>

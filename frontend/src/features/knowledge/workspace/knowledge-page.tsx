@@ -71,6 +71,7 @@ export function Component() {
   return (
     <ModulePage
       module="knowledge"
+      compactHero
       meta={
         ready && (
           <>
@@ -136,7 +137,7 @@ function HeroActions() {
       <ActiveFieldButton />
       <DailyNoteButton />
       <Button size="sm" variant="secondary" onClick={() => openWorkspaceDialog({ kind: "quick-switcher" })}>
-        <Search /> Buka cepat <Kbd className="hidden xl:inline-flex">Ctrl O</Kbd>
+        <Search /> Buka cepat <Kbd className="hidden 2xl:inline-flex">Ctrl O</Kbd>
       </Button>
       <Button
         size="sm"
@@ -144,7 +145,7 @@ function HeroActions() {
         onClick={() => openWorkspaceDialog({ kind: "command-palette" })}
         title="Palet perintah: semua aksi Knowledge (sunting, pindah, sisip tabel/callout/templat, catatan harian, …)"
       >
-        <CommandIcon /> Perintah <Kbd className="hidden xl:inline-flex">Ctrl P</Kbd>
+        <CommandIcon /> Perintah <Kbd className="hidden 2xl:inline-flex">Ctrl P</Kbd>
       </Button>
       <Button size="sm" variant="secondary" onClick={() => openWorkspaceDialog({ kind: "new-note" })}>
         <FilePlus2 /> Catatan baru
@@ -431,8 +432,8 @@ function Welcome({ tree }: { tree: KnowledgeTree }) {
     .slice(0, 8);
   const start = tree.notes.find((n) => /^mulai di sini\.md$/i.test(n.path));
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="mx-auto flex max-w-xl flex-col gap-5">
+    <div className="h-full overflow-y-auto p-4">
+      <div className="mx-auto flex max-w-xl flex-col gap-4">
         <div>
           <h2 className="text-xl font-extrabold">Vault Anda</h2>
           <p className="mt-1 text-sm text-muted-foreground">

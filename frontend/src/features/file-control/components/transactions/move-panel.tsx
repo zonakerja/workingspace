@@ -39,7 +39,7 @@ export function MovePanel() {
   const target = targetId === ROOT ? null : (refs.find((r) => r.id === targetId) ?? null);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {canEdit && (
         <SectionCard
           title="1. Tentukan Wadah Tujuan"
@@ -66,7 +66,7 @@ export function MovePanel() {
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-bold">Riwayat Pemindahan</h3>
+          <h3 className="text-base font-bold">Riwayat Pemindahan</h3>
           <p className="text-xs text-muted-foreground">Log aktivitas penataan fisik terbaru.</p>
         </div>
         {canEdit && (

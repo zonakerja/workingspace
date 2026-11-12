@@ -38,9 +38,9 @@ export function BorrowPanel() {
   const [confirm, setConfirm] = useState<{ action: "return" | "cancel"; id: string } | null>(null);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">Daftar Peminjaman</h3>
+        <h3 className="text-base font-bold">Daftar Peminjaman</h3>
         {canEdit && (
           <Button variant={showForm ? "outline" : "default"} onClick={() => setShowForm((v) => !v)}>
             {showForm ? <X /> : <Plus />} {showForm ? "Batal" : "Buat Peminjaman"}
@@ -235,7 +235,7 @@ function BorrowForm({ onDone }: { onDone: () => void }) {
       title="Formulir Peminjaman"
       description="Catat sirkulasi keluar arsip fisik ke pihak terkait."
     >
-      <FieldGroup className="gap-5">
+      <FieldGroup className="gap-4">
         <Field className="rounded-2xl border bg-muted/40 p-4">
           <FieldLabel htmlFor="borrow-search">
             Cari &amp; Pilih Arsip Fisik <span className="text-destructive">*</span>
@@ -308,7 +308,7 @@ function BorrowForm({ onDone }: { onDone: () => void }) {
           </div>
         </Field>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="borrow-name">
               Nama Peminjam <span className="text-destructive">*</span>
@@ -341,7 +341,7 @@ function BorrowForm({ onDone }: { onDone: () => void }) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 rounded-2xl border bg-module-soft/50 p-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 rounded-2xl border bg-module-soft/50 p-4 md:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="borrow-date">
               Tanggal Pinjam <span className="text-destructive">*</span>

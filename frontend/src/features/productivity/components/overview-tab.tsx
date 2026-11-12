@@ -41,26 +41,26 @@ export function OverviewTab({ onOpenProject }: { onOpenProject: (id: string) => 
   ] as const;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((s) => (
           <div
             key={s.label}
             data-module={s.module}
-            className="relative overflow-hidden rounded-3xl bg-module-gradient p-5 text-white shadow-md shadow-module/20"
+            className="relative overflow-hidden rounded-2xl bg-module-gradient p-4 text-white shadow-md shadow-module/20"
           >
             <div className="pointer-events-none absolute -right-6 -bottom-6 size-24 rounded-full bg-white/15" />
-            <s.icon className="mb-3 size-7 opacity-85" />
+            <s.icon className="mb-2 size-6 opacity-85" />
             <p className="text-sm font-medium text-white/85">{s.label}</p>
-            <p className="text-3xl font-extrabold">{s.value}</p>
+            <p className="text-3xl leading-tight font-extrabold">{s.value}</p>
           </div>
         ))}
       </div>
 
       <ParaCalendar projects={projects} tasks={enriched} onDateClick={setSelectedDate} />
 
-      <section className="flex flex-col gap-3">
-        <h3 className="text-lg font-bold">Recent Active Projects</h3>
+      <section className="flex flex-col gap-2">
+        <h3 className="text-base font-bold">Recent Active Projects</h3>
         {incomplete.length === 0 ? (
           <Empty className="border border-dashed">
             <EmptyHeader>
@@ -77,7 +77,7 @@ export function OverviewTab({ onOpenProject }: { onOpenProject: (id: string) => 
                 key={p.id}
                 type="button"
                 onClick={() => onOpenProject(p.id)}
-                className="flex flex-col gap-4 rounded-2xl border bg-card p-4 text-left transition-shadow hover:shadow-md md:flex-row md:items-center"
+                className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3 text-left transition-shadow hover:shadow-md md:flex-row md:items-center"
               >
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -95,7 +95,7 @@ export function OverviewTab({ onOpenProject }: { onOpenProject: (id: string) => 
                       </span>
                     )}
                   </div>
-                  <h4 className="truncate text-base font-bold">{p.title}</h4>
+                  <h4 className="truncate text-sm font-bold">{p.title}</h4>
                 </div>
                 <div className="flex w-full flex-col gap-2.5 md:w-1/3">
                   <MiniProgress label="Task Completion" value={taskPct} className="bg-primary" />

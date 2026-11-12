@@ -50,7 +50,7 @@ const MAX_PROFILE = 6000;
 export function KnowledgeSettings() {
   const { data: status, isLoading } = useKnowledgeStatus();
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       <ProfileCard />
       {isLoading || !status ? <Skeleton className="h-48 rounded-xl" /> : <VaultCard status={status} />}
       {status?.folder && <MirrorCard />}

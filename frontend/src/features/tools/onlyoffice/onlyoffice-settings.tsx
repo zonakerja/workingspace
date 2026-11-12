@@ -32,7 +32,7 @@ import { OfficeAiCard, OfficeFontsCard, OfficeTemplatesCard } from "./onlyoffice
 export function OnlyofficeSettings() {
   const admin = isAdminRole(useAuthStore((state) => state.user?.role));
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       <UsageCard />
       <OfficeTemplatesCard />
       <OfficeAiCard />
@@ -115,7 +115,7 @@ function UsageCard() {
       title="Cara memakai"
       description="ONLYOFFICE muncul otomatis di menu mana pun yang memiliki dokumen."
     >
-      <ul className="grid gap-3 text-sm sm:grid-cols-2">
+      <ul className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
         <Tip icon={FilePen} title="Buka & sunting berkas">
           Klik lampiran atau Resource berupa DOCX/XLSX/PPTX untuk melihatnya; tombol <b>Edit di ONLYOFFICE</b> membuka
           editor (termasuk PDF).
@@ -188,12 +188,12 @@ function InfoRow({ label, children, className }: { label: string; children: Reac
 
 function Tip({ icon: Icon, title, children }: { icon: typeof Info; title: string; children: ReactNode }) {
   return (
-    <li className="flex gap-3 rounded-xl border p-3">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-module/12 text-module">
+    <li className="flex gap-2.5 rounded-lg border p-2.5">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-module/12 text-module">
         <Icon className="size-4" />
       </span>
       <span className="min-w-0">
-        <span className="block font-semibold">{title}</span>
+        <span className="block text-sm font-semibold">{title}</span>
         <span className="text-muted-foreground">{children}</span>
       </span>
     </li>

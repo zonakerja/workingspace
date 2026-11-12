@@ -152,7 +152,7 @@ export function NoteView({
   }
   if (!note) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
         <TriangleAlert className="size-6 text-warning" />
         {error ? errorMessage(error) : "Catatan tidak ditemukan — mungkin sudah dipindah atau dihapus dari vault."}
       </div>
@@ -307,7 +307,7 @@ export function NoteView({
       )}
 
       {note.kind === "file" ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center text-sm text-muted-foreground">
           <Paperclip className="size-8 text-module" />
           <p>Berkas lampiran vault — isinya dibaca server dan ikut diindeks sebagai pengetahuan.</p>
           {note.assetId && (

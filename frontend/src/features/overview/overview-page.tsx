@@ -170,7 +170,7 @@ export function Component() {
       <li
         key={entry.id}
         className={cn(
-          "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+          "flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
           done ? "bg-muted/40" : "bg-card hover:bg-module-soft",
         )}
       >
@@ -200,7 +200,7 @@ export function Component() {
           <span className={cn("block truncate text-sm font-semibold", done && "text-muted-foreground line-through")}>
             {entry.item.title}
           </span>
-          <span className="mt-1 flex flex-wrap items-center gap-1.5">
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
             {overdue ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
                 <CalendarClock className="size-3" /> Terlambat · {formatDayMonth(parseLocalYMD(entry.due))}
@@ -263,32 +263,32 @@ export function Component() {
         </>
       }
     >
-      <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
           {/* Rutinitas hari ini (bisa dicentang langsung) */}
           <section
             data-module="planner"
-            className="relative overflow-hidden rounded-3xl bg-module-gradient p-6 text-white shadow-lg shadow-module/25 lg:col-span-2"
+            className="relative overflow-hidden rounded-2xl bg-module-gradient p-4 text-white shadow-lg shadow-module/25 lg:col-span-2"
           >
             <div className="pointer-events-none absolute -top-16 -right-16 size-64 rounded-full bg-white/10 blur-3xl" />
-            <div className="relative flex flex-col gap-4">
+            <div className="relative flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-xl font-bold tracking-tight">Rutinitas Hari Ini</h3>
+                <h3 className="text-base font-bold tracking-tight">Rutinitas Hari Ini</h3>
                 <Link
                   to="/planner/routines"
                   title="Kelola rutinitas"
-                  className="rounded-2xl bg-white/20 p-3 backdrop-blur transition-colors hover:bg-white/30"
+                  className="rounded-xl bg-white/20 p-2 backdrop-blur transition-colors hover:bg-white/30"
                 >
-                  <RefreshCw className="size-5" />
+                  <RefreshCw className="size-4" />
                 </Link>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-extrabold tracking-tighter">{routinePct}%</span>
-                <span className="font-medium opacity-85">
+                <span className="text-4xl font-extrabold tracking-tighter">{routinePct}%</span>
+                <span className="text-sm font-medium opacity-85">
                   {doneRoutines} dari {activeRoutines.length} selesai
                 </span>
               </div>
-              <Progress value={routinePct} className="h-3 bg-black/20" indicatorClassName="bg-white" />
+              <Progress value={routinePct} className="h-2 bg-black/20" indicatorClassName="bg-white" />
               {activeRoutines.length > 0 ? (
                 <ul className="flex flex-col gap-1.5">
                   {activeRoutines.map((r) => {
@@ -299,7 +299,7 @@ export function Component() {
                           type="button"
                           onClick={() => toggleRoutine(r.id)}
                           className={cn(
-                            "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold transition-colors",
+                            "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm font-semibold transition-colors",
                             done ? "bg-white/25" : "bg-black/10 hover:bg-white/15",
                           )}
                         >
@@ -356,7 +356,7 @@ export function Component() {
               }
             >
               {agendaToday.length > 0 ? (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-1.5">
                   {agendaToday.map((item) => {
                     const status = agendaStatus(item, now);
                     const mediaLinks = scheduleLinks(item);
@@ -365,7 +365,7 @@ export function Component() {
                       <li
                         key={item.id}
                         className={cn(
-                          "flex items-center gap-2 rounded-xl border-l-4 border-l-module bg-module/8 p-3 transition-colors hover:bg-module/15",
+                          "flex items-center gap-2 rounded-lg border-l-4 border-l-module bg-module/8 px-3 py-2 transition-colors hover:bg-module/15",
                           status === "done" && "opacity-60",
                         )}
                       >
@@ -421,7 +421,7 @@ export function Component() {
                   })}
                 </ul>
               ) : (
-                <Empty className="border border-dashed py-8">
+                <Empty className="border border-dashed py-6">
                   <EmptyHeader>
                     <EmptyDescription>Tidak ada agenda hari ini.</EmptyDescription>
                   </EmptyHeader>
@@ -431,7 +431,7 @@ export function Component() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* To-do hari ini: todo Planner + task/action yang jatuh tempo hari ini */}
           <div data-module="productivity" className="min-w-0">
             <SectionCard
@@ -452,11 +452,11 @@ export function Component() {
             >
               {todays.length > 0 ? (
                 <>
-                  <ul className="flex flex-col gap-2">{todays.slice(0, TODAY_LIMIT).map(renderTask)}</ul>
+                  <ul className="flex flex-col gap-1.5">{todays.slice(0, TODAY_LIMIT).map(renderTask)}</ul>
                   {moreLink(todays.length - TODAY_LIMIT)}
                 </>
               ) : (
-                <Empty className="border border-dashed py-8">
+                <Empty className="border border-dashed py-6">
                   <EmptyHeader>
                     <EmptyDescription>Belum ada to-do untuk hari ini.</EmptyDescription>
                   </EmptyHeader>
@@ -476,11 +476,11 @@ export function Component() {
             >
               {urgent.length > 0 ? (
                 <>
-                  <ul className="flex flex-col gap-2">{urgent.slice(0, URGENT_LIMIT).map(renderTask)}</ul>
+                  <ul className="flex flex-col gap-1.5">{urgent.slice(0, URGENT_LIMIT).map(renderTask)}</ul>
                   {moreLink(urgent.length - URGENT_LIMIT)}
                 </>
               ) : (
-                <Empty className="border border-dashed py-8">
+                <Empty className="border border-dashed py-6">
                   <EmptyHeader>
                     <EmptyDescription>Aman! Tidak ada tugas terlambat atau prioritas tinggi.</EmptyDescription>
                   </EmptyHeader>
@@ -516,10 +516,10 @@ export function Component() {
                     <Link
                       key={p.id}
                       to={{ search: `?project=${encodeURIComponent(p.id)}` }}
-                      className="flex min-w-0 flex-col gap-4 rounded-2xl border bg-muted/30 p-4 transition-all hover:border-module/40 hover:bg-card hover:shadow-md"
+                      className="flex min-w-0 flex-col gap-2.5 rounded-xl border bg-muted/30 p-3 transition-all hover:border-module/40 hover:bg-card hover:shadow-md"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="truncate text-base font-bold">{p.title}</h4>
+                        <h4 className="truncate text-sm font-bold">{p.title}</h4>
                         {p.deadline && (
                           <Badge
                             variant="secondary"
@@ -537,7 +537,7 @@ export function Component() {
                 })}
               </div>
             ) : (
-              <Empty className="border border-dashed py-10">
+              <Empty className="border border-dashed py-6">
                 <EmptyHeader>
                   <EmptyDescription>Belum ada proyek aktif. Silakan tambah di menu Productivity.</EmptyDescription>
                 </EmptyHeader>

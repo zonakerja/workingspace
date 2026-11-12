@@ -17,7 +17,7 @@ const TABS: Record<string, () => ReactNode> = {
 export function Component() {
   return (
     <ModulePage module="settings">
-      {(tab) => <div className="mx-auto w-full max-w-4xl">{tab && TABS[tab]?.()}</div>}
+      {(tab) => <div className="mx-auto w-full max-w-5xl">{tab && TABS[tab]?.()}</div>}
     </ModulePage>
   );
 }

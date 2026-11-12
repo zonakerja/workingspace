@@ -33,9 +33,9 @@ export function DispositionHistoryPanel() {
   const sorted = [...logs].sort((a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime());
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">Berita Acara Penyusutan</h3>
+        <h3 className="text-base font-bold">Berita Acara Penyusutan</h3>
         {canEdit && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -65,7 +65,7 @@ export function DispositionHistoryPanel() {
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {paginate(sorted, page, pageSize).map((log) => (
-              <div key={log.id} className="rounded-2xl border bg-card p-5">
+              <div key={log.id} className="rounded-2xl border bg-card p-4">
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold">{log.id}</p>

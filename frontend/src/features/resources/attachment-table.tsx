@@ -40,7 +40,7 @@ export function AttachmentTable({
   };
 
   if (resources.length === 0) {
-    return <p className="py-4 text-center text-sm text-muted-foreground italic">{emptyText}</p>;
+    return <p className="py-2 text-center text-xs text-muted-foreground italic">{emptyText}</p>;
   }
 
   return (

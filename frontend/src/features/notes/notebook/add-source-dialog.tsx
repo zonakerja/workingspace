@@ -335,7 +335,7 @@ function RecordSource({
       />
       <div className="max-h-[45svh] min-h-40 overflow-y-auto rounded-xl border">
         {candidates.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted-foreground">Tidak ada item yang bisa ditambahkan.</p>
+          <p className="p-4 text-center text-sm text-muted-foreground">Tidak ada item yang bisa ditambahkan.</p>
         ) : (
           candidates.map((c) => (
             <label

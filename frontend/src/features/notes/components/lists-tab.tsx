@@ -120,7 +120,7 @@ export function ListsTab() {
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
         {canEdit && !showArchived ? (
           <form onSubmit={addList} className="flex w-full max-w-md gap-2">
@@ -206,7 +206,7 @@ export function ListsTab() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
           {pageItems.map((list) => {
             const progress = listProgress(list);
             const allDone = progress.total > 0 && progress.done === progress.total;

@@ -359,7 +359,7 @@ export function RichTextEditor({
       Placeholder.configure({ placeholder: "Ketik catatan di sini… (Sisipkan → Coretan untuk menulis tangan)" }),
     ],
     editorProps: {
-      attributes: { class: "rich-text min-h-[50svh] px-4 py-4 outline-none sm:px-6", "aria-label": "Isi catatan" },
+      attributes: { class: "rich-text min-h-[50svh] px-3 py-3 outline-none sm:px-5", "aria-label": "Isi catatan" },
     },
     onUpdate: ({ editor: e }) =>
       onChange({

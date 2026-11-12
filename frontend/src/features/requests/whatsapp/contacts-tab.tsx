@@ -36,7 +36,7 @@ const KIND_OPTIONS = Object.entries(GROUP_KIND_LABELS) as [GroupKind, string][];
  */
 export function ContactsTab() {
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       <ProfileCard />
       <GroupCard />
       <ContactCard />

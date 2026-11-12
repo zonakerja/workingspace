@@ -175,7 +175,7 @@ function RegisterForm({ initial, onUploaded, onCancel, onSave }: FormProps) {
 
   return (
     <form onSubmit={submit} className="flex min-w-0 flex-col gap-4">
-      <div className="-mx-1 flex max-h-[min(68svh,52rem)] min-w-0 flex-col gap-5 overflow-y-auto px-1">
+      <div className="-mx-1 flex max-h-[min(68svh,52rem)] min-w-0 flex-col gap-4 overflow-y-auto px-1">
         <Field>
           <FieldLabel>Tipe form</FieldLabel>
           <ToggleGroup

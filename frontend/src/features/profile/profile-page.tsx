@@ -5,7 +5,7 @@ import { ProfileForm } from "@/features/profile/profile-form";
 export function Component() {
   return (
     <ModulePage module="profile">
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="mx-auto w-full max-w-5xl">
         <ProfileForm />
       </div>
     </ModulePage>

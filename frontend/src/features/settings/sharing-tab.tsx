@@ -50,7 +50,7 @@ export function SharingTab() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <SectionCard
         icon={Inbox}
         title="Dibagikan dengan saya"
@@ -59,7 +59,7 @@ export function SharingTab() {
         {incoming.isLoading ? (
           <PageLoader />
         ) : !incoming.data?.length ? (
-          <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
             Belum ada item yang dibagikan kepada Anda.
           </p>
         ) : (
@@ -103,7 +103,7 @@ export function SharingTab() {
         {outgoing.isLoading ? (
           <PageLoader />
         ) : !outgoing.data?.length ? (
-          <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
             <Share2 className="mx-auto mb-2 size-5" />
             Anda belum membagikan item apa pun. Tombol <b>Bagikan</b> tersedia di Project, Area, Resource, Catatan,
             Notes AI, List, Agenda, dan arsip File Control.

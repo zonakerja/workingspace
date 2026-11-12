@@ -183,11 +183,11 @@ export function FreeNotesTab() {
               onClick={() => setNoteParam(String(note.id))}
               onKeyDown={(e) => e.key === "Enter" && setNoteParam(String(note.id))}
               className={cn(
-                "group relative flex cursor-pointer flex-col rounded-3xl border border-transparent p-5 shadow-xs transition-all hover:shadow-md",
+                "group relative flex cursor-pointer flex-col rounded-2xl border border-transparent p-4 shadow-xs transition-all hover:shadow-md",
                 noteColor(note.color).card,
               )}
             >
-              <h4 className="mb-2 line-clamp-1 flex items-center gap-1.5 pr-16 text-lg font-bold">
+              <h4 className="mb-2 line-clamp-1 flex items-center gap-1.5 pr-16 text-base font-bold">
                 {note.pinned && <Pin className="size-3.5 shrink-0 fill-current text-module" aria-label="Disematkan" />}
                 <span className="truncate">{note.title || "Tanpa Judul"}</span>
               </h4>

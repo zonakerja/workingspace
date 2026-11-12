@@ -510,13 +510,13 @@ export function AiNoteEditor({
 
   return (
     <Card className="animate-in fade-in slide-in-from-right-4">
-      <CardContent className="flex flex-col gap-5">
+      <CardContent className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3 border-b pb-4">
           <div className="flex min-w-0 items-center gap-2">
             <Button variant="ghost" size="icon" aria-label="Kembali" onClick={back}>
               <ChevronLeft />
             </Button>
-            <h3 className="truncate text-xl font-bold">Detail Notes AI</h3>
+            <h3 className="truncate text-lg font-bold">Detail Notes AI</h3>
             {dirty && !readOnly && (
               <Badge variant="outline" className="hidden sm:inline-flex">
                 Belum disimpan
@@ -598,12 +598,12 @@ export function AiNoteEditor({
           </Field>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-4">
             {/* Audio sumber */}
             <section
               className={cn(
-                "flex flex-col gap-3 rounded-2xl border p-4 transition-colors",
+                "flex flex-col gap-3 rounded-xl border p-3 transition-colors",
                 recording ? "border-destructive/40 bg-destructive/6" : "bg-muted/40",
               )}
             >
@@ -748,7 +748,7 @@ export function AiNoteEditor({
             </section>
 
             {/* Dokumen tambahan */}
-            <section className="flex flex-col gap-3 rounded-2xl border bg-muted/40 p-4">
+            <section className="flex flex-col gap-3 rounded-xl border bg-muted/40 p-3">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase">
                   <Paperclip className="size-3.5" /> Dokumen Tambahan

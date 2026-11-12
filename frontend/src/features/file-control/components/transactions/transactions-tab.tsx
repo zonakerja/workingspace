@@ -14,7 +14,7 @@ export function TransactionsTab() {
   const [sub, setSub] = useSearchParam("sub");
   const value = SUB_TABS.includes(sub as (typeof SUB_TABS)[number]) ? (sub as string) : "search";
   return (
-    <Tabs value={value} onValueChange={(v) => setSub(v === "search" ? null : v)} className="gap-5">
+    <Tabs value={value} onValueChange={(v) => setSub(v === "search" ? null : v)} className="gap-4">
       <TabsList variant="line" className="w-full justify-start overflow-x-auto">
         <TabsTrigger value="search">
           <Search /> Pencarian Global
@@ -29,7 +29,7 @@ export function TransactionsTab() {
           <FileX /> Histori Penyusutan
         </TabsTrigger>
       </TabsList>
-      <Card className="p-4 md:p-6">
+      <Card className="p-4 md:p-4">
         <TabsContent value="search">
           <GlobalSearchPanel />
         </TabsContent>

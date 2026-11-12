@@ -138,10 +138,10 @@ export default function FreeNoteEditor({
 
   return (
     <Card className="min-h-[70svh] animate-in fade-in zoom-in-95">
-      <CardContent className="flex flex-1 flex-col gap-4 px-3 sm:px-6">
-        <div className="flex items-center justify-between gap-3 border-b pb-4">
+      <CardContent className="flex flex-1 flex-col gap-3 px-3 sm:px-5">
+        <div className="flex items-center justify-between gap-3 border-b pb-3">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label="Kembali" onClick={close}>
+            <Button variant="ghost" size="icon-sm" aria-label="Kembali" onClick={close}>
               <ChevronLeft />
             </Button>
             {!readOnly && (
@@ -154,12 +154,12 @@ export default function FreeNoteEditor({
                     aria-label={`Warna ${c.label}`}
                     onClick={() => update({ color: c.id })}
                     className={cn(
-                      "flex size-6 items-center justify-center rounded-full text-white shadow-sm transition-transform",
+                      "flex size-5 items-center justify-center rounded-full text-white shadow-sm transition-transform",
                       c.swatch,
                       draft.color === c.id && "scale-110 ring-2 ring-ring ring-offset-2 ring-offset-card",
                     )}
                   >
-                    {draft.color === c.id && <Check className="size-3.5" strokeWidth={3} />}
+                    {draft.color === c.id && <Check className="size-3" strokeWidth={3} />}
                   </button>
                 ))}
               </div>
@@ -171,7 +171,9 @@ export default function FreeNoteEditor({
             {!readOnly && (
               <>
                 <span className="hidden text-xs text-muted-foreground sm:inline">Tersimpan otomatis</span>
-                <Button onClick={close}>Selesai</Button>
+                <Button size="sm" onClick={close}>
+                  Selesai
+                </Button>
               </>
             )}
           </div>
@@ -180,7 +182,7 @@ export default function FreeNoteEditor({
           placeholder="Judul Catatan..."
           aria-label="Judul catatan"
           readOnly={readOnly}
-          className="w-full bg-transparent text-2xl font-extrabold outline-none placeholder:text-muted-foreground/50 sm:text-3xl"
+          className="w-full bg-transparent text-lg font-extrabold outline-none placeholder:text-muted-foreground/50 sm:text-xl"
           value={draft.title}
           onChange={(e) => update({ title: e.target.value })}
         />

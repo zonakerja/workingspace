@@ -107,9 +107,9 @@ export function ReferencesTab() {
 
   return (
     <SectionCard icon={Tag} title="Referensi Planner" description="Kelola kategori dan tipe untuk jadwal Anda.">
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         {canEdit && (
-          <form onSubmit={add} className="flex flex-col gap-2 rounded-2xl border bg-muted/40 p-4">
+          <form onSubmit={add} className="flex flex-col gap-2 rounded-xl border bg-muted/40 p-3">
             <span className="text-sm font-semibold">Tambah Tipe Agenda</span>
             <div className="flex flex-wrap gap-2">
               <Input

@@ -90,7 +90,7 @@ export function SummaryCard({
 
   if (!summary) {
     return (
-      <div className="flex flex-col gap-2 rounded-2xl border border-dashed bg-card/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-xl border border-dashed bg-card/60 p-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="flex items-start gap-2 text-sm text-muted-foreground">
           <Sparkles className="mt-0.5 size-4 shrink-0 text-module" />
           {ready.length

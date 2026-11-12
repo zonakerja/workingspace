@@ -26,15 +26,15 @@ export function SectionCard({
   return (
     <Card className={className}>
       <CardHeader>
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-2.5">
           {Icon && (
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-module-soft text-module">
-              <Icon className="size-5" />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-module-soft text-module">
+              <Icon className="size-4" />
             </span>
           )}
           <div className="min-w-0">
-            <CardTitle className="text-base font-bold">{title}</CardTitle>
-            {description && <CardDescription className="mt-0.5">{description}</CardDescription>}
+            <CardTitle className="text-[15px] leading-tight font-bold">{title}</CardTitle>
+            {description && <CardDescription className="mt-0.5 text-xs">{description}</CardDescription>}
           </div>
         </div>
         {action && <CardAction>{action}</CardAction>}

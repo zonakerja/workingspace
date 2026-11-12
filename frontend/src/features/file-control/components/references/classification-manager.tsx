@@ -65,7 +65,7 @@ export function ClassificationManager() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
-          <h3 className="text-lg font-bold">Referensi Klasifikasi Arsip</h3>
+          <h3 className="text-base font-bold">Referensi Klasifikasi Arsip</h3>
           <p className="text-sm text-muted-foreground">Kelola Kode Klasifikasi (Primer, Sekunder, Tersier).</p>
         </div>
         {canEdit && (

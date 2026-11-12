@@ -65,7 +65,7 @@ export function Component() {
             {isLoading ? (
               <Spinner />
             ) : !connections?.length ? (
-              <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
                 Belum ada aplikasi. Pilih dari katalog di bawah.
               </p>
             ) : (

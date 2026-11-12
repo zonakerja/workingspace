@@ -59,7 +59,7 @@ export function JraManager() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
-          <h3 className="text-lg font-bold">Referensi Jadwal Retensi Arsip (JRA)</h3>
+          <h3 className="text-base font-bold">Referensi Jadwal Retensi Arsip (JRA)</h3>
           <p className="text-sm text-muted-foreground">Kelola masa simpan arsip aktif dan inaktif.</p>
         </div>
         {canEdit && (

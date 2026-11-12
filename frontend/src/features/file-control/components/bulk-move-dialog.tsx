@@ -159,8 +159,8 @@ function BulkMove({ target, onExecute }: { target: MoveTarget; onExecute: (items
 
   return (
     <>
-      <DialogHeader className="bg-module-gradient p-6 text-white">
-        <DialogTitle className="flex items-center gap-2 text-2xl">
+      <DialogHeader className="bg-module-gradient p-4 text-white">
+        <DialogTitle className="flex items-center gap-2 text-lg">
           <ArrowDownToLine /> Pindahkan Item ke Sini
         </DialogTitle>
         <DialogDescription className="text-white/85">
@@ -231,7 +231,7 @@ function BulkMove({ target, onExecute }: { target: MoveTarget; onExecute: (items
                     </button>
                   ))
                 ) : (
-                  <p className="p-6 text-center text-xs text-muted-foreground">
+                  <p className="p-4 text-center text-xs text-muted-foreground">
                     {query ? "Item tidak ditemukan" : "Tidak ada kandidat"}
                   </p>
                 )}
@@ -242,7 +242,7 @@ function BulkMove({ target, onExecute }: { target: MoveTarget; onExecute: (items
               </p>
             </TabsContent>
             <TabsContent value="barcode" className="space-y-3">
-              <div className="flex flex-col items-center rounded-xl border-2 border-dashed p-6 text-center text-muted-foreground">
+              <div className="flex flex-col items-center rounded-xl border-2 border-dashed p-4 text-center text-muted-foreground">
                 <ScanLine className="mb-2 size-10" />
                 <p className="text-xs">Gunakan Barcode Scanner USB</p>
               </div>
@@ -269,9 +269,9 @@ function BulkMove({ target, onExecute }: { target: MoveTarget; onExecute: (items
           </Tabs>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col p-6">
+        <div className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-bold">Daftar Item ({staging.length})</h3>
+            <h3 className="text-base font-bold">Daftar Item ({staging.length})</h3>
             {staging.length > 0 && (
               <Button variant="link" size="sm" className="text-destructive" onClick={() => setStaging([])}>
                 Hapus Semua
@@ -280,7 +280,7 @@ function BulkMove({ target, onExecute }: { target: MoveTarget; onExecute: (items
           </div>
           <div className="flex-1 space-y-2 overflow-y-auto rounded-xl border bg-muted/40 p-2">
             {staging.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center py-10 text-muted-foreground">
+              <div className="flex h-full flex-col items-center justify-center py-8 text-muted-foreground">
                 <UploadCloud className="mb-2 size-10" />
                 <p className="text-sm">Belum ada item ditambahkan</p>
               </div>

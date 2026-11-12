@@ -152,7 +152,7 @@ export function SourcesPanel({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center text-sm text-muted-foreground transition-colors hover:border-module hover:bg-module-soft hover:text-module"
+          className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed p-3 text-center text-sm text-muted-foreground transition-colors hover:border-module hover:bg-module-soft hover:text-module"
         >
           <Plus className="size-6" />
           <span className="font-semibold">Tambahkan sumber pertama</span>

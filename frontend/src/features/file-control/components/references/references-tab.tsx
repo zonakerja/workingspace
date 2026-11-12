@@ -12,7 +12,7 @@ export function ReferencesTab() {
   const [ref, setRef] = useSearchParam("ref");
   const value = SUB_TABS.includes(ref as (typeof SUB_TABS)[number]) ? (ref as string) : "klasifikasi";
   return (
-    <Tabs value={value} onValueChange={(v) => setRef(v === "klasifikasi" ? null : v)} className="gap-5">
+    <Tabs value={value} onValueChange={(v) => setRef(v === "klasifikasi" ? null : v)} className="gap-4">
       <TabsList variant="line" className="w-full justify-start overflow-x-auto">
         <TabsTrigger value="klasifikasi">
           <BookMarked /> Klasifikasi

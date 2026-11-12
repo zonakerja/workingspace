@@ -172,11 +172,11 @@ export function AiNotesTab() {
                 tabIndex={0}
                 onClick={() => setNoteParam(String(n.id))}
                 onKeyDown={(e) => e.key === "Enter" && setNoteParam(String(n.id))}
-                className="group relative cursor-pointer rounded-2xl border bg-card p-5 transition-all hover:border-module/40 hover:shadow-md"
+                className="group relative cursor-pointer rounded-2xl border bg-card p-4 transition-all hover:border-module/40 hover:shadow-md"
               >
                 <div className="mb-2 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h4 className="flex items-center gap-1.5 text-lg font-bold">
+                    <h4 className="flex items-center gap-1.5 text-base font-bold">
                       {n.pinned && (
                         <Pin className="size-3.5 shrink-0 fill-current text-module" aria-label="Disematkan" />
                       )}

@@ -167,7 +167,7 @@ export function ScheduleTab() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-2">
           {pageItems.map((sch) => {
             const start = scheduleStart(sch);
             const end = scheduleEnd(sch);
@@ -180,23 +180,23 @@ export function ScheduleTab() {
               <li
                 key={sch.id}
                 className={cn(
-                  "group flex flex-col gap-4 rounded-2xl border bg-card p-4 transition-all hover:border-module/30 hover:shadow-md md:flex-row md:items-center md:justify-between",
+                  "group flex flex-col gap-3 rounded-xl border bg-card px-3.5 py-3 transition-all hover:border-module/30 hover:shadow-md md:flex-row md:items-center md:justify-between",
                   past && "bg-muted/40",
                 )}
               >
-                <div className="flex min-w-0 items-center gap-4">
+                <div className="flex min-w-0 items-center gap-3">
                   <span
                     className={cn(
-                      "flex size-12 shrink-0 rotate-3 items-center justify-center rounded-2xl shadow-lg transition-transform group-hover:rotate-0",
+                      "flex size-10 shrink-0 rotate-3 items-center justify-center rounded-xl shadow-md transition-transform group-hover:rotate-0",
                       className,
                       past && "opacity-60",
                     )}
                   >
-                    <TypeIcon className="size-5" />
+                    <TypeIcon className="size-4" />
                   </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className={cn("min-w-0 text-base font-bold", past && "text-muted-foreground")}>
+                      <h4 className={cn("min-w-0 text-sm font-bold", past && "text-muted-foreground")}>
                         <button
                           type="button"
                           className="max-w-full truncate text-left hover:text-module hover:underline"
@@ -231,18 +231,18 @@ export function ScheduleTab() {
                       )}
                       <SharedBadge item={sch} recordType="schedule" />
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1.5">
-                        <CalendarDays className="size-3.5 text-module" />
+                        <CalendarDays className="size-3 text-module" />
                         {formatDayMonth(parseLocalYMD(start))}
                         {start !== end && ` - ${formatDayMonth(parseLocalYMD(end))}`}
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <Clock className="size-3.5 text-module" /> {scheduleTimeLabel(sch)}
+                        <Clock className="size-3 text-module" /> {scheduleTimeLabel(sch)}
                       </span>
                       {sch.location && (
                         <span className="flex items-center gap-1.5">
-                          <MapPin className="size-3.5 text-module" /> {sch.location}
+                          <MapPin className="size-3 text-module" /> {sch.location}
                         </span>
                       )}
                     </div>

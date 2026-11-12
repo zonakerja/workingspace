@@ -57,7 +57,7 @@ export function ActionHistoryTab() {
       contentClassName="grid grid-cols-1 gap-2"
     >
       {!data?.length ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Agen belum mengubah data apa pun.</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">Agen belum mengubah data apa pun.</p>
       ) : (
         <>
           <ul className="grid grid-cols-1 gap-2">

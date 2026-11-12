@@ -302,7 +302,7 @@ function ActivityForm({
 
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1">
+      <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
         <FieldGroup className="gap-4">
           <div className={cn("grid gap-4", scheduled && "sm:grid-cols-[1fr_11rem]")}>
             <Field>
@@ -335,7 +335,7 @@ function ActivityForm({
         </FieldGroup>
 
         {scheduled && (
-          <section className="flex flex-col gap-3 rounded-2xl border bg-muted/40 p-4">
+          <section className="flex flex-col gap-3 rounded-xl border bg-muted/40 p-3">
             <div className="flex items-center justify-between">
               <h4 className="flex items-center gap-2 text-sm font-bold">
                 <BookOpen className="size-4 text-module" /> Dasar Pelaksanaan / Resources
@@ -925,7 +925,7 @@ function AreaDetail({
         ) : currentProject ? (
           <TaskManager key={`project-${currentProject.id}`} owner={currentProject} ownerType="Project" />
         ) : (
-          <div className="flex h-full flex-col overflow-y-auto p-5">
+          <div className="flex h-full flex-col overflow-y-auto p-4">
             <Empty className="flex-1">
               <EmptyHeader>
                 <EmptyMedia variant="icon" className="bg-module-soft text-module">

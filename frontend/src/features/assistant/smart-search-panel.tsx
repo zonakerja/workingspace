@@ -119,7 +119,7 @@ export function SmartSearchPanel({
       </div>
 
       {data && !data.indexEnabled ? (
-        <div className="flex flex-col items-center gap-3 py-12 text-center text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
           <ScanSearch className="size-10 opacity-40" />
           <p>
             Pencarian Pintar memakai <b>Indeks Pengetahuan</b>, yang sedang dimatikan.
@@ -131,7 +131,7 @@ export function SmartSearchPanel({
           </Button>
         </div>
       ) : query.trim().length < 2 ? (
-        <div className="flex flex-col items-center gap-3 py-12 text-center text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
           <ScanSearch className="size-10 opacity-40" />
           <p>
             Cari item <b>dan isi berkas</b> di Planner, Notes, Productivity, File Control, dan Knowledge.
@@ -142,11 +142,11 @@ export function SmartSearchPanel({
           </p>
         </div>
       ) : waitingEnter ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Tekan Enter untuk mencari menurut makna.</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">Tekan Enter untuk mencari menurut makna.</p>
       ) : error ? (
-        <p className="py-10 text-center text-sm text-destructive">{errorMessage(error)}</p>
+        <p className="py-8 text-center text-sm text-destructive">{errorMessage(error)}</p>
       ) : data && results.length === 0 && !isFetching ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           Tidak ada hasil untuk “{active.trim()}”.
           {mode === "text" && " Coba mode Makna."}
         </p>

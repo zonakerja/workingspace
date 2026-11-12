@@ -119,7 +119,7 @@ export function PlannerCalendar({
                 type="button"
                 onClick={() => onSelect(date)}
                 className={cn(
-                  "flex h-14 flex-col items-center justify-center gap-1.5 rounded-xl border text-sm transition-colors sm:h-16",
+                  "flex h-11 flex-col items-center justify-center gap-1 rounded-lg border text-sm transition-colors sm:h-12",
                   isSelected
                     ? "border-module bg-module font-bold text-module-foreground shadow-md shadow-module/30"
                     : isToday

@@ -125,21 +125,21 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">{mainModules.map(renderItem)}</SidebarMenu>
+            <SidebarMenu className="gap-0.5">{mainModules.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
           <SidebarGroupLabel>AI Agent</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">{aiModules.map(renderItem)}</SidebarMenu>
+            <SidebarMenu className="gap-0.5">{aiModules.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
           <SidebarGroupLabel>Connection &amp; MCP</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-0.5">
               {connectionModules.filter((m) => m.key !== "mcp").map(renderItem)}
               {(mcpApps ?? []).map((app) => {
                 const path = `/mcp-app/${app.slug}`;

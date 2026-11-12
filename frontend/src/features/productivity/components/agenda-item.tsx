@@ -65,7 +65,7 @@ export function AgendaItem({
   const series = s.seriesId ? seriesPosition(schedules, s) : null;
 
   return (
-    <li className="group flex items-start gap-3 rounded-2xl border bg-card p-4 transition-shadow hover:shadow-md">
+    <li className="group flex items-start gap-3 rounded-xl border bg-card px-3 py-2.5 transition-shadow hover:shadow-md">
       <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-lg", typeClass)}>
         <TypeIcon className="size-3.5" />
       </span>
@@ -89,7 +89,7 @@ export function AgendaItem({
             </Badge>
           )}
         </span>
-        <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <CalendarDays className="size-3" /> {scheduleDateRangeLabel(s)}
           </span>

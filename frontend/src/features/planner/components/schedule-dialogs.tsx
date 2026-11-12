@@ -324,7 +324,7 @@ function ScheduleDetail({
             <TypeIcon className="size-5" />
           </span>
           <div className="min-w-0">
-            <DialogTitle className="text-xl leading-tight">{schedule.title}</DialogTitle>
+            <DialogTitle className="text-lg leading-tight">{schedule.title}</DialogTitle>
             <DialogDescription className="mt-1 flex flex-wrap items-center gap-1.5">
               {schedule.type && (
                 <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
@@ -343,8 +343,8 @@ function ScheduleDetail({
         </div>
       </DialogHeader>
 
-      <div className="-mx-1 flex flex-1 flex-col gap-5 overflow-y-auto px-1">
-        <div className="grid gap-3 rounded-2xl border bg-muted/30 p-4 text-sm sm:grid-cols-2">
+      <div className="-mx-1 flex flex-1 flex-col gap-3 overflow-y-auto px-1">
+        <div className="grid gap-2.5 rounded-xl border bg-muted/30 p-3 text-sm sm:grid-cols-2">
           <InfoRow icon={CalendarDays} label="Tanggal">
             {formatFullDate(parseLocalYMD(start))}
             {start !== end && ` – ${formatShortDate(parseLocalYMD(end))}`}
@@ -475,7 +475,7 @@ function ScheduleDetail({
           )}
         </div>
 
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-2">
           <h4 className="flex items-center gap-2 text-sm font-bold">
             <FolderOpen className="size-4 text-module" /> Dasar Pelaksanaan
           </h4>
@@ -486,7 +486,7 @@ function ScheduleDetail({
           />
         </section>
 
-        <section className="flex flex-col gap-3 rounded-2xl border border-module/25 bg-module-soft/40 p-4">
+        <section className="flex flex-col gap-2.5 rounded-xl border border-module/25 bg-module-soft/40 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h4 className="flex items-center gap-2 text-sm font-bold">

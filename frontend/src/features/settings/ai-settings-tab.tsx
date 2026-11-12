@@ -77,7 +77,7 @@ export function AiSettingsTab() {
       title="Model AI"
       description="Pilih provider AI dan simpan API key milik Anda. Key hanya berlaku untuk akun Anda."
     >
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         <div
           className={cn(
             "flex items-start gap-3 rounded-2xl p-4 text-sm",

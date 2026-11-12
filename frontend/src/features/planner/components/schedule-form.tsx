@@ -372,7 +372,7 @@ function ScheduleForm({
           />
         </Field>
 
-        <div className="flex flex-col gap-3 rounded-2xl border bg-muted/40 p-4">
+        <div className="flex flex-col gap-3 rounded-xl border bg-muted/40 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h4 className="flex items-center gap-2 text-sm font-bold">

@@ -235,7 +235,7 @@ export function DailyTab() {
       <div
         key={`${item.isProd ? "p" : "t"}-${item.id}`}
         className={cn(
-          "group flex items-center gap-3 rounded-xl border border-l-4 px-3 py-2.5 transition-colors",
+          "group flex items-center gap-3 rounded-lg border border-l-4 px-3 py-2 transition-colors",
           style.border,
           checked ? style.done : "bg-card hover:shadow-sm",
         )}
@@ -340,9 +340,9 @@ export function DailyTab() {
   };
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">{formatFullDate(currentDate)}</h2>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 className="text-lg font-extrabold tracking-tight md:text-xl">{formatFullDate(currentDate)}</h2>
         <div className="flex gap-2">
           <PlannerDailyNoteButton date={formatLocalYMD(currentDate)} />
           <Button
@@ -371,7 +371,7 @@ export function DailyTab() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard
           icon={RefreshCw}
           title="Rutinitas & Agenda"
@@ -397,7 +397,7 @@ export function DailyTab() {
             return (
               <div
                 key={sch.id}
-                className="flex items-center gap-2 rounded-xl border-l-4 border-l-mod-planner bg-mod-planner/8 p-3 transition-colors hover:bg-mod-planner/15"
+                className="flex items-center gap-2 rounded-lg border-l-4 border-l-mod-planner bg-mod-planner/8 px-3 py-2 transition-colors hover:bg-mod-planner/15"
               >
                 <button
                   type="button"
@@ -472,7 +472,7 @@ export function DailyTab() {
               <div
                 key={routine.id}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl border border-l-4 border-l-mod-overview p-3 transition-colors",
+                  "group flex items-center gap-3 rounded-lg border border-l-4 border-l-mod-overview px-3 py-2 transition-colors",
                   done ? "bg-mod-overview/8" : "bg-card hover:shadow-sm",
                 )}
               >
@@ -541,7 +541,7 @@ export function DailyTab() {
           ))}
 
           {todaysRoutines.length === 0 && todaysSchedules.length === 0 && (
-            <Empty className="border border-dashed py-10">
+            <Empty className="border border-dashed py-6">
               <EmptyHeader>
                 <EmptyDescription>Kosong hari ini.</EmptyDescription>
               </EmptyHeader>
@@ -591,7 +591,7 @@ export function DailyTab() {
 
           {combined.map((item) => renderItem(item))}
           {combined.length === 0 && (
-            <Empty className={cn("border border-dashed", overdue.length > 0 ? "py-6" : "py-10")}>
+            <Empty className={cn("border border-dashed", overdue.length > 0 ? "py-4" : "py-6")}>
               <EmptyHeader>
                 <EmptyDescription>
                   {overdue.length > 0 ? "Belum ada tugas untuk hari ini." : "Belum ada tugas."}

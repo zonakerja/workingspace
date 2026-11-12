@@ -108,7 +108,7 @@ function ResourceAiDialogInner({ resource, open, onOpenChange, onSave }: Resourc
           )}
         </DialogHeader>
 
-        <div className="min-h-72 flex-1 overflow-y-auto rounded-2xl bg-muted/40 p-4">
+        <div className="min-h-72 flex-1 overflow-y-auto rounded-xl bg-muted/40 p-3">
           {generating ? (
             <div className="flex h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
               <Spinner /> AI sedang meringkas...

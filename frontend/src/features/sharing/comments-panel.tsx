@@ -82,7 +82,7 @@ function CommentsBody({ recordType, item, className }: CommentsPanelProps) {
   };
 
   return (
-    <section className={cn("flex flex-col gap-3 rounded-2xl border p-4", className)} aria-label="Komentar">
+    <section className={cn("flex flex-col gap-3 rounded-xl border p-3", className)} aria-label="Komentar">
       <h3 className="flex items-center gap-2 text-sm font-semibold">
         <MessageSquare className="size-4 text-module" /> Komentar ({comments.length})
       </h3>

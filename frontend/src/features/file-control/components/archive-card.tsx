@@ -71,11 +71,11 @@ export function PendingArchiveCard({
 }) {
   const date = parseLocalYMD(file.date ?? "") ?? (file.date ? new Date(file.date) : null);
   return (
-    <div className="group flex h-full flex-col justify-between rounded-2xl border bg-card p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-module/40 hover:shadow-lg">
+    <div className="group flex h-full flex-col justify-between rounded-xl border bg-card p-3 shadow-xs transition-all hover:-translate-y-0.5 hover:border-module/40 hover:shadow-lg">
       <div>
-        <div className="mb-4 flex items-start justify-between">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-info/15 text-info">
-            <FileText className="size-6" />
+        <div className="mb-2 flex items-center justify-between">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-info/15 text-info">
+            <FileText className="size-4" />
           </span>
           <div className="flex items-center gap-2">
             {hasArchiveDocument(file) && (
@@ -92,17 +92,17 @@ export function PendingArchiveCard({
           </div>
         </div>
         {file.number && <p className="mb-1 font-mono text-[10px] text-muted-foreground">No: {file.number}</p>}
-        <h4 className="mb-2 line-clamp-2 text-base leading-snug font-bold">{archiveTitle(file)}</h4>
-        <p className="mb-4 line-clamp-2 text-xs text-muted-foreground">
+        <h4 className="mb-1 line-clamp-2 text-sm leading-snug font-bold">{archiveTitle(file)}</h4>
+        <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
           {file.description || file.content || "Dokumen belum terklasifikasi."}
         </p>
       </div>
-      <div className="mt-auto border-t border-dashed pt-4">
-        <span className="mb-3 inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-1 font-mono text-[10px] text-muted-foreground">
+      <div className="mt-auto flex items-center gap-2 border-t border-dashed pt-2">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
           <CalendarDays className="size-3" /> {date ? formatNumericDate(date) : "-"}
         </span>
         {canEdit && (
-          <Button className="w-full" onClick={onProcess}>
+          <Button size="sm" className="min-w-0 flex-1" onClick={onProcess}>
             <ArchiveRestore /> Proses Pemberkasan
           </Button>
         )}
@@ -158,7 +158,7 @@ export function ArchiveCard({
     <div
       onClick={() => bulkActive && onToggle()}
       className={cn(
-        "relative flex flex-col gap-4 rounded-2xl border bg-card p-5 transition-all md:flex-row",
+        "relative flex flex-col gap-3 rounded-xl border bg-card p-3 transition-all md:flex-row",
         bulkActive
           ? selected
             ? "cursor-pointer border-module bg-module-soft ring-1 ring-module"
@@ -167,12 +167,12 @@ export function ArchiveCard({
       )}
     >
       {bulkActive && (
-        <span className="pointer-events-none absolute top-4 right-4 text-module">
+        <span className="pointer-events-none absolute top-3 right-3 text-module">
           {selected ? <CheckSquare className="size-5" /> : <Square className="size-5 text-muted-foreground" />}
         </span>
       )}
 
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-info/15 text-info">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-info/15 text-info">
         <FileText className="size-6" />
       </span>
 
@@ -196,10 +196,10 @@ export function ArchiveCard({
           )}
         </div>
         <h4 className="truncate pr-2 text-sm font-bold">{archiveTitle(file)}</h4>
-        <p className="mb-2 line-clamp-1 text-xs text-muted-foreground">
+        <p className="line-clamp-1 text-xs text-muted-foreground">
           {file.description || file.content || "Tidak ada deskripsi."}
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           <StatusBadge status={status} className="h-5 text-[10px]" />
           <RetentionBadge jra={jra} isVital={file.isVital} className="h-5 text-[10px]" />
           {borrowed && (
@@ -232,7 +232,7 @@ export function ArchiveCard({
       </div>
 
       {!bulkActive && (
-        <div className="flex shrink-0 flex-row justify-end gap-1 border-t pt-3 md:flex-col md:justify-center md:border-t-0 md:border-l md:pt-0 md:pl-3">
+        <div className="flex shrink-0 flex-row flex-wrap items-start justify-end gap-0.5 border-t pt-2 md:max-w-36 md:border-t-0 md:border-l md:pt-0 md:pl-2">
           <IconAction label="Lihat Detail" onClick={onDetail}>
             <Info />
           </IconAction>

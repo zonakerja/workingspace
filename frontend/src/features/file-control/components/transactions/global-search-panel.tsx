@@ -80,7 +80,7 @@ export function GlobalSearchPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <InputGroup className="h-14 rounded-2xl border-2 bg-card shadow-lg shadow-module/10 has-[[data-slot=input-group-control]:focus-visible]:border-module">
         <InputGroupAddon>
           <span className="flex size-10 items-center justify-center rounded-xl bg-module-soft text-module">
@@ -126,7 +126,7 @@ export function GlobalSearchPanel() {
                 tabIndex={0}
                 onClick={() => (file ? openFile(file) : setContainer(ref))}
                 onKeyDown={(e) => e.key === "Enter" && (file ? openFile(file) : setContainer(ref))}
-                className="group relative cursor-pointer overflow-hidden rounded-3xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-module/40 hover:shadow-xl"
+                className="group relative cursor-pointer overflow-hidden rounded-2xl border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-module/40 hover:shadow-xl"
               >
                 <div className="flex items-start gap-4">
                   <ContainerIcon type={type} className="size-14 rounded-2xl" />

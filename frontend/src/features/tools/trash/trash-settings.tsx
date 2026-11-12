@@ -72,7 +72,7 @@ export function TrashSettings() {
       contentClassName="grid grid-cols-1 gap-3"
     >
       {total === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Sampah kosong.</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">Sampah kosong.</p>
       ) : (
         <>
           <SearchInput

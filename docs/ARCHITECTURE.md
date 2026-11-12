@@ -770,7 +770,7 @@ seperti `setState`, menghitung diff lalu `PUT`/`DELETE` per item (debounce 500 m
 rollback + toast bila gagal). Komponen memakai hook bertipe di `data/collections.ts`.
 
 ### Pola UI wajib
-- Setiap halaman modul memakai `<ModulePage module="...">` (hero gradient + tab URL `/modul/:tab`).
+- Setiap halaman modul memakai `<ModulePage module="...">` (banner gradient ringkas satu baris + tab URL `/modul/:tab`; aturan tampilan ringkas: CLAUDE.md §8b "Tampilan ringkas").
 - Dialog edit/detail yang perlu deep link dikendalikan query string (`?edit=`, `?project=`, `?archive=`, ...).
 - Form dialog: state di komponen dalam yang di-mount saat terbuka (tanpa sinkronisasi `useEffect`).
 - Konten berat dimuat malas: rute, halaman login, renderer Markdown/KaTeX, pemindai kamera `html5-qrcode`, editor
