@@ -2,7 +2,10 @@ import { RECORD_TABLES, type RecordType, type TableSpec } from "../records/recor
 
 /** Logika murni aksi agen atas record (diuji di `agent-action-logic.spec.ts`). */
 
-export const AGENT_ACTION_KINDS = ["create", "update", "delete", "ekinerja_fill"] as const;
+export const AGENT_ACTION_KINDS = ["create", "update", "delete", "ekinerja_fill", "srikandi_register"] as const;
+
+/** Permintaan agen yang menunggu keputusan pemilik (Setujui / Tolak). */
+export const APPROVAL_KINDS = ["delete", "ekinerja_fill", "srikandi_register"] as const;
 export type AgentActionKind = (typeof AGENT_ACTION_KINDS)[number];
 
 export const AGENT_ACTION_STATUSES = ["applied", "undone", "pending", "approved", "rejected", "failed"] as const;

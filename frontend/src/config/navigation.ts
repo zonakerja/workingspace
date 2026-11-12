@@ -246,6 +246,7 @@ export const MODULES: ModuleDef[] = [
       { id: "register", label: "Register Naskah Keluar", icon: FilePlus2 },
       { id: "outgoing", label: "Daftar Naskah Keluar", icon: FileSignature },
       { id: "references", label: "Referensi", icon: BookUser },
+      { id: "workflow", label: "Workflow", icon: Workflow },
       { id: "connector", label: "Connector", icon: Bot },
     ],
   },

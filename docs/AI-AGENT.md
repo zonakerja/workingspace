@@ -1852,12 +1852,13 @@ memakai dialog yang sama, belum diklik satu per satu.
 
 | Fitur native | Boleh dilakukan Hermes |
 |---|---|
-| Overview, Planner, Notes Space, Productivity, File Control, e-Kinerja (data renaksi), SRIKANDI | Membaca & menulis data kerja lewat `list_records` / `create_record` / `update_record` (bisa dibatalkan pemilik); hapus hanya `request_delete_record` yang menunggu persetujuan di Approval → Usulan Agen, lalu masuk Sampah. Fitur tidak bisa diubah |
+| Overview, Planner, Notes Space, Productivity, File Control, e-Kinerja (data renaksi), SRIKANDI (data Register) | Membaca & menulis data kerja lewat `list_records` / `create_record` / `update_record` (bisa dibatalkan pemilik); hapus hanya `request_delete_record` yang menunggu persetujuan di Approval → Usulan Agen, lalu masuk Sampah. Fitur tidak bisa diubah |
 | Knowledge | Membaca, dan menulis usulan hanya ke `00-Inbox` |
 | AI Agent | Chat, menjalankan skill dan workflow yang disetujui |
 | Approval | Mencatat pengajuan & hasil kerja. Menyetujui, menolak, dan mengirim tetap oleh pemilik |
 | e-Kinerja | **Fitur terbuka sejak 2026-11-12** (§26.1): menambah workflow di dalamnya, menjalankan robot baca (Ambil SKP, Pantau, Periksa), meminta pengisian yang menunggu persetujuan pemilik |
-| SRIKANDI, SIMAN | Tidak ada alat ubah. Robot dipicu pemilik atau jadwal baca-saja |
+| SRIKANDI | **Fitur terbuka sejak 2026-11-13** (§26.4): menambah workflow di dalamnya, menyiapkan entri Register, menjalankan robot baca (naskah, referensi, klasifikasi) & Periksa Register, meminta pendaftaran yang menunggu persetujuan pemilik |
+| SIMAN | Tidak ada alat ubah. Robot dipicu pemilik atau jadwal baca-saja |
 | Tools, Pengaturan, Profil | Tidak ada akses |
 
 | Fitur buatan agen (non-native) | Aturan |
@@ -1927,6 +1928,30 @@ Tanpa migrasi (kolom `kind`, `placement`, `trigger` berupa teks).
 permintaan tanpa entri ditolak, permintaan → menunggu → ganda dikenali → tolak → tidak bisa disetujui lagi), UI (tab Workflow, kartu di
 e-Kinerja & Usulan Agen, Tolak, Riwayat Aksi). **Belum**: Hermes sungguhan memakai alat baru (izin token agen perlu diperbarui —
 TODO-USER A30) dan pengisian setelah disetujui ke e-Kinerja sungguhan (ditunda sesuai keputusan uji robot dengan data dummy).
+
+### 26.4 SRIKANDI menjadi fitur terbuka untuk agen (2026-11-13)
+
+**Arahan user**: SRIKANDI seharusnya fitur custom yang boleh diubah Hermes (merevisi keputusan 2026-11-09 yang menguncinya). Pola sama
+dengan e-Kinerja (§26.1): kode SRIKANDI tetap bawaan (robot Register, sinkron naskah ber-TTD, referensi sudah teruji ke SRIKANDI sungguhan),
+nama "SRIKANDI" tetap tidak bisa dipakai menu buatan agen, tetapi Hermes boleh menambah workflow di dalamnya dan menjalankan robotnya.
+
+| Yang boleh dilakukan Hermes | Cara | Batas |
+|---|---|---|
+| Menambah workflow di menu SRIKANDI (mis. menyiapkan Register dari dokumen Approval, memeriksa naskah yang belum diambil) | `propose_agent_menu` dengan `placement: "srikandi"` (izin `agent:menus`) | Draf sampai disetujui di Approval → Usulan Agen; tampil di tab **SRIKANDI → Workflow** |
+| Menyiapkan entri Register Naskah Keluar | `create_record` / `update_record` jenis `srikandi_outgoing` (izin `workspace:write`) | Tercatat di Riwayat Aksi dan bisa dibatalkan pemilik. Referensi (`srikandi_reference`) dibaca dengan `list_records` |
+| Ambil Daftar Naskah Keluar, referensi, klasifikasi arsip | `srikandi_sync_letters`, `srikandi_sync_references { classifications? }` (izin `srikandi:robot`) | Hanya membaca SRIKANDI; latar belakang, hasil di `srikandi_status`; tercatat di riwayat Otomasi dengan pemicu Agen |
+| Periksa satu entri Register | `srikandi_check_register { entryId }` | `dryRun`: formulir diisi tanpa Simpan |
+| Mendaftarkan ke SRIKANDI | `srikandi_request_register { entryId, reason }` | Hanya **permintaan** (entri lengkap, milik sendiri, belum terdaftar; satu permintaan menunggu per entri): kartu "Permintaan daftarkan naskah ke SRIKANDI dari agen" di Approval → Usulan Agen, SRIKANDI → Register, dan SRIKANDI → Workflow. Setelah **Setujui & daftarkan** robot menyimpan konsep di Log Naskah Keluar dari isi entri terkini. **Kirim Konsep, Kirim Naskah, dan tanda tangan tidak pernah** |
+
+Rancangan: `SrikandiAgentService` (tugas latar belakang, satu per user, riwayat 10 tugas di memori) dan kind `agent_actions`
+`srikandi_register` (`after` = ringkasan entri: hal, jenis, nomor, berkas, tujuan, penandatangan). Robot sibuk saat disetujui (409) →
+permintaan tetap menunggu; gagal lain (mis. sesi habis) → `failed` dan entri tidak ditandai terdaftar sehingga agen bisa meminta ulang.
+Kebijakan Otomatis (§24) tetap jalur terpisah. Tanpa migrasi.
+
+**Diuji**: unit backend +5, smoke +15 (user sementara tanpa sesi SRIKANDI: alat tampil hanya dengan izin, tugas tanpa sesi gagal aman,
+entri tak dikenal & belum lengkap ditolak, permintaan → menunggu → ganda dikenali → disetujui tanpa sesi = gagal aman tanpa menandai entri →
+minta ulang → tolak → tidak bisa disetujui lagi). **Belum**: Hermes sungguhan memakai alat SRIKANDI (izin token agen perlu diperbarui —
+TODO-USER A32), pendaftaran ke SRIKANDI sungguhan setelah disetujui (uji robot ditunda, data dummy dulu).
 
 ### 26.2 Renaksi ditarik oleh e-Kinerja, dipetakan Hermes (2026-11-12)
 

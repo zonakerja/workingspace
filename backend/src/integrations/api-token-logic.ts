@@ -21,6 +21,7 @@ export const API_SCOPES = [
   "agent:menus",
   "mcp:apps",
   "ekinerja:robot",
+  "srikandi:robot",
 ] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 
@@ -37,6 +38,8 @@ export const SCOPE_LABELS: Record<ApiScope, string> = {
   "mcp:apps": "Pakai alat aplikasi MCP yang Anda izinkan (Canva, Notion, …; kredensial tetap di LifeOS)",
   "ekinerja:robot":
     "e-Kinerja: usulkan pemetaan kegiatan ke RHK & narasi renaksi, jalankan robot baca (ambil SKP, pantau, periksa); pengisian hanya setelah Anda setujui",
+  "srikandi:robot":
+    "SRIKANDI: jalankan robot baca (daftar naskah keluar, referensi, klasifikasi) & periksa Register; pendaftaran naskah hanya setelah Anda setujui",
 };
 
 /** Token baru: `lifeos_pat_` + 32 byte acak (base64url) — cukup acak sehingga hash SHA-256 tanpa salt aman. */

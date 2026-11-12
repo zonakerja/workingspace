@@ -8,6 +8,7 @@ export const ACTION_KIND_LABELS: Record<AgentActionInfo["kind"], string> = {
   update: "Mengubah",
   delete: "Minta hapus",
   ekinerja_fill: "Minta isi e-Kinerja",
+  srikandi_register: "Minta daftarkan ke SRIKANDI",
 };
 
 export const ACTION_STATUS_LABELS: Record<AgentActionInfo["status"], string> = {

@@ -571,6 +571,12 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   Otomasi dengan pemicu `agent`). Pengisian = `ekinerja_request_fill` → baris `agent_actions` kind `ekinerja_fill` (status `pending`,
   `after` = potret entri bulan itu) → pemilik **Setujui & isi** (`POST /agent/actions/:id/approve` → `RobotService.fillEkinerjaRenaksi`
   dengan isi terkini) atau Tolak.
+- **Robot SRIKANDI untuk agen** (`src/robot/srikandi-agent.service.ts`, logika murni + test `srikandi-agent-logic.ts`; keputusan user
+  2026-11-13, [AI-AGENT.md](AI-AGENT.md) §26.4): alat MCP cakupan `srikandi:robot` — `srikandi_sync_letters`, `srikandi_sync_references`
+  (`classifications`), `srikandi_check_register` (`dryRun`) di latar belakang, dibaca lewat `srikandi_status`. Pendaftaran =
+  `srikandi_request_register` → `agent_actions` kind `srikandi_register` (pending, `after` = ringkasan entri) → **Setujui & daftarkan**
+  (`RobotService.registerSrikandiOutgoing` dengan isi terkini, berhenti di Simpan) atau Tolak. Workflow agen `placement: "srikandi"` →
+  tab SRIKANDI → Workflow.
 - **Usulan renaksi** (`src/robot/renaksi-proposals.service.ts`, logika murni + test `renaksi-candidates.ts`, [AI-AGENT.md](AI-AGENT.md) §26.2):
   kegiatan bulan itu dari Productivity (task/agenda/kegiatan) + SKP & RHK → MCP `ekinerja_renaksi_context`; `ekinerja_propose_renaksi` menyimpan
   `action_plan_entry` bertanda `proposed: true` yang tidak pernah diisikan robot sampai pemilik mencentangnya. Run Hermes dari tombol:

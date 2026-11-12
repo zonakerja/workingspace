@@ -28,6 +28,14 @@ persetujuan pemilik. Isi entri renaksi (uraian, realisasi, bukti) boleh disiapka
 `action_plan_entry` sebelum meminta pengisian. Robot tidak pernah mengirim penilaian ke atasan. Pemetaan kegiatan bulanan ke RHK + narasi Renaksi/Realisasi = skill `renaksi-ekinerja`
 (`ekinerja_renaksi_context` → `ekinerja_propose_renaksi`); hasilnya usulan yang diputuskan pemilik, bukan entri final.
 
+**SRIKANDI = fitur terbuka** (keputusan pemilik 2026-11-13): workflow boleh ditempatkan di menu SRIKANDI (`placement: "srikandi"`).
+Entri Register Naskah Keluar disiapkan dengan `create_record` / `update_record` jenis `srikandi_outgoing` (pilihan tujuan, verifikator,
+penandatangan, klasifikasi dari `list_records` jenis `srikandi_reference`). Dengan izin `srikandi:robot` agen boleh menjalankan robot yang
+**membaca** SRIKANDI: `srikandi_sync_letters` (Daftar Naskah Keluar + PDF ber-TTD), `srikandi_sync_references` (referensi / klasifikasi),
+`srikandi_check_register` (isi formulir tanpa Simpan). Hasilnya dibaca dengan `srikandi_status`, satu tugas sekaligus. Mendaftarkan
+**hanya** lewat `srikandi_request_register`, yang menunggu persetujuan pemilik; robot berhenti di Simpan konsep — Kirim Konsep, Kirim
+Naskah, dan tanda tangan selalu oleh pemilik di SRIKANDI.
+
 Agen hanya punya alat `skills`, `memory`, `todo`, `session_search`, dan MCP LifeOS (`infra/hermes/configure.sh`).
 
 Menambah skill: buat folder `nama-skill/SKILL.md` (nama huruf kecil + tanda hubung), lalu `docker restart lifeos-hermes`.

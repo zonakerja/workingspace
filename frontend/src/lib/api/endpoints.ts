@@ -706,8 +706,11 @@ export interface AgentMenu {
   icon: string;
   skill: string;
   instructions: string;
-  /** workflow = AI Agent → Workflow; connection = menu di Connection & MCP; ekinerja = e-Kinerja → Workflow */
-  placement: "workflow" | "connection" | "ekinerja";
+  /**
+   * workflow = AI Agent → Workflow; connection = menu di Connection & MCP; ekinerja = e-Kinerja → Workflow;
+   * srikandi = SRIKANDI → Workflow
+   */
+  placement: "workflow" | "connection" | "ekinerja" | "srikandi";
   form: AgentMenuField[];
   status: "draft" | "active";
   createdAt: string;

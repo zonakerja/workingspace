@@ -135,7 +135,8 @@ export type ApiScope =
   | "ai:model"
   | "agent:menus"
   | "mcp:apps"
-  | "ekinerja:robot";
+  | "ekinerja:robot"
+  | "srikandi:robot";
 
 export interface ApiTokenInfo {
   id: string;
@@ -245,8 +246,11 @@ export interface McpConnectionInfo {
 /** Aksi agen atas data kerja: buat/ubah (bisa dibatalkan) atau permintaan hapus (menunggu persetujuan). */
 export interface AgentActionInfo {
   id: string;
-  /** `ekinerja_fill` = permintaan agen mengisi Rencana Aksi satu bulan ke e-Kinerja (menunggu persetujuan) */
-  kind: "create" | "update" | "delete" | "ekinerja_fill";
+  /**
+   * `ekinerja_fill` = permintaan agen mengisi Rencana Aksi satu bulan ke e-Kinerja; `srikandi_register` = permintaan agen
+   * mendaftarkan satu entri Register Naskah Keluar ke SRIKANDI (keduanya menunggu persetujuan)
+   */
+  kind: "create" | "update" | "delete" | "ekinerja_fill" | "srikandi_register";
   recordType: string;
   clientId: string;
   title: string;

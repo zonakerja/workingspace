@@ -26,6 +26,8 @@ import { queryKeys } from "@/data/query-keys";
 import { RobotSettings } from "@/features/tools/robot/robot-settings";
 import { ReferencesBoard } from "./references-board";
 import { RegisterBoard } from "./register-board";
+import { SrikandiRegisterRequestsCard } from "./register-requests-card";
+import { SrikandiWorkflowTab } from "./srikandi-workflow-tab";
 import { usePagination } from "@/hooks/use-pagination";
 import { errorMessage } from "@/lib/api/client";
 import { robotApi } from "@/lib/api/endpoints";
@@ -33,8 +35,9 @@ import { formatDateTime, formatShortDate, parseLocalYMD } from "@/lib/dates";
 import type { SrikandiLetter } from "@/types/entities";
 
 /**
- * AI Agent → SRIKANDI: naskah keluar yang sudah ditandatangani diambil robot (hanya membaca) ke LifeOS, plus tab
- * Connector (sesi robot SRIKANDI). Tanda tangan & pengiriman tetap dilakukan user di SRIKANDI.
+ * Connection & MCP → SRIKANDI: Register Naskah Keluar, naskah ber-TTD yang diambil robot (hanya membaca), referensi,
+ * tab Workflow (fitur terbuka untuk agen: workflow buatan agen + permintaan pendaftaran yang menunggu persetujuan), dan
+ * Connector. Tanda tangan & pengiriman tetap dilakukan user di SRIKANDI.
  */
 export function Component() {
   const { items } = useSrikandiLetters();
@@ -55,8 +58,13 @@ export function Component() {
           <ReferencesBoard />
         ) : tab === "outgoing" ? (
           <LettersBoard letters={items} />
+        ) : tab === "workflow" ? (
+          <SrikandiWorkflowTab />
         ) : (
-          <RegisterBoard />
+          <div className="grid grid-cols-1 gap-3">
+            <SrikandiRegisterRequestsCard />
+            <RegisterBoard />
+          </div>
         )
       }
     </ModulePage>

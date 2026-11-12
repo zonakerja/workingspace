@@ -2012,7 +2012,7 @@ try {
     return { s: res.status, d: await res.json().catch(() => null) };
   };
   r = await j("GET", "/integrations/scopes", null, at);
-  ok("integrations scopes", r.s === 200 && r.d.length === 11, r);
+  ok("integrations scopes", r.s === 200 && r.d.length === 12, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: [] }, at);
   ok("token without scopes 400", r.s === 400, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: ["admin:all"] }, at);
@@ -2223,6 +2223,97 @@ try {
     await j("DELETE", `/records/skp/smoke-skp-${sfx}`, null, at);
     await j("DELETE", `/records/action_plan_entry/${entryId}`, null, at);
     await j("DELETE", `/integrations/tokens/${ekPat.id}`, null, at);
+  }
+
+  // Robot SRIKANDI untuk agen (fitur terbuka): baca lewat tugas latar belakang, pendaftaran hanya lewat permintaan yang
+  // disetujui. User sementara tidak punya sesi SRIKANDI → robot tidak pernah membuka SRIKANDI sungguhan.
+  {
+    const skPat = (await j("POST", "/integrations/tokens", { name: "Smoke srikandi", scopes: ["srikandi:robot"] }, at))
+      .d;
+    const sk = async (name, args = {}) => {
+      const res = await mcp(skPat.token, "tools/call", { name, arguments: args });
+      const raw = res.d?.result?.content?.[0]?.text ?? "";
+      let out = raw;
+      try {
+        out = JSON.parse(raw);
+      } catch {
+        // pesan galat berupa teks
+      }
+      return { isError: !!res.d?.result?.isError, out };
+    };
+    r = await mcp(skPat.token, "tools/list");
+    const skTools = (r.d?.result?.tools ?? []).map((t) => t.name);
+    ok(
+      "srikandi tools listed only with scope",
+      ["srikandi_status", "srikandi_sync_letters", "srikandi_check_register", "srikandi_request_register"].every((n) =>
+        skTools.includes(n),
+      ) && !skTools.includes("ekinerja_status"),
+      skTools,
+    );
+    let e = await sk("srikandi_status");
+    ok("srikandi status: no session", !e.isError && String(e.out.sesi).startsWith("belum login"), e);
+    e = await sk("srikandi_sync_letters");
+    ok("srikandi sync letters starts in background", !e.isError && e.out.dimulai === true, e);
+    let task;
+    for (let i = 0; i < 20 && task?.status !== "failed" && task?.status !== "done"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      task = (await sk("srikandi_status")).out.tugas?.[0];
+    }
+    ok("srikandi task without session fails safely", task?.status === "failed" && !!task.error, task);
+    e = await sk("srikandi_request_register", { entryId: "tidak-ada", reason: "uji smoke" });
+    ok("srikandi request register unknown entry → error", e.isError, e);
+    const regId = `smoke-reg-${Date.now()}`;
+    const entry = {
+      id: regId,
+      unit: "Bagian Umum",
+      docType: "Nota Dinas",
+      nature: "Biasa",
+      classification: "KU.01",
+      autoNumber: true,
+      subject: "Smoke register agen",
+      summary: "Uji",
+      file: { uploadId: "tidak-ada", name: "nota.pdf" },
+      recipients: [{ id: "r1", label: "Kepala Biro" }],
+      verifiers: [{ id: "v1", label: "Kabag" }],
+      status: "draft",
+    };
+    await j("PUT", `/records/srikandi_outgoing/${regId}`, { payload: entry }, at);
+    e = await sk("srikandi_request_register", { entryId: regId, reason: "uji smoke" });
+    ok("srikandi request register incomplete → error", e.isError && String(e.out).includes("Penandatangan"), e);
+    await j(
+      "PUT",
+      `/records/srikandi_outgoing/${regId}`,
+      { payload: { ...entry, signer: { id: "s1", label: "Sekretaris" } } },
+      at,
+    );
+    e = await sk("srikandi_request_register", { entryId: regId, reason: "Nota dinas smoke" });
+    ok("srikandi request register → pending", !e.isError && e.out.pending && e.out.actionId, e);
+    const regAction = e.out.actionId;
+    e = await sk("srikandi_request_register", { entryId: regId, reason: "ulang" });
+    ok("srikandi request register dedup", e.out.catatan_duplikat && e.out.actionId === regAction, e);
+    r = await j("GET", "/agent/actions?status=pending", null, at);
+    const reg = r.d?.find?.((x) => x.id === regAction);
+    ok(
+      "srikandi register snapshot for owner",
+      reg?.kind === "srikandi_register" && reg.after?.signer === "Sekretaris" && reg.title.includes("Smoke register"),
+      reg,
+    );
+    r = await j("POST", `/agent/actions/${regAction}/approve`, null, at);
+    ok(
+      "srikandi register approve without session fails safely",
+      r.s === 201 || r.s === 200 ? r.d.status === "failed" : false,
+      r,
+    );
+    r = await j("GET", `/records/srikandi_outgoing/${regId}`, null, at);
+    ok("srikandi entry not marked submitted after failure", r.d?.payload?.status === "draft", r);
+    e = await sk("srikandi_request_register", { entryId: regId, reason: "ulang setelah gagal" });
+    ok("srikandi request register again → pending", !e.isError && e.out.actionId && e.out.actionId !== regAction, e);
+    r = await j("POST", `/agent/actions/${e.out.actionId}/reject`, {}, at);
+    ok("srikandi register reject", r.s === 200 && r.d.status === "rejected", r);
+    r = await j("POST", `/agent/actions/${e.out.actionId}/approve`, null, at);
+    ok("srikandi register decided cannot be approved", r.s === 409, r);
+    await j("DELETE", `/records/srikandi_outgoing/${regId}`, null, at);
+    await j("DELETE", `/integrations/tokens/${skPat.id}`, null, at);
   }
 
   // Aksi agen atas data kerja: buat/ubah bisa dibatalkan, hapus hanya permintaan yang menunggu persetujuan → Sampah

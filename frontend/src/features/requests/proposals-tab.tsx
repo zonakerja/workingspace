@@ -12,12 +12,14 @@ import { errorMessage } from "@/lib/api/client";
 import type { AgentMenu } from "@/lib/api/endpoints";
 import { getAppIcon } from "@/lib/icons/icon-registry";
 import { EkinerjaFillRequestsCard } from "@/features/kinerja/fill-requests-card";
+import { SrikandiRegisterRequestsCard } from "@/features/srikandi/register-requests-card";
 import { DeleteRequestsCard } from "./delete-requests-card";
 
 const PLACEMENT_LABELS: Record<AgentMenu["placement"], string> = {
   workflow: "AI Agent → Workflow",
   connection: "Connection & MCP",
   ekinerja: "e-Kinerja → Workflow",
+  srikandi: "SRIKANDI → Workflow",
 };
 
 /**
@@ -43,6 +45,7 @@ export function ProposalsTab() {
       <div className="grid grid-cols-1 gap-3">
         <DeleteRequestsCard />
         <EkinerjaFillRequestsCard />
+        <SrikandiRegisterRequestsCard />
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Usulan fitur agen hanya untuk pemilik agen (HERMES_OWNER_EMAIL).
         </Card>
@@ -56,6 +59,7 @@ export function ProposalsTab() {
     <div className="grid grid-cols-1 gap-3">
       <DeleteRequestsCard />
       <EkinerjaFillRequestsCard />
+      <SrikandiRegisterRequestsCard />
       <Card className="flex items-start gap-3 p-4">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-module-soft text-module">
           <ShieldCheck className="size-5" />
@@ -101,7 +105,9 @@ export function ProposalsTab() {
                       ? `/custom/${menu.slug}`
                       : menu.placement === "ekinerja"
                         ? "/kinerja/workflow"
-                        : "/agent/workflow"
+                        : menu.placement === "srikandi"
+                          ? "/srikandi/workflow"
+                          : "/agent/workflow"
                   }
                 >
                   Buka

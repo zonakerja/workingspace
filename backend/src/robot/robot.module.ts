@@ -4,6 +4,7 @@ import { UploadsModule } from "../uploads/uploads.module";
 import { RobotClient } from "./robot-client";
 import { RobotController } from "./robot.controller";
 import { EkinerjaAgentService } from "./ekinerja-agent.service";
+import { SrikandiAgentService } from "./srikandi-agent.service";
 import { RenaksiProposalsService } from "./renaksi-proposals.service";
 import { RobotService } from "./robot.service";
 
@@ -11,7 +12,7 @@ import { RobotService } from "./robot.service";
 @Module({
   imports: [RecordsModule, UploadsModule],
   controllers: [RobotController],
-  providers: [RobotService, RobotClient, EkinerjaAgentService, RenaksiProposalsService],
-  exports: [RobotService, EkinerjaAgentService, RenaksiProposalsService],
+  providers: [RobotService, RobotClient, EkinerjaAgentService, SrikandiAgentService, RenaksiProposalsService],
+  exports: [RobotService, EkinerjaAgentService, SrikandiAgentService, RenaksiProposalsService],
 })
 export class RobotModule {}

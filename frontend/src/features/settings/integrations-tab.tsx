@@ -39,6 +39,7 @@ const SCOPE_SHORT: Record<ApiScope, string> = {
   "agent:menus": "Usulkan fitur",
   "mcp:apps": "Aplikasi MCP",
   "ekinerja:robot": "e-Kinerja",
+  "srikandi:robot": "SRIKANDI",
 };
 
 /**

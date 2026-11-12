@@ -18,8 +18,23 @@ import {
   isPeriod,
   periodLabel,
 } from "../robot/ekinerja-agent-logic";
+import {
+  registerRequestError,
+  registerRequestTitle,
+  registerSnapshot,
+  SRIKANDI_REGISTER_KIND,
+  SRIKANDI_REGISTER_RECORD,
+} from "../robot/srikandi-agent-logic";
+import type { OutgoingEntry } from "../robot/srikandi-register";
 import { RobotService } from "../robot/robot.service";
-import { changedKeys, createPayload, isAgentWritable, patchPayload, samePayload } from "./agent-action-logic";
+import {
+  APPROVAL_KINDS,
+  changedKeys,
+  createPayload,
+  isAgentWritable,
+  patchPayload,
+  samePayload,
+} from "./agent-action-logic";
 
 type Payload = Record<string, unknown>;
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -150,6 +165,36 @@ export class AgentActionsService {
     return { actionId: action.id, pending: true, entries: snapshot.total };
   }
 
+  /**
+   * Permintaan agen agar robot mendaftarkan satu entri Register Naskah Keluar ke SRIKANDI (Simpan konsep). Tidak ada yang
+   * dikirim ke SRIKANDI sampai pemilik menyetujuinya; isi entri saat diminta disimpan agar pemilik tahu apa yang didaftarkan.
+   * Entri harus milik sendiri, lengkap, dan belum terdaftar.
+   */
+  async requestSrikandiRegister(user: AuthUser, entryId: string, reason: string) {
+    const existing = await this.prisma.agentAction.findFirst({
+      where: { userId: user.id, kind: SRIKANDI_REGISTER_KIND, clientId: entryId, status: "pending" },
+    });
+    if (existing) return { actionId: existing.id, pending: true, duplicate: true };
+    const record = await this.records.findOne(SRIKANDI_REGISTER_RECORD, entryId, {}, user).catch(() => null);
+    if (!record || record.share) throw new NotFoundException("Entri Register Naskah Keluar tidak ditemukan.");
+    const entry = { ...(record.payload as Payload), id: entryId } as unknown as OutgoingEntry;
+    const error = registerRequestError(entry);
+    if (error) throw new BadRequestException(error);
+    const action = await this.prisma.agentAction.create({
+      data: {
+        userId: user.id,
+        kind: SRIKANDI_REGISTER_KIND,
+        recordType: SRIKANDI_REGISTER_RECORD,
+        clientId: entryId,
+        title: registerRequestTitle(entry),
+        after: json(registerSnapshot(entry)),
+        reason: reason.trim(),
+        status: "pending",
+      },
+    });
+    return { actionId: action.id, pending: true };
+  }
+
   list(user: AuthUser, query: { status?: string; take?: number }) {
     return this.prisma.agentAction.findMany({
       where: { userId: user.id, ...(query.status ? { status: query.status } : {}) },
@@ -160,7 +205,7 @@ export class AgentActionsService {
 
   countPending(user: AuthUser) {
     return this.prisma.agentAction.count({
-      where: { userId: user.id, kind: { in: ["delete", EKINERJA_FILL_KIND] }, status: "pending" },
+      where: { userId: user.id, kind: { in: [...APPROVAL_KINDS] }, status: "pending" },
     });
   }
 
@@ -175,6 +220,8 @@ export class AgentActionsService {
     const action = await this.own(user, id);
     if (action.kind === EKINERJA_FILL_KIND && action.status === "pending")
       return this.approveEkinerjaFill(user, action);
+    if (action.kind === SRIKANDI_REGISTER_KIND && action.status === "pending")
+      return this.approveSrikandiRegister(user, action);
     if (action.kind !== "delete" || action.status !== "pending") {
       throw new ConflictException("Permintaan ini sudah diputuskan.");
     }
@@ -261,9 +308,31 @@ export class AgentActionsService {
     }
   }
 
+  /**
+   * Setujui pendaftaran: robot mengisi formulir Registrasi SRIKANDI dari isi entri terkini lalu berhenti di Simpan (draf di
+   * Log Naskah Keluar), sama dengan tombol "Daftarkan ke SRIKANDI". Kirim Konsep tetap keputusan pemilik di SRIKANDI.
+   */
+  private async approveSrikandiRegister(user: AuthUser, action: { id: string; clientId: string }) {
+    try {
+      const result = await this.robot.registerSrikandiOutgoing(user, action.clientId, false);
+      const message =
+        result.status === "exists"
+          ? "Draf berhal sama sudah ada di Log Naskah Keluar — tidak dibuat ulang."
+          : `Draf disimpan di Log Naskah Keluar${result.draft?.number ? ` (${result.draft.number})` : ""} — belum dikirim; Kirim Konsep tetap di SRIKANDI.`;
+      await this.decide(action.id, "approved", message);
+      return { status: "approved" as const, removed: 0, message };
+    } catch (error) {
+      // Robot SRIKANDI sedang dipakai tugas lain (409): permintaan tetap menunggu agar pemilik bisa mencoba lagi
+      if (error instanceof ConflictException) throw error;
+      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+      await this.decide(action.id, "failed", message);
+      return { status: "failed" as const, removed: 0, message };
+    }
+  }
+
   async reject(user: AuthUser, id: string, note?: string) {
     const action = await this.own(user, id);
-    if ((action.kind !== "delete" && action.kind !== EKINERJA_FILL_KIND) || action.status !== "pending") {
+    if (!(APPROVAL_KINDS as readonly string[]).includes(action.kind) || action.status !== "pending") {
       throw new ConflictException("Permintaan ini sudah diputuskan.");
     }
     await this.decide(id, "rejected", note?.trim() || null);

@@ -64,6 +64,11 @@ export const TOOL_LABELS: Record<string, string> = {
   ekinerja_request_fill: "Minta isi Rencana Aksi e-Kinerja",
   ekinerja_renaksi_context: "Bahan renaksi e-Kinerja",
   ekinerja_propose_renaksi: "Usulkan renaksi e-Kinerja",
+  srikandi_status: "Status robot SRIKANDI",
+  srikandi_sync_letters: "Ambil Daftar Naskah Keluar SRIKANDI",
+  srikandi_sync_references: "Ambil referensi SRIKANDI",
+  srikandi_check_register: "Periksa Register di SRIKANDI",
+  srikandi_request_register: "Minta daftarkan naskah ke SRIKANDI",
 };
 
 /** Ringkasan argumen untuk tabel log: "query: sewa · limit: 3". */
