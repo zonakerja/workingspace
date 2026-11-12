@@ -564,6 +564,18 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   Pengaman bersama: `safeClick` menolak tombol berteks kirim/ajukan/submit/hapus; pilihan react-select diklik (tidak
   pernah Enter); setiap job memeriksa ulang status login setelah halaman dimuat. Robot tidak pernah menandatangani,
   mengisi CAPTCHA/OTP, atau mengirim hasil akhir.
+- **Robot e-Kinerja untuk agen** (`src/robot/ekinerja-agent.service.ts`, logika murni + test `ekinerja-agent-logic.ts`; keputusan
+  user 2026-11-12, [AI-AGENT.md](AI-AGENT.md) §26.1): alat MCP cakupan `ekinerja:robot` — `ekinerja_sync_skp`, `ekinerja_monitor_renaksi`,
+  `ekinerja_check_renaksi` (`dryRun`) dijalankan **di latar belakang** (tugas robot bisa melebihi batas waktu MCP Hermes 180 dtk) dan
+  hasilnya dibaca lewat `ekinerja_status` (riwayat 10 tugas per user di memori satu proses; Ambil SKP & Pantau juga tercatat di riwayat
+  Otomasi dengan pemicu `agent`). Pengisian = `ekinerja_request_fill` → baris `agent_actions` kind `ekinerja_fill` (status `pending`,
+  `after` = potret entri bulan itu) → pemilik **Setujui & isi** (`POST /agent/actions/:id/approve` → `RobotService.fillEkinerjaRenaksi`
+  dengan isi terkini) atau Tolak.
+- **Usulan renaksi** (`src/robot/renaksi-proposals.service.ts`, logika murni + test `renaksi-candidates.ts`, [AI-AGENT.md](AI-AGENT.md) §26.2):
+  kegiatan bulan itu dari Productivity (task/agenda/kegiatan) + SKP & RHK → MCP `ekinerja_renaksi_context`; `ekinerja_propose_renaksi` menyimpan
+  `action_plan_entry` bertanda `proposed: true` yang tidak pernah diisikan robot sampai pemilik mencentangnya. Run Hermes dari tombol:
+  `POST /agent/ekinerja/renaksi { period }` (skill `renaksi-ekinerja`, tombol "Generate usulan"). **Filter cakupan**: `GET|PUT /robot/ekinerja/renaksi/scope`
+  = daftar pengecualian `area:`/`project:`/`loose` di `users.ekinerja_prefs.renaksiExcluded`, disaring di server untuk daftar & agen (§26.3 AI-AGENT).
 - **Tautan publik berkas** (`src/uploads/public-links.ts`, tabel `public_links`): `POST/GET /uploads/:id/public-links`
   (pemilik berkas saja; token `lp_<32 byte>` tampil sekali, disimpan hash SHA-256, masa berlaku opsional),
   `DELETE /public-links/:id`, publik `GET /api/v1/public/files/:token` (header sama dengan unduhan: CSP sandbox,
@@ -578,7 +590,9 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   `GET /public/vaults/:token/files/:fileId?download=1` (header unduhan aman + noindex). **Setiap pembukaan, lihat, & unduh
   dicatat**: waktu, IP (`req.ip`; produksi `TRUST_PROXY=true` di belakang Caddy), perkiraan lokasi dari IP (env
   `GEOIP_PROVIDER` = `ipapi` bawaan — layanan ipapi.co tanpa key, IP pengunjung dikirim ke sana, cache 24 jam, timeout 2,5 dtk,
-  IP lokal/privat tidak dicari; `none` = hanya IP), peramban. Berkas brankas tidak bisa dihapus dari fitur lain
+  IP lokal/privat tidak dicari; `none` = hanya IP), peramban, dan **asal pembuka** (tahap 1 pembatasan tautan, 2026-11-12: halaman
+  brankas mengirim `document.referrer` sebagai `?ref=`; disimpan hanya origin di `public_vault_accesses.referrer` — `""` = tanpa asal / ditempel,
+  NULL = baris lihat/unduh atau catatan lama; log menandai e-Kinerja dari host konektor pemilik (`referrerOrigin`, `referrerLabel`); belum memblokir). Berkas brankas tidak bisa dihapus dari fitur lain
   (`DELETE /uploads/:id` → 409). Entri renaksi yang dihapus menghapus brankasnya (frontend; entri ber-tanda hapus dihapus server
   setelah Kirim perubahan, `removeForEntry`). Brankas dihapus / berkas dikeluarkan (`PATCH assetIds`) → unggahan khusus brankas
   (context `renaksi-vault`) milik pemilik yang tidak dipakai brankas lain ikut dihapus (`vaultFilesToRelease` + test); lampiran

@@ -58,7 +58,7 @@ export function Component() {
             <Badge className="bg-white/20 text-white">{queueCount} dalam antrian</Badge>
             {waiting > 0 && <Badge className="bg-white/20 text-white">{waiting} menunggu verifikasi</Badge>}
             {!!deletes?.count && (
-              <Badge className="bg-white/20 text-white">{deletes.count} permintaan hapus dari agen</Badge>
+              <Badge className="bg-white/20 text-white">{deletes.count} permintaan agen menunggu</Badge>
             )}
           </>
         )

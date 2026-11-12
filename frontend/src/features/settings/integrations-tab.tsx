@@ -38,6 +38,7 @@ const SCOPE_SHORT: Record<ApiScope, string> = {
   "ai:model": "Model AI agen",
   "agent:menus": "Usulkan fitur",
   "mcp:apps": "Aplikasi MCP",
+  "ekinerja:robot": "e-Kinerja",
 };
 
 /**

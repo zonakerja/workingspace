@@ -62,7 +62,7 @@ export function ActionHistoryTab() {
         <>
           <ul className="grid grid-cols-1 gap-2">
             {pageItems.map((action) => {
-              const changes = action.kind === "delete" ? [] : actionChanges(action);
+              const changes = action.kind === "delete" || action.kind === "ekinerja_fill" ? [] : actionChanges(action);
               return (
                 <li key={action.id} className="min-w-0 rounded-xl border p-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -92,6 +92,9 @@ export function ActionHistoryTab() {
                       )}
                     </ul>
                   )}
+                  {action.kind === "ekinerja_fill" && action.reason && (
+                    <p className="mt-2 text-xs text-muted-foreground">{action.reason}</p>
+                  )}
                   {action.kind === "delete" && (
                     <p className="mt-2 text-xs text-muted-foreground">
                       {action.reason}
@@ -109,7 +112,12 @@ export function ActionHistoryTab() {
                         <Link to="/requests/proposals">Putuskan di Approval</Link>
                       </Button>
                     )}
-                    {action.status === "approved" && (
+                    {action.status === "approved" && action.kind === "ekinerja_fill" && (
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link to="/kinerja/plan">Buka e-Kinerja</Link>
+                      </Button>
+                    )}
+                    {action.status === "approved" && action.kind === "delete" && (
                       <Button size="sm" variant="ghost" asChild>
                         <Link to="/tools/trash">Buka Sampah</Link>
                       </Button>

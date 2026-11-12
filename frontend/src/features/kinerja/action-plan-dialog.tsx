@@ -46,9 +46,9 @@ import {
   skpPeriodLabel,
   STATUS_LABELS,
   targetOptions,
-} from "../lib/action-plan";
+} from "./lib/action-plan";
 
-/** Item Productivity yang dikirim ke renaksi (Action/Task, Kegiatan, Agenda). */
+/** Kegiatan Productivity yang ditarik menu e-Kinerja (Action/Task, Kegiatan, Agenda). */
 export interface ActionPlanSource {
   type: ActionPlanSourceType;
   id: string;
@@ -70,28 +70,6 @@ export const STATUS_STYLE: Record<ActionPlanEntry["status"], string> = {
   filled: "bg-success/15 text-success",
 };
 
-/** Tombol "Renaksi" di baris item: membuka dialog + penanda berapa bulan item ini sudah masuk renaksi. */
-export function ActionPlanButton({ source }: { source: ActionPlanSource }) {
-  const [open, setOpen] = useState(false);
-  const { items } = useActionPlanEntries();
-  const count = entriesOfSource(items, source.id).length;
-  return (
-    <>
-      <Button
-        variant="ghost"
-        size={count ? "sm" : "icon-sm"}
-        title={count ? `Sudah di renaksi (${count} bulan) — tambah/ubah` : "Kirim ke Renaksi e-Kinerja"}
-        className={count ? "h-7 gap-1 px-1.5 text-success" : undefined}
-        onClick={() => setOpen(true)}
-      >
-        <ClipboardList />
-        {count > 0 && <span className="text-xs font-bold">{count}</span>}
-      </Button>
-      <ActionPlanDialog open={open} onClose={() => setOpen(false)} source={source} />
-    </>
-  );
-}
-
 interface DialogProps {
   open: boolean;
   onClose: () => void;
@@ -105,10 +83,11 @@ export function ActionPlanDialog({ open, onClose, source, entry }: DialogProps) 
   const session = useOpenSession(open);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="grid-cols-1 sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100svh-2rem)] flex-col sm:max-w-xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="size-5 text-module" /> {entry ? "Ubah rencana aksi" : "Kirim ke Renaksi"}
+            <ClipboardList className="size-5 text-module" />{" "}
+            {entry?.proposed ? "Ubah usulan renaksi" : entry ? "Ubah rencana aksi" : "Tambah butir renaksi"}
           </DialogTitle>
           <DialogDescription>
             Anda yang menentukan isi renaksi bulanan e-Kinerja: bulan, RHK & indikator, rencana aksi, realisasi, dan
@@ -309,214 +288,220 @@ function ActionPlanForm({
 
   return (
     <>
-      <FieldGroup className="grid grid-cols-1 gap-4">
-        {entry?.status === "filled" && (
-          <p className="rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
-            Sudah terisi di e-Kinerja. Bila isinya diubah, entri ditandai Berubah dan baris indikatornya ditulis ulang
-            di e-Kinerja saat Anda menekan Kirim perubahan di menu e-Kinerja.
-          </p>
-        )}
-        {source && (
-          <p className="truncate rounded-md bg-muted/50 px-3 py-2 text-sm">
-            Dari: <strong>{source.title}</strong>
-          </p>
-        )}
-        {previous.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Sudah masuk renaksi: {previous.map((e) => periodLabel(e.period)).join(", ")}
-          </p>
-        )}
-        <Field>
-          <FieldLabel htmlFor="renaksi-period">Bulan</FieldLabel>
-          <Input
-            id="renaksi-period"
-            type="month"
-            value={period}
-            disabled={!!entry?.pushedSignature}
-            onChange={(e) => setPeriod(e.target.value)}
-          />
-          {entry?.pushedSignature && (
-            <FieldDescription>
-              Sudah terkirim ke e-Kinerja — bulan tidak bisa dipindah (hapus lalu buat entri baru).
-            </FieldDescription>
+      {/* Area gulir terpisah dari grid isian: baris grid di wadah bertinggi tetap bisa terjepit (judul kegiatan terpotong) */}
+      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+        <FieldGroup className="grid grid-cols-1 gap-4">
+          {entry?.status === "filled" && (
+            <p className="rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
+              Sudah terisi di e-Kinerja. Bila isinya diubah, entri ditandai Berubah dan baris indikatornya ditulis ulang
+              di e-Kinerja saat Anda menekan Kirim perubahan di menu e-Kinerja.
+            </p>
           )}
-          {sameMonth && (
-            <FieldDescription className="text-warning">
-              Item ini sudah ada di renaksi {periodLabel(period)} — entri baru akan menjadi baris tambahan.
-            </FieldDescription>
+          {source && (
+            <p className="rounded-md bg-muted/50 px-3 py-2 text-sm break-words">
+              <span className="text-muted-foreground">Kegiatan: </span>
+              <strong>{source.title}</strong>
+            </p>
           )}
-        </Field>
-        {plan.candidates.length > 1 && (
+          {previous.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Sudah masuk renaksi: {previous.map((e) => periodLabel(e.period)).join(", ")}
+            </p>
+          )}
           <Field>
-            <FieldLabel>SKP</FieldLabel>
-            <Select value={plan.skp?.id ?? ""} onValueChange={setSkpId}>
-              <SelectTrigger className="w-full min-w-0">
-                <SelectValue placeholder="Bulan ini mencakup dua SKP — pilih salah satu" />
-              </SelectTrigger>
-              <SelectContent>
-                {plan.candidates.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {skpPeriodLabel(s)} · {s.status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        )}
-        <Field>
-          <FieldLabel>RHK (Rencana Hasil Kerja) {plan.skp ? `· SKP ${skpPeriodLabel(plan.skp)}` : year}</FieldLabel>
-          {plan.skp && yearTargets.length === 0 && (
-            <FieldDescription className="text-warning">
-              RHK SKP ini belum diambil — buka menu e-Kinerja → Ambil dari e-Kinerja.
-            </FieldDescription>
-          )}
-          {yearTargets.length > 0 && (
-            <Select
-              value={validTarget}
-              onValueChange={(v) => {
-                setTargetId(v);
-                setIndicators(undefined);
-              }}
-            >
-              <SelectTrigger className="w-full min-w-0">
-                <SelectValue placeholder="Pilih RHK" />
-              </SelectTrigger>
-              <SelectContent>
-                {yearTargets.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.section === "TAMBAHAN" ? "[Tambahan] " : ""}
-                    {t.name}
-                    {t.stale ? " (tidak ada lagi di SKP)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {chosenTarget?.leader && (
-            <FieldDescription>RHK pimpinan yang diintervensi: {chosenTarget.leader}</FieldDescription>
-          )}
-          {plan.candidates.length > 0 ? null : newTarget === null ? (
-            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setNewTarget("")}>
-              <Plus /> {yearTargets.length ? "RHK baru" : `Tambah RHK ${year}`}
-            </Button>
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                autoFocus
-                placeholder="Tulis RHK persis seperti di SKP e-Kinerja"
-                value={newTarget}
-                onChange={(e) => setNewTarget(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTarget())}
-              />
-              <Button type="button" size="sm" onClick={addTarget} disabled={!newTarget.trim()}>
-                Tambah
-              </Button>
-            </div>
-          )}
-        </Field>
-        {allIndicators.length > 0 && (
-          <Field>
-            <FieldLabel>Indikator yang dicentang di e-Kinerja</FieldLabel>
-            <div className="grid grid-cols-1 gap-1.5">
-              {allIndicators.map((i) => (
-                <label
-                  key={i.indicator}
-                  className="flex items-start gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-sm"
-                >
-                  <Checkbox
-                    className="mt-0.5"
-                    checked={selected.some((x) => x.indicator === i.indicator)}
-                    onCheckedChange={(v) => toggleIndicator(i.indicator, v === true)}
-                  />
-                  <span className="min-w-0">
-                    {i.indicator}
-                    <span className="block text-xs text-muted-foreground">
-                      {i.aspect} · Target {i.target}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </Field>
-        )}
-        <Field>
-          <FieldLabel htmlFor="renaksi-desc">Rencana aksi</FieldLabel>
-          <Textarea
-            id="renaksi-desc"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Rencana aksi yang akan dilakukan (butir Renaksi di e-Kinerja)"
-          />
-        </Field>
-        {showRealization && (
-          <Field>
-            <FieldLabel htmlFor="renaksi-real">Realisasi</FieldLabel>
-            <Textarea
-              id="renaksi-real"
-              rows={2}
-              value={realization}
-              onChange={(e) => setRealization(e.target.value)}
-              placeholder="Hasil yang dicapai, mis. Laporan hasil rapat BMN bulan Oktober 2026"
-            />
-          </Field>
-        )}
-        {showTime && (
-          <Field>
-            <FieldLabel htmlFor="renaksi-time">Realisasi indikator waktu</FieldLabel>
-            <Input id="renaksi-time" value={timeRealization} onChange={(e) => setTimeRealization(e.target.value)} />
-          </Field>
-        )}
-        <Field>
-          <FieldLabel>Bukti data dukung</FieldLabel>
-          <Select value={docChoice} onValueChange={setDocChoice}>
-            <SelectTrigger className="w-full min-w-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={VAULT}>Brankas digital (beberapa berkas, satu tautan)</SelectItem>
-              {options.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.kind === "file" ? "Berkas: " : "Link: "}
-                  {o.label}
-                </SelectItem>
-              ))}
-              <SelectItem value={MANUAL}>Ketik link sendiri</SelectItem>
-            </SelectContent>
-          </Select>
-          {docChoice === VAULT ? (
-            <VaultFilePicker
-              choices={vaultChoices}
-              selected={vaultSelected}
-              onToggle={toggleVaultFile}
-              onUploaded={(file) => {
-                setUploaded((prev) => [...prev, file]);
-                setPicked((prev) => [...(prev ?? vaultSelected), file.id]);
-              }}
-            />
-          ) : docChoice === MANUAL ? (
+            <FieldLabel htmlFor="renaksi-period">Bulan</FieldLabel>
             <Input
-              placeholder="https://…"
-              value={manualUrl}
-              onChange={(e) => setManualUrl(e.target.value)}
-              aria-label="Bukti data dukung"
+              id="renaksi-period"
+              type="month"
+              value={period}
+              disabled={!!entry?.pushedSignature}
+              onChange={(e) => setPeriod(e.target.value)}
             />
-          ) : (
-            options.find((o) => o.id === docChoice)?.kind === "file" && (
-              <FieldDescription className="flex items-center gap-1">
-                <Link2 className="size-3.5" /> Saat disimpan dibuatkan tautan publik baca-saja untuk berkas ini (bisa
-                dicabut dari pratinjau berkas).
+            {entry?.pushedSignature && (
+              <FieldDescription>
+                Sudah terkirim ke e-Kinerja — bulan tidak bisa dipindah (hapus lalu buat entri baru).
               </FieldDescription>
-            )
+            )}
+            {sameMonth && (
+              <FieldDescription className="text-warning">
+                Item ini sudah ada di renaksi {periodLabel(period)} — entri baru akan menjadi baris tambahan.
+              </FieldDescription>
+            )}
+          </Field>
+          {plan.candidates.length > 1 && (
+            <Field>
+              <FieldLabel>SKP</FieldLabel>
+              <Select value={plan.skp?.id ?? ""} onValueChange={setSkpId}>
+                <SelectTrigger className="w-full min-w-0">
+                  <SelectValue placeholder="Bulan ini mencakup dua SKP — pilih salah satu" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plan.candidates.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {skpPeriodLabel(s)} · {s.status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           )}
-        </Field>
-      </FieldGroup>
+          <Field>
+            <FieldLabel>RHK (Rencana Hasil Kerja) {plan.skp ? `· SKP ${skpPeriodLabel(plan.skp)}` : year}</FieldLabel>
+            {plan.skp && yearTargets.length === 0 && (
+              <FieldDescription className="text-warning">
+                RHK SKP ini belum diambil — buka menu e-Kinerja → Ambil dari e-Kinerja.
+              </FieldDescription>
+            )}
+            {yearTargets.length > 0 && (
+              <Select
+                value={validTarget}
+                onValueChange={(v) => {
+                  setTargetId(v);
+                  setIndicators(undefined);
+                }}
+              >
+                <SelectTrigger className="w-full min-w-0">
+                  <SelectValue placeholder="Pilih RHK" />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearTargets.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.section === "TAMBAHAN" ? "[Tambahan] " : ""}
+                      {t.name}
+                      {t.stale ? " (tidak ada lagi di SKP)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {/* Nama RHK panjang terpotong di kotak pilihan → tampil utuh di bawahnya */}
+            {chosenTarget && <FieldDescription className="break-words">{chosenTarget.name}</FieldDescription>}
+            {chosenTarget?.leader && (
+              <FieldDescription>RHK pimpinan yang diintervensi: {chosenTarget.leader}</FieldDescription>
+            )}
+            {plan.candidates.length > 0 ? null : newTarget === null ? (
+              <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setNewTarget("")}>
+                <Plus /> {yearTargets.length ? "RHK baru" : `Tambah RHK ${year}`}
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  autoFocus
+                  placeholder="Tulis RHK persis seperti di SKP e-Kinerja"
+                  value={newTarget}
+                  onChange={(e) => setNewTarget(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTarget())}
+                />
+                <Button type="button" size="sm" onClick={addTarget} disabled={!newTarget.trim()}>
+                  Tambah
+                </Button>
+              </div>
+            )}
+          </Field>
+          {allIndicators.length > 0 && (
+            <Field>
+              <FieldLabel>Indikator yang dicentang di e-Kinerja</FieldLabel>
+              <div className="grid grid-cols-1 gap-1.5">
+                {allIndicators.map((i) => (
+                  <label
+                    key={i.indicator}
+                    className="flex items-start gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-sm"
+                  >
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={selected.some((x) => x.indicator === i.indicator)}
+                      onCheckedChange={(v) => toggleIndicator(i.indicator, v === true)}
+                    />
+                    <span className="min-w-0">
+                      {i.indicator}
+                      <span className="block text-xs text-muted-foreground">
+                        {i.aspect} · Target {i.target}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </Field>
+          )}
+          <Field>
+            <FieldLabel htmlFor="renaksi-desc">Rencana aksi</FieldLabel>
+            <Textarea
+              id="renaksi-desc"
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Rencana aksi yang akan dilakukan (butir Renaksi di e-Kinerja)"
+            />
+          </Field>
+          {showRealization && (
+            <Field>
+              <FieldLabel htmlFor="renaksi-real">Realisasi</FieldLabel>
+              <Textarea
+                id="renaksi-real"
+                rows={2}
+                value={realization}
+                onChange={(e) => setRealization(e.target.value)}
+                placeholder="Hasil yang dicapai, mis. Laporan hasil rapat BMN bulan Oktober 2026"
+              />
+            </Field>
+          )}
+          {showTime && (
+            <Field>
+              <FieldLabel htmlFor="renaksi-time">Realisasi indikator waktu</FieldLabel>
+              <Input id="renaksi-time" value={timeRealization} onChange={(e) => setTimeRealization(e.target.value)} />
+            </Field>
+          )}
+          <Field>
+            <FieldLabel>Bukti data dukung</FieldLabel>
+            <Select value={docChoice} onValueChange={setDocChoice}>
+              <SelectTrigger className="w-full min-w-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={VAULT}>Brankas digital (beberapa berkas, satu tautan)</SelectItem>
+                {options.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.kind === "file" ? "Berkas: " : "Link: "}
+                    {o.label}
+                  </SelectItem>
+                ))}
+                <SelectItem value={MANUAL}>Ketik link sendiri</SelectItem>
+              </SelectContent>
+            </Select>
+            {docChoice === VAULT ? (
+              <VaultFilePicker
+                choices={vaultChoices}
+                selected={vaultSelected}
+                onToggle={toggleVaultFile}
+                onUploaded={(file) => {
+                  setUploaded((prev) => [...prev, file]);
+                  setPicked((prev) => [...(prev ?? vaultSelected), file.id]);
+                }}
+              />
+            ) : docChoice === MANUAL ? (
+              <Input
+                placeholder="https://…"
+                value={manualUrl}
+                onChange={(e) => setManualUrl(e.target.value)}
+                aria-label="Bukti data dukung"
+              />
+            ) : (
+              options.find((o) => o.id === docChoice)?.kind === "file" && (
+                <FieldDescription className="flex items-center gap-1">
+                  <Link2 className="size-3.5" /> Saat disimpan dibuatkan tautan publik baca-saja untuk berkas ini (bisa
+                  dicabut dari pratinjau berkas).
+                </FieldDescription>
+              )
+            )}
+          </Field>
+        </FieldGroup>
+      </div>
       {locked && (
-        <p className="rounded-lg bg-warning/10 p-3 text-sm text-warning">
+        <p className="shrink-0 rounded-lg bg-warning/10 p-3 text-sm text-warning">
           Bulan ini sudah dikirim ke atasan di e-Kinerja — isian terkunci agar sama dengan e-Kinerja.
         </p>
       )}
-      <DialogFooter>
+      <DialogFooter className="shrink-0">
         {entry && (
           // Status dihitung ulang seperti di menu e-Kinerja (status tersimpan bisa tertinggal, mis. RHK baru tersinkron)
           <Badge className={STATUS_STYLE[savedStatus!]}>{STATUS_LABELS[savedStatus!]}</Badge>
@@ -525,7 +510,8 @@ function ActionPlanForm({
           Batal
         </Button>
         <Button onClick={() => void save()} disabled={saving || locked}>
-          {saving ? <Loader2 className="animate-spin" /> : <ClipboardList />} Simpan ke renaksi
+          {saving ? <Loader2 className="animate-spin" /> : <ClipboardList />}{" "}
+          {entry?.proposed ? "Simpan usulan" : "Simpan ke renaksi"}
         </Button>
       </DialogFooter>
     </>

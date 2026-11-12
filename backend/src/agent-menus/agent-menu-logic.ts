@@ -7,8 +7,11 @@
 export const MENU_STATUSES = ["draft", "active"] as const;
 export type MenuStatus = (typeof MENU_STATUSES)[number];
 
-/** `workflow` = tab Workflow di AI Agent; `connection` = menu di kelompok Connection & MCP. */
-export const MENU_PLACEMENTS = ["workflow", "connection"] as const;
+/**
+ * `workflow` = tab Workflow di AI Agent; `connection` = menu di kelompok Connection & MCP; `ekinerja` = tab Workflow
+ * di menu e-Kinerja (fitur terbuka, lihat `EXTENSIBLE_FEATURES`).
+ */
+export const MENU_PLACEMENTS = ["workflow", "connection", "ekinerja"] as const;
 export type MenuPlacement = (typeof MENU_PLACEMENTS)[number];
 
 /**
@@ -31,6 +34,15 @@ export const NATIVE_FEATURES = [
   "Pengaturan",
   "Profil Saya",
 ] as const;
+
+/**
+ * Fitur native yang **terbuka** untuk agen (keputusan user 2026-11-12): namanya tetap tidak bisa dipakai fitur buatan
+ * agen dan kodenya tetap bawaan, tetapi agen boleh menambah workflow di dalamnya (penempatan) dan menjalankan
+ * robotnya lewat alat MCP berizin. Pengisian ke sistem asal tetap menunggu persetujuan pemilik.
+ */
+export const EXTENSIBLE_FEATURES: Partial<Record<(typeof NATIVE_FEATURES)[number], MenuPlacement>> = {
+  "e-Kinerja": "ekinerja",
+};
 
 /** Batas fitur per user agar menu tetap terbaca. */
 export const MAX_MENUS_PER_USER = 30;
@@ -143,7 +155,9 @@ export function normalizeMenuProposal(input: MenuProposal): NormalizedMenu | { e
   if (!slug) return { error: "Nama harus memuat huruf atau angka." };
   const placement = input.placement ?? "workflow";
   if (!(MENU_PLACEMENTS as readonly string[]).includes(placement)) {
-    return { error: "Penempatan harus workflow (AI Agent) atau connection (Connection & MCP)." };
+    return {
+      error: "Penempatan harus workflow (AI Agent), connection (Connection & MCP), atau ekinerja (menu e-Kinerja).",
+    };
   }
   const form = normalizeForm(input.form);
   if ("error" in form) return form;

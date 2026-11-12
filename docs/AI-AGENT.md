@@ -1158,6 +1158,13 @@ halaman brankas.
 - Lokasi = perkiraan dari IP lewat ipapi.co (gratis tanpa key, ± 1.000 pencarian/hari; `GEOIP_PROVIDER=none` mematikan) — biasanya
   kota penyedia internet/VPN, bukan lokasi pasti. Di laptop semua akses tercatat "Jaringan lokal / privat" (lewat proxy Vite).
 - Teknis: docs/ARCHITECTURE.md §3.10 (Brankas digital).
+- **Asal pembuka (2026-11-12, tahap 1 pembatasan tautan)**: permintaan user = tautan hanya bisa dibuka dari e-Kinerja, bukan ditempel.
+  Status login e-Kinerja di browser pembuka **tidak bisa** diperiksa (cookie situs lain, tanpa API). Yang bisa = situs asal klik (referer),
+  tetapi belum diketahui apakah e-Kinerja mengirimnya dan apakah atasan melihat bukti sebagai tautan yang diklik; referer juga bisa
+  dipalsukan. Maka tahap 1 hanya **mencatat** asal pembuka di log akses (e-Kinerja / LifeOS / situs lain / tanpa asal), tanpa memblokir.
+  Tahap 2 (sakelar per brankas "Hanya dari e-Kinerja" + izin sementara dari server) baru dibangun bila log produksi menunjukkan e-Kinerja
+  konsisten mengirim asalnya. Uji: smoke (origin saja, path dibuang; ditempel = tanpa asal) + browser (klik dari LifeOS = LifeOS,
+  ditempel = tanpa asal). Di laptop tautan berawalan localhost, jadi bukti dari e-Kinerja sungguhan baru ada setelah VPS.
 
 ### 21.11 Riset Register Naskah Keluar SRIKANDI (2026-10-31)
 
@@ -1845,11 +1852,12 @@ memakai dialog yang sama, belum diklik satu per satu.
 
 | Fitur native | Boleh dilakukan Hermes |
 |---|---|
-| Overview, Planner, Notes Space, Productivity, File Control, e-Kinerja, SRIKANDI | Membaca & menulis data kerja lewat `list_records` / `create_record` / `update_record` (bisa dibatalkan pemilik); hapus hanya `request_delete_record` yang menunggu persetujuan di Approval → Usulan Agen, lalu masuk Sampah. Fitur tidak bisa diubah |
+| Overview, Planner, Notes Space, Productivity, File Control, e-Kinerja (data renaksi), SRIKANDI | Membaca & menulis data kerja lewat `list_records` / `create_record` / `update_record` (bisa dibatalkan pemilik); hapus hanya `request_delete_record` yang menunggu persetujuan di Approval → Usulan Agen, lalu masuk Sampah. Fitur tidak bisa diubah |
 | Knowledge | Membaca, dan menulis usulan hanya ke `00-Inbox` |
 | AI Agent | Chat, menjalankan skill dan workflow yang disetujui |
 | Approval | Mencatat pengajuan & hasil kerja. Menyetujui, menolak, dan mengirim tetap oleh pemilik |
-| e-Kinerja, SRIKANDI, SIMAN | Tidak ada alat ubah. Robot dipicu pemilik atau jadwal baca-saja |
+| e-Kinerja | **Fitur terbuka sejak 2026-11-12** (§26.1): menambah workflow di dalamnya, menjalankan robot baca (Ambil SKP, Pantau, Periksa), meminta pengisian yang menunggu persetujuan pemilik |
+| SRIKANDI, SIMAN | Tidak ada alat ubah. Robot dipicu pemilik atau jadwal baca-saja |
 | Tools, Pengaturan, Profil | Tidak ada akses |
 
 | Fitur buatan agen (non-native) | Aturan |
@@ -1893,3 +1901,83 @@ selama 30 hari. Diuji dengan Hermes (Claude) sungguhan: buat task → ubah prior
 persetujuan. Data hasil sinkron robot (SKP/RHK, naskah & referensi SRIKANDI, potret bulan renaksi) dan log hanya bisa dibaca agen.
 
 **Berikutnya**: user mengajarkan proses PSP (TODO-USER A25) → Hermes menyusun skill + workflow → disetujui di Approval.
+
+### 26.1 e-Kinerja menjadi fitur terbuka untuk agen (2026-11-12)
+
+**Arahan user**: e-Kinerja adalah fitur custom yang boleh diubah Hermes. Ini merevisi keputusan 2026-11-09 (e-Kinerja fitur native
+yang dikunci). Dari tiga pilihan, user memilih **"menu terbuka + Hermes boleh menjalankan robot"**. Kode e-Kinerja tidak dibangun
+ulang sebagai fitur buatan agen, karena robot pengisi, sinkron dua arah, dan brankas sudah teruji ke e-Kinerja sungguhan.
+
+| Yang boleh dilakukan Hermes | Cara | Batas |
+|---|---|---|
+| Menambah workflow di menu e-Kinerja (mis. menyusun uraian renaksi, memeriksa bukti) | `propose_agent_menu` dengan `placement: "ekinerja"` (izin `agent:menus`) | Draf sampai disetujui di Approval → Usulan Agen; tampil di tab **e-Kinerja → Workflow**. Nama "e-Kinerja" tetap tidak bisa dipakai menu buatan agen (`EXTENSIBLE_FEATURES`) |
+| Menyiapkan isi renaksi | `create_record` / `update_record` jenis `action_plan_entry` (izin `workspace:write`) | Tercatat di Riwayat Aksi dan bisa dibatalkan pemilik |
+| Ambil SKP & RHK, Pantau Rencana Aksi | `ekinerja_sync_skp`, `ekinerja_monitor_renaksi` (izin `ekinerja:robot`) | Hanya membaca e-Kinerja; latar belakang, hasil di `ekinerja_status` |
+| Periksa satu bulan | `ekinerja_check_renaksi` | `dryRun`: robot membaca & menyusun rencana langkah tanpa klik |
+| Mengisi ke e-Kinerja | `ekinerja_request_fill { period, reason }` | Hanya **permintaan**: kartu "Permintaan isi e-Kinerja dari agen" di Approval → Usulan Agen dan e-Kinerja → Rencana Aksi. Robot mengisi draf setelah pemilik klik **Setujui & isi**; bulan yang sudah diajukan tidak diisi; **Kirim Penilaian Ke Atasan tidak pernah** |
+
+Rancangan: tugas robot bisa lebih lama dari batas waktu MCP Hermes (180 dtk), jadi alat robot memulai tugas di latar belakang (satu tugas
+per user) dan agen membaca hasilnya lewat `ekinerja_status`. Riwayat tugas ada di memori satu proses backend (hilang saat restart). Hasil
+Ambil SKP & Pantau tersimpan sebagai record seperti tombol, dan tercatat di riwayat Otomasi dengan pemicu **Agen (Hermes)**.
+Permintaan isi memakai tabel `agent_actions` yang sama dengan permintaan hapus (kind `ekinerja_fill`, potret entri bulan itu di `after`,
+satu permintaan menunggu per bulan). Yang diisikan saat disetujui adalah **isi terkini**, sama seperti tombol Kirim di papan Rencana Aksi.
+Tanpa migrasi (kolom `kind`, `placement`, `trigger` berupa teks).
+
+**Diuji**: unit (backend +6), smoke +11 (user sementara tanpa sesi e-Kinerja: alat tampil hanya dengan izin, tugas tanpa sesi gagal aman,
+permintaan tanpa entri ditolak, permintaan → menunggu → ganda dikenali → tolak → tidak bisa disetujui lagi), UI (tab Workflow, kartu di
+e-Kinerja & Usulan Agen, Tolak, Riwayat Aksi). **Belum**: Hermes sungguhan memakai alat baru (izin token agen perlu diperbarui —
+TODO-USER A30) dan pengisian setelah disetujui ke e-Kinerja sungguhan (ditunda sesuai keputusan uji robot dengan data dummy).
+
+### 26.2 Renaksi ditarik oleh e-Kinerja, dipetakan Hermes (2026-11-12)
+
+**Arahan user**: Productivity harus terisolasi, jadi tombol papan klip "kirim ke renaksi" di Action/Task, Agenda, dan Kegiatan dihapus. Menu
+e-Kinerja yang menarik kegiatan, Hermes memetakan ke RHK dan menyusun narasi, dan pemilik yang memutuskan (centang, ubah rincian, abaikan).
+Satu RHK boleh berisi banyak butir renaksi/realisasi.
+
+| Langkah | Di mana | Keterangan |
+|---|---|---|
+| Kegiatan bulan ini | e-Kinerja → Rencana Aksi → "Kegiatan … dari Productivity" | Action/Task selesai (tanggal selesai WIB) atau jatuh tempo, Agenda yang beririsan dengan bulan, Kegiatan & Sub Kegiatan bertenggat; milik sendiri. Dihitung saat dibuka, tidak disalin |
+| Generate usulan (dulu "Usulkan dengan Hermes") | tombol di daftar itu → `POST /agent/ekinerja/renaksi { period }` | Run skill `renaksi-ekinerja` (izin token agen `ekinerja:robot`). Hermes memanggil `ekinerja_renaksi_context` lalu `ekinerja_propose_renaksi` |
+| Usulan | entri `action_plan_entry` `proposed: true` | Renaksi = nama kegiatan / rencana aksi, Realisasi = output pekerjaan, catatan alasan. Server memeriksa kegiatan & RHK bulan itu; kegiatan yang sudah diputuskan pemilik ditolak; usulan ulang mengganti usulan lama kegiatan itu. Tidak tampil di daftar RHK dan tidak pernah diisikan robot |
+| Keputusan pemilik | centang / lepas / Ubah usulan / Abaikan / + butir | Centang = masuk e-Kinerja, bukti bawaan brankas dari lampiran berkas kegiatan (atau web link). Lepas = usulan agen kembali menjadi usulan; butir yang sudah terkirim ditandai hapus |
+| Isi ke e-Kinerja | tombol Kirim seperti sebelumnya, atau `ekinerja_request_fill` yang disetujui | Hanya butir yang dicentang |
+
+Dialog renaksi pindah ke `features/kinerja/` dan tingginya dibatasi layar (isi digulir, kepala & tombol tetap terlihat): sebelumnya terpotong atas
+dan bawah di laptop.
+
+**Diuji**: unit backend +6 & frontend +2, smoke +5 (konteks, simpan usulan + tolak RHK salah, tanda `proposed`, pengisian mengabaikan usulan,
+run Hermes hanya untuk pemilik agen), UI di akun admin dev dengan dua usulan uji lewat MCP (tampil, centang → masuk grup RHK, lepas → kembali
+usulan, dialog muat di 1024×768); data uji dihapus permanen. **Belum**: Hermes sungguhan menjalankan skill ini (izin agen, TODO-USER A30).
+
+### 26.3 Filter cakupan kegiatan & "Generate usulan" (2026-11-12)
+
+**Arahan user**: kegiatan yang ditarik e-Kinerja harus bisa disaring per **Area**, **Project**, dan kegiatan **lepas** (tanpa Area & Project), pilih
+banyak, agar ranah pribadi / area titipan tidak ikut. Istilah tombol "Usulkan dengan Hermes" diganti **Generate usulan**.
+
+| Bagian | Isi |
+|---|---|
+| Cakupan per kegiatan | `area:<id>` + `project:<id>` (project di area), `project:<id>` (Free Project), `area:<id>` (Kegiatan/Sub Kegiatan & task-nya), `loose` (agenda / task tanpa induk) |
+| Filter | Tombol "Semua cakupan" / "n cakupan dikecualikan" di daftar kegiatan → centang per Area, Project (dengan nama area atau "Free Project"), Lepas; jumlah kegiatan bulan itu; Sertakan semua / Kecualikan semua. Area dilepas = project di dalamnya ikut |
+| Penyimpanan | Daftar **pengecualian** per akun `users.ekinerja_prefs.renaksiExcluded` (`GET|PUT /robot/ekinerja/renaksi/scope`); Area/Project baru otomatis ikut |
+| Agen | Server menyaring sebelum konteks dikirim; usulan untuk kegiatan yang dikecualikan ditolak dengan alasan |
+
+**Agenda lepas** (agenda Planner tanpa Project / item Area) ikut ditarik sebagai kegiatan berlabel "Lepas" (cakupan `loose`); setiap pertemuan
+agenda berulang tampil sendiri. Dicentang satu per satu, atau semua disembunyikan lewat filter Lepas.
+
+Entri yang sudah masuk e-Kinerja dari kegiatan yang kemudian dikecualikan **tidak** dihapus; filter hanya menyaring daftar kegiatan & usulan baru.
+Diuji: unit backend +3 & frontend +2, smoke +4, browser (kecualikan Area → kegiatan tersembunyi, Sertakan semua → kembali).
+
+**Audit 2026-11-12** (setelah §26.1–§26.3): usulan tidak lagi memicu peringatan "sudah masuk renaksi" di dialog; Abaikan usulan ikut membuang
+brankasnya; filter cakupan disimpan optimistis (klik beruntun tidak hilang); usulan di cakupan yang dikecualikan disembunyikan (bukan "yatim");
+Setujui & isi saat robot dipakai tugas lain tetap menunggu; Pantau e-Kinerja membuang usulan yang isinya sudah ada di e-Kinerja
+(`proposalsCoveredBy`, bulan + RHK + renaksi sama). Saran berikutnya (menunggu pilihan pemilik): centang semua usulan sekaligus + bukti otomatis,
+Generate usulan terjadwal akhir bulan + pengingat, salin butir rutin dari bulan lalu.
+
+**Centang semua usulan (2026-11-12, pilihan pemilik dari saran audit)**: tombol "Centang semua usulan (n)" di daftar Kegiatan menerima semua usulan
+kegiatan yang tampil (filter cakupan berlaku) setelah konfirmasi yang menyebut jumlah usulan, kegiatan, dan butir tanpa lampiran bukti. Diproses
+berurutan dengan progres; bukti otomatis sama dengan centang satu per satu. Saran berikutnya tetap: Generate usulan terjadwal + pengingat,
+salin butir rutin dari bulan lalu.
+
+**Salin dari bulan lalu & Generate manual (2026-11-12, keputusan pemilik)**: Generate usulan **hanya lewat tombol** (tidak dijadwalkan). Tombol
+"Salin dari bulan lalu" di Isian e-Kinerja menyalin butir rutin bulan sebelumnya (Renaksi, Realisasi, RHK, indikator) ke bulan ini; RHK dipetakan
+lewat nama + bagian bila SKP berganti; bukti data dukung tidak disalin; butir yang sudah ada ditandai dan tidak bisa dipilih.

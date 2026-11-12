@@ -368,7 +368,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   diindeks** (`noteDocument`), tidak diperiksa (`noteProblems`/`vaultHealth`), dan baca saja (`findEditable` → 400 untuk
   sunting/properti/pindah/hapus/sematkan tautan). Jenis data baru → `SOURCES` (service) + `buildExport` + `EXPORT_KINDS`.
 - **Integrasi agen / MCP** (`src/integrations/`, detail `docs/ARCHITECTURE.md` §3.7): token akses pribadi `api_tokens`
-  (`lifeos_pat_…`, hash SHA-256, cakupan `knowledge:read|knowledge:write|workspace:read|workspace:write|ai:chat|requests:read|requests:write`,
+  (`lifeos_pat_…`, hash SHA-256, cakupan `knowledge:read|knowledge:write|workspace:read|workspace:write|ai:chat|requests:read|requests:write|ai:model|agent:menus|mcp:apps|ekinerja:robot`,
   kedaluwarsa; `/integrations/tokens|scopes|activity`) + **MCP server** `POST /api/v1/mcp` (Streamable HTTP stateless,
   Bearer token — JWT login ditolak; tools disaring izin: search/read knowledge, inbox, search workspace, agenda, task
   terbuka, buat to-do lewat `RecordsService`, tanya asisten, daftar/buka/catat/analisis pengajuan, **alat skill agen**:
@@ -416,7 +416,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   menerima `[A-Za-z0-9_-]{24,128}` (JWT bertitik tetap ditolak). Logika murni + test `agent-llm.ts`.
   **Run agen permanen** di tabel `agent_runs` (tombol, chat, aturan; `hermesRunId`) + pemantau 10 dtk di `AgentService`
   (mulai run antrian, baca status, batas 45 menit) — tidak lagi hilang saat backend restart.
-  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; tabel `agent_menus` (`placement` workflow | connection, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
+  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; `EXTENSIBLE_FEATURES` = fitur native yang **terbuka** untuk agen (kini hanya e-Kinerja → placement `ekinerja`, keputusan user 2026-11-12: nama tetap dikunci, kode tetap bawaan, agen boleh menambah workflow di dalamnya & menjalankan robotnya); tabel `agent_menus` (`placement` workflow | connection | ekinerja, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
   **Kebijakan Otomatis** (`agent-policy.service.ts`, logika murni + test `agent-policy.ts`, detail `docs/AI-AGENT.md` §24.6):
   **pencocokan aset opsional per aturan** (`verify_assets`, bawaan mati): tanpa itu hasil agen selalu ke pemilik dan mode auto ditolak 422 (keputusan user 2026-11-09). Aturan pemilik di `agent_policies` (jenis + grup → skill, mode off/shadow/auto, ambang skor aset, kolom kritis, toleransi,
   batas harian, masa tunda, templat Register). Pengajuan baru yang cocok → run `queued` (trigger `policy`) → agen memanggil
@@ -445,9 +445,17 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   **Brankas digital** `src/uploads/public-vaults.ts` (+ `vault-logic.ts` + test; `public_vaults`, `public_vault_files`,
   `public_vault_accesses`): satu tautan publik `/brankas/bv_<token>` per poin renaksi berisi beberapa berkas terisolasi; `/vaults*`
   (pemilik: buat/ubah berkas — tautan tetap/ganti tautan/hapus/log akses), publik `/public/vaults/:token[/files/:id]`; setiap
-  buka/lihat/unduh dicatat (IP, perkiraan lokasi via env `GEOIP_PROVIDER` ipapi|none, peramban); berkas brankas → `DELETE /uploads` 409.
+  buka/lihat/unduh dicatat (IP, perkiraan lokasi via env `GEOIP_PROVIDER` ipapi|none, peramban; **asal pembuka** = halaman brankas mengirim
+  `document.referrer` sebagai `?ref=`, disimpan origin saja, `""` = tanpa asal, NULL = tidak dicatat; label e-Kinerja dari host konektor pemilik —
+  tahap 1, belum memblokir, `docs/AI-AGENT.md` §21.10b); berkas brankas → `DELETE /uploads` 409.
   Brankas dihapus / berkas dikeluarkan → unggahan khusus brankas (context `renaksi-vault`) yang tidak dipakai brankas lain ikut
   dihapus (`vaultFilesToRelease`); lampiran item tidak disentuh. Hapus entri renaksi dari robot → `PublicVaultsService.removeForEntry`.
+- **Robot e-Kinerja untuk agen** (`src/robot/ekinerja-agent.service.ts`, logika murni + test `ekinerja-agent-logic.ts`, keputusan user
+  2026-11-12, detail `docs/AI-AGENT.md` §26.1–§26.2; usulan renaksi = `renaksi-proposals.service.ts` + `renaksi-candidates.ts`, lihat §8b Renaksi): MCP cakupan `ekinerja:robot` — `ekinerja_sync_skp`, `ekinerja_monitor_renaksi`,
+  `ekinerja_check_renaksi` (`dryRun`) dimulai **di latar belakang** (batas waktu MCP Hermes 180 dtk; satu tugas per user, pemicu robot `agent`)
+  dan dibaca lewat `ekinerja_status` (sesi konektor + 10 tugas terakhir di memori satu proses). Mengisi = `ekinerja_request_fill { period, reason }`
+  → `agent_actions` kind `ekinerja_fill` (pending, satu per bulan, `after` = potret entri) → `POST /agent/actions/:id/approve` menjalankan
+  `RobotService.fillEkinerjaRenaksi` dengan isi terkini (approved + ringkasan / failed + galat), `reject` = ditolak. `pending-count` ikut menghitungnya.
 - **Otomasi terjadwal** (`src/automation/`, detail `docs/ARCHITECTURE.md` §3.12): jadwal sinkron robot **baca-saja** per user
   (`automation_jobs` = sumber kebenaran, `schedule` jsonb daily/hourly/cron + zona waktu, maks. sekali per jam; logika murni +
   test `automation-logic.ts`) → job scheduler BullMQ `auto:<userId>:<kind>` di antrian `automation` (disamakan dengan tabel saat
@@ -459,7 +467,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (`automationAlerts` + test: `session_expired` / `session_missing` (jadwal aktif tanpa sesi) / `job_failed`; tanpa membuat
   baris konektor). `RobotService.exclusive` = kunci per user + sistem (409 bila sistem sedang dipakai tugas lain; jadwal
   yang bertabrakan → `skipped`); method sinkron publik = pembungkus tipis (`job(...)`) atas `read*` privat dan menerima
-  `trigger` (`button` bawaan). Riwayat `automation_runs` (schedule | manual | button, 50 terakhir); tombol menu asal dicatat
+  `trigger` (`button` bawaan). Riwayat `automation_runs` (schedule | manual | button | agent, 50 terakhir); tombol menu asal dicatat
   lewat `RobotService.onJobFinished`. `/automation/jobs`, `PATCH /automation/jobs/:kind`, `POST …/:kind/run`, `/automation/runs`.
 - **Database**: tabel & kolom snake_case (`@@map/@map`), timestamptz(3), FK `users` cascade. 28 tabel domain
   (agenda_types, schedules, routines, todos, routine_completions, free_notes, ai_notes, note_lists, areas, projects,
@@ -494,7 +502,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (record type `action_plan_month` — potret bulan Rencana Aksi e-Kinerja) + `20261031140000_public_vaults` (brankas digital + log
   akses) + `20261101120000_automation_jobs` (jadwal & riwayat otomasi) + `20261106130000_ai_router_endpoints` (jalur router per kredensial AI) + `20261106140000_knowledge_prefs` (preferensi menu Knowledge) + `20261106120000_agent_policies` (Kebijakan Otomatis,
   `agent_runs`, sakelar darurat, `requests.asset_check`/`auto_decision`) + `20261107120000_knowledge_note_versions` (riwayat versi
-  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP). Migrasi baru → lihat docs/SETUP.md §10
+  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi). Migrasi baru → lihat docs/SETUP.md §10
     (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`, lalu cek
     drift dengan `--exit-code`; shadow DB dari `SHADOW_DATABASE_URL`).
 - **Records API**: `GET /records/:type?from&to` (milik sendiri + item bersama bertanda `share`), `PUT
@@ -563,7 +571,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   `describe_record_types`, `list_records`, `get_record` (`workspace:read`) dan `create_record`, `update_record` (patch: hanya key yang
   dikirim, `null` = hapus key), `request_delete_record` (`workspace:write`) lewat `RecordsService` (isolasi, berbagi, audit, indeks
   berlaku; hanya data milik sendiri). Jenis hasil sinkron robot & log = baca saja (`AGENT_READONLY_TYPES`). Tabel `agent_actions`
-  (kind create | update | delete, `before`/`after`, status applied | undone | pending | approved | rejected | failed). Buat/ubah langsung
+  (kind create | update | delete | ekinerja_fill, `before`/`after`, status applied | undone | pending | approved | rejected | failed). Buat/ubah langsung
   & **bisa dibatalkan** (`POST /agent/actions/:id/undo { force? }`: record sudah berubah lagi → 409, sudah dihapus → 410, batalkan
   "buat" = ke Sampah). **Hapus = permintaan** sampai pemilik `approve` / `reject` (`/agent/actions/:id/…`); disetujui = item +
   turunannya (`ShareAccessService.descendantsOf`, tanpa Notes AI tertaut) ke Sampah bertanda agen, beserta berkas milik item itu
@@ -962,16 +970,15 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     Lepas) + panel kanan `TaskManager` item terpilih (`initialSelection`).
   - **TaskManager** (`task-manager.tsx`, dipakai detail Project & item area): daftar gabungan action/task + agenda
     (`agenda-item.tsx`) urut tanggal, tampilan List | Timeline, cari, filter tanggal & jenis, sakelar Gabung seri; centang
-    → `CompleteTaskDialog`, "Ubah" cepat → `TaskQuickDialog`, form action/task dengan lampiran (`useAttachmentEdits`);
-    tombol Laporan Kinerja (`ActionPlanButton`) di baris action/task, agenda, dan header Kegiatan/Sub Kegiatan.
+    → `CompleteTaskDialog`, "Ubah" cepat → `TaskQuickDialog`, form action/task dengan lampiran (`useAttachmentEdits`).
+    **Tanpa tombol e-Kinerja** (keputusan user 2026-11-12: Productivity terisolasi; menu e-Kinerja yang menarik kegiatannya).
   - **Resources** (`resources-tab.tsx`): cari nama/tag, filter tanggal & tag, Kelola Tag, paginasi 25, `?resource=<id>`
     menyorot; ringkasan AI per resource, arsipkan, hapus (aturan berkas & arsip terkunci: lihat Lampiran). Form Resource
     (tipe link / file / Buat Dokumen ONLYOFFICE / catatan) di berkas yang sama.
   - **Archives** (`archives-tab.tsx`): tampilan Arsip (filter jenis project/area/resource, cari, tanggal, paginasi 25,
     "Lihat isi", Pulihkan dengan konfirmasi) | **Log Arsip & Pemulihan** (filter aksi). Tidak ada hapus arsip permanen.
   - Aksi berantai (arsip/pulihkan/hapus project, area, item area beserta turunan, agenda, berkas, log) terpusat di
-    `use-para-actions.ts`; logika murni ber-test: `lib/para.ts`, `lib/para-archive.ts`, `lib/progress.ts`,
-    `lib/action-plan.ts`.
+    `use-para-actions.ts`; logika murni ber-test: `lib/para.ts`, `lib/para-archive.ts`, `lib/progress.ts`.
   - Celah yang diketahui (belum diperbaiki): Overview Productivity memilih project dari progres saja (project berstatus
     selesai/ditunda bisa muncul; Overview utama memakai `runningProjects`) dan masih berlabel Inggris ("Calendar
     Overview", "Recent Active Projects", "Task Completion", "Time Elapsed"; form Project juga "Start Date", "Area of
@@ -1126,24 +1133,46 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   otomatis). `credentials-dialog.tsx` (simpan kredensial + konfirmasi kata sandi LifeOS), `auto-login-dialog.tsx` (gambar
   CAPTCHA / kotak OTP / Buka tayangan; dimulai sekali per dialog — StrictMode). Logika murni `robot-utils.ts` (+ test). Tombol **Tautan publik**
   (`features/sharing/public-link-button.tsx`) di header pratinjau berkas.
-- **Laporan Kinerja / Renaksi e-Kinerja** (Productivity, keputusan user 2026-10-25): user **memilih sendiri** item yang masuk rencana aksi
-  bulanan — tombol ikon `ClipboardList` (`ActionPlanButton`, `components/action-plan-dialog.tsx`) di baris Action/Task,
-  baris Agenda (`agenda-item.tsx`), dan header Kegiatan/Sub Kegiatan (`task-manager.tsx`; Project & Sub Area = wadah, tidak);
-  hanya item milik sendiri. Dialog: bulan (bawaan tanggal selesai → tenggat → bulan ini), **RHK** (record type `skp_target`
+- **Renaksi e-Kinerja** (menu e-Kinerja; **revisi keputusan user 2026-11-12**: Productivity tidak punya tombol e-Kinerja lagi).
+  **Tata letak tab Rencana Aksi** (dirapikan 2026-11-12): baris 1 = navigasi bulan + SKP | Pantau · Periksa · Kirim; baris 2 = strip keadaan bulan
+  (`MonthStatusCard` + jumlah isian per status); bagian **Kegiatan <bulan>** (daftar bergaris, maks. 32rem lalu digulir, label jenis + tanggal +
+  Area · Project / Lepas, tombol + muncul saat hover) dan bagian **Isian e-Kinerja <bulan>** (butir per RHK). Tab Rencana Aksi menarik **kegiatan bulan itu** dari Productivity (`candidates-section.tsx`, logika murni + test
+  `lib/renaksi-candidates.ts` = salinan backend `robot/renaksi-candidates.ts`, ubah keduanya bersamaan): Action/Task selesai (tanggal
+  selesai) / jatuh tempo, Agenda yang beririsan dengan bulan, Kegiatan & Sub Kegiatan bertenggat; hanya milik sendiri. **Filter cakupan**
+  (pilih banyak, `scope-filter.tsx`): setiap kegiatan punya `scope` = `area:<id>` + `project:<id>` / `project:<id>` (Free Project) / `area:<id>`
+  (item Area) / `loose` (tanpa Area & Project) + `scopeLabel`; pemilik melepas centang Area / Project / Lepas yang tidak masuk e-Kinerja (pribadi,
+  titipan) → **daftar pengecualian** disimpan per akun di `users.ekinerja_prefs.renaksiExcluded` (`GET|PUT /robot/ekinerja/renaksi/scope`,
+  `normalizeExcluded`); area dikecualikan = project di dalamnya ikut; Area/Project baru otomatis ikut. Server menyaring juga untuk agen
+  (`RenaksiProposalsService.load`: tidak ada di konteks, usulan untuknya ditolak "dikecualikan pemilik"). Tombol **Generate usulan** (dulu
+  "Usulkan dengan Hermes"; `POST /agent/ekinerja/renaksi { period }`, butuh izin agen `ekinerja:robot`) → skill `renaksi-ekinerja` → MCP
+  `ekinerja_renaksi_context` + `ekinerja_propose_renaksi` (`RenaksiProposalsService`) menyimpan **usulan** = `action_plan_entry` bertanda
+  `proposed: true`, `proposedBy: "agent"`, `proposalNote` (Renaksi = nama kegiatan, Realisasi = output pekerjaan; satu RHK / satu kegiatan boleh
+  banyak butir; usulan ulang mengganti usulan lama kegiatan itu; kegiatan yang sudah diputuskan pemilik ditolak). Usulan **tidak** tampil di daftar
+  RHK, tidak dihitung, dan tidak pernah diisikan robot (`renaksiData` & `fillSnapshot` membuangnya). Pemilik memutuskan per kegiatan: **centang** =
+  usulan menjadi entri (`proposed: false`, bukti bawaan = brankas dari lampiran berkas kegiatan / web link-nya), **lepas centang** = usulan agen
+  kembali menjadi usulan, butir sendiri dihapus, butir terkirim ditandai hapus (konfirmasi); **Ubah usulan** (dialog yang sama), **Abaikan**, **+**
+  = tambah butir sendiri (centang tanpa usulan juga membuka dialog). **Centang semua usulan (n)** di kepala daftar = semua usulan kegiatan yang tampil
+  (filter cakupan berlaku) diterima berurutan setelah konfirmasi (jumlah usulan, kegiatan, dan butir yang belum punya bukti), bukti otomatis sama dengan centang satu per satu.
+  **Salin dari bulan lalu** (tombol di kepala Isian e-Kinerja, `copy-month-dialog.tsx`, logika murni + test `lib/copy-month.ts`): butir bulan lalu
+  (bukan usulan/terhapus) → bulan ini dengan Renaksi, Realisasi, RHK (ID sama, atau nama + bagian sama bila SKP berganti) & indikator yang masih ada;
+  **bukti, brankas, dan riwayat kirim tidak disalin** (status belum lengkap); butir yang sudah ada (RHK + renaksi sama) tidak bisa dipilih.
+  **Generate usulan hanya lewat tombol** (keputusan user, tanpa jadwal). Saringan Semua / Ada usulan / Masuk e-Kinerja / Belum diputuskan.
+  Dialog (`features/kinerja/action-plan-dialog.tsx`, dipindah dari Productivity; tinggi dibatasi layar, isi digulir di `div` pembungkus, kepala & tombol tetap; nama kegiatan & RHK terpilih tampil utuh, tidak dipotong): bulan (bawaan tanggal selesai → tenggat → bulan ini), **RHK** (record type `skp_target`
   per tahun, bisa ditambah di tempat), **indikator** RHK yang dicentang (bawaan semua), **rencana aksi** (`description`),
   **realisasi** (`realization`; indikator aspek WAKTU memakai `timeRealization`, bawaan "Penyampaian tepat waktu"), **bukti
   data dukung** (`documentUrl`: **Brankas digital** = pilihan bawaan bila item punya berkas — beberapa berkas (lampiran item +
-  unggah, context `renaksi-vault`) di balik satu tautan `/brankas/<token>` (halaman publik: **Lihat** = modal pratinjau
+  unggah, context `renaksi-vault`) di balik satu tautan `/brankas/<token>` (halaman publik punya **pengatur tema sendiri** (`ThemeMenu` dari `app-header.tsx`, tersimpan di perangkat pelihat; dulu tidak ada sehingga
+  ikut tema yang tersimpan di browser); modal brankas pemilik (`vault-dialog.tsx`) tingginya dibatasi layar dan isinya digulir; **Lihat** = modal pratinjau
   `vault-file-viewer.tsx`, PDF lewat pdf.js `pdf-pages.tsx` dimuat malas — bukan tab baru), `entry.vaultId`; ubah berkas = tautan & pengenal
   perubahan tetap; `VaultFilePicker`, `VaultButton` + dialog log akses / ganti tautan di baris Laporan Kinerja
   (`features/vault/`, hook `data/use-vaults.ts`); atau web link lampiran, berkas tunggal → tautan publik, ketik sendiri). Entri = record type `action_plan_entry` (`period` YYYY-MM, `skpId`, `targetId`, `indicators`,
   `source*`, `status` draft/ready/filled; field baru di `extra`). Status **dihitung ulang** di tampilan
-  (`entryStatus(entry, target)`: entri lama tanpa realisasi = belum lengkap); entri terisi yang tidak diubah tetap terisi. Modul **e-Kinerja** (dulu Laporan Kinerja; grup Connection & MCP, `/kinerja`, `features/kinerja/` — `kinerja-page.tsx` + `action-plan-board.tsx`; item asal dibuka lewat `links.task/schedule/area`): per bulan, dikelompokkan per RHK,
+  (`entryStatus(entry, target)`: entri lama tanpa realisasi = belum lengkap); entri terisi yang tidak diubah tetap terisi. Modul **e-Kinerja** (dulu Laporan Kinerja; grup Connection & MCP, `/kinerja`, `features/kinerja/` — `kinerja-page.tsx` + `action-plan-board.tsx`; **fitur terbuka untuk agen** (2026-11-12): tab **Workflow** `kinerja-workflow-tab.tsx` = menu agen `placement: ekinerja` yang disetujui, kartu `EkinerjaFillRequestsCard` (`fill-requests-card.tsx`: permintaan isi dari agen, Setujui & isi / Tolak) di atas tab Rencana Aksi dan di Approval → Usulan Agen; item asal dibuka lewat `links.task/schedule/area`): per bulan, dikelompokkan per RHK,
   ubah/hapus, kartu **SKP & RHK** tahun itu + tombol **Ambil dari e-Kinerja** (robot membaca `/skp` + Detail SKP tiap SKP
   tahun itu → record `skp` (`ekin-<nomor>`) & `skp_target` (ID stabil dari bagian+nama RHK, `skpId`, bagian
   UTAMA/TAMBAHAN, RHK pimpinan, indikator); RHK yang hilang tapi dipakai → `stale`). **Satu tahun bisa beberapa SKP**: bulan
   entri memilih SKP yang periodenya mencakup bulan itu (`skpsForPeriod`; SKP dipecah di tengah bulan → user memilih), RHK =
-  milik SKP itu (`targetOptions`); kartu RHK manual per tahun hanya cadangan bila SKP belum tersinkron. Logika murni + test `lib/action-plan.ts`.
+  milik SKP itu (`targetOptions`); kartu RHK manual per tahun hanya cadangan bila SKP belum tersinkron. Logika murni + test `features/kinerja/lib/action-plan.ts`.
   **Isi ke e-Kinerja** (tombol per bulan + konfirmasi) → `POST /robot/ekinerja/renaksi/fill { period, dryRun? }`
   (`RobotService.fillEkinerjaRenaksi`; logika murni + test `backend/src/robot/ekinerja-renaksi.ts`: entri siap → baris per
   indikator per SKP, butir sama digabung; entri yang semua butirnya terbaca → `filled`) → robot `POST /jobs/ekinerja/renaksi`
@@ -1350,6 +1379,14 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | Pencarian Pintar Ctrl+K (item & isi berkas semua modul, mode Kata tanpa AI / Makna dengan embedding, filter modul) | ✅ 2026-11-10 — unit backend +8 & frontend +4, smoke +4, lint, typecheck, build, UI diuji (desktop & HP; klik arsip → File Control, berkas → pratinjau, mode Makna dengan embedding Gemini sungguhan). **Belum**: item yang dibagikan orang lain (tetap di tab Cepat), navigasi panah keyboard di hasil Pintar |
 | Sampah (semua hapus bisa dipulihkan 30 hari: record, berkas, Pengajuan, Notebook, catatan vault) + aksi agen atas semua data kerja (buat/ubah bisa dibatalkan, hapus wajib persetujuan) | ✅ 2026-11-10 — unit backend +10 & frontend +7, smoke +19, uji API (tiap jenis hapus → pulih), UI (Sampah, Usulan Agen, Riwayat Aksi), Hermes (Claude) sungguhan: buat → ubah → minta hapus, melapor menunggu persetujuan. Lanjutan: berkas lampiran ikut ke Sampah saat hapus agen disetujui (yang masih dipakai Resource/arsip dilindungi), notifikasi "Pulihkan" setelah setiap hapus, teks dialog hapus diganti "dipindah ke Sampah" — smoke +5, UI Planner hapus → Pulihkan diuji |
 | Koneksi aplikasi MCP luar (Canva, Notion, Linear, GitHub, alamat lain; token/OAuth; menu per aplikasi di Connection & MCP; agen lewat `call_app_tool` dengan izin per aplikasi) + grup sidebar AI Agent + login SIMAN lewat KemenkeuID | ✅ 2026-11-10 — unit backend & frontend, smoke +7, uji API dengan server MCP tiruan 19/19 (token, OAuth penuh, aturan agen), UI desktop & HP. **Belum**: aplikasi sungguhan (butuh akun user; alamat katalog dari dokumentasi publik), Hermes memakai alat aplikasi, login SIMAN sungguhan (A28) |
+| Renaksi ditarik dari Productivity oleh e-Kinerja: tombol renaksi di Productivity dihapus, daftar kegiatan bulan ini + usulan Hermes (RHK, Renaksi, Realisasi) yang dicentang/diubah/diabaikan pemilik, dialog renaksi tidak terpotong | ✅ 2026-11-12 — unit backend +6 & frontend +2, smoke +5, lint, typecheck, format, build; UI (usulan uji lewat MCP → tampil, centang → masuk grup RHK, lepas → kembali usulan, dialog 1024×768 muat & bergulir; data uji dihapus permanen). **Belum**: Hermes sungguhan menjalankan skill `renaksi-ekinerja` (izin token agen, A30) |
+| Salin butir rutin dari bulan lalu ke Isian e-Kinerja (tanpa bukti, RHK dipetakan bila SKP berganti, butir yang sudah ada ditandai) | ✅ 2026-11-12 — unit frontend +3 (321), lint, format, build; browser: Desember ← 3 butir November → tersalin draf tanpa bukti, dibuka lagi = "sudah ada"; salinan uji dihapus permanen |
+| Centang semua usulan renaksi sekaligus (konfirmasi + jumlah butir tanpa bukti, progres, bukti otomatis dari lampiran) | ✅ 2026-11-12 — typecheck, lint, unit (318), build; browser: 3 usulan uji → Centang semua → Masuk e-Kinerja 2 → 5, status belum lengkap (tanpa lampiran) sesuai peringatan; data uji dihapus permanen |
+| Audit e-Kinerja: 6 perbaikan (peringatan "sudah di renaksi" tidak lagi terpicu usulan, Abaikan ikut membuang brankas, filter cakupan optimistis, usulan dari cakupan dikecualikan tidak dianggap yatim, setujui isi saat robot sibuk tetap menunggu, usulan yang sudah ada di e-Kinerja dibuang saat Pantau) | ✅ 2026-11-12 — unit backend 457 & frontend 318, smoke, lint, format, build; halaman e-Kinerja tanpa permintaan gagal, HP 375 px tanpa luberan. e-Kinerja sungguhan tidak dibuka (uji robot ditunda) |
+| Rencana Aksi dirapikan (toolbar, strip status, bagian Kegiatan & Isian e-Kinerja), judul "Kegiatan <bulan>", tema brankas publik dipilih pelihat, modal brankas tidak terpotong | ✅ 2026-11-12 — typecheck, lint, unit (318), format, build; browser 1366×768 (Rencana Aksi, modal brankas atas 34 px / bawah 734 px & bergulir, tombol tema di halaman brankas: Terang ↔ Gelap). Agenda lepas sudah ikut sebagai kegiatan berlabel "Lepas" |
+| Filter cakupan renaksi pilih-banyak (Area / Project / Lepas; disimpan per akun, berlaku untuk agen) + tombol "Generate usulan" | ✅ 2026-11-12 — unit backend +3 & frontend +2, smoke +4, migrasi tanpa drift, lint, format, build; browser (kecualikan Area Kepegawaian → 3 kegiatan tersembunyi, Sertakan semua → kembali; pengaturan admin dikembalikan kosong) |
+| Asal pembuka tautan brankas di log akses (tahap 1 pembatasan tautan bukti: e-Kinerja / LifeOS / situs lain / tanpa asal; belum memblokir) + nama kegiatan & RHK utuh di modal renaksi | ✅ 2026-11-12 — unit backend +2 & frontend +1, smoke +1, migrasi tanpa drift, lint, format, build; browser (klik dari LifeOS → "LifeOS", ditempel → "Tanpa asal"; brankas uji dihapus). **Belum**: data asal dari e-Kinerja sungguhan (butuh VPS) → keputusan tahap 2 |
+| e-Kinerja fitur terbuka untuk agen: workflow agen di tab e-Kinerja → Workflow, alat MCP robot (Ambil SKP, Pantau, Periksa) di latar belakang, permintaan isi yang menunggu persetujuan pemilik | ✅ 2026-11-12 — unit backend +6, smoke +11 (user tanpa sesi e-Kinerja), lint, typecheck, format, UI (tab Workflow, kartu di e-Kinerja & Usulan Agen, Tolak, Riwayat Aksi; data uji dibersihkan). **Belum**: Hermes sungguhan memakai alat baru (izin token agen perlu diperbarui, TODO-USER A30), pengisian setelah disetujui ke e-Kinerja sungguhan (ditunda: uji robot dengan data dummy) |
 | Tampilan ringkas seluruh aplikasi (header, banner modul satu baris, tab, kartu, dialog, kartu statistik, kartu arsip, penjelasan PARA dapat dibuka) | ✅ 2026-11-12 — lint, typecheck, unit (313), format, build; UI diuji 1366×768 & 375 px di semua modul (tanpa luberan horizontal; konten mulai ± 215 px, dulu ± 330 px; revisi banner/tab/kartu ringkasan sesuai arahan user); hanya kelas tampilan, logika/alur tidak berubah; modal utama (Project, Area, Agenda lihat & form, Proses Arsip, Approval, Notes AI) diperiksa di browser. **Belum**: modal yang jarang dipakai (robot, brankas, register SRIKANDI) hanya lewat aturan umum, belum dilihat satu per satu |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
@@ -1363,6 +1400,12 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 4. **Tampilan ringkas (2026-11-12)** sudah di-commit (`style(ui): compact layout across modules and dialogs`), belum di-push. Modal yang jarang dipakai (robot, brankas, Register SRIKANDI) belum dilihat satu per satu.
 5. Commit lokal bisa belum di-push (cek `git status -sb`): push hanya atas perintah user, lalu user mengecek CI.
 6. Peta jalan no. 3 = **AI Agent selayaknya Claude web/desktop** (permintaan user 2026-11-09, dikerjakan nanti): riwayat percakapan tersimpan, daftar percakapan, dan pengalaman chat yang sepadan. Agen juga belum bisa menyimpan skill ke folder yang dibaca LifeOS (`agents/hermes/skills` baca saja), jadi skill buatan Hermes belum muncul di daftar skill LifeOS.
+7. **Pekerjaan e-Kinerja 2026-11-12 (chat ini akan dihapus user — semua konteks ada di sini, `docs/AI-AGENT.md` §21.10b & §26.1–§26.3, `docs/TODO-USER.md` A30–A31)**. Selesai tetapi **belum di-commit**: e-Kinerja fitur terbuka untuk agen, renaksi ditarik dari Productivity + Generate usulan, filter cakupan Area/Project/Lepas, modal renaksi tidak terpotong, asal pembuka tautan brankas. **Tertunda**:
+   - **Tahap 2 pembatasan tautan bukti** ("hanya bisa dibuka dari e-Kinerja", bukan dari tautan yang ditempel): menunggu data log asal pembuka dari produksi (TODO-USER A31, setelah VPS). Bila e-Kinerja konsisten mengirim referer → sakelar per brankas + izin sementara dari server (cek asal saat halaman dibuka, cookie/token singkat untuk API berkas); bila tidak → beri tahu user pembatasan itu tidak bisa dipakai. Login e-Kinerja pembuka tidak pernah bisa diperiksa.
+   - Hermes sungguhan belum menjalankan skill `renaksi-ekinerja` maupun alat robot e-Kinerja: izin `ekinerja:robot` lewat Siapkan agen + restart Hermes (A30).
+   - Pengisian ke e-Kinerja sungguhan setelah disetujui belum diuji (uji robot ditunda, data dummy dulu).
+   - **Saran pengembangan esensial (2026-11-12)**: (a) ✅ Centang semua usulan; (c) ✅ Salin dari bulan lalu; (b) Generate usulan terjadwal
+     **ditolak user**: Generate usulan tetap hanya lewat tombol (jangan membuat jadwal/otomatis untuknya).
 
 ## 12. Log Keputusan
 
@@ -2216,6 +2259,41 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   Notes, daftar Jadwal & Rutinitas Planner (judul text-sm, keterangan text-xs, ikon 40 px). Lembar Catatan Bebas: isi editor `.rich-text` (index.css) text-sm, H1/H2/H3 = xl/lg/base, kepala lembar & judul catatan lebih kecil. Revisi user hari yang sama: banner sedikit ditinggikan (± 88 px) kecuali Knowledge (`compactHero`,
   sudah pas), tab kembali membulat seperti semula, kartu ringkasan Productivity kembali tinggi (ikon di atas, angka `text-3xl`);
   ukuran keseluruhan lainnya disetujui. Label Inggris Productivity (celah lama) sengaja tidak diubah: di luar cakupan tampilan.
+- 2026-11-12 — **e-Kinerja menjadi fitur terbuka untuk agen** (permintaan user: "fitur ini fitur custom dan dapat diubah-ubah Hermes";
+  merevisi keputusan 2026-11-09 yang mengunci e-Kinerja sebagai native). Dari tiga pilihan (menu terbuka / + robot / bangun ulang sebagai fitur
+  buatan agen), user memilih **menu terbuka + Hermes boleh menjalankan robot**. Kode e-Kinerja tetap bawaan karena robot pengisi, sinkron dua arah,
+  dan brankas sudah teruji ke e-Kinerja sungguhan; namanya tetap tidak bisa dipakai menu buatan agen agar tidak ada menu kembar. Hermes boleh
+  menambah workflow di tab e-Kinerja → Workflow (persetujuan Approval seperti fitur buatan agen lain), menjalankan robot yang membaca
+  (Ambil SKP, Pantau, Periksa `dryRun`), dan **meminta** pengisian; robot mengisi draf hanya setelah pemilik klik Setujui & isi, dan tidak
+  pernah mengirim penilaian ke atasan. Alat robot dibuat asinkron karena tugas robot bisa melebihi batas waktu MCP Hermes (180 dtk).
+  Uji memakai user tanpa sesi e-Kinerja (sesuai keputusan uji robot dengan data dummy).
+- 2026-11-12 — **Renaksi ditarik oleh e-Kinerja, bukan dikirim dari Productivity** (permintaan user: Productivity harus terisolasi;
+  pemetaan ke RHK + narasi Renaksi (nama kegiatan) & Realisasi (output pekerjaan) disusun Hermes, tetapi tidak final — pemilik memutuskan lewat
+  centang dan bisa mengubah rinciannya; satu RHK bisa banyak butir). Rancangan: usulan disimpan sebagai entri biasa bertanda `proposed` (bukan tabel
+  baru) agar dialog, brankas, dan sinkron yang sudah teruji dipakai apa adanya; robot & hitungan mengabaikan usulan. Kandidat dihitung saat dibuka
+  (tidak disalin), jadi data Productivity tetap satu-satunya sumber. Pemetaan oleh Hermes lewat run skill (bukan AI di backend) sesuai arah §26 bahwa
+  proses dikerjakan agen. Bukti tidak diisi agen: brankas dibuat dari lampiran saat dicentang. Dialog renaksi yang terpotong atas-bawah diperbaiki
+  (tinggi dibatasi layar, isi digulir).
+- 2026-11-12 — **Tautan bukti hanya dari e-Kinerja: tahap 1 = catat asal** (permintaan user: tautan hanya terbuka bagi yang sudah login
+  e-Kinerja, bukan dari tautan yang ditempel). Login e-Kinerja tidak bisa diperiksa dari luar situsnya; referer bisa diperiksa tetapi belum
+  pasti dikirim e-Kinerja dan bisa dipalsukan, sehingga memblokir sekarang berisiko atasan tak bisa membuka bukti saat menilai. User memilih
+  tahap 1: catat asal pembuka (origin saja, tanpa path agar data pribadi tidak tersimpan) dan putuskan tahap 2 (blokir per brankas) setelah
+  ada data dari produksi.
+- 2026-11-12 — **Filter cakupan renaksi + istilah "Generate usulan"** (permintaan user: pilih/saring kegiatan e-Kinerja per Area atau
+  Project, juga yang lepas, pilih banyak, untuk membuang ranah pribadi / area titipan; ganti "Usulkan dengan Hermes" ke istilah umum).
+  Disimpan sebagai **daftar pengecualian** per akun (bukan daftar yang dipilih) agar Area/Project baru otomatis ikut dan agen yang bekerja tanpa
+  browser memakai filter yang sama; area dikecualikan menyeret project di dalamnya. Disaring di server juga, jadi agen tidak pernah melihat
+  kegiatan yang dikecualikan. Ditemukan saat uji: backend `nest --watch` tetap memakai Prisma Client lama setelah kolom baru (jebakan §15) →
+  `npx tsc -p tsconfig.build.json` lalu perubahan isi kecil di berkas sumber agar watcher memulai ulang proses.
+- 2026-11-12 — **Audit & finalisasi e-Kinerja** (permintaan user: cari bug/inkonsistensi, perbaiki, sarankan hanya fitur esensial yang
+  mengurangi waktu mengisi laporan). Diperbaiki: usulan dihitung sebagai "sudah masuk renaksi" di dialog (`entriesOfSource` kini tanpa usulan);
+  Abaikan usulan meninggalkan brankas publik; klik beruntun di filter cakupan saling menimpa (mutasi optimistis); usulan dari cakupan yang
+  dikecualikan tampil sebagai "kegiatan tidak lagi ada"; Setujui & isi saat robot sibuk (409) menandai permintaan gagal permanen (kini tetap
+  menunggu); Pantau mengimpor butir e-Kinerja yang sama dengan usulan sehingga tampil ganda (`proposalsCoveredBy` membuang usulannya).
+  e-Kinerja sungguhan tidak dibuka (keputusan uji robot dengan data dummy).
+- 2026-11-12 — **Generate usulan tetap manual + Salin dari bulan lalu** (keputusan user atas saran audit): usulan otomatis terjadwal tidak
+  dibuat, Generate usulan hanya lewat tombol. Dibangun "Salin dari bulan lalu" untuk butir rutin: bukti data dukung sengaja tidak disalin karena
+  bukti tiap bulan harus dokumen bulan itu (brankas terikat pada satu entri), dan butir yang sudah ada tidak bisa disalin ulang agar tidak ganda.
 
 ## 13. Konvensi Kode
 
@@ -2334,6 +2412,13 @@ Label jenis baru → `KIND_LABELS`/`RECORD_LABELS` (`trash-utils.ts`).
 
 **Menambah aplikasi ke katalog MCP**: entri di `MCP_PRESETS` (`mcp-connection-logic.ts`: key, nama, deskripsi, alamat resmi dari dokumentasi
 penyedia, `authType`, ikon dari registry ikon frontend). Tanpa perubahan frontend. Aplikasi yang tidak ada di katalog cukup lewat "Aplikasi lain".
+
+**Membuka fitur native untuk agen** (pola e-Kinerja 2026-11-12): placement baru di `MENU_PLACEMENTS` + entri `EXTENSIBLE_FEATURES`
+(nama tetap di `NATIVE_FEATURES`), tab Workflow di halaman fitur yang memfilter `useAgentMenus()` per placement, label & tautan Buka di
+`proposals-tab.tsx`. Aksi robot yang **membaca** → alat MCP asinkron (tugas latar belakang + alat status), cakupan sendiri. Aksi yang **menulis**
+ke sistem luar → kind baru di `agent_actions` (pending) yang dijalankan saat pemilik menyetujui (`AgentActionsService.approve`), + kartu
+persetujuan di Approval → Usulan Agen dan di halaman fitur, + label di `action-utils.ts`. Perbarui juga `INSTRUCTIONS` MCP dan
+`agents/hermes/skills/README.md`.
 
 **Menambah tool MCP** (agen AI): tool baru di `LifeosMcpService.createServer` (`src/integrations/lifeos-mcp.service.ts`)
 di dalam blok cakupan yang sesuai (`can("…")`), handler dibungkus `run(nama, …)` agar tercatat di log aktivitas, input
@@ -2654,6 +2739,10 @@ utama tetap < 500 kB (cek output `npm run build`).
 
 - Uji tampilan HP: setelah `resize_window` preset mobile, **muat ulang halaman** sebelum menilai tangkapan layar (tanpa itu layout tampak terpotong walau ukuran elemen benar). Tombol bulat bergambar pohon palem di kiri bawah saat dev = TanStack Query Devtools, tidak ada di build produksi. Kunci `bull:automation:repeat:auto:…` tersisa di Redis bisa hanya bekas job; yang menjadwalkan = isi zset `bull:automation:repeat` (kosong = tidak ada jadwal).
 - Transkrip audio: jawaban Gemini sukses bukan berarti lengkap — periksa kata per menit (rapat ± 120–130). `promptFeedback.blockReason` tanpa `finishReason` = penolakan, bukan sambungan putus; mengulang model yang sama tidak membantu. Rekaman MediaRecorder bisa ber-Segment/Cluster berukuran pasti + SeekHead + Cues: uji pemotongan pada rekaman asli, bukan hanya data buatan. `fetch` Node memutus permintaan yang menunggu header > 5 menit. Mengubah kode backend me-restart proses dan membuang pekerjaan transkrip di memori.
+- Setelah migrasi kolom baru saat backend dijalankan orang lain (`nest start --watch` bukan milik Claude): `touch` tidak cukup (tanpa emit → tanpa restart).
+  Jalankan `npx tsc -p tsconfig.build.json` (memperbarui `dist/generated`), lalu ubah **isi** satu berkas sumber agar watcher memulai ulang `dist/main`;
+  cek `CreationDate` proses `distmain` dan `grep -c <kolom> dist/generated/prisma/internal/class.js`.
+- Isi dialog yang digulir: jangan jadikan grid (`FieldGroup grid`) sekaligus wadah gulir bertinggi tetap (`min-h-0 flex-1 overflow-y-auto`) — baris ber-`truncate`/`overflow-hidden` punya tinggi minimum 0 sehingga terjepit (teks terpotong separuh). Bungkus dengan `div` gulir, grid di dalamnya.
 - Tinggi header aplikasi (`app-header.tsx`, `h-12`) dipakai di hitungan tinggi tetap: Notebook (`h-[calc(100svh-8.25rem)]`,
   `scroll-mt-[3.75rem]`), Knowledge/Graf/Canvas/Tabel (`100svh-12.5rem` dst.), chat AI Agent (`100svh-20rem`). Mengubah header /
   banner / padding `main` → cek ulang semua `grep -rn "100svh" src`. Python **tidak** terpasang di laptop: skrip bantu (mis.

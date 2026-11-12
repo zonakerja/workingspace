@@ -47,6 +47,7 @@ import {
   isChanged,
   type PlanEntry,
   type PlanTarget,
+  proposalsCoveredBy,
   type SignedEntry,
 } from "./ekinerja-renaksi";
 import {
@@ -828,7 +829,10 @@ export class RobotService {
     const own = <T>(list: { payload: Record<string, unknown>; share?: unknown }[]) =>
       list.filter((r) => !r.share).map((r) => r.payload as T);
     return {
-      entries: own<SignedEntry & { pushed?: PlanEntry }>(await this.records.findMany("action_plan_entry", {}, user)),
+      // Usulan agen (`proposed`) belum diputuskan pemilik: tidak pernah diisikan ke e-Kinerja
+      entries: own<SignedEntry & { pushed?: PlanEntry }>(
+        (await this.records.findMany("action_plan_entry", {}, user)).filter((r) => !r.payload.proposed),
+      ),
       targets: own<PlanTarget>(await this.records.findMany("skp_target", {}, user)),
       skps: own<{ id: string; externalId?: string; startDate?: string; endDate?: string }>(
         await this.records.findMany("skp", {}, user),
@@ -907,6 +911,11 @@ export class RobotService {
   ) {
     let imported = 0;
     const { entries, targets } = await this.renaksiData(user);
+    // Usulan agen yang belum dicentang: dibuang bila isinya ternyata sudah ada di e-Kinerja (tidak tampil ganda)
+    const proposals = (await this.records.findMany("action_plan_entry", {}, user))
+      .filter((r) => !r.share && r.payload.proposed)
+      .map((r) => r.payload as { id: string; period?: string; targetId?: string; description?: string });
+    const importedNow: { period: string; targetId?: string; description: string }[] = [];
     const skpTargets = targets.filter((t) => t.skpId === skp.id);
     const now = new Date().toISOString();
     for (const m of months) {
@@ -945,6 +954,7 @@ export class RobotService {
             user,
           );
           imported += 1;
+          importedNow.push({ period, targetId: c.targetId, description: c.description });
         }
       }
       for (const entry of own) {
@@ -963,6 +973,9 @@ export class RobotService {
           );
         }
       }
+    }
+    for (const id of proposalsCoveredBy(proposals, importedNow)) {
+      await this.records.remove("action_plan_entry", id, {}, user, { trash: false });
     }
     return imported;
   }

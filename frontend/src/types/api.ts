@@ -134,7 +134,8 @@ export type ApiScope =
   | "requests:write"
   | "ai:model"
   | "agent:menus"
-  | "mcp:apps";
+  | "mcp:apps"
+  | "ekinerja:robot";
 
 export interface ApiTokenInfo {
   id: string;
@@ -244,7 +245,8 @@ export interface McpConnectionInfo {
 /** Aksi agen atas data kerja: buat/ubah (bisa dibatalkan) atau permintaan hapus (menunggu persetujuan). */
 export interface AgentActionInfo {
   id: string;
-  kind: "create" | "update" | "delete";
+  /** `ekinerja_fill` = permintaan agen mengisi Rencana Aksi satu bulan ke e-Kinerja (menunggu persetujuan) */
+  kind: "create" | "update" | "delete" | "ekinerja_fill";
   recordType: string;
   clientId: string;
   title: string;
@@ -1226,7 +1228,7 @@ export interface AutomationRun {
   id: string;
   kind: AutomationKind;
   /** schedule = jadwal, manual = "Jalankan sekarang", button = tombol sinkron di menu asal */
-  trigger: "schedule" | "manual" | "button";
+  trigger: "schedule" | "manual" | "button" | "agent";
   status: AutomationRunStatus;
   message: string | null;
   createdAt: string;
@@ -1305,6 +1307,8 @@ export interface VaultAccess {
   location: string;
   network: string | null;
   browser: string | null;
+  /** Asal pembuka (hanya baris "buka"): e-Kinerja, LifeOS, situs lain, atau tanpa asal (tautan ditempel) */
+  referrer: { kind: "ekinerja" | "app" | "other" | "none"; label: string } | null;
 }
 
 /** Isi brankas untuk pengunjung publik + catatan akses pengunjung itu sendiri. */

@@ -1,3 +1,4 @@
+import { isPeriod, RENAKSI_SKILL, renaksiRunInput } from "../robot/ekinerja-agent-logic";
 import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -733,6 +734,27 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
       sessionId: sessionIdFor(user.id, `menu-${menu.id}`),
       skill: menu.skill,
       menuId: menu.id,
+    });
+  }
+
+  /**
+   * e-Kinerja → Rencana Aksi → "Generate usulan": agen memetakan kegiatan satu bulan ke RHK dan menyusun narasi
+   * Renaksi/Realisasi sebagai usulan (MCP `ekinerja_propose_renaksi`). Butuh izin token agen `ekinerja:robot`.
+   */
+  async runRenaksi(user: AuthUser, period: string) {
+    this.requireOwner(user);
+    if (!isPeriod(period)) throw new UnprocessableEntityException("Bulan harus YYYY-MM.");
+    const setup = await this.setupState(user);
+    if (!setup.token?.scopes.includes("ekinerja:robot")) {
+      throw new UnprocessableEntityException(
+        'Agen belum diberi izin "Robot e-Kinerja". Buka AI Agent → Status & Skill → Siapkan agen, centang izin itu, lalu restart Hermes.',
+      );
+    }
+    return this.start(user, {
+      kind: "skill",
+      input: renaksiRunInput(period),
+      sessionId: sessionIdFor(user.id, `renaksi-${period}`),
+      skill: RENAKSI_SKILL,
     });
   }
 

@@ -100,6 +100,8 @@ model User {
   knowledgeVault String?     @map("knowledge_vault")
   /// Preferensi menu Pengetahuan: penanda (path) & grup warna graf
   knowledgePrefs Json?       @map("knowledge_prefs")
+  /// Preferensi e-Kinerja: { renaksiExcluded: ["area:<id>" | "project:<id>" | "loose"] } = cakupan kegiatan yang tidak ditarik
+  ekinerjaPrefs  Json?       @map("ekinerja_prefs")
   createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -1600,6 +1602,8 @@ model PublicVaultAccess {
   fileName  String?     @map("file_name")
   ip        String?
   userAgent String?     @map("user_agent")
+  /// Origin situs tempat tautan diklik (document.referrer halaman brankas); "" = tanpa asal, NULL = tidak dicatat
+  referrer  String?
   country   String?
   region    String?
   city      String?

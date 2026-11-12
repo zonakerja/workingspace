@@ -3,6 +3,7 @@ import {
   buildRenaksiPlan,
   buildSyncPlan,
   DEFAULT_TIME_REALIZATION,
+  proposalsCoveredBy,
   emptyRows,
   entryItems,
   entryPresent,
@@ -144,5 +145,19 @@ describe("bulan dikosongkan", () => {
     expect(emptyRows(rows, [target])).toEqual([
       { rhk: target.name, indicator: "Jumlah Draft Laporan", renaksi: [], realisasi: [], bukti: [] },
     ]);
+  });
+});
+
+describe("usulan yang sudah ada di e-Kinerja", () => {
+  it("dibuang bila bulan, RHK, dan renaksi sama (abaikan spasi & huruf besar)", () => {
+    const ids = proposalsCoveredBy(
+      [
+        { id: "p1", period: "2026-10", targetId: "r1", description: "Menyusun  Laporan BMN" },
+        { id: "p2", period: "2026-10", targetId: "r2", description: "Menyusun laporan BMN" },
+        { id: "p3", period: "2026-11", targetId: "r1", description: "Menyusun laporan BMN" },
+      ],
+      [{ period: "2026-10", targetId: "r1", description: "menyusun laporan bmn" }],
+    );
+    expect(ids).toEqual(["p1"]);
   });
 });

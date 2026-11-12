@@ -21,6 +21,21 @@ export const VAULT_ACTION_LABELS: Record<VaultAccess["action"], string> = {
 };
 
 /** Jumlah alamat IP berbeda yang pernah membuka brankas (petunjuk tautan tersebar). */
+/** Warna asal pembuka di log akses: e-Kinerja hijau, tanpa asal (tautan ditempel) kuning. */
+export const REFERRER_TONE: Record<NonNullable<VaultAccess["referrer"]>["kind"], string> = {
+  ekinerja: "text-success",
+  app: "text-muted-foreground",
+  other: "text-muted-foreground",
+  none: "text-warning",
+};
+
+/** Jumlah pembukaan halaman per asal (untuk ringkasan di atas log). */
+export function referrerSummary(rows: VaultAccess[]) {
+  const counts = { ekinerja: 0, app: 0, other: 0, none: 0 };
+  for (const r of rows) if (r.referrer) counts[r.referrer.kind] += 1;
+  return counts;
+}
+
 export const distinctVisitors = (rows: VaultAccess[]) => new Set(rows.map((r) => r.ip ?? "?")).size;
 
 /** Tautan lengkap brankas dari path yang dikembalikan server (`/brankas/<token>`). */

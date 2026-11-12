@@ -4,6 +4,8 @@ import {
   locationLabel,
   normalizeIp,
   parseGeo,
+  referrerLabel,
+  referrerOrigin,
   shortUserAgent,
   VAULT_UPLOAD_CONTEXT,
   vaultFilesToRelease,
@@ -52,5 +54,29 @@ describe("brankas digital — berkas yang dilepas", () => {
     ];
     expect(vaultFilesToRelease(removed, "u1", new Set(["c"]))).toEqual(["a"]);
     expect(vaultFilesToRelease([], "u1", new Set())).toEqual([]);
+  });
+});
+
+describe("brankas digital — asal pembuka", () => {
+  it("hanya origin http(s) yang disimpan", () => {
+    expect(referrerOrigin("https://Ekinerja.Dephub.go.id/skp/renaksi/12?nip=1987")).toBe(
+      "https://ekinerja.dephub.go.id",
+    );
+    expect(referrerOrigin("")).toBeNull();
+    expect(referrerOrigin("android-app://com.whatsapp")).toBeNull();
+    expect(referrerOrigin("bukan url")).toBeNull();
+    expect(referrerOrigin(42)).toBeNull();
+  });
+
+  it("label: e-Kinerja dari host konektor, LifeOS, situs lain, tanpa asal", () => {
+    const hosts = ["ekinerja.dephub.go.id"];
+    expect(referrerLabel("https://ekinerja.dephub.go.id", null, hosts).kind).toBe("ekinerja");
+    expect(referrerLabel("https://app.ekinerja.dephub.go.id", null, hosts).kind).toBe("ekinerja");
+    expect(referrerLabel("https://lifeos.contoh.id", "https://lifeos.contoh.id", hosts).kind).toBe("app");
+    expect(referrerLabel("https://web.whatsapp.com", null, hosts)).toEqual({
+      kind: "other",
+      label: "web.whatsapp.com",
+    });
+    expect(referrerLabel(null, null, hosts).kind).toBe("none");
   });
 });

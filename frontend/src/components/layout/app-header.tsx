@@ -67,8 +67,11 @@ export function AppHeader({ actions }: { actions?: ReactNode }) {
   );
 }
 
-/** Satu-satunya pengatur tema (Terang / Gelap / Ikuti sistem), disimpan per perangkat. */
-function ThemeMenu() {
+/**
+ * Satu-satunya pengatur tema (Terang / Gelap / Ikuti sistem), disimpan per perangkat. Dipakai juga halaman publik
+ * (brankas digital) agar pelihat memilih temanya sendiri.
+ */
+export function ThemeMenu() {
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const isDark = resolveTheme(theme) === "dark";

@@ -351,7 +351,10 @@ export const agentActionsApi = {
   undo: (id: string, force = false) =>
     request<{ status: string }>(`/agent/actions/${id}/undo`, { method: "POST", body: { force } }),
   approve: (id: string) =>
-    request<{ status: string; removed: number; files?: number }>(`/agent/actions/${id}/approve`, { method: "POST" }),
+    request<{ status: string; removed: number; files?: number; filled?: number; added?: number; message?: string }>(
+      `/agent/actions/${id}/approve`,
+      { method: "POST" },
+    ),
   reject: (id: string, note?: string) =>
     request<{ status: string }>(`/agent/actions/${id}/reject`, { method: "POST", body: { note } }),
 };
@@ -703,7 +706,8 @@ export interface AgentMenu {
   icon: string;
   skill: string;
   instructions: string;
-  placement: "workflow" | "connection";
+  /** workflow = AI Agent → Workflow; connection = menu di Connection & MCP; ekinerja = e-Kinerja → Workflow */
+  placement: "workflow" | "connection" | "ekinerja";
   form: AgentMenuField[];
   status: "draft" | "active";
   createdAt: string;
@@ -737,6 +741,9 @@ export const agentApi = {
   runs: () => request<AgentRunSummary[]>("/agent/runs"),
   setup: (scopes?: ApiScope[]) => request<AgentStatus>("/agent/setup", { method: "POST", body: { scopes } }),
   run: (runId: string) => request<AgentRun>(`/agent/runs/${encodeURIComponent(runId)}`),
+  /** e-Kinerja → Rencana Aksi: Hermes memetakan kegiatan bulan itu ke RHK & menyusun usulan narasi */
+  renaksi: (period: string) =>
+    request<{ runId: string; status: string }>("/agent/ekinerja/renaksi", { method: "POST", body: { period } }),
   stop: (runId: string) =>
     request<{ stopping: boolean }>(`/agent/runs/${encodeURIComponent(runId)}/stop`, { method: "POST" }),
   chat: (message: string, conversation?: string) =>
@@ -847,6 +854,10 @@ export const robotApi = {
     }),
   /** Isi Rencana Aksi bulan itu ke e-Kinerja (draf; robot tidak pernah mengirim ke atasan). */
   /** Samakan Rencana Aksi bulan itu dengan LifeOS (baca → impor → tambah / tulis ulang); `dryRun` = rencana saja. */
+  /** Cakupan Productivity yang dikecualikan dari renaksi: "area:<id>", "project:<id>", "loose" (berlaku juga untuk agen) */
+  renaksiScope: () => request<{ excluded: string[] }>("/robot/ekinerja/renaksi/scope"),
+  setRenaksiScope: (excluded: string[]) =>
+    request<{ excluded: string[] }>("/robot/ekinerja/renaksi/scope", { method: "PUT", body: { excluded } }),
   fillRenaksi: (period: string, dryRun = false) =>
     request<{
       period: string;
@@ -907,7 +918,12 @@ export const vaultsApi = {
 
 /** Halaman publik brankas (tanpa login): setiap pembukaan & unduhan dicatat server. */
 export const publicVaultApi = {
-  open: (token: string) => request<PublicVaultView>(`/public/vaults/${encodeURIComponent(token)}`, { auth: false }),
+  /** `referrer` = document.referrer halaman brankas (situs tempat tautan diklik), hanya dicatat di log akses */
+  open: (token: string, referrer?: string) =>
+    request<PublicVaultView>(
+      `/public/vaults/${encodeURIComponent(token)}${referrer ? `?ref=${encodeURIComponent(referrer.slice(0, 1000))}` : ""}`,
+      { auth: false },
+    ),
   fileUrl: (token: string, fileId: string, download = false) =>
     apiUrl(`/public/vaults/${encodeURIComponent(token)}/files/${fileId}${download ? "?download=1" : ""}`),
 };

@@ -230,6 +230,7 @@ export const MODULES: ModuleDef[] = [
     sidebarGroup: "connection",
     tabs: [
       { id: "plan", label: "Rencana Aksi", icon: ClipboardList },
+      { id: "workflow", label: "Workflow", icon: Workflow },
       { id: "connector", label: "Connector", icon: Bot },
     ],
   },

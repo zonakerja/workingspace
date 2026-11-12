@@ -10,6 +10,15 @@ import { collectUploadIds } from "../sharing/share-graph";
 import { UploadsService } from "../uploads/uploads.service";
 import { recordTitle } from "../trash/trash-logic";
 import { INDEXED_TYPES } from "../ai/index/index-text";
+import {
+  EKINERJA_FILL_KIND,
+  EKINERJA_FILL_RECORD,
+  fillRequestTitle,
+  fillSnapshot,
+  isPeriod,
+  periodLabel,
+} from "../robot/ekinerja-agent-logic";
+import { RobotService } from "../robot/robot.service";
 import { changedKeys, createPayload, isAgentWritable, patchPayload, samePayload } from "./agent-action-logic";
 
 type Payload = Record<string, unknown>;
@@ -27,6 +36,7 @@ export class AgentActionsService {
     private readonly records: RecordsService,
     private readonly shareAccess: ShareAccessService,
     private readonly uploads: UploadsService,
+    private readonly robot: RobotService,
   ) {}
 
   private writableType(type: string): RecordType {
@@ -106,6 +116,40 @@ export class AgentActionsService {
     return { actionId: action.id, pending: true, children: children.length };
   }
 
+  /**
+   * Permintaan agen agar robot mengisi Rencana Aksi satu bulan ke e-Kinerja. Tidak ada yang dikirim ke e-Kinerja sampai
+   * pemilik menyetujuinya; isi bulan saat diminta disimpan agar pemilik tahu apa yang akan diisikan.
+   */
+  async requestEkinerjaFill(user: AuthUser, period: string, reason: string) {
+    if (!isPeriod(period)) throw new BadRequestException("Bulan harus YYYY-MM.");
+    const existing = await this.prisma.agentAction.findFirst({
+      where: { userId: user.id, kind: EKINERJA_FILL_KIND, clientId: period, status: "pending" },
+    });
+    if (existing) return { actionId: existing.id, pending: true, duplicate: true };
+    const entries = (await this.records.findMany("action_plan_entry", {}, user))
+      .filter((r) => !r.share)
+      .map((r) => r.payload as Payload);
+    const snapshot = fillSnapshot(entries, period);
+    if (!snapshot.total) {
+      throw new BadRequestException(
+        `Belum ada entri Rencana Aksi untuk ${periodLabel(period)} — tidak ada yang bisa diisikan.`,
+      );
+    }
+    const action = await this.prisma.agentAction.create({
+      data: {
+        userId: user.id,
+        kind: EKINERJA_FILL_KIND,
+        recordType: EKINERJA_FILL_RECORD,
+        clientId: period,
+        title: fillRequestTitle(period),
+        after: json(snapshot),
+        reason: reason.trim(),
+        status: "pending",
+      },
+    });
+    return { actionId: action.id, pending: true, entries: snapshot.total };
+  }
+
   list(user: AuthUser, query: { status?: string; take?: number }) {
     return this.prisma.agentAction.findMany({
       where: { userId: user.id, ...(query.status ? { status: query.status } : {}) },
@@ -115,7 +159,9 @@ export class AgentActionsService {
   }
 
   countPending(user: AuthUser) {
-    return this.prisma.agentAction.count({ where: { userId: user.id, kind: "delete", status: "pending" } });
+    return this.prisma.agentAction.count({
+      where: { userId: user.id, kind: { in: ["delete", EKINERJA_FILL_KIND] }, status: "pending" },
+    });
   }
 
   private async own(user: AuthUser, id: string) {
@@ -127,6 +173,8 @@ export class AgentActionsService {
   /** Setujui hapus: item + turunannya masuk Sampah (satu kelompok, bertanda agen) dan bisa dipulihkan 30 hari. */
   async approve(user: AuthUser, id: string) {
     const action = await this.own(user, id);
+    if (action.kind === EKINERJA_FILL_KIND && action.status === "pending")
+      return this.approveEkinerjaFill(user, action);
     if (action.kind !== "delete" || action.status !== "pending") {
       throw new ConflictException("Permintaan ini sudah diputuskan.");
     }
@@ -189,9 +237,33 @@ export class AgentActionsService {
     return trashed;
   }
 
+  /**
+   * Setujui pengisian: robot mengisi bulan itu ke e-Kinerja (sama dengan tombol "Kirim ke e-Kinerja" / "Kirim
+   * perubahan", isi terkini saat disetujui). Hanya draf; "Kirim Penilaian Ke Atasan" tidak pernah ditekan robot.
+   */
+  private async approveEkinerjaFill(user: AuthUser, action: { id: string; clientId: string }) {
+    try {
+      const result = await this.robot.fillEkinerjaRenaksi(user, action.clientId, false);
+      const locked = result.results.filter((r) => r.status === "submitted").length;
+      const message =
+        `${result.filled} entri terisi, ${result.added} butir ditambahkan` +
+        (result.imported ? `, ${result.imported} entri diimpor dari e-Kinerja` : "") +
+        (locked ? ` · ${locked} bulan sudah diajukan (tidak diisi)` : "") +
+        " — draf, belum dikirim ke atasan.";
+      await this.decide(action.id, "approved", message);
+      return { status: "approved" as const, removed: 0, filled: result.filled, added: result.added, message };
+    } catch (error) {
+      // Robot e-Kinerja sedang dipakai tugas lain (409): permintaan tetap menunggu agar pemilik bisa mencoba lagi
+      if (error instanceof ConflictException) throw error;
+      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+      await this.decide(action.id, "failed", message);
+      return { status: "failed" as const, removed: 0, message };
+    }
+  }
+
   async reject(user: AuthUser, id: string, note?: string) {
     const action = await this.own(user, id);
-    if (action.kind !== "delete" || action.status !== "pending") {
+    if ((action.kind !== "delete" && action.kind !== EKINERJA_FILL_KIND) || action.status !== "pending") {
       throw new ConflictException("Permintaan ini sudah diputuskan.");
     }
     await this.decide(id, "rejected", note?.trim() || null);

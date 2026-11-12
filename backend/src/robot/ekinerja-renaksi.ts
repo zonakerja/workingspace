@@ -250,3 +250,23 @@ export function emptyRows(rows: FilledRow[], targets: PlanTarget[]): RenaksiRow[
       return match ? [{ rhk: match.t.name, indicator: match.i.indicator, renaksi: [], realisasi: [], bukti: [] }] : [];
     });
 }
+
+/**
+ * Usulan agen (`proposed`) yang isinya sudah ada di e-Kinerja (diimpor sebagai entri "Diisi langsung di e-Kinerja"):
+ * RHK & renaksi sama di bulan yang sama → usulan dibuang agar tidak tampil ganda / dicentang menjadi butir kembar.
+ */
+export function proposalsCoveredBy(
+  proposals: { id: string; period?: string; targetId?: string; description?: string }[],
+  imported: { period: string; targetId?: string; description: string }[],
+) {
+  return proposals
+    .filter((p) =>
+      imported.some(
+        (i) =>
+          i.period === p.period &&
+          i.targetId === p.targetId &&
+          normalize(i.description) === normalize(p.description ?? ""),
+      ),
+    )
+    .map((p) => p.id);
+}

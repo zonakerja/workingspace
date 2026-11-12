@@ -57,6 +57,13 @@ export const TOOL_LABELS: Record<string, string> = {
   request_delete_record: "Minta hapus data kerja",
   list_app_tools: "Alat aplikasi tersambung",
   call_app_tool: "Jalankan alat aplikasi",
+  ekinerja_status: "Status robot e-Kinerja",
+  ekinerja_sync_skp: "Ambil SKP & RHK e-Kinerja",
+  ekinerja_monitor_renaksi: "Pantau Rencana Aksi e-Kinerja",
+  ekinerja_check_renaksi: "Periksa Rencana Aksi e-Kinerja",
+  ekinerja_request_fill: "Minta isi Rencana Aksi e-Kinerja",
+  ekinerja_renaksi_context: "Bahan renaksi e-Kinerja",
+  ekinerja_propose_renaksi: "Usulkan renaksi e-Kinerja",
 };
 
 /** Ringkasan argumen untuk tabel log: "query: sewa · limit: 3". */

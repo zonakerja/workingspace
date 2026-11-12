@@ -2012,7 +2012,7 @@ try {
     return { s: res.status, d: await res.json().catch(() => null) };
   };
   r = await j("GET", "/integrations/scopes", null, at);
-  ok("integrations scopes", r.s === 200 && r.d.length === 10, r);
+  ok("integrations scopes", r.s === 200 && r.d.length === 11, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: [] }, at);
   ok("token without scopes 400", r.s === 400, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: ["admin:all"] }, at);
@@ -2053,6 +2053,176 @@ try {
     await j("DELETE", `/integrations/tokens/${appsPat.id}`, null, at);
     r = await j("DELETE", `/mcp-connections/${appId}`, null, at);
     ok("mcp apps delete", r.s === 200, r);
+  }
+
+  // Robot e-Kinerja untuk agen (fitur terbuka): baca lewat tugas latar belakang, isi hanya lewat permintaan yang disetujui.
+  // User sementara tidak punya sesi e-Kinerja → robot tidak pernah membuka e-Kinerja sungguhan.
+  {
+    const ekPat = (await j("POST", "/integrations/tokens", { name: "Smoke ekinerja", scopes: ["ekinerja:robot"] }, at))
+      .d;
+    const ek = async (name, args = {}) => {
+      const res = await mcp(ekPat.token, "tools/call", { name, arguments: args });
+      const raw = res.d?.result?.content?.[0]?.text ?? "";
+      let out = raw;
+      try {
+        out = JSON.parse(raw);
+      } catch {
+        // pesan galat berupa teks
+      }
+      return { isError: !!res.d?.result?.isError, out };
+    };
+    r = await mcp(ekPat.token, "tools/list");
+    const ekTools = (r.d?.result?.tools ?? []).map((t) => t.name);
+    ok(
+      "ekinerja tools listed only with scope",
+      ["ekinerja_status", "ekinerja_sync_skp", "ekinerja_check_renaksi", "ekinerja_request_fill"].every((n) =>
+        ekTools.includes(n),
+      ) && !ekTools.includes("create_record"),
+      ekTools,
+    );
+    let e = await ek("ekinerja_status");
+    ok("ekinerja status: no session", !e.isError && String(e.out.sesi).startsWith("belum login"), e);
+    e = await ek("ekinerja_request_fill", { period: "2026-10", reason: "uji smoke" });
+    ok("ekinerja request fill without entries → error", e.isError, e);
+    e = await ek("ekinerja_sync_skp", { year: 2026 });
+    ok("ekinerja sync skp starts in background", !e.isError && e.out.dimulai === true, e);
+    let task;
+    for (let i = 0; i < 20 && task?.status !== "failed" && task?.status !== "done"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      task = (await ek("ekinerja_status")).out.tugas?.[0];
+    }
+    ok("ekinerja task without session fails safely", task?.status === "failed" && !!task.error, task);
+    const entryId = `smoke-ek-${Date.now()}`;
+    await j(
+      "PUT",
+      `/records/action_plan_entry/${entryId}`,
+      { payload: { id: entryId, period: "2026-10", description: "Smoke renaksi", status: "ready" } },
+      at,
+    );
+    e = await ek("ekinerja_request_fill", { period: "2026-10", reason: "Isi renaksi Oktober (smoke)" });
+    ok("ekinerja request fill → pending", !e.isError && e.out.pending && e.out.actionId, e);
+    const fillId = e.out.actionId;
+    e = await ek("ekinerja_request_fill", { period: "2026-10", reason: "ulang" });
+    ok("ekinerja request fill dedup", e.out.catatan_duplikat && e.out.actionId === fillId, e);
+    r = await j("GET", "/agent/actions/pending-count", null, at);
+    ok("pending count includes ekinerja fill", r.s === 200 && r.d.count >= 1, r);
+    r = await j("GET", "/agent/actions?status=pending", null, at);
+    const fill = r.d?.find?.((x) => x.id === fillId);
+    ok(
+      "ekinerja fill snapshot for owner",
+      fill?.kind === "ekinerja_fill" && fill.after?.total === 1 && fill.title.includes("Oktober 2026"),
+      fill,
+    );
+    r = await j("POST", `/agent/actions/${fillId}/reject`, {}, at);
+    ok("ekinerja fill reject", r.s === 200 && r.d.status === "rejected", r);
+    r = await j("POST", `/agent/actions/${fillId}/approve`, null, at);
+    ok("ekinerja fill decided cannot be approved", r.s === 409, r);
+    // Usulan renaksi (Hermes): kegiatan Productivity → RHK, usulan tidak pernah ikut diisikan
+    const sfx = Date.now();
+    await j(
+      "PUT",
+      `/records/skp/smoke-skp-${sfx}`,
+      {
+        payload: {
+          id: `smoke-skp-${sfx}`,
+          externalId: "999",
+          startDate: "2026-01-01",
+          endDate: "2026-12-31",
+          status: "Disetujui",
+        },
+      },
+      at,
+    );
+    await j(
+      "PUT",
+      `/records/skp_target/smoke-rhk-${sfx}`,
+      {
+        payload: {
+          id: `smoke-rhk-${sfx}`,
+          year: 2026,
+          skpId: `smoke-skp-${sfx}`,
+          name: "Laporan BMN tersusun",
+          indicators: [{ indicator: "Jumlah laporan", aspect: "KUANTITAS", target: "4 Laporan" }],
+        },
+      },
+      at,
+    );
+    await j(
+      "PUT",
+      `/records/para_task/smoke-task-${sfx}`,
+      {
+        payload: {
+          id: `smoke-task-${sfx}`,
+          projectId: "tanpa-project",
+          title: "Susun laporan BMN Agustus",
+          completed: true,
+          completedAt: "2026-08-12T03:00:00.000Z",
+        },
+      },
+      at,
+    );
+    e = await ek("ekinerja_renaksi_context", { period: "2026-08" });
+    ok(
+      "renaksi context: activity + RHK of month",
+      !e.isError &&
+        e.out.kegiatan?.some((k) => k.sourceId === `smoke-task-${sfx}`) &&
+        e.out.rhk?.some((r) => r.id === `smoke-rhk-${sfx}`),
+      e,
+    );
+    e = await ek("ekinerja_propose_renaksi", {
+      period: "2026-08",
+      items: [
+        {
+          sourceType: "task",
+          sourceId: `smoke-task-${sfx}`,
+          targetId: `smoke-rhk-${sfx}`,
+          description: "Menyusun laporan BMN",
+          realization: "Laporan BMN Agustus",
+        },
+        { sourceType: "task", sourceId: `smoke-task-${sfx}`, targetId: "rhk-tidak-ada", description: "x" },
+      ],
+    });
+    ok(
+      "renaksi propose saves valid, rejects unknown RHK",
+      !e.isError && e.out.saved === 1 && e.out.rejected?.length === 1,
+      e,
+    );
+    r = await j("GET", "/records/action_plan_entry", null, at);
+    const proposal = r.d?.find?.((x) => x.payload.sourceId === `smoke-task-${sfx}`)?.payload;
+    ok("renaksi proposal stored as proposed", proposal?.proposed === true && proposal.proposedBy === "agent", proposal);
+    e = await ek("ekinerja_request_fill", { period: "2026-08", reason: "hanya usulan" });
+    ok("ekinerja fill ignores proposals", e.isError, e);
+    r = await j("POST", "/agent/ekinerja/renaksi", { period: "2026-08" }, at);
+    ok("renaksi Hermes run only for agent owner", r.s >= 400 && r.s < 500, r);
+    // Filter cakupan (Area / Project / Lepas): disimpan per akun, berlaku untuk daftar & agen
+    r = await j("PUT", "/robot/ekinerja/renaksi/scope", { excluded: ["loose", "loose", "bukan-kunci"] }, at);
+    ok("renaksi scope saved (cleaned)", r.s === 200 && JSON.stringify(r.d.excluded) === '["loose"]', r);
+    e = await ek("ekinerja_renaksi_context", { period: "2026-08" });
+    ok(
+      "renaksi context hides excluded scope",
+      !e.isError &&
+        !e.out.kegiatan?.some((k) => k.sourceId === `smoke-task-${sfx}`) &&
+        e.out.kegiatan_dikecualikan_pemilik >= 1,
+      e,
+    );
+    e = await ek("ekinerja_propose_renaksi", {
+      period: "2026-08",
+      items: [{ sourceType: "task", sourceId: `smoke-task-${sfx}`, targetId: `smoke-rhk-${sfx}`, description: "x" }],
+    });
+    ok(
+      "renaksi propose rejects excluded scope",
+      e.out.saved === 0 && /dikecualikan/.test(e.out.rejected?.[0]?.reason ?? ""),
+      e,
+    );
+    r = await j("PUT", "/robot/ekinerja/renaksi/scope", { excluded: [] }, at);
+    r = await j("GET", "/robot/ekinerja/renaksi/scope", null, at);
+    ok("renaksi scope cleared", r.s === 200 && r.d.excluded.length === 0, r);
+    if (proposal) await j("DELETE", `/records/action_plan_entry/${proposal.id}`, null, at);
+    await j("DELETE", `/records/para_task/smoke-task-${sfx}`, null, at);
+    await j("DELETE", `/records/skp_target/smoke-rhk-${sfx}`, null, at);
+    await j("DELETE", `/records/skp/smoke-skp-${sfx}`, null, at);
+    await j("DELETE", `/records/action_plan_entry/${entryId}`, null, at);
+    await j("DELETE", `/integrations/tokens/${ekPat.id}`, null, at);
   }
 
   // Aksi agen atas data kerja: buat/ubah bisa dibatalkan, hapus hanya permintaan yang menunggu persetujuan → Sampah
@@ -2887,6 +3057,10 @@ try {
         pv.headers.get("x-robots-tag")?.includes("noindex"),
       pvBody,
     );
+    // Asal pembuka (document.referrer halaman brankas): hanya origin yang disimpan
+    await fetch(
+      `${origin}/api/v1/public/vaults/${vaultToken}?ref=${encodeURIComponent("https://web.whatsapp.com/chat?nip=1987")}`,
+    );
     pv = await fetch(`${origin}/api/v1/public/vaults/${vaultToken}/files/${vFile2.d.id}?download=1`);
     ok(
       "vault file download (attachment, sandbox)",
@@ -2902,10 +3076,21 @@ try {
     ok(
       "vault access log (open + download, ip, location)",
       r.s === 200 &&
-        r.d.length === 2 &&
+        r.d.length === 3 &&
         r.d.some((a) => a.action === "download" && a.fileName === "bukti-2.txt") &&
         r.d.every((a) => a.ip && a.location),
       r,
+    );
+    ok(
+      "vault access log records opener origin only (no path), none when pasted",
+      r.s === 200 &&
+        r.d.some(
+          (a) => a.action === "open" && a.referrer?.kind === "other" && a.referrer.label === "web.whatsapp.com",
+        ) &&
+        r.d.some((a) => a.action === "open" && a.referrer?.kind === "none") &&
+        r.d.every((a) => a.action === "open" || a.referrer === null) &&
+        !JSON.stringify(r.d).includes("nip=1987"),
+      r.d.map((a) => [a.action, a.referrer]),
     );
     r = await j("GET", `/vaults/${vaultId}/accesses`, null, pt);
     ok("vault log only for owner (404)", r.s === 404, r);

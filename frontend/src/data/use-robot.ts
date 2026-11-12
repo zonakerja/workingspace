@@ -91,3 +91,24 @@ export function usePublicLinkMutations(uploadId: string) {
     revoke: useMutation({ mutationFn: publicLinksApi.revoke, onSuccess: refresh }),
   };
 }
+
+/** Cakupan kegiatan yang dikecualikan dari renaksi e-Kinerja (per akun; agen memakai daftar yang sama). */
+export function useRenaksiScope() {
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: ["renaksi-scope"], queryFn: robotApi.renaksiScope, staleTime: 60_000 });
+  // Optimistis: klik beruntun (mis. melepas dua Area cepat) dihitung dari daftar terbaru, bukan dari respons yang belum datang
+  const save = useMutation({
+    mutationFn: robotApi.setRenaksiScope,
+    onMutate: async (excluded: string[]) => {
+      await client.cancelQueries({ queryKey: ["renaksi-scope"] });
+      const previous = client.getQueryData<{ excluded: string[] }>(["renaksi-scope"]);
+      client.setQueryData(["renaksi-scope"], { excluded });
+      return { previous };
+    },
+    onError: (_error, _excluded, context) => {
+      if (context?.previous) client.setQueryData(["renaksi-scope"], context.previous);
+    },
+    onSuccess: (data) => client.setQueryData(["renaksi-scope"], data),
+  });
+  return { excluded: query.data?.excluded ?? [], isLoading: query.isLoading, save };
+}

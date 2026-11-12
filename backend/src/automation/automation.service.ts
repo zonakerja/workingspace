@@ -218,9 +218,9 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
     await this.queue.removeJobScheduler(schedulerId(userId, kind));
   }
 
-  /** Tombol sinkron di menu asal (Laporan Kinerja / SRIKANDI) → ikut tercatat di riwayat Otomasi. */
+  /** Tombol sinkron di menu asal (e-Kinerja / SRIKANDI) dan tugas yang dipicu agen → ikut tercatat di riwayat Otomasi. */
   private async recordButtonRun(event: RobotJobEvent) {
-    if (event.trigger !== "button") return;
+    if (event.trigger !== "button" && event.trigger !== "agent") return;
     const user = await this.prisma.user.findUnique({ where: { id: event.userId }, select: { id: true } });
     if (!user) return;
     await this.ensureJobs(event.userId);
@@ -229,7 +229,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
       data: {
         userId: event.userId,
         kind: event.kind,
-        trigger: "button",
+        trigger: event.trigger,
         status,
         message: event.message.slice(0, 500),
         startedAt: event.startedAt,

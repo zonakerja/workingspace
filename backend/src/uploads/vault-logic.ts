@@ -98,3 +98,30 @@ export function shortUserAgent(ua: string | undefined | null) {
             : null;
   return [browser, os].filter(Boolean).join(" · ") || value.slice(0, 80);
 }
+
+/**
+ * Asal pembuka brankas (situs tempat tautan diklik, dari `document.referrer` halaman brankas). Hanya origin
+ * (`https://host`) yang disimpan: path/query bisa berisi data pribadi. Kosong / bukan http(s) = tanpa asal (tautan
+ * ditempel langsung, dibuka dari aplikasi, atau situs asal tidak mengirim referer).
+ */
+export function referrerOrigin(raw: unknown): string | null {
+  if (typeof raw !== "string" || !raw.trim() || raw.length > 2000) return null;
+  try {
+    const url = new URL(raw.trim());
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.origin.toLowerCase().slice(0, 200);
+  } catch {
+    return null;
+  }
+}
+
+/** Label asal untuk log akses: e-Kinerja (host konektor pemilik), LifeOS sendiri, situs lain, atau tanpa asal. */
+export function referrerLabel(origin: string | null, appOrigin: string | null, ekinerjaHosts: string[]) {
+  if (!origin) return { kind: "none" as const, label: "Tanpa asal (ditempel / dibuka langsung)" };
+  const host = new URL(origin).hostname;
+  if (ekinerjaHosts.some((h) => host === h || host.endsWith(`.${h}`))) {
+    return { kind: "ekinerja" as const, label: `e-Kinerja (${host})` };
+  }
+  if (appOrigin && origin === appOrigin.toLowerCase()) return { kind: "app" as const, label: "LifeOS" };
+  return { kind: "other" as const, label: host };
+}

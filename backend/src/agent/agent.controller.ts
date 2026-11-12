@@ -51,6 +51,11 @@ class AgentSetupDto {
   scopes?: string[];
 }
 
+class RenaksiRunDto {
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: "Bulan harus YYYY-MM." })
+  period!: string;
+}
+
 class AgentSkillRunDto {
   @Matches(/^[a-z0-9][a-z0-9-]{0,63}$/, { message: "Nama skill tidak valid." })
   skill!: string;
@@ -249,6 +254,11 @@ export class AgentController {
 
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @HttpCode(200)
+  @Post("ekinerja/renaksi")
+  runRenaksi(@CurrentUser() user: AuthUser, @Body() dto: RenaksiRunDto) {
+    return this.agent.runRenaksi(user, dto.period);
+  }
+
   @Post("requests/:id/run")
   runSkill(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: AgentSkillRunDto) {
     return this.agent.runSkill(user, id, dto.skill);

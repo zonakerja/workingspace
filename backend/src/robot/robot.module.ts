@@ -3,13 +3,15 @@ import { RecordsModule } from "../records/records.module";
 import { UploadsModule } from "../uploads/uploads.module";
 import { RobotClient } from "./robot-client";
 import { RobotController } from "./robot.controller";
+import { EkinerjaAgentService } from "./ekinerja-agent.service";
+import { RenaksiProposalsService } from "./renaksi-proposals.service";
 import { RobotService } from "./robot.service";
 
 /** Konektor robot SRIKANDI & e-Kinerja lewat service robot Playwright (docs/AI-AGENT.md tahap 6 §21). */
 @Module({
   imports: [RecordsModule, UploadsModule],
   controllers: [RobotController],
-  providers: [RobotService, RobotClient],
-  exports: [RobotService],
+  providers: [RobotService, RobotClient, EkinerjaAgentService, RenaksiProposalsService],
+  exports: [RobotService, EkinerjaAgentService, RenaksiProposalsService],
 })
 export class RobotModule {}

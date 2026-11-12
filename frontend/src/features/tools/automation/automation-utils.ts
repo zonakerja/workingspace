@@ -106,6 +106,7 @@ export const TRIGGER_LABELS: Record<AutomationRun["trigger"], string> = {
   schedule: "Terjadwal",
   manual: "Jalankan sekarang",
   button: "Tombol di menu",
+  agent: "Agen (Hermes)",
 };
 
 export const RUN_STATUS: Record<AutomationRun["status"], { label: string; tone: string }> = {

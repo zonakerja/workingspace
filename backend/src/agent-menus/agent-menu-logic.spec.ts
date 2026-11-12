@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  EXTENSIBLE_FEATURES,
   isNativeFeature,
   menuRunInput,
   menuSlug,
@@ -43,6 +44,13 @@ describe("agent-menu-logic", () => {
       placement: "connection",
     });
     expect(normalizeMenuProposal({ ...proposal, icon: "<svg>" })).toMatchObject({ icon: "bot" });
+  });
+
+  it("e-Kinerja fitur terbuka: workflow boleh ditempatkan di dalamnya, namanya tetap tidak bisa dipakai", () => {
+    expect(normalizeMenuProposal({ ...proposal, placement: "ekinerja" })).toMatchObject({ placement: "ekinerja" });
+    expect(EXTENSIBLE_FEATURES["e-Kinerja"]).toBe("ekinerja");
+    expect(isNativeFeature("E-KINERJA")).toBe(true);
+    expect(isNativeFeature("SRIKANDI")).toBe(true);
   });
 
   it("normalizeMenuProposal: menolak isian tidak sah dengan pesan yang bisa diperbaiki agen", () => {

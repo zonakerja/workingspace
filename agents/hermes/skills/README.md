@@ -20,6 +20,14 @@ workflow di AI Agent atau koneksi di Connection & MCP, boleh disertai modal (daf
 di Approval → Usulan Agen; mengubah fitur aktif mengembalikannya ke draf. Fitur native tidak bisa diubah. Logika khusus satu proses
 (mis. PSP) ditulis di skill, bukan di kode aplikasi.
 
+**e-Kinerja = fitur terbuka** (keputusan pemilik 2026-11-12): workflow boleh ditempatkan di menu e-Kinerja (`placement: "ekinerja"`).
+Dengan izin `ekinerja:robot` agen boleh menjalankan robot yang **membaca** e-Kinerja: `ekinerja_sync_skp` (Ambil SKP & RHK),
+`ekinerja_monitor_renaksi` (Pantau), `ekinerja_check_renaksi` (Periksa satu bulan tanpa klik). Tugas berjalan di latar belakang:
+baca hasilnya dengan `ekinerja_status`, satu tugas sekaligus. Mengisi ke e-Kinerja **hanya** lewat `ekinerja_request_fill`, yang menunggu
+persetujuan pemilik. Isi entri renaksi (uraian, realisasi, bukti) boleh disiapkan dengan `update_record` / `create_record` jenis
+`action_plan_entry` sebelum meminta pengisian. Robot tidak pernah mengirim penilaian ke atasan. Pemetaan kegiatan bulanan ke RHK + narasi Renaksi/Realisasi = skill `renaksi-ekinerja`
+(`ekinerja_renaksi_context` → `ekinerja_propose_renaksi`); hasilnya usulan yang diputuskan pemilik, bukan entri final.
+
 Agen hanya punya alat `skills`, `memory`, `todo`, `session_search`, dan MCP LifeOS (`infra/hermes/configure.sh`).
 
 Menambah skill: buat folder `nama-skill/SKILL.md` (nama huruf kecil + tanda hubung), lalu `docker restart lifeos-hermes`.

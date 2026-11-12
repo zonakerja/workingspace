@@ -379,6 +379,15 @@ export interface ActionPlanEntry extends Owned {
   >;
   /** Ditandai hapus: butirnya akan dihapus dari e-Kinerja saat Kirim perubahan, lalu entri dihapus */
   deleted?: boolean;
+  /**
+   * Usulan agen (Hermes) yang belum diputuskan pemilik: tidak tampil di daftar RHK dan tidak pernah diisikan robot.
+   * Dicentang di daftar kegiatan e-Kinerja → `false` (masuk e-Kinerja).
+   */
+  proposed?: boolean;
+  /** Asal usulan (tetap ada setelah dicentang — melepas centang mengembalikannya menjadi usulan) */
+  proposedBy?: "agent";
+  /** Alasan pemetaan dari agen */
+  proposalNote?: string;
   createdAt?: string;
 }
 

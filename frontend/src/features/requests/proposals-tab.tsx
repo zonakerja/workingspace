@@ -11,11 +11,13 @@ import { useAgentMenuMutations, useAgentMenus, useAgentStatus } from "@/data/use
 import { errorMessage } from "@/lib/api/client";
 import type { AgentMenu } from "@/lib/api/endpoints";
 import { getAppIcon } from "@/lib/icons/icon-registry";
+import { EkinerjaFillRequestsCard } from "@/features/kinerja/fill-requests-card";
 import { DeleteRequestsCard } from "./delete-requests-card";
 
 const PLACEMENT_LABELS: Record<AgentMenu["placement"], string> = {
   workflow: "AI Agent → Workflow",
   connection: "Connection & MCP",
+  ekinerja: "e-Kinerja → Workflow",
 };
 
 /**
@@ -40,6 +42,7 @@ export function ProposalsTab() {
     return (
       <div className="grid grid-cols-1 gap-3">
         <DeleteRequestsCard />
+        <EkinerjaFillRequestsCard />
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Usulan fitur agen hanya untuk pemilik agen (HERMES_OWNER_EMAIL).
         </Card>
@@ -52,6 +55,7 @@ export function ProposalsTab() {
   return (
     <div className="grid grid-cols-1 gap-3">
       <DeleteRequestsCard />
+      <EkinerjaFillRequestsCard />
       <Card className="flex items-start gap-3 p-4">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-module-soft text-module">
           <ShieldCheck className="size-5" />
@@ -91,7 +95,17 @@ export function ProposalsTab() {
           {active.map((menu) => (
             <ProposalCard key={menu.id} menu={menu}>
               <Button size="sm" variant="outline" asChild>
-                <Link to={menu.placement === "connection" ? `/custom/${menu.slug}` : "/agent/workflow"}>Buka</Link>
+                <Link
+                  to={
+                    menu.placement === "connection"
+                      ? `/custom/${menu.slug}`
+                      : menu.placement === "ekinerja"
+                        ? "/kinerja/workflow"
+                        : "/agent/workflow"
+                  }
+                >
+                  Buka
+                </Link>
               </Button>
               <Button size="sm" variant="outline" onClick={() => setMenuStatus(menu, "draft")}>
                 <EyeOff /> Sembunyikan

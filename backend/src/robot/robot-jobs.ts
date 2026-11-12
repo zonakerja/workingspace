@@ -17,8 +17,8 @@ export const ROBOT_JOB_KINDS = [
 ] as const;
 export type RobotJobKind = (typeof ROBOT_JOB_KINDS)[number];
 
-/** Asal pemicu: jadwal, tombol "Jalankan sekarang" di Otomasi, atau tombol sinkron di menu asal. */
-export type RobotJobTrigger = "schedule" | "manual" | "button";
+/** Asal pemicu: jadwal, tombol "Jalankan sekarang" di Otomasi, tombol sinkron di menu asal, atau agen (Hermes lewat MCP). */
+export type RobotJobTrigger = "schedule" | "manual" | "button" | "agent";
 
 export const ROBOT_JOBS: Record<RobotJobKind, { system: RobotSystem; label: string }> = {
   ekinerja_session: { system: "ekinerja", label: "Jaga sesi login" },

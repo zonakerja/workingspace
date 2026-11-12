@@ -7,13 +7,14 @@ export const ACTION_KIND_LABELS: Record<AgentActionInfo["kind"], string> = {
   create: "Membuat",
   update: "Mengubah",
   delete: "Minta hapus",
+  ekinerja_fill: "Minta isi e-Kinerja",
 };
 
 export const ACTION_STATUS_LABELS: Record<AgentActionInfo["status"], string> = {
   applied: "Diterapkan",
   undone: "Dibatalkan",
   pending: "Menunggu persetujuan",
-  approved: "Disetujui · di Sampah",
+  approved: "Disetujui",
   rejected: "Ditolak",
   failed: "Gagal",
 };
@@ -27,7 +28,8 @@ export const ACTION_STATUS_TONE: Record<AgentActionInfo["status"], string> = {
   failed: "bg-destructive/15 text-destructive",
 };
 
-export const recordLabel = (recordType: string) => itemLabel({ kind: "record", recordType });
+export const recordLabel = (recordType: string) =>
+  recordType === "ekinerja_renaksi" ? "Rencana Aksi e-Kinerja" : itemLabel({ kind: "record", recordType });
 
 /** Kolom sistem yang tidak ditampilkan sebagai perubahan. */
 const SYSTEM_KEYS = new Set(["id", "userId", "share"]);

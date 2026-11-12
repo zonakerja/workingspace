@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   StreamableFile,
@@ -24,10 +25,12 @@ import {
   CredentialsDto,
   FillRenaksiDto,
   RegisterOutgoingDto,
+  RenaksiScopeDto,
   RobotInputDto,
   SyncSkpDto,
   UpdateConnectorDto,
 } from "./robot.dto";
+import { RenaksiProposalsService } from "./renaksi-proposals.service";
 import { RobotService } from "./robot.service";
 
 /** Konektor robot SRIKANDI & e-Kinerja (tab Connector di Laporan Kinerja & SRIKANDI). Data & sesi milik user sendiri. */
@@ -36,7 +39,21 @@ import { RobotService } from "./robot.service";
 @UseGuards(JwtAuthGuard)
 @Controller("robot")
 export class RobotController {
-  constructor(private readonly robot: RobotService) {}
+  constructor(
+    private readonly robot: RobotService,
+    private readonly renaksi: RenaksiProposalsService,
+  ) {}
+
+  /** e-Kinerja: cakupan kegiatan Productivity yang dikecualikan dari renaksi (Area / Project / Lepas); berlaku juga untuk agen. */
+  @Get("ekinerja/renaksi/scope")
+  async renaksiScope(@CurrentUser() user: AuthUser) {
+    return { excluded: await this.renaksi.excluded(user.id) };
+  }
+
+  @Put("ekinerja/renaksi/scope")
+  setRenaksiScope(@CurrentUser() user: AuthUser, @Body() dto: RenaksiScopeDto) {
+    return this.renaksi.setExcluded(user.id, dto.excluded);
+  }
 
   @Get("status")
   status() {

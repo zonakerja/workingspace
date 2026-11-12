@@ -137,3 +137,13 @@ export class SyncSkpDto {
   @Max(2100)
   year!: number;
 }
+
+/** Cakupan yang dikecualikan dari renaksi: "area:<id>", "project:<id>", "loose". */
+export class RenaksiScopeDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(130, { each: true })
+  excluded!: string[];
+}

@@ -2,6 +2,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  CopyPlus,
   CloudDownload,
   ExternalLink,
   Loader2,
@@ -15,7 +16,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { RenameDialog } from "@/components/common/rename-dialog";
@@ -59,8 +60,10 @@ import {
   skpsForYear,
   targetsForSkp,
   targetsForYear,
-} from "@/features/productivity/lib/action-plan";
-import { ActionPlanDialog } from "@/features/productivity/components/action-plan-dialog";
+} from "./lib/action-plan";
+import { ActionPlanDialog } from "./action-plan-dialog";
+import { CandidatesSection } from "./candidates-section";
+import { CopyMonthDialog } from "./copy-month-dialog";
 
 const DISPLAY_STYLE: Record<DisplayStatus, string> = {
   draft: "bg-warning/15 text-warning",
@@ -83,8 +86,8 @@ const COUNT_ORDER: DisplayStatus[] = ["ready", "changed", "deleted", "missing", 
 const SOURCE_LABELS = { task: "Action/Task", activity: "Kegiatan", schedule: "Agenda", ekinerja: "e-Kinerja" } as const;
 
 /**
- * Tab Laporan Kinerja: rencana aksi bulanan e-Kinerja yang dipilih user dari Productivity (tombol Renaksi di Action/Task,
- * Kegiatan, Agenda). Setiap entri = SKP bulan itu + RHK & indikator + renaksi + realisasi + bukti; yang lengkap diisikan
+ * Tab Rencana Aksi e-Kinerja: kegiatan bulan itu ditarik dari Productivity (`CandidatesSection`), Hermes mengusulkan
+ * pemetaan RHK + narasi, dan pemilik mencentang yang masuk. Setiap entri = SKP bulan itu + RHK & indikator + renaksi + realisasi + bukti; yang lengkap diisikan
  * robot lewat "Kirim ke e-Kinerja" (bulan belum pernah dikirim) / "Kirim perubahan" (draf — robot tidak pernah mengirim
  * penilaian ke atasan).
  * SKP & RHK diambil robot dari e-Kinerja (satu tahun bisa beberapa SKP).
@@ -99,8 +102,9 @@ export function ActionPlanBoard() {
   const [editing, setEditing] = useState<ActionPlanEntry | null>(null);
   const [deleting, setDeleting] = useState<ActionPlanEntry | null>(null);
 
+  // Usulan Hermes yang belum dicentang tidak termasuk (tampil di daftar kegiatan, tidak pernah diisikan robot)
   const monthEntries = entries
-    .filter((e) => e.period === period)
+    .filter((e) => e.period === period && !e.proposed)
     .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
   const year = periodYear(period);
   const monthSkps = skpsForPeriod(skps, period);
@@ -121,6 +125,7 @@ export function ActionPlanBoard() {
   const sent = monthSent(monthEntries, month);
   const sendLabel = sent ? "Kirim perubahan" : "Kirim ke e-Kinerja";
   const [confirmFill, setConfirmFill] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [filling, setFilling] = useState<"push" | "check" | "sync" | null>(null);
   const client = useQueryClient();
   const refresh = () =>
@@ -197,49 +202,44 @@ export function ActionPlanBoard() {
       <SectionCard
         icon={ClipboardList}
         title="Rencana Aksi bulanan"
-        description="Pilih item di Productivity lewat ikon papan klip pada Action/Task, Kegiatan, atau Agenda. Hanya entri yang Anda masukkan di sini yang diisikan robot e-Kinerja."
-        contentClassName="flex flex-col gap-4"
+        description="Pilih kegiatan bulan ini, periksa usulannya, lalu kirim ke e-Kinerja sebagai draf."
+        contentClassName="flex flex-col gap-3"
       >
+        {/* Baris 1: navigasi bulan + SKP (kiri), aksi robot (kanan) */}
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="icon-sm"
-            variant="outline"
-            aria-label="Bulan sebelumnya"
-            onClick={() => setPeriod(shiftPeriod(period, -1))}
-          >
-            <ChevronLeft />
-          </Button>
-          <Input
-            type="month"
-            className="w-44"
-            value={period}
-            onChange={(e) => isPeriod(e.target.value) && setPeriod(e.target.value)}
-            aria-label="Bulan"
-          />
-          <Button
-            size="icon-sm"
-            variant="outline"
-            aria-label="Bulan berikutnya"
-            onClick={() => setPeriod(shiftPeriod(period, 1))}
-          >
-            <ChevronRight />
-          </Button>
-          <span className="font-semibold">{periodLabel(period)}</span>
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Bulan sebelumnya"
+              onClick={() => setPeriod(shiftPeriod(period, -1))}
+            >
+              <ChevronLeft />
+            </Button>
+            <Input
+              type="month"
+              className="h-8 w-40"
+              value={period}
+              onChange={(e) => isPeriod(e.target.value) && setPeriod(e.target.value)}
+              aria-label="Bulan"
+            />
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Bulan berikutnya"
+              onClick={() => setPeriod(shiftPeriod(period, 1))}
+            >
+              <ChevronRight />
+            </Button>
+          </div>
           {monthSkps.map((s) => (
             <Badge key={s.id} variant="secondary" title={`SKP ${s.externalId}`}>
               SKP {skpPeriodLabel(s)} · {s.status}
             </Badge>
           ))}
-          <span className="ml-auto flex flex-wrap items-center gap-1.5 text-xs">
-            {COUNT_ORDER.map((s) =>
-              counts[s] ? (
-                <Badge key={s} className={DISPLAY_STYLE[s]}>
-                  {counts[s]} {DISPLAY_LABELS[s].toLowerCase()}
-                </Badge>
-              ) : null,
-            )}
+          <span className="ml-auto flex flex-wrap items-center gap-1.5">
             <Button size="sm" variant="outline" onClick={() => void syncMonths()} disabled={!!filling}>
-              {filling === "sync" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Pantau e-Kinerja
+              {filling === "sync" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Pantau
             </Button>
             <Button
               size="sm"
@@ -257,46 +257,75 @@ export function ActionPlanBoard() {
           </span>
         </div>
 
-        <MonthStatusCard month={month} />
+        {/* Baris 2: keadaan bulan di e-Kinerja + jumlah isian per status */}
+        <MonthStatusCard month={month}>
+          {COUNT_ORDER.map((s) =>
+            counts[s] ? (
+              <Badge key={s} className={DISPLAY_STYLE[s]}>
+                {counts[s]} {DISPLAY_LABELS[s].toLowerCase()}
+              </Badge>
+            ) : null,
+          )}
+        </MonthStatusCard>
 
-        {monthEntries.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <ClipboardList />
-              </EmptyMedia>
-              <EmptyTitle>Belum ada rencana aksi {periodLabel(period)}</EmptyTitle>
-              <EmptyDescription>
-                Buka Project atau Area, lalu klik ikon <ClipboardList className="inline size-3.5" /> pada Action/Task,
-                Agenda, atau Kegiatan yang ingin dimasukkan.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          groups.map((group) => (
-            <section key={group.target?.id ?? "none"} className="grid grid-cols-1 gap-2 rounded-lg border p-3">
-              <p className="flex items-center gap-1.5 text-sm font-semibold">
-                <Target className="size-4 shrink-0 text-module" />
-                <span className="min-w-0">{group.target?.name ?? "Belum dipetakan ke RHK"}</span>
-                <span className="text-xs font-normal text-muted-foreground">· {group.entries.length}</span>
-              </p>
-              <ul className="grid grid-cols-1 gap-2">
-                {group.entries.map((entry) => (
-                  <EntryRow
-                    key={entry.id}
-                    entry={entry}
-                    target={targetOf(entry)}
-                    status={statusOf(entry)}
-                    onEdit={() => setEditing(entry)}
-                    onDelete={() => setDeleting(entry)}
-                    onRestore={() => upsert({ ...entry, deleted: undefined })}
-                    onRotated={(url) => upsert({ ...entry, documentUrl: url })}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))
-        )}
+        <CandidatesSection period={period} locked={locked} onEdit={setEditing} onRemoveEntry={removeEntry} />
+
+        <section className="grid grid-cols-1 gap-2 rounded-xl border p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Target className="size-4 text-module" />
+            <p className="text-sm font-semibold">Isian e-Kinerja {periodLabel(period)}</p>
+            <span className="text-xs text-muted-foreground">
+              · {monthEntries.length} butir · {groups.filter((g) => g.target).length} RHK
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              disabled={locked}
+              title="Ulangi butir rutin bulan lalu (tanpa bukti)"
+              onClick={() => setCopying(true)}
+            >
+              <CopyPlus /> Salin dari bulan lalu
+            </Button>
+          </div>
+          {monthEntries.length === 0 ? (
+            <Empty className="py-6">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ClipboardList />
+                </EmptyMedia>
+                <EmptyTitle>Belum ada isian {periodLabel(period)}</EmptyTitle>
+                <EmptyDescription>
+                  Centang kegiatan di atas (atau Generate usulan dulu). Butir yang dicentang tampil di sini per RHK.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            groups.map((group) => (
+              <div key={group.target?.id ?? "none"} className="grid grid-cols-1 gap-1.5">
+                <p className="flex items-start gap-1.5 text-[13px] font-semibold">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-module" />
+                  <span className="min-w-0 break-words">{group.target?.name ?? "Belum dipetakan ke RHK"}</span>
+                  <span className="shrink-0 text-xs font-normal text-muted-foreground">· {group.entries.length}</span>
+                </p>
+                <ul className="grid grid-cols-1 gap-2">
+                  {group.entries.map((entry) => (
+                    <EntryRow
+                      key={entry.id}
+                      entry={entry}
+                      target={targetOf(entry)}
+                      status={statusOf(entry)}
+                      onEdit={() => setEditing(entry)}
+                      onDelete={() => setDeleting(entry)}
+                      onRestore={() => upsert({ ...entry, deleted: undefined })}
+                      onRotated={(url) => upsert({ ...entry, documentUrl: url })}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </section>
       </SectionCard>
 
       <div className="grid grid-cols-1 content-start gap-4">
@@ -307,6 +336,7 @@ export function ActionPlanBoard() {
       </div>
 
       <ActionPlanDialog open={!!editing} onClose={() => setEditing(null)} entry={editing ?? undefined} />
+      <CopyMonthDialog open={copying} onOpenChange={setCopying} period={period} />
       <ConfirmDialog
         open={confirmFill}
         onOpenChange={setConfirmFill}
@@ -456,21 +486,25 @@ function EntryRow({
   );
 }
 
-/** Keadaan bulan di e-Kinerja (potret terakhir dibaca robot) + isinya per indikator & feedback atasan. */
-function MonthStatusCard({ month }: { month: ActionPlanMonth | null }) {
+/** Strip keadaan bulan di e-Kinerja (potret terakhir dibaca robot) + jumlah isian per status (`children`). */
+function MonthStatusCard({ month, children }: { month: ActionPlanMonth | null; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   if (!month) {
     return (
-      <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-        Keadaan bulan ini di e-Kinerja belum dibaca — klik <b>Pantau e-Kinerja</b>.
-      </p>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        <span>
+          Keadaan bulan ini di e-Kinerja belum dibaca — klik <b>Pantau e-Kinerja</b>.
+        </span>
+        <span className="ml-auto flex flex-wrap gap-1.5">{children}</span>
+      </div>
     );
   }
   const rows = month.rows ?? [];
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+    <div className="flex flex-col gap-2 rounded-lg bg-muted/40 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <Badge className={MONTH_STYLE[month.status]}>{MONTH_STATUS_LABELS[month.status]}</Badge>
+        {children}
         {month.submittedAt && (
           <span className="text-muted-foreground">
             Diajukan {formatShortDate(parseLocalYMD(month.submittedAt))}

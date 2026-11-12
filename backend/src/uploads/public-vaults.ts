@@ -41,6 +41,8 @@ import {
   shortUserAgent,
   VAULT_PATH,
   vaultFilesToRelease,
+  referrerLabel,
+  referrerOrigin,
 } from "./vault-logic";
 import { randomBytes } from "node:crypto";
 
@@ -108,6 +110,8 @@ const GEO_CACHE_MAX = 1000;
 interface Visitor {
   ip: string | null;
   userAgent: string | null;
+  /** Origin situs tempat tautan diklik (hanya untuk "buka"); null = tanpa asal */
+  referrer?: string | null;
 }
 
 @Injectable()
@@ -281,6 +285,24 @@ export class PublicVaultsService {
     };
   }
 
+  /** Host e-Kinerja milik pemilik (alamat konektor + host tambahan) untuk menandai asal pembuka. */
+  private async ekinerjaHosts(userId: string) {
+    const connector = await this.prisma.robotConnector.findFirst({
+      where: { userId, system: "ekinerja" },
+      select: { baseUrl: true, extraHosts: true },
+    });
+    const hosts: string[] = [];
+    for (const value of [connector?.baseUrl, ...(Array.isArray(connector?.extraHosts) ? connector.extraHosts : [])]) {
+      if (typeof value !== "string" || !value) continue;
+      try {
+        hosts.push(new URL(value.includes("://") ? value : `https://${value}`).hostname.toLowerCase());
+      } catch {
+        // alamat tidak sah dilewati
+      }
+    }
+    return hosts;
+  }
+
   async accesses(userId: string, id: string, take = 200) {
     await this.ownVault(userId, id);
     const rows = await this.prisma.publicVaultAccess.findMany({
@@ -288,8 +310,12 @@ export class PublicVaultsService {
       orderBy: { at: "desc" },
       take: Math.min(Math.max(take, 1), 500),
     });
+    const hosts = await this.ekinerjaHosts(userId);
+    const appOrigin = referrerOrigin(this.config.get<string>("CORS_ORIGIN")?.split(",")[0]);
     return rows.map((r) => ({
       id: r.id,
+      // Asal hanya dicatat saat halaman dibuka; lihat/unduh berkas = di dalam halaman itu
+      referrer: r.action === "open" && r.referrer !== null ? referrerLabel(r.referrer || null, appOrigin, hosts) : null,
       at: r.at,
       action: r.action,
       fileName: r.fileName,
@@ -356,6 +382,8 @@ export class PublicVaultsService {
           fileName: fileName ?? null,
           ip: visitor.ip,
           userAgent: visitor.userAgent?.slice(0, 400) ?? null,
+          // "" = dibuka tanpa asal; NULL = baris lihat/unduh atau catatan dari sebelum asal dicatat
+          referrer: action === "open" ? (visitor.referrer ?? "") : null,
           country: geo?.country ?? null,
           region: geo?.region ?? null,
           city: geo?.city ?? null,
@@ -467,9 +495,15 @@ export class PublicVaultsController {
   /** Publik (tanpa login): isi brankas; setiap pembukaan dicatat. */
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @Get("public/vaults/:token")
-  async open(@Param("token") token: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async open(
+    @Param("token") token: string,
+    @Query("ref") ref: string | undefined,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     res.set({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
-    return this.vaults.open(token, visitorOf(req));
+    // `ref` = document.referrer halaman brankas (Referer permintaan API ini selalu LifeOS sendiri); hanya dicatat
+    return this.vaults.open(token, { ...visitorOf(req), referrer: referrerOrigin(ref) });
   }
 
   /** Publik: satu berkas brankas (`?download=1` = unduh); header aman sama dengan unduhan biasa. */

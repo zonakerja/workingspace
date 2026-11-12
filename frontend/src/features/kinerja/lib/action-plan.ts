@@ -199,8 +199,9 @@ export function defaultDescription(title: string, description?: string): string 
   return extra && extra !== title.trim() ? `${title.trim()} — ${extra}` : title.trim();
 }
 
+/** Entri yang sudah dimasukkan pemilik untuk satu kegiatan (usulan agen yang belum dicentang tidak dihitung). */
 export const entriesOfSource = (entries: ActionPlanEntry[], sourceId: string) =>
-  entries.filter((e) => e.sourceId === sourceId);
+  entries.filter((e) => e.sourceId === sourceId && !e.proposed);
 
 /** Kelompok entri satu bulan per RHK (urut RHK; entri tanpa RHK di akhir). */
 export function groupByTarget(entries: ActionPlanEntry[], targets: SkpTarget[]) {

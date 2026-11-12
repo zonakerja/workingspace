@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Download, Eye, FileText, FolderLock, Loader2, ScrollText, ShieldAlert } from "lucide-react";
 import { useParams } from "react-router";
+import { ThemeMenu } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 import { appLogoUrl, useAppSettings } from "@/data/use-app-settings";
 import { errorMessage } from "@/lib/api/client";
@@ -23,7 +24,8 @@ function PublicVaultPage() {
   // Satu kali per kunjungan (setiap pemanggilan = satu catatan akses)
   const vault = useQuery({
     queryKey: ["public-vault", token],
-    queryFn: () => publicVaultApi.open(token),
+    // Situs tempat tautan diklik (mis. e-Kinerja) ikut dicatat; kosong bila tautan ditempel langsung
+    queryFn: () => publicVaultApi.open(token, document.referrer),
     staleTime: Infinity,
     retry: false,
     refetchOnWindowFocus: false,
@@ -44,6 +46,10 @@ function PublicVaultPage() {
           <div className="min-w-0">
             <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Brankas Digital</p>
             <p className="truncate text-sm font-medium">{settings.name} · Bukti data dukung kinerja</p>
+          </div>
+          {/* Tema dipilih pelihat sendiri (tersimpan di perangkatnya), bukan mengikuti pemilik brankas */}
+          <div className="ml-auto">
+            <ThemeMenu />
           </div>
         </header>
 
