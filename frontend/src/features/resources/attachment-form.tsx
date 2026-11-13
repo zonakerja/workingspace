@@ -220,10 +220,12 @@ export function AttachmentForm({
   const handleFile = async (file?: File) => {
     if (!file) return;
     setUploading(true);
+    let uploadedId = "";
     try {
       const asset = await uploadsApi.upload(file, uploadContext, uploadOwnerId);
       acceptAsset(asset, draft.name || asset.originalName);
       lastFileRef.current = file;
+      uploadedId = asset.id;
     } catch (error) {
       toast.error("Upload file gagal", { description: errorMessage(error) });
       setUploading(false);
@@ -231,14 +233,14 @@ export function AttachmentForm({
     }
     setUploading(false);
     patch({ aiSummary: undefined });
-    if (aiSummary) void runSummary(file);
+    if (aiSummary) void runSummary(file, uploadedId);
     else summaryRunRef.current++; // abaikan hasil ringkasan berkas sebelumnya
   };
 
   /** Ringkas `file` dengan AI; hasil diabaikan bila berkas diganti / centang dimatikan / sudah ditambahkan. */
-  const runSummary = async (file: File) => {
+  const runSummary = async (file: File, uploadId?: string) => {
     const run = ++summaryRunRef.current;
-    const summary = await summarizer.summarize(file);
+    const summary = await summarizer.summarize(file, uploadId);
     if (summary && run === summaryRunRef.current) patch({ aiSummary: summary });
   };
 
@@ -249,7 +251,7 @@ export function AttachmentForm({
       summaryRunRef.current++;
       summarizer.setStatus("idle");
     } else if (draft.uploadId && !draft.aiSummary && summarizer.status !== "processing") {
-      if (lastFileRef.current) void runSummary(lastFileRef.current);
+      if (lastFileRef.current) void runSummary(lastFileRef.current, draft.uploadId);
       else if (officeSource) void runSummaryUpload(draft.uploadId);
     }
   };

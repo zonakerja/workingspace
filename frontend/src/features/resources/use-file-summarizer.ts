@@ -9,17 +9,24 @@ export type SummaryStatus = "idle" | "processing" | "done" | "error";
 const FILE_SUMMARY_PROMPT =
   "Ekstrak dan buat ringkasan komprehensif dari dokumen ini untuk keperluan knowledge-base AI masa depan. Gunakan format Markdown yang rapi dan sertakan poin-poin penting. Gunakan delimiter $$ untuk blok rumus matematika.";
 
-/** Tunggu ekstraksi teks server selesai (maks. ±60 detik). */
-async function extractedText(uploadId: string) {
-  for (let i = 0; i < 40; i++) {
+/**
+ * Tunggu teks hasil baca server (Markdown Converter / pembaca bawaan) selesai — maks. ± 5 menit, karena Docling membaca
+ * scan per halaman. `reason` = alasan tidak ada teks (mis. `too_large`, `ocr_off`).
+ */
+async function extractedText(uploadId: string): Promise<{ text: string; reason?: string }> {
+  for (let i = 0; i < 200; i++) {
     const { extraction } = await uploadsApi.metadata(uploadId);
     if (extraction && extraction.status !== "pending" && extraction.status !== "extracting") {
-      return extraction.status === "completed" ? (extraction.extractedText ?? "").trim() : "";
+      const text = extraction.status === "completed" ? (extraction.extractedText ?? "").trim() : "";
+      return { text, reason: extraction.metadata?.reason };
     }
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
-  return "";
+  return { text: "" };
 }
+
+const summaryPrompt = (text: string) =>
+  [FILE_SUMMARY_PROMPT, "<dokumen>", text.slice(0, 150_000), "</dokumen>"].join("\n");
 
 const isAiReadable = (mime?: string) =>
   !!mime && (mime === "application/pdf" || mime.startsWith("image/") || mime === "text/plain");
@@ -32,10 +39,30 @@ export function useFileSummarizer() {
   const ai = useAi();
   const [status, setStatus] = useState<SummaryStatus>("idle");
 
-  const summarize = async (file: File): Promise<string | undefined> => {
+  /**
+   * Ringkas berkas yang baru diunggah. Bila `uploadId` ada, AI menerima Markdown hasil baca server (Markdown Converter:
+   * tanpa token untuk membaca berkas). Berkas mentah hanya dikirim ke AI bila server tidak menghasilkan teks.
+   */
+  const summarize = async (file: File, uploadId?: string): Promise<string | undefined> => {
     if (!ai.isConfigured) {
       setStatus("error");
       return undefined;
+    }
+    if (uploadId) {
+      setStatus("processing");
+      const { text, reason } = await extractedText(uploadId).catch(() => ({ text: "", reason: undefined }));
+      if (text) return run(() => ai.generate(summaryPrompt(text), []));
+      // ocr_off = user melarang berkas dibaca AI (Tools → Markdown Converter)
+      if (reason === "ocr_off" || reason === "too_large") {
+        setStatus("error");
+        toast.info("Isi berkas tidak terbaca", {
+          description:
+            reason === "ocr_off"
+              ? "Cadangan OCR AI dimatikan di Tools → Markdown Converter."
+              : "Berkas terlalu besar untuk dibaca.",
+        });
+        return undefined;
+      }
     }
     if (!isAiReadable(file.type)) {
       setStatus("error");
@@ -55,7 +82,7 @@ export function useFileSummarizer() {
       return undefined;
     }
     setStatus("processing");
-    const text = await extractedText(uploadId).catch(() => "");
+    const { text } = await extractedText(uploadId).catch(() => ({ text: "" }));
     if (!text) {
       setStatus("error");
       toast.info("Belum ada isi untuk diringkas", {
@@ -63,8 +90,7 @@ export function useFileSummarizer() {
       });
       return undefined;
     }
-    const prompt = [FILE_SUMMARY_PROMPT, "<dokumen>", text.slice(0, 150_000), "</dokumen>"].join("\n");
-    return run(() => ai.generate(prompt, []));
+    return run(() => ai.generate(summaryPrompt(text), []));
   };
 
   const run = async (generate: () => Promise<string>): Promise<string | undefined> => {

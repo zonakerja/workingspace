@@ -108,6 +108,27 @@ services:
     shm_size: 512m
     init: true
 
+  converter:
+    # Markdown Converter (MarkItDown + Docling) untuk Tools → Markdown Converter & ekstraksi berkas (docs/ARCHITECTURE.md §3.14).
+    # Opsional (± 1–2 GB RAM saat Docling membaca gambar/scan) → docker compose --profile converter up -d --wait converter
+    # Tanpa penyimpanan: berkas dikirim backend per permintaan, hasil Markdown disimpan backend.
+    build: ./converter
+    # Image lokal; tag lewat variabel (lihat catatan onlyoffice) — nilai default = versi Docling
+    image: lifeos-converter:${LIFEOS_CONVERTER_TAG:-2.142.1}
+    container_name: lifeos-converter
+    restart: unless-stopped
+    profiles: ["converter"]
+    environment:
+      # Token khusus development; harus sama dengan CONVERTER_TOKEN di backend/.env.
+      CONVERTER_TOKEN: lifeos-dev-converter-token-0123456789abcdef
+      CONVERTER_MAX_MB: "50"
+    ports:
+      # Hanya untuk backend di laptop (bukan untuk dibuka ke jaringan)
+      - "127.0.0.1:4200:4200"
+    # Jaringan sendiri: converter tidak perlu menjangkau PostgreSQL, Redis, atau storage (berkas dikirim backend)
+    networks: [converter]
+    init: true
+
   hermes:
     # Agen AI Hermes (Nous Research) untuk skill dokumen bertemplat & asisten pribadi (docs/AI-AGENT.md §22–§23).
     # Opsional → hanya menyala dengan profile: sh infra/hermes/up.sh (menghitung alamat backend LifeOS di Windows)
@@ -157,3 +178,5 @@ networks:
     name: lifeos-network
   agent:
     name: lifeos-agent-network
+  converter:
+    name: lifeos-converter-network

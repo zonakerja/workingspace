@@ -1,0 +1,7 @@
+# Paket utama (versi transitif dikunci lewat tanggal: uv --exclude-newer di Dockerfile).
+markitdown[docx,pptx,xlsx,xls,pdf,outlook]==0.1.9
+docling==2.142.1
+fastapi
+uvicorn
+python-multipart
+pytest

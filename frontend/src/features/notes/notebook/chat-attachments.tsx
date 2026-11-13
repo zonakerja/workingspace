@@ -24,6 +24,7 @@ const UNREADABLE: Record<string, string> = {
   too_large: "berkas lebih dari 20 MB",
   empty: "tidak ada teks yang terbaca",
   needs_gemini_key: "gambar/scan butuh OCR (key Gemini/OpenAI)",
+  ocr_off: "scan tidak terbaca (Cadangan OCR AI mati)",
 };
 
 export interface PendingAttachment {

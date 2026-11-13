@@ -2,7 +2,8 @@ import mammoth from "mammoth";
 import readXlsxFile from "read-excel-file/node";
 import { extractText as extractPdfText } from "unpdf";
 
-export type ExtractionMethod = "plain" | "pdf" | "docx" | "xlsx" | "ocr" | "onlyoffice";
+/** `markitdown` / `docling` = Markdown Converter (docs/ARCHITECTURE.md §3.14); lainnya = pembaca bawaan / OCR AI. */
+export type ExtractionMethod = "plain" | "pdf" | "docx" | "xlsx" | "ocr" | "onlyoffice" | "markitdown" | "docling";
 
 /** Hasil: teks, `"ocr"` (perlu dibaca AI: gambar / PDF hasil scan), atau null (format tidak didukung). */
 export type ExtractionOutcome = { text: string; method: ExtractionMethod; pages?: number } | "ocr" | null;

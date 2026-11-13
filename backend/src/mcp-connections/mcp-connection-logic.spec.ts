@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   agentToolDecision,
+  agentToolList,
+  authorizationExtras,
   findPreset,
+  MCP_PRESETS,
   normalizeMcpUrl,
+  normalizeScope,
+  oauthErrorMessage,
   summarizeTools,
   toolResultText,
   uniqueSlug,
@@ -59,6 +64,13 @@ describe("mcp connection logic", () => {
     expect(agentToolDecision({ agentEnabled: true, allowWrite: true }, write).ok).toBe(true);
     expect(agentToolDecision({ agentEnabled: true, allowWrite: true }, destroy).ok).toBe(false);
     expect(agentToolDecision({ agentEnabled: true, allowWrite: true }, undefined).ok).toBe(false);
+    // Alat bertanda Hapus hanya bila diizinkan satu per satu DAN aksi tulis menyala
+    expect(agentToolDecision({ agentEnabled: true, allowWrite: true, agentTools: ["d"] }, destroy).ok).toBe(true);
+    expect(agentToolDecision({ agentEnabled: true, allowWrite: false, agentTools: ["d"] }, destroy).ok).toBe(false);
+    expect(agentToolDecision({ agentEnabled: true, allowWrite: true, agentTools: ["lain"] }, destroy).ok).toBe(false);
+    expect(agentToolDecision({ agentEnabled: false, allowWrite: true, agentTools: ["d"] }, destroy).ok).toBe(false);
+    expect(agentToolList(["a", "a", 3, "", "b"])).toEqual(["a", "b"]);
+    expect(agentToolList(null)).toEqual([]);
   });
 
   it("turns tool results into text", () => {
@@ -69,5 +81,49 @@ describe("mcp connection logic", () => {
       ]),
     ).toBe("halo\n[image image/png]");
     expect(toolResultText([{ type: "text", text: "x".repeat(30) }], 10)).toBe("xxxxxxxxxx…");
+  });
+});
+
+describe("OAuth client manual & Google Workspace", () => {
+  it("katalog Google: https, OAuth, wajib client, satu kelompok, scope bawaan", () => {
+    const google = MCP_PRESETS.filter((p) => p.group === "google");
+    expect(google.map((p) => p.key)).toEqual(
+      expect.arrayContaining([
+        "gmail",
+        "google-calendar",
+        "google-drive",
+        "google-docs",
+        "google-sheets",
+        "google-slides",
+      ]),
+    );
+    for (const p of google) {
+      expect(normalizeMcpUrl(p.url, true).ok).toBe(true);
+      expect(p).toMatchObject({ authType: "oauth", needsClient: true });
+      expect(p.scope).toMatch(/googleapis\.com\/auth\//);
+    }
+    expect(new Set(MCP_PRESETS.map((p) => p.key)).size).toBe(MCP_PRESETS.length);
+  });
+
+  it("normalizeScope: spasi/koma/baris, tanpa duplikat, kosong = null", () => {
+    expect(normalizeScope(" a, b\nb  c ")).toBe("a b c");
+    expect(normalizeScope("   ")).toBeNull();
+    expect(normalizeScope(undefined)).toBeNull();
+  });
+
+  it("Google meminta refresh token, penyedia lain tidak diubah", () => {
+    expect(authorizationExtras(new URL("https://accounts.google.com/o/oauth2/v2/auth"))).toEqual({
+      access_type: "offline",
+      prompt: "consent",
+    });
+    expect(authorizationExtras(new URL("https://github.com/login/oauth/authorize"))).toEqual({});
+  });
+
+  it("pesan galat OAuth yang bisa ditindaklanjuti", () => {
+    expect(oauthErrorMessage("Incompatible auth server: does not support dynamic client registration")).toMatch(
+      /Client ID/,
+    );
+    expect(oauthErrorMessage("invalid_client")).toMatch(/ditolak/);
+    expect(oauthErrorMessage("lain")).toBe("lain");
   });
 });

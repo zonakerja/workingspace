@@ -7,15 +7,16 @@ import type { AiProviderId, AiRouting, AiSettings } from "@/types/api";
 
 const DEFAULT = "__default__";
 
-type TaskKey = "chat" | "general" | "agent" | "ocr" | "embedding";
+type TaskKey = "chat" | "general" | "agent" | "document" | "ocr" | "embedding";
 type RoutingKey = keyof AiRouting;
-type BackupKey = "chatBackup" | "generalBackup" | "agentBackup";
+type BackupKey = "chatBackup" | "generalBackup" | "agentBackup" | "documentBackup";
 
 /** Tugas yang punya pilihan cadangan sendiri. */
 const BACKUP_OF: Partial<Record<TaskKey, BackupKey>> = {
   chat: "chatBackup",
   general: "generalBackup",
   agent: "agentBackup",
+  document: "documentBackup",
 };
 
 const ROWS: { key: TaskKey; label: string; hint: string; defaultLabel: string }[] = [
@@ -36,6 +37,12 @@ const ROWS: { key: TaskKey; label: string; hint: string; defaultLabel: string }[
     label: "Agen (Hermes)",
     hint: "Model untuk AI Agent & skill di Approval, lewat LifeOS (key tidak disimpan di Hermes). Agen memakai banyak token — model Flash/hemat disarankan.",
     defaultLabel: "Ikuti provider aktif",
+  },
+  {
+    key: "document",
+    label: "Rapikan dokumen (Markdown Converter)",
+    hint: "Merapikan struktur & salah baca hasil konversi berkas bila Rapikan dengan AI dinyalakan di Tools → Markdown Converter. Pekerjaan ringan: model Flash/hemat cukup.",
+    defaultLabel: "Ikuti Fitur AI lain",
   },
   {
     key: "ocr",

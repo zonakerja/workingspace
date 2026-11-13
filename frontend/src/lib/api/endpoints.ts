@@ -2,6 +2,12 @@ import { withTrashToast } from "@/lib/trash-toast";
 import { apiUrl, request } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type {
+  ConverterMode,
+  ConverterPrefs,
+  ConverterReconvertScope,
+  ConverterResult,
+  ConverterStats,
+  ConverterStatus,
   AgentPolicy,
   AgentPolicyInput,
   AgentPolicyList,
@@ -251,6 +257,30 @@ export const uploadsApi = {
 };
 
 /** Editor dokumen ONLYOFFICE (menu Tools → ONLYOFFICE). */
+/** Tools → Markdown Converter (MarkItDown + Docling di server; docs/ARCHITECTURE.md §3.14). */
+export const converterApi = {
+  status: () => request<ConverterStatus>("/converter/status"),
+  preferences: () => request<ConverterPrefs>("/converter/preferences"),
+  updatePreferences: (input: Partial<ConverterPrefs>) =>
+    request<ConverterPrefs>("/converter/preferences", { method: "PUT", body: input }),
+  stats: () => request<ConverterStats>("/converter/stats"),
+  /** Coba konversi satu berkas (hasil tidak disimpan). */
+  convert: (
+    file: File,
+    options: { mode?: ConverterMode; pdfMode?: ConverterMode; enhance?: boolean; compareTokens?: boolean } = {},
+  ) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (options.mode) form.append("mode", options.mode);
+    if (options.pdfMode) form.append("pdfMode", options.pdfMode);
+    if (options.enhance) form.append("enhance", "true");
+    if (options.compareTokens) form.append("compareTokens", "true");
+    return request<ConverterResult>("/converter/convert", { method: "POST", body: form });
+  },
+  reconvert: (scope: ConverterReconvertScope) =>
+    request<{ queued: number }>("/converter/reconvert", { method: "POST", body: { scope } }),
+};
+
 export const officeApi = {
   status: () => request<OfficeStatus>("/office/status"),
   /**
@@ -320,6 +350,10 @@ export interface McpConnectionInput {
   icon?: string;
   agentEnabled?: boolean;
   allowWrite?: boolean;
+  oauthClientId?: string;
+  oauthClientSecret?: string;
+  oauthScope?: string;
+  agentTools?: string[];
 }
 
 /** Koneksi aplikasi MCP luar (Canva, Notion, …). */
@@ -708,9 +742,9 @@ export interface AgentMenu {
   instructions: string;
   /**
    * workflow = AI Agent → Workflow; connection = menu di Connection & MCP; ekinerja = e-Kinerja → Workflow;
-   * srikandi = SRIKANDI → Workflow; siman = SIMAN → Workflow
+   * srikandi = SRIKANDI → Workflow; siman = SIMAN → Workflow; mcp = Aplikasi MCP → Workflow
    */
-  placement: "workflow" | "connection" | "ekinerja" | "srikandi" | "siman";
+  placement: "workflow" | "connection" | "ekinerja" | "srikandi" | "siman" | "mcp";
   form: AgentMenuField[];
   status: "draft" | "active";
   createdAt: string;

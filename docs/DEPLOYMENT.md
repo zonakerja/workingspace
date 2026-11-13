@@ -532,3 +532,22 @@ jaringan service backend).
    Hermes — bot WhatsApp tetap di LifeOS (§12).
 8. Pembaruan: ganti `HERMES_TAG` ke versi stabil ≥ 2 minggu, `up -d`; cek ulang daftar skill (`/v1/skills` sempat rusak di
    0.22.x) dan log `docker compose logs hermes`.
+
+## 15. Markdown Converter (MarkItDown + Docling, opsional)
+
+Service `converter` (profile `converter`, Tools → **Markdown Converter**, docs/ARCHITECTURE.md §3.14) mengubah berkas yang
+diunggah menjadi Markdown di server sendiri — MarkItDown untuk dokumen teks, Docling (OCR Tesseract bahasa Indonesia) untuk gambar
+& PDF scan/bergambar — sehingga fitur AI tidak memakai token untuk membaca berkas. Tanpa port publik & tanpa data; backend
+memanggil `http://converter:4200`. Tanpa service ini LifeOS tetap berjalan (pembaca bawaan + OCR AI).
+
+1. `.env`: `COMPOSE_PROFILES=…,converter`, `CONVERTER_TOKEN` (`openssl rand -hex 32`; `CONVERTER_URL` terisi otomatis), opsional
+   `CONVERTER_MAX_MB` (bawaan 50), `CONVERTER_MEM_LIMIT` (bawaan 2048m), `DOCLING_THREADS` (bawaan 2 = jumlah vCPU yang dipakai).
+2. `docker compose -f docker-compose.prod.yml up -d --build` — build pertama ± 10–15 menit (torch CPU + model Docling di dalam image,
+   ± 5 GB disk). Saat jalan tidak butuh internet.
+3. Cek: `docker compose -f docker-compose.prod.yml exec converter curl -s localhost:4200/health` → `"ready": true`. Di LifeOS:
+   Tools → Markdown Converter → status **Aktif**. Berkas lama bisa dibaca ulang dari kartu **Berkas tersimpan**.
+4. **RAM & CPU**: Docling ± 1,2 GB saat diam; membaca scan memakai CPU penuh ± 1–5 dtk per halaman (satu berkas sekaligus). Dengan
+   ONLYOFFICE + robot + Hermes + converter sekaligus gunakan VPS **8 GB**; di VPS 4 GB nyalakan converter hanya bila ONLYOFFICE mati.
+5. **Pembaruan**: naikkan `docling`/`markitdown` di `converter/requirements.txt` dan tanggal `--exclude-newer` di
+   `converter/Dockerfile` (rilis ≥ 2 minggu), lalu build ulang; jalankan `python -m pytest tests` di image dan coba beberapa berkas di
+   Tools → Markdown Converter → Coba konversi.

@@ -69,6 +69,7 @@ Sumber kebenaran versi: `package-lock.json` (backend/frontend), `Dockerfile`, `d
 | Agen | Hermes Agent (`nousresearch/hermes-agent:v0.22.2`, image resmi, amd64+arm64) | 0.22.2 | Service `hermes` (profile `agent`): API server OpenAI-compatible + MCP klien ke LifeOS; skill di `agents/hermes/skills/` (§3.11) |
 | Sinkron vault | Syncthing (`syncthing/syncthing:2.1.6`, image resmi, amd64+arm64) | 2.1.6 | Service `syncthing` (profile `sync`, produksi saja): vault Obsidian laptop/HP ↔ `./knowledge-vaults` VPS (DEPLOYMENT §10); Obsidian tidak berjalan di server |
 | Robot | Playwright + Chromium (`mcr.microsoft.com/playwright:v1.63.0-noble`, paket `playwright` **1.63.0** — versi keduanya wajib sama) | 1.63 | Service `robot/` (TypeScript, Node bawaan image): browser jarak jauh & eksplor halaman konektor SRIKANDI/e-Kinerja (§3.10) |
+| Converter | MarkItDown **0.1.9** + Docling **2.142.1** (Python 3.12, torch CPU 2.14.1, Tesseract `ind`+`eng`, FastAPI/uvicorn; image `converter/`, ± 5 GB, amd64+arm64; transitif dikunci `uv --exclude-newer`) | 0.1.9 / 2.142 | Service `converter` (profile `converter`): berkas → Markdown untuk semua fitur AI (§3.14) |
 | Backup | rclone (`rclone/rclone:1.75.1`) di image `infra/backup` (base = image postgres) | 1.75 | Cermin object storage via API S3 + salinan luar server terenkripsi (crypt) |
 | CI | GitHub Actions | checkout v7, setup-node v7, setup-buildx v4, build-push v7; runner `ubuntu-24.04` | Lint, test, build, smoke, drift, image |
 
@@ -186,7 +187,9 @@ unduhan disensor; health check tidak dicatat.
 
 ### 3.2 Ekstraksi dokumen & indeks pengetahuan (RAG tahap 1)
 
-**Ekstraksi** (`extraction/`, job BullMQ `asset-extraction`, berkas ≤ 20 MB, teks ≤ 2 juta karakter): teks polos,
+**Ekstraksi** (`extraction/`, job BullMQ `asset-extraction`, berkas ≤ 20 MB, teks ≤ 2 juta karakter). **Bila service
+Markdown Converter menyala, berkas dibaca converter lebih dulu** (MarkItDown/Docling → Markdown, hingga `CONVERTER_MAX_MB`,
+tanpa token AI; §3.14); pembaca bawaan di bawah ini menjadi cadangan saat converter mati/menolak berkas atau dimatikan user. Pembaca bawaan: teks polos,
 PDF berlapis teks (`unpdf`, penanda `[Halaman N]`), DOCX (`mammoth`), XLSX (`read-excel-file`, `[Sheet: …]`, baris
 `a | b`). Gambar dan PDF hasil scan (< 10 karakter/halaman) dibaca lewat **Gemini milik pemilik berkas** (OCR); tanpa
 key Gemini → `unsupported` (`metadata.reason = needs_gemini_key`). MIME `application/octet-stream` ditebak dari
@@ -442,7 +445,13 @@ Tahap 3 [AI-AGENT.md](AI-AGENT.md) §18. Agen AI luar (Hermes, Claude Desktop, n
   klien dinamis + PKCE) disimpan terenkripsi di `mcp_connections` dan hanya dipakai backend; daftar alat disalin dari `tools/list`.
   Agen memakai aplikasi lewat alat LifeOS `list_app_tools` / `call_app_tool` (cakupan `mcp:apps`) dengan izin per aplikasi: baca
   selalu, ubah bila diizinkan, hapus (`destructiveHint`) tidak pernah, karena aksi di aplikasi luar tidak bisa dipulihkan dari
-  Sampah. Rincian: CLAUDE.md §8 "Koneksi aplikasi MCP luar".
+  Sampah. Sejak 2026-11-13 Aplikasi MCP = fitur terbuka: agen juga bisa **meminta** koneksi baru / perubahan izin agen
+  (`request_app_connection`, `request_app_access` → `agent_actions` pending) dan menambah workflow `placement: mcp`
+  (docs/AI-AGENT.md §26.6). Server OAuth tanpa pendaftaran klien dinamis (Google Workspace — server MCP resmi Google `*mcp.googleapis.com`,
+  Developer Preview; GitHub OAuth App) memakai **OAuth client milik pemilik** (Client ID + secret terenkripsi + scope di `mcp_connections`), satu
+  client dipakai bersama layanan sekelompok. Alat bertanda Hapus bisa diizinkan pemilik satu per satu (`agent_tools`), dan hasil aplikasi
+  (tautan ekspor) disimpan agen ke LifeOS lewat `save_app_file` — unduhan hanya dari domain aplikasi itu, tanpa jaringan lokal, maks. 50 MB.
+  Rincian: CLAUDE.md §8 "Koneksi aplikasi MCP luar".
 
 ### 3.8 Pengajuan satker, mesin templat & Antrian Verifikasi (`src/requests/`, menu Pengajuan)
 
@@ -689,6 +698,88 @@ Tidak masuk Sampah: centang rutinitas & log (`NO_TRASH_RECORD_TYPES`), hapus ole
 (isi sebelumnya disimpan; ditolak bila data sudah berubah lagi kecuali dipaksa). Hapus hanya permintaan; disetujui pemilik = item +
 turunannya (+ berkas miliknya yang tidak dipakai data lain) masuk Sampah bertanda agen. Setiap hapus yang masuk Sampah mengembalikan
 `batchId`; frontend menampilkan notifikasi "Pulihkan" untuk kelompok itu (`lib/trash-toast.ts`). Jenis hasil sinkron robot & log hanya bisa dibaca agen.
+
+### 3.14 Markdown Converter (`converter/`, `src/converter/`, Tools → Markdown Converter)
+
+Tujuan: AI tidak membayar token untuk **membaca** berkas. Berkas diubah sekali menjadi Markdown di server sendiri, disimpan di
+`asset_extractions.extracted_text`, lalu dipakai ulang oleh semua fitur (ringkasan AI Resource & lampiran, Notes AI, My Notebook,
+chatbot & Pencarian Pintar lewat indeks RAG, Approval, alat MCP agen Hermes, berkas PDF vault Obsidian). Markdown juga membuat
+pemotongan indeks lebih baik (`chunkStructured` memakai judul).
+
+**Service `converter/`** (Python, FastAPI, satu proses, tanpa penyimpanan; dev `127.0.0.1:4200` profile `converter`, produksi
+`http://converter:4200` tanpa port publik). `POST /convert` (Bearer `CONVERTER_TOKEN`, multipart `file`, `filename`, `mime_type`,
+`mode` auto|markitdown|docling, `pdf_mode`) → `{ markdown, engine, reason, pages, chars, tokens, warnings, durationMs, fallbackFrom }`;
+`GET /health` (tanpa token) = versi mesin, bahasa OCR, `ready` (model Docling sudah dimuat; pemanasan di latar saat start).
+Logika murni + pytest `converter/app/logic.py` (`tests/test_logic.py`, dijalankan di image):
+- **Pembagian mesin** (`choose_engine`): gambar (PNG/JPG/WEBP/GIF/BMP/TIFF; selain PNG/JPG diubah ke PNG) **selalu Docling** (OCR
+  Tesseract `ind,eng`, `force_full_page_ocr`); dokumen teks (DOCX, XLSX, XLS, PPTX, EPUB, MSG, HTML, CSV, JSON, XML, TXT/MD)
+  **MarkItDown**; **PDF** `auto` = profil pypdfium2 (`pdf_profile`): ada halaman < 20 karakter (scan) → Docling; ≥ 25 % halaman berisi
+  gambar ≥ 10 % luas halaman (grafik/foto, bukan logo kop) → Docling (kecuali > `DOCLING_MAX_PAGES` 200 halaman); selain itu
+  MarkItDown. MarkItDown menghasilkan PDF kosong → diulang dengan Docling. Mesin pilihan gagal pada format yang dikenal keduanya
+  (`BOTH_ENGINES`) → mesin lain (`fallbackFrom`).
+- **Hemat token** (`compact_markdown`): gambar data URI & penanda `<!-- image -->` dibuang, spasi pengisi sel tabel dirapatkan, kepala
+  tabel kosong (DOCX tanpa header) diganti baris pertama, baris kosong beruntun dirapatkan, dan **tabel palsu** dikembalikan menjadi
+  teks (`_flatten_fake_tables`: paragraf rata kiri-kanan PDF peraturan yang dibaca pdfplumber MarkItDown sebagai tabel `| | Peraturan | |`;
+  ciri ≥ 30 % sel kosong, ± 1 kata per sel, bukan tabel angka), **nomor halaman & kepala/kaki halaman berulang** dibuang (`_drop_page_furniture`: `-2-`, `Halaman 2 dari 9`, baris pendek yang muncul di ≥ separuh halaman PDF), gambar berkas lokal PPTX/DOCX (`![ikon](A2_ikon111.jpg)`) dibuang kecuali alt bermakna (`[Gambar: …]`), penanda slide diringkas `[Slide n]`.
+- Docling memakai satu kunci (CPU penuh, satu konversi sekaligus), MarkItDown paralel. Model Docling diunduh saat build
+  (`docling-tools models download`, `DOCLING_ARTIFACTS_PATH`), saat jalan `HF_HUB_OFFLINE=1`. MarkItDown tanpa plugin & tanpa klien LLM.
+  Jaringan compose sendiri (tidak menjangkau PostgreSQL/Redis/storage).
+
+**Backend** (`src/converter/`): `ConverterClient` (disediakan `ExtractionModule` agar tidak melingkar; mati/401/≥ 500 =
+`ConverterUnavailableError`, 4xx lain = `ConverterRejectedError`, batas waktu 15 menit), `ConverterService` + controller
+`GET /converter/status`, `GET|PUT /converter/preferences` (`users.converter_prefs` jsonb: `enabled` (bawaan menyala), `pdfMode`,
+`aiOcrFallback` (bawaan menyala)), `GET /converter/stats` (jumlah berkas per `metadata.method` + kandidat baca ulang),
+`POST /converter/convert` (coba konversi, tidak disimpan, maks. `CONVERTER_MAX_MB`), `POST /converter/reconvert { scope: ai_ocr |
+missing | legacy }` (antrekan ulang ekstraksi berkas milik sendiri, maks. 2.000; teks lama tetap dipakai sampai hasil baru; indeks
+RAG ikut diperbarui). Logika murni + test `converter-logic.ts` (`converterHandles` = format yang dikirim — teks polos tidak,
+`needsReconvert`, `normalizeConverterPrefs`). **Worker ekstraksi** (`extraction-worker.service.ts`): prefs user menyala + service
+terjangkau + format didukung + ukuran ≤ batas → converter; hasil `metadata` = `method: markitdown|docling`, `format: "markdown"`,
+`converter: { reason, tokens, durationMs, warnings, fallbackFrom }`. Converter tanpa teks untuk gambar/PDF → OCR AI hanya bila
+`aiOcrFallback`; converter mati/menolak → pembaca bawaan (`metadata.converterError` bila tetap tanpa teks). `aiOcrFallback` mati juga
+mencegah OCR AI di pembaca bawaan (`reason: ocr_off`).
+
+**Rapikan dengan AI** (opsional, prefs `aiEnhance` bawaan mati + `aiEnhanceScope` `ocr` (hanya hasil Docling, bawaan) | `all`):
+`MarkdownEnhancerService` (disediakan `ExtractionModule`) + logika murni & test `markdown-enhance.ts`. Markdown dipotong per judul
+(`splitForEnhance`, ± 12 rb karakter, tabel tidak dipotong; maks. 200 rb karakter per berkas), dua bagian paralel ke
+`AiService.generate(..., "document")` — tugas AI baru **Rapikan dokumen** di Pembagian tugas (+ cadangan `documentBackup`; kosong =
+ikuti tugas Umum). Prompt (`buildEnhancePrompt`) hanya mengizinkan perbaikan struktur (judul, daftar, tabel, paragraf terpotong), kata
+terpenggal, dan salah baca OCR yang jelas; dilarang meringkas, menambah, menyusun ulang, mengubah angka/nomor/nama; bagian tak terbaca →
+`[tidak terbaca]`. **Penjaga** `checkEnhanced`: huruf+angka hasil 85–115 % asli dan ≥ 95 % angka ≥ 3 digit tetap ada — gagal = bagian
+asli dipakai (catatan menyebut angka yang hilang). Angka dibandingkan per **deret digit** (merapikan spasi/pemisah nomor surat diterima, mengganti digit ditolak); kepala/kaki halaman berulang (`boilerplateLines`), nomor halaman, dan gambar berkas lokal tidak dihitung karena boleh dibuang. Semua bagian gagal dipanggil = galat (worker memakai Markdown converter apa adanya,
+`metadata.converter.enhanceError`); berhasil = `metadata.converter.enhance` (provider, bagian, ditolak, perkiraan token). Cakupan baca
+ulang `unenhanced` = sudah dibaca converter tetapi belum dirapikan. **Bandingkan token** (`POST /converter/convert` `compareTokens`):
+`AiService.countTokens` = `countTokens` Gemini (key Gemini langsung, tanpa menjalankan model): berkas mentah (PDF/gambar seperti dikirim ke
+AI), Markdown, hasil rapikan, biaya rapikan (overhead prompt × bagian + Markdown masuk, hasil keluar). Gemini di sini hanya **alat hitung** (perapi tetap provider tugas Rapikan dokumen); centang bawaan mati karena isi berkas ikut dikirim ke Google; `countTokens` tidak ditagih.
+
+**Hasil uji token** (2026-11-13, 8 dokumen kerja sungguhan, tokenizer Gemini `countTokens`, rapikan oleh Gemini 3.8 Flash; "langsung" =
+PDF dikirim apa adanya ke model; DOCX/PPTX tidak bisa dibaca model langsung):
+
+| Dokumen | Mesin | Langsung | Markdown | Dirapikan | Biaya sekali rapikan |
+|---|---|---|---|---|---|
+| Permenhub 81/2021 (PDF teks, 30 hlm) | MarkItDown | 16.801 | 11.504 (−32 %) | 9.398 (−44 %) | 22.142 |
+| Paparan KSP (PDF slide, 11 hlm) | MarkItDown | 6.161 | 3.507 (−43 %) | 3.619 | 7.440 |
+| Quiz Fisika (PDF, 10 hlm, 3 scan) | Docling | 5.601 | 1.225 (−78 %)¹ | 1.106 | 2.682 |
+| Surat Bupati (scan, 1 hlm) | Docling | 561 | 379 (−32 %) | 381 | 1.114 |
+| Nota Dinas ber-TTE (PDF, 3 hlm) | Docling | 1.681 | 2.440 (+45 %)² | 2.458 | 5.271 |
+| Draft SK PSP (DOCX) | MarkItDown | — | 10.478 | 9.416 | 20.809 |
+| Paparan KSP (PPTX) | MarkItDown | — | 4.798 | 4.964 (1 dari 2 bagian ditolak) | 10.392 |
+| Risalah rapat (DOCX) | MarkItDown | — | 2.477 | 2.509 | 5.299 |
+
+¹ Diagram/gambar soal tidak ikut (Docling membaca teks, bukan isi gambar) — dokumen yang maknanya di gambar kehilangan informasi.
+² Gemini menagih PDF ± 560 token per halaman (gambar halaman, teks PDF tidak ditagih terpisah), jadi PDF pendek yang padat teks bisa lebih
+murah dibaca langsung oleh Gemini. Provider yang menagih teks **dan** gambar per halaman (Claude, OpenAI) jauh lebih mahal untuk berkas
+mentah. Penghematan nyata datang dari pemakaian ulang: Markdown dibuat sekali, lalu setiap ringkasan/chat/notebook/agen hanya membaca teks
+(atau potongan RAG-nya). Rapikan AI memakai ± 2× ukuran Markdown sekali per berkas (masuk + keluar), sehingga hanya sepadan untuk hasil OCR
+(bawaan cakupan `ocr`) atau dokumen yang sering dibaca; pada uji pertama penjaga menolak 3 dari 4 bagian Permenhub karena AI membuang
+kepala halaman berulang — diperbaiki dengan membuang kepala halaman di converter dan mengabaikannya di penjaga.
+
+**Frontend**: Tools → **Markdown Converter** (`features/tools/converter/`, hook `data/use-converter.ts`, logika + test
+`converter-utils.ts`): status service, sakelar & cara baca PDF & cadangan OCR AI, **Coba konversi** (pilih/seret berkas → pratinjau /
+Markdown mentah, salin, unduh `.md`, simpan ke Inbox vault ≤ 100 rb karakter), **Berkas tersimpan** (per cara baca + Baca ulang per
+cakupan), cara kerja. Fitur yang dulu mengirim berkas mentah ke AI kini memakai teks server lebih dulu: `useFileSummarizer.summarize(file,
+uploadId)` (lampiran & form Resource; berkas mentah hanya bila server tidak menghasilkan teks), `ResourceAiDialog` (teks tersimpan),
+Notes AI `readFileText` (batas tunggu 5 menit, `ocr_off` tidak dikirim ke AI). Gambar yang dilampirkan di chat My Notebook tetap
+dikirim ke AI (pertanyaan visual).
 
 ## 4. Database
 

@@ -67,12 +67,14 @@ export interface AiSettings {
     chat: AiProviderId | null;
     general: AiProviderId | null;
     agent: AiProviderId | null;
+    document: AiProviderId | null;
     ocr: AiProviderId | null;
     embedding: AiEmbeddingProvider | null;
     /** Cadangan pertama yang benar-benar dipakai bila provider tugas gagal (null = tidak ada cadangan) */
     chatBackup: AiProviderId | null;
     generalBackup: AiProviderId | null;
     agentBackup: AiProviderId | null;
+    documentBackup: AiProviderId | null;
   };
   providers: AiProviderSettings[];
 }
@@ -83,12 +85,14 @@ export interface AiRouting {
   chat?: AiProviderId | null;
   general?: AiProviderId | null;
   agent?: AiProviderId | null;
+  document?: AiProviderId | null;
   ocr?: AiProviderId | null;
   embedding?: AiEmbeddingProvider | null;
   /** Cadangan pertama per tugas (kuota habis / provider sibuk / tak terjangkau); kosong = urutan bawaan */
   chatBackup?: AiProviderId | null;
   generalBackup?: AiProviderId | null;
   agentBackup?: AiProviderId | null;
+  documentBackup?: AiProviderId | null;
 }
 
 export interface AiIndexStatus {
@@ -214,6 +218,12 @@ export interface McpPreset {
   authType: McpAuthType;
   icon: string;
   hint: string;
+  /** Kelompok penyedia (mis. google): satu OAuth client dipakai bersama */
+  group?: string;
+  /** Wajib OAuth client yang didaftarkan sendiri (server tanpa pendaftaran klien dinamis) */
+  needsClient?: boolean;
+  /** Scope bawaan, dipisah spasi */
+  scope?: string;
 }
 
 export interface McpToolSummary {
@@ -240,6 +250,16 @@ export interface McpConnectionInfo {
   tools: McpToolSummary[];
   agentEnabled: boolean;
   allowWrite: boolean;
+  /** Alat bertanda Hapus yang tetap diizinkan untuk agen */
+  agentTools: string[];
+  /** Domain tempat berkas hasil aplikasi boleh disimpan agen ke LifeOS */
+  fileHosts: string[];
+  /** OAuth client yang didaftarkan pemilik (secret tidak pernah dikirim) */
+  oauthClientId: string | null;
+  hasClientSecret: boolean;
+  oauthScope: string | null;
+  /** Alamat callback OAuth LifeOS untuk didaftarkan di OAuth client */
+  redirectUrl: string;
   lastCheckedAt: string | null;
   createdAt: string;
 }
@@ -251,7 +271,7 @@ export interface AgentActionInfo {
    * `ekinerja_fill` = permintaan agen mengisi Rencana Aksi satu bulan ke e-Kinerja; `srikandi_register` = permintaan agen
    * mendaftarkan satu entri Register Naskah Keluar ke SRIKANDI (keduanya menunggu persetujuan)
    */
-  kind: "create" | "update" | "delete" | "ekinerja_fill" | "srikandi_register";
+  kind: "create" | "update" | "delete" | "ekinerja_fill" | "srikandi_register" | "mcp_connect" | "mcp_access";
   recordType: string;
   clientId: string;
   title: string;
@@ -1465,4 +1485,80 @@ export interface KnowledgeUnlinkedMention {
   path: string;
   title: string;
   snippet: string;
+}
+
+// ---------------------------------------------------------------------------- Markdown Converter
+
+export type ConverterEngine = "markitdown" | "docling";
+export type ConverterMode = "auto" | ConverterEngine;
+export type ConverterReconvertScope = "ai_ocr" | "missing" | "legacy" | "unenhanced";
+/** Cakupan Rapikan dengan AI: `ocr` = hanya hasil Docling (gambar & scan), `all` = semua berkas. */
+export type ConverterEnhanceScope = "ocr" | "all";
+
+export interface ConverterStatus {
+  configured: boolean;
+  reachable: boolean;
+  /** Model Docling sudah dimuat (konversi pertama tidak lambat). */
+  ready: boolean;
+  engines: Record<string, string>;
+  ocrLanguages: string[];
+  maxMb: number;
+  doclingMaxPages: number | null;
+}
+
+export interface ConverterPrefs {
+  enabled: boolean;
+  pdfMode: ConverterMode;
+  aiOcrFallback: boolean;
+  aiEnhance: boolean;
+  aiEnhanceScope: ConverterEnhanceScope;
+}
+
+export interface ConverterEnhanced {
+  markdown: string;
+  parts: number;
+  rejected: number;
+  failed: number;
+  inputTokens: number;
+  outputTokens: number;
+  provider: string | null;
+  model: string | null;
+  durationMs: number;
+  notes: string[];
+}
+
+/** Token menurut tokenizer Gemini (countTokens): berkas dibaca AI langsung vs Markdown vs hasil rapikan. */
+export type ConverterTokenComparison =
+  | { available: false; reason: string }
+  | {
+      available: true;
+      model: string;
+      rawFile: number | null;
+      rawFileNote: string | null;
+      markdown: number;
+      enhance: { input: number; output: number; result: number } | null;
+    };
+
+export interface ConverterResult {
+  markdown: string;
+  engine: ConverterEngine;
+  reason: string;
+  fallbackFrom: ConverterEngine | null;
+  pages: number | null;
+  chars: number;
+  rawChars: number;
+  tokens: number;
+  warnings: string[];
+  durationMs: number;
+  fileName: string;
+  size: number;
+  enhanced: ConverterEnhanced | null;
+  enhanceError: string | null;
+  tokenComparison: ConverterTokenComparison | null;
+}
+
+export interface ConverterStats {
+  byMethod: Record<string, number>;
+  byStatus: Record<string, number>;
+  reconvert: Record<ConverterReconvertScope, number>;
 }

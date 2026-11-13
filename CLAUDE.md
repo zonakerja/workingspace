@@ -60,7 +60,7 @@ TODO-USER = **to-do pemilik** langkah demi langkah — perbarui setiap ada peker
 - Folder kerja: `D:\Development\Application\LifeOS`. `.claude/launch.json` berisi konfigurasi `backend` & `frontend`
   untuk preview browser Claude. Panel browser Claude sering tersembunyi → uji UI lewat `javascript_tool`.
 - **Aturan port (semua thread sama, tidak boleh diganti)**: frontend 5173, backend 4000, PostgreSQL 5432, Redis 6379,
-  SeaweedFS 8333/8888, ONLYOFFICE 8080 (profile `office`), robot 4100 (profile `robot`, hanya 127.0.0.1), Hermes 8642 (profile `agent`, hanya 127.0.0.1) (opsional: Prisma Studio 5555, Vite preview 4173, stack prod uji 80/443).
+  SeaweedFS 8333/8888, ONLYOFFICE 8080 (profile `office`), robot 4100 (profile `robot`, hanya 127.0.0.1), Hermes 8642 (profile `agent`, hanya 127.0.0.1), Markdown Converter 4200 (profile `converter`, hanya 127.0.0.1) (opsional: Prisma Studio 5555, Vite preview 4173, stack prod uji 80/443).
   Proyek user lain di laptop yang sama, **OnTrack Data Hub** (sumber data SIMAN/MyIntress, `docs/AI-AGENT.md` §16), memakai
   port sendiri (keputusan 2026-10-24): web 5174, API/MCP 3000, PostgreSQL 5433, Redis 6380 — jangan dipakai LifeOS. Satu komponen = satu
   proses: cek §2a dulu; bila port sudah dipakai (mis. user menjalankan dev server di terminalnya), **pakai yang ada**
@@ -85,6 +85,7 @@ ingatan percakapan.
 | SeaweedFS S3 / filer (Docker) | 8333 / 8888 | … | Docker (WSL) | filer UI http://localhost:8888 |
 | ONLYOFFICE (Docker, opsional) | 8080 | … | Docker (WSL), profile `office` | http://localhost:8080/healthcheck |
 | Robot Playwright (Docker, opsional) | 4100 | … | Docker (WSL), profile `robot` | http://localhost:4100/health |
+| Markdown Converter (Docker, opsional) | 4200 | … | Docker (WSL), profile `converter` | http://localhost:4200/health |
 | Hermes agen (Docker, opsional) | 8642 | … | Docker (WSL), profile `agent` | http://localhost:8642/health · nyala: `wsl -e sh …/infra/hermes/up.sh` |
 | WSL | — | berjalan / berhenti | — | proses penjaga `sleep infinity` milik Claude (bila ada) |
 
@@ -95,7 +96,7 @@ Akhiri dengan satu kalimat: apa yang masih menyala dan apakah aman menutup lapto
 
 ```powershell
 # Port yang sedang dipakai + prosesnya (wslrelay.exe = port container Docker)
-Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 80,443,4000,4100,5173,5432,6379,8080,8333,8642,8888 } |
+Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 80,443,4000,4100,4200,5173,5432,6379,8080,8333,8642,8888 } |
   ForEach-Object { "{0} pid={1} {2}" -f $_.LocalPort, $_.OwningProcess, (Get-Process -Id $_.OwningProcess).ProcessName }
 # Proses node milik LifeOS (dev server frontend/backend, termasuk dari terminal user)
 Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like '*LifeOS*' } |
@@ -110,7 +111,7 @@ Claude terlihat di `preview_list`.
 **"Matikan semua"** (data tetap aman; urutan):
 1. Frontend & backend: `preview_stop` untuk server yang dijalankan Claude; yang dijalankan user di terminal → minta
    user menekan `Ctrl+C`, atau (dengan persetujuan) `Stop-Process -Id <pid>` untuk proses node LifeOS di atas.
-2. Docker: `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office --profile robot --profile agent stop"` — **`stop`, bukan
+2. Docker: `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office --profile robot --profile agent --profile converter stop"` — **`stop`, bukan
    `down -v`** (volume/data tetap ada). Stack uji lain (`docker compose -p <nama> ...`) ikut dihentikan.
 3. Hentikan proses latar belakang Claude (mis. `wsl -e sh -c "sleep infinity"`) dengan TaskStop.
 4. Opsional (membebaskan RAM): `wsl --shutdown`.
@@ -159,6 +160,7 @@ LifeOS/
 ├── infra/knowledge-vaults/   vault Obsidian dev (KNOWLEDGE_VAULTS_DIR; isi tidak ikut git, hanya README)
 ├── frontend/                 React SPA (Dockerfile, nginx.conf, src/)
 ├── agents/hermes/skills/     skill Hermes (SKILL.md) — dipasang baca-saja ke container hermes & dibaca backend
+├── converter/                service Markdown Converter (Python: FastAPI + MarkItDown + Docling; app/logic.py + tests/)
 ├── robot/                    service robot Playwright (Dockerfile, src/server.ts, browser.ts, logic.ts) — konektor SRIKANDI/e-Kinerja
 └── docs/                     SETUP.md · DEPLOYMENT.md · ARCHITECTURE.md · UPGRADE-PLAN.md · FILE-CONTROL.md · ONLYOFFICE.md · AI-AGENT.md ·
                               TODO-USER.md (to-do pemilik)
@@ -175,6 +177,7 @@ LifeOS/
 | SeaweedFS 4.48 (S3) | lifeos-storage | 8333 (S3), 8888 (filer UI) | `lifeos` / `lifeos-secret`, bucket `lifeos-assets` (dibuat otomatis) |
 | Hermes Agent 0.22.2 (opsional, profile `agent`) | lifeos-hermes | 127.0.0.1:8642 | image resmi `nousresearch/hermes-agent:v0.22.2`; `API_SERVER_KEY` dev di compose = `HERMES_API_KEY` backend/.env; volume `lifeos-hermes-data` (config.yaml, memori, sesi — **tanpa** API key model); skill repo di `/opt/data/skills/lifeos`; backend Windows = host `lifeos-api` (IP gateway WSL, diisi `infra/hermes/up.sh`); model = proxy LifeOS & MCP LifeOS ditulis `infra/hermes/configure.sh` (dijalankan up.sh); izin = tombol **Siapkan agen** di Asisten Agen |
 | Robot Playwright 1.63 (opsional, profile `robot`) | lifeos-robot | 127.0.0.1:4100 | image `lifeos-robot:1.63.0` dari `robot/Dockerfile` (± 3,5 GB, Chromium); token dev di compose = `ROBOT_TOKEN` backend/.env; tanpa volume (sesi disimpan backend terenkripsi); nyala: `docker compose --profile robot up -d --wait robot` |
+| Markdown Converter (opsional, profile `converter`) | lifeos-converter | 127.0.0.1:4200 | image `lifeos-converter:2.142.1` dari `converter/Dockerfile` (± 5 GB: torch CPU + model Docling + Tesseract `ind`); token dev di compose = `CONVERTER_TOKEN` backend/.env; tanpa volume; jaringan sendiri; nyala: `docker compose --profile converter up -d --wait converter`; test Python: `docker run --rm -e CONVERTER_TOKEN=x lifeos-converter:2.142.1 python -m pytest -q -p no:cacheprovider tests` |
 | ONLYOFFICE Docs 10.0 (opsional, profile `office`) | lifeos-onlyoffice | 8080 | image `lifeos-onlyoffice:10.0` dibangun dari `infra/onlyoffice/Dockerfile` (+ plugin AI resmi + jembatan AI + pemantau font); font tambahan diunggah admin ke `infra/onlyoffice/fonts` (`ONLYOFFICE_FONTS_DIR`, daftar font dibuat ulang otomatis); JWT secret dev di compose, header `AuthorizationJwt`; nyala: `docker compose --profile office up -d --wait onlyoffice` |
 
 Seed development: `admin@lifeos.com` / `123` (super_admin), `user@lifeos.com` / `123` (member, untuk uji berbagi).
@@ -416,7 +419,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   menerima `[A-Za-z0-9_-]{24,128}` (JWT bertitik tetap ditolak). Logika murni + test `agent-llm.ts`.
   **Run agen permanen** di tabel `agent_runs` (tombol, chat, aturan; `hermesRunId`) + pemantau 10 dtk di `AgentService`
   (mulai run antrian, baca status, batas 45 menit) — tidak lagi hilang saat backend restart.
-  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; `EXTENSIBLE_FEATURES` = fitur native yang **terbuka** untuk agen (e-Kinerja → placement `ekinerja`, keputusan user 2026-11-12; SRIKANDI → placement `srikandi` & SIMAN → placement `siman`, keputusan user 2026-11-13: nama tetap dikunci, kode tetap bawaan, agen boleh menambah workflow di dalamnya & menjalankan robotnya); tabel `agent_menus` (`placement` workflow | connection | ekinerja | srikandi | siman, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
+  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; `EXTENSIBLE_FEATURES` = fitur native yang **terbuka** untuk agen (e-Kinerja → placement `ekinerja`, keputusan user 2026-11-12; SRIKANDI → placement `srikandi`, SIMAN → placement `siman` & Aplikasi MCP → placement `mcp`, keputusan user 2026-11-13: nama tetap dikunci, kode tetap bawaan, agen boleh menambah workflow di dalamnya & menjalankan robotnya); tabel `agent_menus` (`placement` workflow | connection | ekinerja | srikandi | siman | mcp, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
   **Kebijakan Otomatis** (`agent-policy.service.ts`, logika murni + test `agent-policy.ts`, detail `docs/AI-AGENT.md` §24.6):
   **pencocokan aset opsional per aturan** (`verify_assets`, bawaan mati): tanpa itu hasil agen selalu ke pemilik dan mode auto ditolak 422 (keputusan user 2026-11-09). Aturan pemilik di `agent_policies` (jenis + grup → skill, mode off/shadow/auto, ambang skor aset, kolom kritis, toleransi,
   batas harian, masa tunda, templat Register). Pengajuan baru yang cocok → run `queued` (trigger `policy`) → agen memanggil
@@ -517,7 +520,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (record type `action_plan_month` — potret bulan Rencana Aksi e-Kinerja) + `20261031140000_public_vaults` (brankas digital + log
   akses) + `20261101120000_automation_jobs` (jadwal & riwayat otomasi) + `20261106130000_ai_router_endpoints` (jalur router per kredensial AI) + `20261106140000_knowledge_prefs` (preferensi menu Knowledge) + `20261106120000_agent_policies` (Kebijakan Otomatis,
   `agent_runs`, sakelar darurat, `requests.asset_check`/`auto_decision`) + `20261107120000_knowledge_note_versions` (riwayat versi
-  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI). Migrasi baru → lihat docs/SETUP.md §10
+  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI) + `20261113130000_mcp_oauth_client` (OAuth client & scope milik pemilik di `mcp_connections`) + `20261113140000_mcp_agent_tools` (`mcp_connections.agent_tools`: alat bertanda Hapus yang diizinkan untuk agen). Migrasi baru → lihat docs/SETUP.md §10
     (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`, lalu cek
     drift dengan `--exit-code`; shadow DB dari `SHADOW_DATABASE_URL`).
 - **Records API**: `GET /records/:type?from&to` (milik sendiri + item bersama bertanda `share`), `PUT
@@ -529,6 +532,19 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   PUT menerima `preserve` (key tidak utuh → nilai tersimpan dipertahankan) dan `base` (isi sebelum perubahan → untuk
   tipe di `MERGE_ARRAY_KEYS` = `list`, selisih base → payload diterapkan di atas isi terkini, `record-merge.ts` + test;
   salinan frontend `lib/record-merge.ts` — ubah keduanya bersamaan).
+- **Markdown Converter** (`src/converter/` + service `converter/`, detail `docs/ARCHITECTURE.md` §3.14, keputusan user 2026-11-13): env opsional
+  `CONVERTER_URL`, `CONVERTER_TOKEN`, `CONVERTER_MAX_MB` (50). Worker ekstraksi mengirim berkas ke converter **lebih dulu** (prefs
+  `users.converter_prefs` menyala + service terjangkau + `converterHandles` + ukuran ≤ batas): MarkItDown (dokumen teks) / Docling (gambar,
+  PDF scan/bergambar; OCR Tesseract `ind,eng`) → Markdown di `extracted_text`, `metadata.method = markitdown|docling`, `format: markdown`,
+  `converter{…}`. Mati/menolak → pembaca bawaan; `aiOcrFallback` mati = OCR AI tidak pernah dipakai (`reason: ocr_off`). Pembagian mesin &
+  pembersih Markdown di Python (`converter/app/logic.py` + pytest), pilihan format & cakupan baca ulang di `converter-logic.ts` (+ test).
+  Endpoint `/converter/status|preferences|stats|convert|reconvert`. `ConverterClient` disediakan `ExtractionModule` (hindari impor melingkar).
+  **Fitur baru yang membaca isi berkas untuk AI wajib memakai teks hasil ekstraksi** (`extractedText`), bukan mengirim berkas mentah.
+  **Rapikan dengan AI** (opsional, `aiEnhance` + `aiEnhanceScope` ocr|all; `MarkdownEnhancerService` + logika & test `markdown-enhance.ts`):
+  per bagian ± 12 rb karakter ke tugas AI **`document`** (Pembagian tugas "Rapikan dokumen", kosong = ikuti Umum; `taskProvider`), prompt
+  struktur & salah baca saja, penjaga `checkEnhanced` (isi 85–115 %, angka ≥ 95 % tetap) → gagal = bagian asli. `AiService.countTokens` =
+  countTokens Gemini (Bandingkan token di Coba konversi). Python: tabel palsu PDF rata kiri-kanan diratakan (`_flatten_fake_tables`), kepala/kaki & nomor
+  halaman berulang dibuang (`_drop_page_furniture`), gambar berkas lokal PPTX/DOCX dibuang (alt bermakna → `[Gambar: …]`), `[Slide n]`.
 - **Uploads** (`ownerId` opsional = unggah ke item bersama berizin edit → berkas milik pemilik, `uploaded_by_id` =
   pengunggah; baca: pemilik/pengunggah/penerima item yang merujuk berkas; hapus: pemilik/pengunggah): multer diskStorage (tmp) → SHA-256 streaming → S3 `<userId>/<yyyy>/<mm>/<ts>-<uuid><ext>` → `assets` +
   `asset_extractions` → job BullMQ `asset-extraction` (≤ 20 MB: teks, PDF, DOCX, XLSX; format kantor lain → konversi
@@ -577,16 +593,34 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   pakai, `status` new | connected | auth_required | error, `tools` = salinan `tools/list`, `agent_enabled`, `allow_write`). Katalog `MCP_PRESETS`;
   alamat lewat `normalizeMcpUrl` (https publik; http/lokal hanya di luar production). Transport Streamable HTTP lalu cadangan SSE; OAuth = SDK
   `auth()` (pendaftaran klien dinamis + PKCE + refresh) dengan `StoredOAuthProvider`, callback publik `GET /mcp-connections/oauth/callback`
-  (redirect URI = `CORS_ORIGIN` + path, lalu kembali ke `/mcp-app/<slug>`). 401/403 dari transport = `auth_required` (`isAuthError`, bukan
-  hanya `UnauthorizedError`). Ganti alamat/jenis login = kredensial dihapus. Endpoint `GET presets`, `GET|POST /`, `GET|PATCH|DELETE :id`
+  (redirect URI = `CORS_ORIGIN` + path, lalu kembali ke `/mcp/apps/<slug>`). 401/403 dari transport = `auth_required` (`isAuthError`, bukan
+  hanya `UnauthorizedError`). Ganti alamat/jenis login = kredensial dihapus. **OAuth client milik pemilik** (2026-11-13, untuk server tanpa
+  pendaftaran klien dinamis: Google Workspace, GitHub OAuth App): kolom `oauth_client_id`, `oauth_client_secret_enc` (terenkripsi, tidak pernah
+  dikembalikan → `hasClientSecret`), `oauth_scope` (`normalizeScope`, dikirim ke `auth({ scope })`); `StoredOAuthProvider` memakai client itu dan
+  tidak mendaftar ulang; client/scope berubah = izin lama dibuang (`auth_required`). Preset ber-`group` (google) memakai client koneksi sekelompok
+  bila Client ID dikosongkan; `needsClient` = wajib client; `scope` = scope bawaan (baca + buat, tanpa hapus). Google: `authorizationExtras` →
+  `access_type=offline&prompt=consent` (tanpa itu tidak ada refresh token, koneksi putus ± 1 jam). Galat DCR/klien → `oauthErrorMessage`. Respons
+  koneksi membawa `redirectUrl` (alamat callback untuk didaftarkan). Endpoint `GET presets`, `GET|POST /`, `GET|PATCH|DELETE :id`
   (id atau slug), `POST :id/connect|refresh|call`. **Agen** (MCP LifeOS, cakupan `mcp:apps`: `list_app_tools`, `call_app_tool`) hanya bila
-  `agentEnabled`; alat baca selalu, alat ubah / tanpa tanda hanya bila `allowWrite`, alat `destructiveHint` **tidak pernah**
-  (`agentToolDecision`). Kredensial tidak pernah dikirim ke browser maupun agen.
+  `agentEnabled`; alat baca selalu, alat ubah / tanpa tanda hanya bila `allowWrite`, alat `destructiveHint` hanya bila pemilik mengizinkan
+  **alat itu satu per satu** (`agent_tools`, `agentToolList`) **dan** `allowWrite` (keputusan user 2026-11-13: Canva menandai simpan hasil sunting
+  `commit-editing-transaction` & `autofill-design` sebagai merusak) (`agentToolDecision`; salinan frontend `agentAllowed`, ubah bersamaan).
+  **Simpan berkas hasil aplikasi** (`save_app_file`, `AgentActionsService.saveAppFile`, unduh `app-file-download.ts` + logika murni & test
+  `app-file-logic.ts`): tautan https di **domain aplikasi itu saja** (`fileHosts` katalog, mis. Canva `canva.com` + `canva.ai`; lainnya domain dasar
+  server MCP; juga setiap pengalihan), `safeLookup` dari `notebooks/web-source.ts` (jaringan lokal ditolak), tanpa kredensial, maks. 50 MB →
+  `createFromBuffer` context `mcp-app` + Resource Global (`para_resource`, tag `Hasil Agen` + nama aplikasi) lewat `AgentActionsService.create`
+  (tercatat & bisa dibatalkan). Koneksi wajib `agentEnabled`. `request_app_access` menerima `allowTools` (hanya alat bertanda Hapus yang ada;
+  ikut menyalakan `allowWrite`; disetujui = ditambahkan ke `agent_tools`). Kredensial tidak pernah dikirim ke browser maupun agen.
+  **Fitur terbuka untuk agen** (keputusan user 2026-11-13, logika murni + test `mcp-agent-logic.ts`, detail `docs/AI-AGENT.md` §26.6): MCP
+  `list_app_connections` (semua koneksi + katalog, tanpa kredensial), `request_app_connection { preset? | name+url+authType, reason }` →
+  `agent_actions` kind `mcp_connect` (pending, satu per alamat, alamat yang sudah ada ditolak) → approve = `McpConnectionsService.create`
+  (status baru, izin agen mati; Sambungkan/token tetap oleh pemilik), `request_app_access { connection, agentEnabled?, allowWrite?, reason }` →
+  kind `mcp_access` (hanya nilai yang berbeda, `accessChange`) → approve = `update`. Hapus koneksi / ganti alamat / token tidak pernah lewat agen.
 - **Aksi agen atas data kerja** (`src/agent-actions/`, logika murni + test `agent-action-logic.ts`, keputusan user 2026-11-10): MCP
   `describe_record_types`, `list_records`, `get_record` (`workspace:read`) dan `create_record`, `update_record` (patch: hanya key yang
   dikirim, `null` = hapus key), `request_delete_record` (`workspace:write`) lewat `RecordsService` (isolasi, berbagi, audit, indeks
   berlaku; hanya data milik sendiri). Jenis hasil sinkron robot & log = baca saja (`AGENT_READONLY_TYPES`). Tabel `agent_actions`
-  (kind create | update | delete | ekinerja_fill | srikandi_register, `before`/`after`, status applied | undone | pending | approved | rejected | failed). Buat/ubah langsung
+  (kind create | update | delete | ekinerja_fill | srikandi_register | mcp_connect | mcp_access, `before`/`after`, status applied | undone | pending | approved | rejected | failed). Buat/ubah langsung
   & **bisa dibatalkan** (`POST /agent/actions/:id/undo { force? }`: record sudah berubah lagi → 409, sudah dihapus → 410, batalkan
   "buat" = ke Sampah). **Hapus = permintaan** sampai pemilik `approve` / `reject` (`/agent/actions/:id/…`); disetujui = item +
   turunannya (`ShareAccessService.descendantsOf`, tanpa Notes AI tertaut) ke Sampah bertanda agen, beserta berkas milik item itu
@@ -1065,7 +1099,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   - Form agenda: mengubah Tanggal Mulai menggeser Tanggal Selesai (durasi tetap); konten form di-`key` per sesi buka &
     per agenda (`useOpenSession`).
 - **Bidang aktif** (`features/knowledge/workspace/active-field-button.tsx`, tombol di banner Knowledge; logika murni + test `fieldCounts`/`sameField` di `knowledge-logic.ts`): pilih / tambah bidang, tandai catatan tanpa bidang; disimpan lewat `useKnowledgePrefs`. Pemanggil `save` wajib menyebar `...prefs` agar `activeField` tidak hilang.
-- **Layout & Pengaturan** (keputusan user 2026-10-15): sidebar = Workspace **Overview, Planner, Notes Space, Productivity, File Control** + grup **AI Agent** (**Knowledge, AI Agent, Approval**, `sidebarGroup: "ai"`, keputusan user 2026-11-10) + grup **Connection & MCP** (e-Kinerja, SRIKANDI, SIMAN, lalu koneksi buatan agen yang disetujui — `sidebarGroup: "connection"` + `useAgentMenus`, `placement: connection`) + grup Sistem berisi **Tools** dan **Pengaturan**
+- **Layout & Pengaturan** (keputusan user 2026-10-15): sidebar = Workspace **Overview, Planner, Notes Space, Productivity, File Control** + grup **AI Agent** (**Knowledge, AI Agent, Approval**, `sidebarGroup: "ai"`, keputusan user 2026-11-10) + grup **Connection & MCP** (e-Kinerja, SRIKANDI, SIMAN, lalu koneksi buatan agen yang disetujui, lalu **Aplikasi MCP** — aplikasi MCP tersambung tidak lagi punya menu sendiri, keputusan user 2026-11-13 — `sidebarGroup: "connection"` + `useAgentMenus`, `placement: connection`) + grup Sistem berisi **Tools** dan **Pengaturan**
   (`ModuleDef.sidebarGroup: "system"`, keduanya menu ber-sub-menu `SubmenuModuleItem`); Pengaturan
   (sub menu berurutan **Aplikasi, Manajemen User, Berbagi, Model AI, Integrasi** — urutan tab di `navigation.ts` sama dengan sub menu).
   **Profil Saya bukan bagian Pengaturan**: halaman sendiri `/profile` (`features/profile/`, modul `profile` dengan
@@ -1090,6 +1124,13 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (`useRobotAlertToasts` di AppShell; ID yang sudah tampil di localStorage `lifeos.robotAlerts.seen.<userId>`, `newAlerts`),
   notifikasi browser opsional saat tab tidak dilihat (tombol **Aktifkan notifikasi browser** di kartu Cara kerja otomasi);
   notifikasi tugas gagal membuka tab Connector sistemnya (tombol "Lihat riwayat").
+- **Tools → Markdown Converter** (`features/tools/converter/`, hook `data/use-converter.ts`, logika + test `converter-utils.ts`; tab kedua
+  Tools): status service, sakelar + cara baca PDF + Cadangan OCR AI, Coba konversi (pratinjau/Markdown, salin, unduh `.md`, simpan ke Inbox
+  vault), Berkas tersimpan (per cara baca + Baca ulang `ai_ocr|missing|legacy`). Ringkasan AI lampiran & Resource memakai teks server lebih
+  dulu: `useFileSummarizer().summarize(file, uploadId)` (berkas mentah ke AI hanya bila server tanpa teks), `ResourceAiDialog` (`storedText`),
+  Notes AI `readFileText` (tunggu 5 menit). Label `metadata.method` → `METHOD_LABELS`. Kartu pengaturan juga sakelar **Rapikan dengan AI**
+  + cakupan; Coba konversi punya centang Rapikan & **Bandingkan token** (bawaan **mati**: mengirim isi berkas ke Google untuk `countTokens`; `TokenComparison` menyebut Gemini hanya alat hitung, bukan perapi; `tokenRows` + test), badge "Dirapikan oleh <provider> (model)" (`providerLabel`), tab Dirapikan AI / Hasil
+  converter; Pengaturan → Model AI punya baris tugas **Rapikan dokumen** (`ai-routing-card.tsx`).
 - **Tools → ONLYOFFICE** (`features/tools/`, detail: `docs/ONLYOFFICE.md` §3.3): modul `tools` ber-sub-menu di sidebar
   (`ModuleDef.sidebarSubmenu` → `SubmenuModuleItem`, juga dipakai Pengaturan; sub menu baru = tab baru di `navigation.ts`).
   Editor dibuka dari mana saja lewat `openOfficeEditor({ uploadId, name?, mode? })` (`OfficeEditorHost` di AppShell, editor
@@ -1215,9 +1256,12 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   mengenali `code` / "kode unik"), kotak **Ingat browser ini** (`RememberBrowser`) dicentang otomatis saat mengisi kredensial & OTP
   (`isRememberCheckbox`, sesi ±30 hari), pesan galat `.validation-summary-errors` dibaca, dan Cek/Jaga sesi membuka
   `SYSTEM_INFO.homeUrl` = `https://siman.kemenkeu.go.id/profile` (dialihkan ke `/login`/SSO = sesi habis), bukan halaman login.
-- **Aplikasi MCP** (grup Connection & MCP, `/mcp`, `features/mcp/`, warna `--mod-mcp`, hook `data/use-mcp-connections.ts`, logika murni +
-  test `mcp-utils.ts`): katalog + "Aplikasi lain" (`add-connection-dialog.tsx`), daftar koneksi; aplikasi tersambung tampil sebagai menu di
-  sidebar Connection & MCP (titik peringatan bila belum tersambung) → `/mcp-app/:slug` (`mcp-app-page.tsx`, modul tersembunyi `mcpapp`):
+- **Aplikasi MCP** (katalog berkelompok `groupPresets`: aplikasi tunggal lalu **Google Workspace (Developer Preview)** dengan langkah
+  menyiapkan OAuth client (`GROUP_INFO`); isian Client ID/Secret/Scope + alamat callback `oauth-client-fields.tsx` di formulir tambah (wajib bila
+  `needsClient` kecuali ada client sekelompok, `sharedClientSource`) dan tombol **Pengaturan OAuth** di halaman aplikasi) (grup Connection & MCP, `/mcp/:tab` = **Aplikasi** | **Workflow** (`mcp-workflow-tab.tsx`, workflow agen `placement: mcp`; fitur terbuka 2026-11-13, kartu `McpRequestsCard` = permintaan koneksi/izin dari agen di tab Aplikasi & Approval → Usulan Agen), `features/mcp/`, warna `--mod-mcp`, hook `data/use-mcp-connections.ts`, logika murni +
+  test `mcp-utils.ts`): katalog + "Aplikasi lain" (`add-connection-dialog.tsx`), daftar koneksi (tombol **Atur**); **tidak ada menu per aplikasi di sidebar**
+  (keputusan user 2026-11-13) — pengaturan satu aplikasi dibuka di dalam menu ini: `/mcp/apps/:slug` (route `mcp/:tab/:slug` → `mcp-page.tsx` →
+  `McpAppView` di `mcp-app-page.tsx`, judul banner = nama aplikasi, tombol "Semua aplikasi"; alamat lama `/mcp-app/:slug` dialihkan):
   Sambungkan / Muat ulang alat / Ganti token / Hapus, sakelar izin agen, daftar alat bertanda Baca/Ubah/Hapus, dialog Coba (argumen JSON).
   OAuth: jendela izin dibuka **saat klik** (penahan pop-up) lalu diarahkan ke halaman izin; `useConnectApp` memantau status tiap 3 dtk (maks.
   5 menit). Aturan izin agen di frontend (`agentAllowed`) = salinan aturan server; ubah keduanya bersamaan.
@@ -1410,9 +1454,14 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | e-Kinerja fitur terbuka untuk agen: workflow agen di tab e-Kinerja → Workflow, alat MCP robot (Ambil SKP, Pantau, Periksa) di latar belakang, permintaan isi yang menunggu persetujuan pemilik | ✅ 2026-11-12 — unit backend +6, smoke +11 (user tanpa sesi e-Kinerja), lint, typecheck, format, UI (tab Workflow, kartu di e-Kinerja & Usulan Agen, Tolak, Riwayat Aksi; data uji dibersihkan). **Belum**: Hermes sungguhan memakai alat baru (izin token agen perlu diperbarui, TODO-USER A30), pengisian setelah disetujui ke e-Kinerja sungguhan (ditunda: uji robot dengan data dummy) |
 | Naskah Masuk SRIKANDI tahap 1 (baca daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan; tab Naskah Masuk, Jadikan to-do, Buat balasan, lonceng, otomasi & alat agen) | ✅ 2026-11-13 — unit robot +3, backend +4, frontend +3, smoke +4; sinkron sungguhan ke SRIKANDI (5 daftar, 0 butir = akun kosong); UI dengan data dummy (dibersihkan). **Belum**: baris & detail sungguhan, PDF naskah masuk (status baca), Log disposisi + batas waktu, robot mengisi Nomor Referensi, tindak lanjut di SRIKANDI (tahap 2) |
 | Edit register SRIKANDI: entri terdaftar yang diubah di LifeOS → Perbarui di SRIKANDI (robot Edit konsep di Log Naskah Keluar, hanya yang berbeda) + Periksa perubahan + penanda Berubah + jalur agen (permintaan perbarui) | ✅ 2026-11-13 — unit robot +7, backend +2, frontend +1, smoke +5, lint, typecheck, format; diuji ke SRIKANDI sungguhan pada konsep `[UJI LifeOS]` (bagian atas berantai + Ambil Nomor, tambah/hapus lampiran, tembusan, verifikator; tanpa Kirim Konsep). **Belum**: Nomor Referensi, Unit Pengolah, Ukuran QR, urutan verifikator, Eksternal Non Srikandi, grup; konsep uji masih di Log (menunggu izin hapus) |
+| Aplikasi MCP: izin per alat bertanda Hapus (sakelar di daftar alat halaman aplikasi, juga lewat permintaan agen `allowTools`) + alat MCP `save_app_file` (hasil aplikasi, mis. ekspor Canva, disimpan ke LifeOS sebagai berkas + Resource Global "Hasil Agen") | ✅ 2026-11-13 — unit backend +6 (488), frontend +2 (329), smoke +4, migrasi tanpa drift, lint, typecheck, format, build; **diuji ke Canva sungguhan**: tautan `export-design` (PNG 965 KB) tersimpan lewat MCP sebagai berkas + Resource, domain lain ditolak (data uji dibersihkan, izin Canva user tidak diubah). **Belum**: Hermes sungguhan menjalankan alur desain (skill `desain-canva` belum dibuat), izin Canva user masih mati |
+| Aplikasi MCP: katalog Google Workspace (Gmail, Calendar, Drive, Docs, Sheets, Slides, Chat, Kontak, Workspace Search — server MCP resmi Google, Developer Preview) + OAuth client & scope milik pemilik (juga jalur OAuth GitHub lewat OAuth App) + petunjuk token GitHub | ✅ 2026-11-13 — unit backend +4 (483), frontend +2 (327), smoke +5, migrasi tanpa drift, lint, typecheck, format, build; alamat izin Google terbentuk benar (client palsu ditolak Google "OAuth client was not found", parameter lain diterima), formulir di browser. **Belum**: masuk Google sungguhan (butuh OAuth client + Developer Preview Program, TODO-USER A35), token GitHub milik user |
+| Aplikasi MCP fitur terbuka untuk agen: tab Aplikasi MCP → Workflow (`placement: mcp`), nama "Aplikasi MCP" dikunci, alat MCP `list_app_connections` + permintaan sambungkan aplikasi / ubah izin agen yang menunggu persetujuan pemilik | ✅ 2026-11-13 — unit backend +7 (479), frontend 325, smoke +17 (semua lulus), lint, typecheck, format; UI tab Aplikasi/Workflow + kartu permintaan (data uji ditolak). **Belum**: Hermes sungguhan memakai alat baru (izin token agen, TODO-USER A34) |
 | SIMAN fitur terbuka untuk agen: tab SIMAN → Workflow (workflow agen `placement: siman`), alat MCP robot baca `siman:robot` (Jaga sesi, Baca halaman tanpa klik; alamat keluar/hapus/kirim/unggah ditolak) | ✅ 2026-11-13 — unit backend +6 (468), frontend 322, smoke +7 (user tanpa sesi SIMAN; total 612 lulus), lint, typecheck, format; UI tab Workflow & Cara Kerja. **Belum**: Hermes sungguhan memakai alat SIMAN (izin token agen, TODO-USER A33), login SIMAN sungguhan (A28), alur tiket & unggah SK (menunggu A25) |
 | SRIKANDI fitur terbuka untuk agen: workflow agen di tab SRIKANDI → Workflow, alat MCP robot (ambil naskah, referensi, klasifikasi, periksa Register) di latar belakang, permintaan daftarkan naskah yang menunggu persetujuan pemilik | ✅ 2026-11-13 — unit backend +5 & frontend tetap lulus, smoke +15 (user tanpa sesi SRIKANDI), lint, typecheck, format. **Belum**: Hermes sungguhan memakai alat baru (izin token agen, TODO-USER A32), pendaftaran ke SRIKANDI sungguhan setelah disetujui (uji robot ditunda, data dummy) |
 | Tampilan ringkas seluruh aplikasi (header, banner modul satu baris, tab, kartu, dialog, kartu statistik, kartu arsip, penjelasan PARA dapat dibuka) | ✅ 2026-11-12 — lint, typecheck, unit (313), format, build; UI diuji 1366×768 & 375 px di semua modul (tanpa luberan horizontal; konten mulai ± 215 px, dulu ± 330 px; revisi banner/tab/kartu ringkasan sesuai arahan user); hanya kelas tampilan, logika/alur tidak berubah; modal utama (Project, Area, Agenda lihat & form, Proses Arsip, Approval, Notes AI) diperiksa di browser. **Belum**: modal yang jarang dipakai (robot, brankas, register SRIKANDI) hanya lewat aturan umum, belum dilihat satu per satu |
+| **Markdown Converter** (Tools; MarkItDown + Docling dipakai worker ekstraksi untuk semua fitur AI; Coba konversi, Baca ulang berkas lama, Cadangan OCR AI) | ✅ 2026-11-13 — pytest 9, unit backend +5 (498) & frontend +4 (337), smoke +11, migrasi tanpa drift, lint, typecheck, format; ujung-ke-ujung: DOCX/XLSX → MarkItDown (tabel), PNG & PDF scan → Docling OCR sempurna, risalah rapat sungguhan 6 halaman (4 scan) 21 dtk ± 2.900 token, service mati → pembaca bawaan; UI desktop & 375 px; compose produksi divalidasi (belum dijalankan). **Belum**: berkas lama admin dev belum dibaca ulang (71 berkas, tombol Baca ulang), OCR tulisan tangan/teks miring (judul terbalik di risalah terbaca acak), PPTX/EPUB/MSG sungguhan |
+| Markdown Converter: **Rapikan dengan AI** (sakelar + cakupan OCR/semua, tugas AI baru "Rapikan dokumen", penjaga isi & angka) + **Bandingkan token** (countTokens Gemini) + pembersihan converter (tabel palsu PDF, kepala/kaki & nomor halaman, gambar lokal PPTX) | ✅ 2026-11-13 — pytest 13, unit backend 504 & frontend 334, smoke +3, lint, typecheck, format; **uji token 8 dokumen sungguhan dari Downloads** (hasil di `docs/ARCHITECTURE.md` §3.14: PDF −32…−78 %, rapikan diterima 7/8, Surat Bupati hasil OCR ditata ulang benar tanpa mengubah nomor); UI tabel token. Tugas "Rapikan dokumen" akun admin dev diarahkan ke **Gemini** (bawaan = ikuti Umum = Claude Opus). **Belum**: isi gambar/diagram tidak terbaca (Docling tanpa deskripsi gambar), uji dengan Claude/OpenAI sebagai perapi |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -1430,6 +1479,11 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 6c. **Naskah Masuk tahap 1 (2026-11-13)** sudah di-commit (6d); tunggu naskah masuk sungguhan di akun user untuk memetakan baris, kolom Aksi, dan
    detail (jangan buka detail tanpa izin: Status Baca berubah). Usulan tahap 2: PDF untuk naskah yang sudah dibaca, Log Disposisi + batas waktu,
    Nomor Referensi di robot Register.
+6g. **Markdown Converter (2026-11-13)** sudah di-commit **bersama 6f** (satu commit gabungan `feat(converter,mcp): …`, berkas bersama tidak bisa dipisah), belum di-push. Service `converter` menyala di laptop (± 1,2 GB RAM);
+   matikan dengan `--profile converter stop` bila tidak dipakai. Usulan lanjutan: deskripsi gambar/grafik lokal (Docling picture
+   description / VLM kecil) bila VPS cukup kuat, cache hasil per checksum berkas (berkas sama diunggah ulang tidak dikonversi lagi).
+   Rapikan dengan AI ikut commit itu; sakelarnya **mati** bawaan (akun admin dev: mati); tugas "Rapikan dokumen" admin dev kini diatur user ke **Anthropic** (cadangan Gemini).
+6f. **Aplikasi MCP fitur terbuka + Google Workspace + izin per alat & `save_app_file` (2026-11-13)** sudah di-commit bersama 6g (commit gabungan), belum di-push. Hermes perlu izin `mcp:apps` (TODO-USER A34); Google butuh OAuth client milik user + Developer Preview Program (A35); kegagalan GitHub user belum terdiagnosis pasti (minta pesan galatnya bila masih gagal).
 6e. **SIMAN fitur terbuka (2026-11-13)** ikut di-commit di 6d sebagai kerja berjalan (dikerjakan bersamaan dengan chat SRIKANDI di working tree yang sama — berkas bersama: `lifeos-mcp.service.ts`, `robot.module.ts`, `robot-logic.ts`, `robot.service.ts`, `smoke.mjs`, CLAUDE.md). Hermes perlu izin `siman:robot` (TODO-USER A33). Langkah berikutnya SIMAN = pemilik mengajarkan proses tiket (A25), lalu Hermes membaca halaman tiket lewat `siman_read_page` dan menyusun skill + workflow SIMAN; jalur tulis (unggah SK) dibangun sebagai permintaan yang disetujui pemilik, dengan data dummy dulu.
 6b. **Edit register SRIKANDI (2026-11-13)** sudah di-commit (6d); konsep uji `[UJI LifeOS] Uji edit register v2 - abaikan` masih di Log Naskah
    Keluar SRIKANDI dan entri ujinya di tab Register (menunggu izin user untuk dihapus — hapus konsep di SRIKANDI butuh izin eksplisit).
@@ -2330,6 +2384,31 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   dibuat, Generate usulan hanya lewat tombol. Dibangun "Salin dari bulan lalu" untuk butir rutin: bukti data dukung sengaja tidak disalin karena
   bukti tiap bulan harus dokumen bulan itu (brankas terikat pada satu entri), dan butir yang sudah ada tidak bisa disalin ulang agar tidak ganda.
 
+- 2026-11-13 — **Aplikasi MCP tanpa menu per aplikasi di sidebar** (permintaan user): setiap aplikasi diatur dari dalam menu Aplikasi MCP
+  (`/mcp/apps/<slug>`), alamat lama dialihkan, modul tersembunyi `mcpapp` dihapus. User menyalakan izin agen + aksi tulis untuk Canva dan menilai
+  aman karena hapus data LifeOS selalu lewat Sampah & persetujuan. Dicatat ke user: pengaman itu berlaku untuk data **LifeOS**; aksi alat di
+  aplikasi luar (mis. menimpa/menggabung desain Canva) tidak lewat Sampah LifeOS — Canva sendiri tidak punya alat hapus desain di daftar MCP-nya.
+- 2026-11-13 — **Hermes memakai Canva tanpa pemilik membuka Canva** (pertanyaan user: koneksi Canva termasuk Canva AI? dipakai agar hasil slide,
+  gambar, poster bagus; tanpa interaksi user dengan Canva). Diperiksa dari daftar alat: ya (`create-design`, `generate-image`, templat brand,
+  ekspor), tetapi Canva menandai `commit-editing-transaction`, `autofill-design`, `merge-designs`, `cancel-editing-transaction` sebagai merusak
+  sehingga agen tidak bisa menyimpan suntingan, dan hasil ekspor (tautan) tidak bisa masuk LifeOS. User memilih membangun keduanya: **izin per
+  alat** (bawaan tetap dilarang; pemilik mengizinkan alat tertentu, wajib aksi tulis) dan **`save_app_file`** (unduhan dibatasi domain aplikasi
+  agar tidak menjadi pengunduh bebas/SSRF; daftar domain eksplisit karena Canva memakai dua domain: ekspor `export-download.canva.com`, gambar
+  `design.canva.ai`). Hasil masuk Resource Global agar bisa dilampirkan ke Approval/Notes dan dibatalkan pemilik. Saran lanjutan: Brand Kit &
+  templat instansi di Canva, skill Hermes `desain-canva`.
+- 2026-11-13 — **Google Workspace di Aplikasi MCP + perbaikan GitHub** (laporan user: MCP GitHub tidak bisa; minta Gmail, Calendar, Drive, Docs,
+  Sheets, Slides, dsb.). Diperiksa: jalur token GitHub di LifeOS bekerja (token palsu → "Token ditolak"); OAuth GitHub & Google gagal karena
+  server otorisasinya **tidak mendukung pendaftaran klien dinamis**. Dipilih server MCP **resmi** Google (`*mcp.googleapis.com/mcp/v1`,
+  Developer Preview) daripada server pihak ketiga/self-host, dengan **OAuth client milik pemilik** (bukan client bersama LifeOS: tiap pemilik
+  memegang project Google Cloud & consent sendiri). Satu client dipakai semua layanan Google; scope bawaan sengaja terbatas (baca + buat, tanpa
+  hapus/`mail.google.com`), bisa diubah. Penyebab pasti kegagalan GitHub user belum diketahui (log tidak tersedia); kemungkinan memilih OAuth
+  atau token tanpa izin / dibatasi organisasi — petunjuk token diperjelas dan pesan galat DCR kini menyebut solusinya.
+- 2026-11-13 — **Aplikasi MCP menjadi fitur terbuka untuk agen** (permintaan user: "fitur ini seharusnya fitur custom dan dapat diubah2 oleh hermes").
+  Pola SIMAN/SRIKANDI: nama dikunci (sebelumnya "Aplikasi MCP" belum ada di `NATIVE_FEATURES`, jadi menu buatan agen bisa memakainya), kode
+  koneksi tetap bawaan, workflow agen `placement: mcp` di tab Aplikasi MCP → Workflow. Yang diubah agen = isi fitur lewat **permintaan**: koneksi
+  baru & izin agen berlaku setelah pemilik menyetujui (izin agen adalah batas keamanan, jadi agen tidak boleh menaikkannya sendiri). Agen tidak
+  pernah mengisi token / OAuth (kredensial tidak boleh lewat model) dan tidak bisa menghapus koneksi. Koneksi yang disetujui dibuat dengan izin
+  agen mati agar menaikkan izin selalu langkah terpisah yang terlihat pemilik.
 - 2026-11-13 — **SIMAN menjadi fitur terbuka untuk agen** (permintaan user: "fitur ini seharusnya fitur custom dan dapat diubah2 oleh hermes";
   merevisi keputusan 2026-11-09 yang mengunci SIMAN). Pola sama dengan e-Kinerja & SRIKANDI: nama dikunci, kode koneksi tetap bawaan, workflow
   agen `placement: siman` di tab SIMAN → Workflow. Karena alur tiket & SK belum diajarkan, robot untuk agen sengaja **hanya membaca**: Jaga sesi
@@ -2357,6 +2436,28 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   karena ID SRIKANDI acak per muat; butir yang hilang tidak dihapus. To-do dibuat hanya atas klik pemilik, bukan otomatis; balasan lewat
   Register (gerbang yang sudah ada), tautannya dihitung dari `replyTo` agar tidak ada dua sumber kebenaran. Daftar di akun user kosong saat
   dibangun → diuji dengan data dummy LifeOS.
+
+- 2026-11-13 — **Markdown Converter** (permintaan user: hemat token AI saat membaca/mengonversi dokumen; MarkItDown untuk dokumen
+  teks, Docling untuk gambar/grafik, dikombinasikan; diterapkan ke semua fitur AI). Dibangun sebagai **service Python terpisah**
+  (`converter/`, profile compose seperti robot) karena keduanya pustaka Python dan laptop tidak punya Python; dipasang di **worker
+  ekstraksi** — satu titik yang sudah dipakai semua fitur (Notes AI, My Notebook, Approval, MCP agen, RAG, vault Obsidian) — sehingga
+  hasil Markdown dibuat sekali per berkas. Pembagian: gambar selalu Docling, PDF otomatis (scan/bergambar → Docling, berlapisan teks →
+  MarkItDown), dokumen kantor MarkItDown. OCR Docling memakai **Tesseract bahasa Indonesia** (bukan RapidOCR/EasyOCR bawaan yang
+  dilatih Tionghoa/Inggris). Deskripsi gambar dengan VLM lokal tidak dipasang (terlalu berat untuk VPS 4 GB). Service mati = pembaca
+  bawaan (aplikasi tidak bergantung pada converter); OCR AI tetap tersedia sebagai cadangan yang bisa dimatikan user. Ringkasan AI
+  lampiran/Resource yang dulu mengirim PDF/gambar mentah ke AI kini memakai teks server. Versi: Docling 2.142.1 (23 Okt) & MarkItDown
+  0.1.9 (21 Okt), torch CPU 2.14.1, transitif dikunci `uv --exclude-newer 2026-10-30`. Ditemukan saat uji: pypdfium2 5.x mengganti
+  `get_pos` → `get_bounds` (PDF bergambar gagal dikonversi).
+
+- 2026-11-13 — **Rapikan dengan AI + uji token** (permintaan user: rapikan struktur & salah baca hasil converter tanpa menyusun ulang kata,
+  dengan sakelar; uji token baca langsung vs Markdown memakai dokumen Downloads). Rapikan = langkah opsional setelah converter (bawaan mati,
+  cakupan bawaan hanya hasil OCR karena di situ salah baca terjadi), lewat **tugas AI baru "Rapikan dokumen"** agar bisa diarahkan ke model murah
+  tanpa mengubah tugas Umum (bawaan mengikuti Umum). Model tidak dipercaya begitu saja: **penjaga server** membandingkan isi (85–115 %) dan deret
+  digit (≥ 95 %) per bagian, bagian yang gagal memakai teks asli — hasil tidak pernah lebih buruk dari tanpa AI. Token diukur dengan
+  `countTokens` Gemini (gratis, tanpa menjalankan model) karena router Claude membuang angka token. Uji nyata membantah dua anggapan: (1) PDF
+  pendek tidak selalu lebih hemat lewat Markdown bagi Gemini (± 560 token/halaman), (2) MarkItDown membaca PDF peraturan rata kiri-kanan
+  sebagai tabel palsu → diratakan di converter (−19 % token tanpa AI). Kepala/kaki halaman & gambar lokal PPTX dibuang di converter karena
+  justru itulah yang dibuang AI dan membuat penjaga menolak.
 
 ## 13. Konvensi Kode
 
@@ -2474,9 +2575,12 @@ database (objek storage, berkas). Berkas milik entitas → `uploads.remove(id, u
 Label jenis baru → `KIND_LABELS`/`RECORD_LABELS` (`trash-utils.ts`).
 
 **Menambah aplikasi ke katalog MCP**: entri di `MCP_PRESETS` (`mcp-connection-logic.ts`: key, nama, deskripsi, alamat resmi dari dokumentasi
-penyedia, `authType`, ikon dari registry ikon frontend). Tanpa perubahan frontend. Aplikasi yang tidak ada di katalog cukup lewat "Aplikasi lain".
+penyedia, `authType`, ikon dari registry ikon frontend; server OAuth tanpa pendaftaran klien dinamis → `needsClient: true` + `scope` bawaan;
+beberapa layanan satu penyedia → `group` yang sama + penjelasan di `GROUP_INFO` `mcp-page.tsx`; domain tempat aplikasi menaruh berkas hasil
+→ `fileHosts` (cek alamat hasil ekspor sungguhan dulu, bisa berbeda domain dengan server MCP)). Cek dulu: `curl <url>/.well-known/oauth-protected-resource…`
+(scope) dan metadata server otorisasi (`registration_endpoint` ada = OAuth otomatis). Tanpa perubahan frontend lain. Aplikasi yang tidak ada di katalog cukup lewat "Aplikasi lain".
 
-**Membuka fitur native untuk agen** (pola e-Kinerja 2026-11-12, SRIKANDI & SIMAN 2026-11-13): placement baru di `MENU_PLACEMENTS` + entri `EXTENSIBLE_FEATURES`
+**Membuka fitur native untuk agen** (pola e-Kinerja 2026-11-12, SRIKANDI, SIMAN & Aplikasi MCP 2026-11-13): placement baru di `MENU_PLACEMENTS` + entri `EXTENSIBLE_FEATURES`
 (nama tetap di `NATIVE_FEATURES`), tab Workflow di halaman fitur lewat `<FeatureWorkflowTab placement>` (+ tipe `placement` di `endpoints.ts`), label & tautan Buka di
 `proposals-tab.tsx`. Aksi robot yang **membaca** → alat MCP asinkron (tugas latar belakang + alat status), cakupan sendiri. Aksi yang **menulis**
 ke sistem luar → kind baru di `agent_actions` + `APPROVAL_KINDS` (pending) yang dijalankan saat pemilik menyetujui (`AgentActionsService.approve`; 409 robot sibuk = tetap menunggu), + kartu
@@ -2539,6 +2643,10 @@ resep "Menambah tool MCP".
 `request-utils.ts` (label sama). Templat baru cukup diunggah user (Tools → ONLYOFFICE → Templat) dengan penanda
 `${nama_isian}` (huruf/angka/garis bawah) dan paragraf petunjuk yang seluruhnya `[…]`; penanda khusus SRIKANDI baru →
 `isSrikandiTag` (`template-engine.ts`).
+
+**Menambah format ke Markdown Converter**: ekstensi di `MARKITDOWN_EXTENSIONS`/`IMAGE_EXTENSIONS` (+ `MIME_TO_EXTENSION`) `converter/app/logic.py`
+(+ test), `CONVERTER_EXTENSIONS`/`MIME_EXTENSION` backend `converter-logic.ts` (+ spec), `CONVERTER_ACCEPT` frontend; paket tambahan → extra
+`markitdown[...]` di `converter/requirements.txt` lalu build ulang image. Fitur AI baru yang membaca berkas → pakai `extractedText`.
 
 **Menambah dependensi npm**: pilih paket dengan prebuilt arm64/pure JS; paket berat → import dinamis agar chunk
 utama tetap < 500 kB (cek output `npm run build`).
@@ -2754,6 +2862,10 @@ utama tetap < 500 kB (cek output `npm run build`).
 - Klik di sistem pemerintah lewat sesi tayangan robot (`/robot/sessions/:id/input`) bisa **ditahan pengaman otomatis Claude**
   ("Unrequested Commit in a Connected App") walau user sudah mengizinkan uji — minta izin eksplisit user di chat untuk aksi
   itu (mis. "Izinkan robot") lalu ulangi.
+- Server otorisasi Google & GitHub **tidak punya pendaftaran klien dinamis** (`Incompatible auth server: does not support dynamic client
+  registration`) → OAuth hanya dengan Client ID/Secret milik pemilik. Google tanpa `access_type=offline` + `prompt=consent` tidak memberi refresh
+  token. Server MCP Google menjawab `initialize` tanpa login (200); login baru diminta saat `tools/list`. Uji alamat izin tanpa akun: client palsu →
+  Google mengalihkan ke `signin/oauth/error` "OAuth client was not found" (artinya parameter lain diterima).
 - Klien MCP SDK: transport bertoken melempar galat HTTP ber-`code` 401/403, bukan `UnauthorizedError` → periksa keduanya (`isAuthError`).
   `window.open` setelah `await` diblokir penahan pop-up → buka jendela kosong saat klik, isi alamatnya setelah respons datang.
 - Proxy agen ke OpenAI lewat `chat/completions` tidak bisa dipakai model bernalar: alat + penalaran ditolak 400, `reasoning_effort: none` juga ditolak model tertentu → Responses API. Status 400 sengaja tidak dialihkan ke cadangan, jadi cadangan yang salah format membuat agen berhenti. Uji setiap provider cadangan dengan permintaan yang **memakai alat**, bukan hanya tombol Uji koneksi.
@@ -2819,6 +2931,18 @@ utama tetap < 500 kB (cek output `npm run build`).
   `scroll-mt-[3.75rem]`), Knowledge/Graf/Canvas/Tabel (`100svh-12.5rem` dst.), chat AI Agent (`100svh-20rem`). Mengubah header /
   banner / padding `main` → cek ulang semua `grep -rn "100svh" src`. Python **tidak** terpasang di laptop: skrip bantu (mis.
   penggantian kelas massal) ditulis `.mjs` dan dijalankan `node`.
+
+- Service converter (Python): **tidak ada Python di laptop** → test & skrip jalan di image (`docker run … python -m pytest -q -p no:cacheprovider
+  tests`; folder `/srv` milik root → tanpa `-p no:cacheprovider` muncul peringatan cache). Mengubah `converter/app` = build ulang image
+  (lapisan pip ter-cache, ± 1 menit) lalu `up -d --wait`; container dibuat ulang (berkas di `/tmp` container hilang). pypdfium2 5.x:
+  `PdfObject.get_bounds()` (bukan `get_pos`). `/uploads/:id/link` mengembalikan URL relatif terhadap `/api/v1`. Tool Write mengubah
+  `\u00a0` di Python menjadi NBSP literal → pakai `chr(0xA0)`.
+- Token PDF di Gemini ± 560 per halaman berapa pun isinya (dihitung dari gambar halaman) → membandingkan "PDF langsung vs Markdown" harus per
+  provider; Claude/OpenAI menagih teks + gambar per halaman. Router Classai membuang angka token & cache dari `usage` → ukur dengan
+  `AiService.countTokens` (key Gemini langsung). Docling tidak membaca isi gambar/diagram (hanya teks OCR) — dokumen bermakna gambar
+  (soal fisika, grafik) kehilangan informasi di Markdown.
+- Mengubah kode backend saat uji panjang berjalan (uji token, transkrip) me-restart `nest --watch` dan memutus uji (ECONNRESET) → tulis
+  perubahan setelah uji selesai.
 
 ## 16. Memori & Kesinambungan Antar-Chat
 

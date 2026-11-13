@@ -9,6 +9,7 @@ import { AuthModule } from "./auth/auth.module";
 import { validateEnv } from "./config/env.validation";
 import { loggerConfig } from "./config/logger.config";
 import { ExtractionModule } from "./extraction/extraction.module";
+import { ConverterModule } from "./converter/converter.module";
 import { HealthModule } from "./health/health.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { KnowledgeModule } from "./knowledge/knowledge.module";
@@ -48,6 +49,7 @@ import { UsersModule } from "./users/users.module";
     SharingModule,
     RecordsModule,
     ExtractionModule,
+    ConverterModule,
     UploadsModule,
     AiModule,
     TranscribeModule,

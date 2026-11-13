@@ -19,15 +19,20 @@ import type {
 import { createHmac } from "node:crypto";
 import { type McpConnection, Prisma } from "../generated/prisma/client";
 import { AiCrypto } from "../ai/ai-crypto";
+import { fileHostsFor } from "./app-file-logic";
 import { AuthUser } from "../common/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   agentToolDecision,
+  agentToolList,
+  authorizationExtras,
   findPreset,
   type McpAuthType,
   type McpToolSummary,
   MCP_PRESETS,
   normalizeMcpUrl,
+  normalizeScope,
+  oauthErrorMessage,
   summarizeTools,
   toolResultText,
   uniqueSlug,
@@ -49,7 +54,17 @@ export interface McpConnectionInput {
   icon?: string | null;
   agentEnabled?: boolean;
   allowWrite?: boolean;
+  /** OAuth client yang didaftarkan pemilik; string kosong = hapus (kembali ke pendaftaran otomatis) */
+  oauthClientId?: string;
+  oauthClientSecret?: string;
+  /** Scope OAuth (dipisah spasi); string kosong = sesuai daftar server */
+  oauthScope?: string;
+  /** Alat bertanda Hapus yang diizinkan untuk agen (daftar lengkap, menggantikan yang lama) */
+  agentTools?: string[];
 }
+
+/** Client OAuth yang didaftarkan pemilik (bukan hasil pendaftaran klien dinamis). */
+type ManualClient = { client_id: string; client_secret?: string };
 
 /** Ditolak server karena kredensial (OAuth: UnauthorizedError; token: HTTP 401/403 dari transport). */
 const isAuthError = (error: unknown) =>
@@ -73,6 +88,8 @@ class StoredOAuthProvider implements OAuthClientProvider {
     private readonly redirect: string,
     private readonly persist: (data: OAuthData) => Promise<void>,
     private readonly stateValue?: string,
+    private readonly manualClient?: ManualClient,
+    private readonly scope?: string,
   ) {}
 
   get redirectUrl() {
@@ -86,6 +103,7 @@ class StoredOAuthProvider implements OAuthClientProvider {
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
+      ...(this.scope ? { scope: this.scope } : {}),
     };
   }
 
@@ -94,10 +112,11 @@ class StoredOAuthProvider implements OAuthClientProvider {
   }
 
   clientInformation() {
-    return this.data.client;
+    return this.manualClient ?? this.data.client;
   }
 
   async saveClientInformation(client: OAuthClientInformationMixed) {
+    if (this.manualClient) return;
     this.data = { ...this.data, client };
     await this.persist(this.data);
   }
@@ -112,6 +131,7 @@ class StoredOAuthProvider implements OAuthClientProvider {
   }
 
   redirectToAuthorization(url: URL) {
+    for (const [key, value] of Object.entries(authorizationExtras(url))) url.searchParams.set(key, value);
     this.authorizationUrl = url;
   }
 
@@ -158,6 +178,11 @@ export class McpConnectionsService {
     this.appUrl = (config.get<string>("CORS_ORIGIN") ?? "").split(",")[0].trim().replace(/\/$/, "");
   }
 
+  /** Alamat http / host lokal hanya diterima di luar production (dipakai juga untuk usulan agen). */
+  get isProduction() {
+    return this.production;
+  }
+
   presets() {
     return MCP_PRESETS;
   }
@@ -178,11 +203,17 @@ export class McpConnectionsService {
       authType: row.authType as McpAuthType,
       hasToken: !!row.tokenEnc,
       authorized: row.authType === "oauth" ? !!row.oauthEnc && !!this.oauth(row).tokens : undefined,
+      oauthClientId: row.oauthClientId,
+      hasClientSecret: !!row.oauthClientSecretEnc,
+      oauthScope: row.oauthScope,
+      redirectUrl: this.redirectUrl,
       status: row.status,
       statusMessage: row.statusMessage,
       tools: row.tools as unknown as McpToolSummary[],
       agentEnabled: row.agentEnabled,
       allowWrite: row.allowWrite,
+      agentTools: agentToolList(row.agentTools),
+      fileHosts: this.fileHosts(row),
       lastCheckedAt: row.lastCheckedAt,
       createdAt: row.createdAt,
     };
@@ -232,9 +263,29 @@ export class McpConnectionsService {
     const taken = (
       await this.prisma.mcpConnection.findMany({ where: { userId: user.id }, select: { slug: true } })
     ).map((r) => r.slug);
+    // Layanan sekelompok (mis. Google) memakai OAuth client yang sama: diambil dari koneksi lain bila tidak diisi
+    let clientId = input.oauthClientId?.trim() || null;
+    let clientSecretEnc = input.oauthClientSecret?.trim() ? this.crypto.encrypt(input.oauthClientSecret.trim()) : null;
+    if (!clientId && preset?.group) {
+      const sibling = await this.prisma.mcpConnection.findFirst({
+        where: {
+          userId: user.id,
+          preset: { in: MCP_PRESETS.filter((p) => p.group === preset.group).map((p) => p.key) },
+          oauthClientId: { not: null },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+      if (sibling) {
+        clientId = sibling.oauthClientId;
+        clientSecretEnc = sibling.oauthClientSecretEnc;
+      }
+    }
     const row = await this.prisma.mcpConnection.create({
       data: {
         userId: user.id,
+        oauthClientId: authType === "oauth" ? (clientId?.slice(0, 500) ?? null) : null,
+        oauthClientSecretEnc: authType === "oauth" ? clientSecretEnc : null,
+        oauthScope: authType === "oauth" ? normalizeScope(input.oauthScope ?? preset?.scope) : null,
         name: name.slice(0, 80),
         slug: uniqueSlug(name, taken),
         url,
@@ -257,6 +308,7 @@ export class McpConnectionsService {
     if (input.icon !== undefined) data.icon = input.icon || "plug";
     if (input.agentEnabled !== undefined) data.agentEnabled = input.agentEnabled;
     if (input.allowWrite !== undefined) data.allowWrite = input.allowWrite;
+    if (input.agentTools !== undefined) data.agentTools = agentToolList(input.agentTools);
     // Ganti alamat / cara masuk = kredensial lama tidak pernah dikirim ke alamat lain
     const urlChanged = input.url !== undefined && this.validUrl(input.url) !== row.url;
     if (urlChanged) data.url = this.validUrl(input.url!);
@@ -269,6 +321,27 @@ export class McpConnectionsService {
       data.tools = [];
     }
     if (input.token !== undefined) data.tokenEnc = input.token.trim() ? this.crypto.encrypt(input.token.trim()) : null;
+    // Client / scope OAuth berganti = izin lama tidak berlaku lagi (token terikat client & scope), masuk ulang
+    let oauthChanged = false;
+    if (input.oauthClientId !== undefined && (input.oauthClientId.trim() || null) !== row.oauthClientId) {
+      data.oauthClientId = input.oauthClientId.trim().slice(0, 500) || null;
+      if (!data.oauthClientId) data.oauthClientSecretEnc = null;
+      oauthChanged = true;
+    }
+    if (input.oauthClientSecret !== undefined && input.oauthClientSecret.trim()) {
+      data.oauthClientSecretEnc = this.crypto.encrypt(input.oauthClientSecret.trim());
+      oauthChanged = true;
+    }
+    if (input.oauthScope !== undefined && normalizeScope(input.oauthScope) !== row.oauthScope) {
+      data.oauthScope = normalizeScope(input.oauthScope);
+      oauthChanged = true;
+    }
+    if (oauthChanged && !urlChanged && !data.authType) {
+      data.oauthEnc = null;
+      data.oauthState = null;
+      data.status = "auth_required";
+      data.statusMessage = "Pengaturan OAuth berubah. Tekan Sambungkan.";
+    }
     return this.view(await this.prisma.mcpConnection.update({ where: { id: row.id }, data }));
   }
 
@@ -276,6 +349,17 @@ export class McpConnectionsService {
     const row = await this.own(user, id);
     await this.prisma.mcpConnection.delete({ where: { id: row.id } });
     return { success: true };
+  }
+
+  /** Domain tempat aplikasi ini menaruh berkas hasil yang boleh disimpan ke LifeOS (`save_app_file`). */
+  fileHosts(row: Pick<McpConnection, "url" | "preset">) {
+    return fileHostsFor(row.url, findPreset(row.preset)?.fileHosts);
+  }
+
+  private manualClient(row: McpConnection): ManualClient | undefined {
+    if (!row.oauthClientId) return undefined;
+    const secret = row.oauthClientSecretEnc ? this.crypto.decrypt(row.oauthClientSecretEnc) : undefined;
+    return { client_id: row.oauthClientId, ...(secret ? { client_secret: secret } : {}) };
   }
 
   private provider(row: McpConnection, state?: string) {
@@ -289,6 +373,8 @@ export class McpConnectionsService {
         });
       },
       state,
+      this.manualClient(row),
+      row.oauthScope ?? undefined,
     );
   }
 
@@ -389,7 +475,7 @@ export class McpConnectionsService {
     await this.prisma.mcpConnection.update({ where: { id: row.id }, data: { oauthState: state } });
     const provider = this.provider({ ...row, oauthState: state }, state);
     try {
-      const result = await auth(provider, { serverUrl: row.url });
+      const result = await auth(provider, { serverUrl: row.url, scope: row.oauthScope ?? undefined });
       if (result === "AUTHORIZED") {
         const fresh = await this.prisma.mcpConnection.findUniqueOrThrow({ where: { id: row.id } });
         return { connection: this.view(await this.refreshRow(fresh)) };
@@ -398,7 +484,7 @@ export class McpConnectionsService {
       await this.setStatus(row.id, "auth_required", "Menunggu izin di jendela otorisasi.");
       return { authorizationUrl: provider.authorizationUrl.toString() };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = oauthErrorMessage(error instanceof Error ? error.message : String(error));
       await this.setStatus(row.id, "error", `Otorisasi gagal dimulai: ${message}`.slice(0, 500));
       throw new UnprocessableEntityException(`Otorisasi gagal dimulai: ${message}`);
     }
@@ -406,24 +492,28 @@ export class McpConnectionsService {
 
   /** Callback OAuth dari aplikasi luar (dibuka browser pengguna) → alamat halaman koneksi untuk dialihkan. */
   async oauthCallback(code: string | undefined, state: string | undefined, error?: string) {
-    const fallback = `${this.appUrl}/mcp`;
+    const fallback = `${this.appUrl}/mcp/apps`;
     if (!state) return `${fallback}?error=${encodeURIComponent("Callback tanpa state.")}`;
     const row = await this.prisma.mcpConnection.findUnique({ where: { oauthState: state } });
     if (!row) return `${fallback}?error=${encodeURIComponent("Sesi otorisasi tidak dikenal atau sudah dipakai.")}`;
-    const page = `${this.appUrl}/mcp-app/${row.slug}`;
+    const page = `${this.appUrl}/mcp/apps/${row.slug}`;
     if (error || !code) {
       await this.setStatus(row.id, "auth_required", `Izin ditolak: ${error ?? "tanpa kode"}`, { oauthState: null });
       return `${page}?error=${encodeURIComponent(error ?? "Izin tidak diberikan.")}`;
     }
     try {
-      await auth(this.provider(row, state), { serverUrl: row.url, authorizationCode: code });
+      await auth(this.provider(row, state), {
+        serverUrl: row.url,
+        authorizationCode: code,
+        scope: row.oauthScope ?? undefined,
+      });
       const fresh = await this.prisma.mcpConnection.update({ where: { id: row.id }, data: { oauthState: null } });
       const done = await this.refreshRow(fresh);
       return done.status === "connected"
         ? `${page}?connected=1`
         : `${page}?error=${encodeURIComponent(done.statusMessage ?? "")}`;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = oauthErrorMessage(err instanceof Error ? err.message : String(err));
       await this.setStatus(row.id, "error", `Otorisasi gagal: ${message}`.slice(0, 500), { oauthState: null });
       return `${page}?error=${encodeURIComponent(message)}`;
     }
@@ -440,6 +530,7 @@ export class McpConnectionsService {
       tools: (row.tools as unknown as McpToolSummary[]).map((t) => ({
         name: t.name,
         description: t.description,
+        ...(t.destructive ? { destructive: true } : t.readOnly ? {} : { writes: true }),
         allowed: agentToolDecision(row, t).ok,
       })),
     }));

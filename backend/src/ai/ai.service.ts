@@ -39,7 +39,7 @@ import { SaveAiProviderDto, UpdateAiSettingsDto } from "./dto/ai.dto";
 import { AiIndexQueueService } from "./index/ai-index-queue.service";
 import { type AiAttachment, type AiClient, AiProviderError } from "./providers/ai-client";
 import { anthropicClient } from "./providers/anthropic.client";
-import { geminiClient } from "./providers/gemini.client";
+import { geminiClient, geminiCountTokens } from "./providers/gemini.client";
 import { transcribeWithGemini } from "./providers/gemini-transcribe";
 import type { SegmentResult } from "./transcribe/transcript-logic";
 import { openaiClient } from "./providers/openai.client";
@@ -124,6 +124,7 @@ export class AiService {
         chat: taskProvider(routing, "chat", user.aiProvider, configured),
         general: taskProvider(routing, "general", user.aiProvider, configured),
         agent: taskProvider(routing, "agent", user.aiProvider, configured),
+        document: taskProvider(routing, "document", user.aiProvider, configured),
         ocr: ocrCandidates(routing, configured, "pdf", supportsOf(credentials))[0] ?? null,
         embedding: embeddingProvider(routing, configured),
         chatBackup: taskBackup(routing, "chat", user.aiProvider, configured, user.aiFallback, supportsOf(credentials)),
@@ -138,6 +139,14 @@ export class AiService {
         agentBackup: taskBackup(
           routing,
           "agent",
+          user.aiProvider,
+          configured,
+          user.aiFallback,
+          supportsOf(credentials),
+        ),
+        documentBackup: taskBackup(
+          routing,
+          "document",
           user.aiProvider,
           configured,
           user.aiFallback,
@@ -402,6 +411,33 @@ export class AiService {
       }
     }
     return null;
+  }
+
+  /**
+   * Jumlah token masukan menurut tokenizer Gemini (`countTokens`, tanpa menjalankan model & tanpa biaya). Butuh key Gemini
+   * langsung (bukan router). null = tidak ada key Gemini langsung. `file` = berkas mentah (PDF/gambar) seperti dikirim ke AI.
+   */
+  async countTokens(userId: string, prompt: string, file?: { data: Buffer; mimeType: string; name: string }) {
+    const credential = await this.prisma.aiCredential.findFirst({ where: { userId, provider: AiProvider.gemini } });
+    if (!credential || endpointOf(credential)) return null;
+    let apiKey: string;
+    try {
+      apiKey = this.crypto.decrypt(credential.encryptedKey);
+    } catch {
+      return null;
+    }
+    const model = credential.model || AI_PROVIDERS.gemini.defaultModel;
+    const attachments: AiAttachment[] = file
+      ? [
+          {
+            kind: file.mimeType === "application/pdf" ? "pdf" : "image",
+            mimeType: file.mimeType,
+            name: file.name,
+            data: file.data,
+          },
+        ]
+      : [];
+    return { tokens: await geminiCountTokens({ apiKey, model, prompt, attachments }), model };
   }
 
   // ---------------------------------------------------------------- Generate

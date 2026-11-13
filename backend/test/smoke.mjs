@@ -2056,12 +2056,135 @@ try {
     ok("mcp apps unreachable → error status", r.s === 200 && r.d.connection.status === "error", r);
     r = await j("GET", `/mcp-connections/smoke-apl`, null, at);
     ok("mcp apps get by slug", r.s === 200 && r.d.id === appId, r);
+    // Google Workspace & aplikasi tanpa pendaftaran klien dinamis: OAuth client milik pemilik, dipakai bersama sekelompok
+    r = await j("GET", "/mcp-connections/presets", null, at);
+    const gmailPreset = r.d.find((p) => p.key === "gmail");
+    ok(
+      "mcp apps google presets",
+      gmailPreset?.needsClient && gmailPreset.group === "google" && r.d.some((p) => p.key === "google-sheets"),
+      r.d.map((p) => p.key),
+    );
+    r = await j(
+      "POST",
+      "/mcp-connections",
+      {
+        preset: "gmail",
+        authType: "oauth",
+        oauthClientId: "smoke-client.apps.googleusercontent.com",
+        oauthClientSecret: "rahasia-client-smoke",
+      },
+      at,
+    );
+    ok(
+      "mcp apps oauth client stored, secret hidden, default scope",
+      r.s === 201 &&
+        r.d.oauthClientId === "smoke-client.apps.googleusercontent.com" &&
+        r.d.hasClientSecret &&
+        r.d.oauthScope?.includes("gmail.readonly") &&
+        r.d.redirectUrl?.endsWith("/mcp-connections/oauth/callback") &&
+        !JSON.stringify(r.d).includes("rahasia-client-smoke"),
+      r,
+    );
+    const gmailId = r.d.id;
+    r = await j("POST", "/mcp-connections", { preset: "google-docs", authType: "oauth" }, at);
+    ok(
+      "mcp apps google sibling reuses client",
+      r.s === 201 && r.d.oauthClientId === "smoke-client.apps.googleusercontent.com" && r.d.hasClientSecret,
+      r,
+    );
+    const docsId = r.d.id;
+    r = await j("PATCH", `/mcp-connections/${gmailId}`, { oauthScope: "a, b  a" }, at);
+    ok("mcp apps scope change → re-auth", r.s === 200 && r.d.oauthScope === "a b" && r.d.status === "auth_required", r);
+    r = await j("PATCH", `/mcp-connections/${gmailId}`, { oauthClientId: "" }, at);
+    ok("mcp apps clear client", r.s === 200 && r.d.oauthClientId === null && !r.d.hasClientSecret, r);
+    for (const id of [gmailId, docsId]) await j("DELETE", `/mcp-connections/${id}`, null, at);
     const appsPat = (await j("POST", "/integrations/tokens", { name: "Smoke apps", scopes: ["mcp:apps"] }, at)).d;
     r = await mcp(appsPat.token, "tools/call", {
       name: "call_app_tool",
       arguments: { connection: "smoke-apl", tool: "apa_saja", arguments: {} },
     });
     ok("mcp apps agent blocked when not allowed", r.d?.result?.isError === true, r);
+    // Aplikasi MCP = fitur terbuka: agen meminta koneksi / izin baru, berlaku setelah disetujui pemilik
+    const ap = async (name, args = {}) => {
+      const res = await mcp(appsPat.token, "tools/call", { name, arguments: args });
+      const raw = res.d?.result?.content?.[0]?.text ?? "";
+      let out = raw;
+      try {
+        out = JSON.parse(raw);
+      } catch {
+        // pesan galat berupa teks
+      }
+      return { isError: !!res.d?.result?.isError, out };
+    };
+    r = await mcp(appsPat.token, "tools/list");
+    const apTools = (r.d?.result?.tools ?? []).map((t) => t.name);
+    ok(
+      "mcp apps agent tools listed",
+      ["list_app_connections", "request_app_connection", "request_app_access"].every((n) => apTools.includes(n)),
+      apTools,
+    );
+    let ae = await ap("list_app_connections");
+    ok(
+      "mcp apps list connections for agent (no token)",
+      !ae.isError &&
+        ae.out.koneksi?.some((c) => c.connection === "smoke-apl" && c.agentEnabled === false) &&
+        ae.out.katalog?.some((p) => p.preset === "notion") &&
+        !JSON.stringify(ae.out).includes("rahasia-smoke"),
+      ae,
+    );
+    ae = await ap("request_app_access", { connection: "smoke-apl", allowWrite: true, reason: "uji smoke" });
+    ok("mcp apps request access → pending", !ae.isError && ae.out.pending && ae.out.actionId, ae);
+    const accessAction = ae.out.actionId;
+    ae = await ap("request_app_access", { connection: "smoke-apl", agentEnabled: true, reason: "ulang" });
+    ok("mcp apps request access dedup", ae.out.catatan_duplikat && ae.out.actionId === accessAction, ae);
+    r = await j("GET", `/mcp-connections/${appId}`, null, at);
+    ok("mcp apps access not applied before approval", r.d?.agentEnabled === false && r.d?.allowWrite === false, r);
+    r = await j("POST", `/agent/actions/${accessAction}/approve`, null, at);
+    ok("mcp apps approve access", r.s === 200 && r.d.status === "approved", r);
+    r = await j("GET", `/mcp-connections/${appId}`, null, at);
+    ok("mcp apps access applied", r.d?.agentEnabled === true && r.d?.allowWrite === true, r);
+    // Izin per alat bertanda Hapus & simpan berkas hasil aplikasi (domain aplikasi saja, tanpa jaringan lokal)
+    r = await j("PATCH", `/mcp-connections/${appId}`, { agentTools: ["commit", "commit"] }, at);
+    ok("mcp apps agent tools saved unique", r.s === 200 && JSON.stringify(r.d.agentTools) === '["commit"]', r);
+    ae = await ap("request_app_access", { connection: "smoke-apl", allowTools: ["bukan-alat-hapus"], reason: "uji" });
+    ok("mcp apps request unknown destructive tool → error", ae.isError, ae);
+    ae = await ap("save_app_file", { connection: "smoke-apl", url: "https://contoh-lain.example/a.png" });
+    ok("mcp apps save file foreign domain → error", ae.isError && String(ae.out).includes("domain"), ae);
+    ae = await ap("save_app_file", { connection: "smoke-apl", url: "https://localhost/a.png" });
+    ok("mcp apps save file local network → error", ae.isError, ae);
+    await j("PATCH", `/mcp-connections/${appId}`, { agentTools: [] }, at);
+    ae = await ap("request_app_access", { connection: "smoke-apl", agentEnabled: true, reason: "sudah" });
+    ok("mcp apps request access unchanged → error", ae.isError, ae);
+    ae = await ap("request_app_connection", { name: "Dobel", url: "http://localhost:9/mcp", reason: "uji" });
+    ok("mcp apps request existing url → error", ae.isError, ae);
+    ae = await ap("request_app_connection", { preset: "tidak-ada", reason: "uji" });
+    ok("mcp apps request unknown preset → error", ae.isError, ae);
+    const smokeAppUrl = `https://mcp-${Date.now()}.smoke.example/mcp`;
+    const smokeApp = { name: "Smoke Usulan", url: smokeAppUrl, authType: "oauth" };
+    ae = await ap("request_app_connection", { ...smokeApp, reason: "Catatan rapat ke aplikasi" });
+    ok("mcp apps request connection → pending", !ae.isError && ae.out.pending, ae);
+    const connectAction = ae.out.actionId;
+    r = await j("GET", "/mcp-connections", null, at);
+    ok("mcp apps connection not created before approval", !r.d.some((c) => c.url === smokeAppUrl), r);
+    r = await j("POST", `/agent/actions/${connectAction}/reject`, {}, at);
+    ok("mcp apps reject connection", r.s === 200 && r.d.status === "rejected", r);
+    ae = await ap("request_app_connection", { ...smokeApp, reason: "Coba lagi" });
+    r = await j("POST", `/agent/actions/${ae.out.actionId}/approve`, null, at);
+    ok("mcp apps approve connection", r.s === 200 && r.d.status === "approved" && r.d.slug, r);
+    const createdSlug = r.d.slug;
+    r = await j("GET", `/mcp-connections/${createdSlug}`, null, at);
+    ok(
+      "mcp apps approved connection = new, agent off",
+      r.s === 200 &&
+        r.d.status === "new" &&
+        r.d.agentEnabled === false &&
+        r.d.authType === "oauth" &&
+        r.d.url === smokeAppUrl,
+      r,
+    );
+    await j("DELETE", `/mcp-connections/${r.d.id}`, null, at);
+    r = await j("GET", "/mcp-connections", null, at);
+    ok("mcp apps proposed connection cleanup", !r.d.some((c) => c.url === smokeAppUrl), r);
     await j("DELETE", `/integrations/tokens/${appsPat.id}`, null, at);
     r = await j("DELETE", `/mcp-connections/${appId}`, null, at);
     ok("mcp apps delete", r.s === 200, r);
@@ -3372,6 +3495,108 @@ try {
         r = await j("DELETE", `/robot/sessions/${r.d.sessionId}`, null, at);
         ok("robot cancel login session", r.s === 200 && r.d.closed, r);
       }
+    }
+  }
+
+  // ---- Markdown Converter (Tools → Markdown Converter; MarkItDown + Docling)
+  {
+    r = await j("GET", "/converter/preferences", null, at);
+    ok(
+      "converter prefs default",
+      r.s === 200 && r.d.enabled === true && r.d.pdfMode === "auto" && r.d.aiOcrFallback === true,
+      r,
+    );
+    r = await j("PUT", "/converter/preferences", { pdfMode: "ocr" }, at);
+    ok("converter prefs invalid mode 400", r.s === 400, r);
+    r = await j("PUT", "/converter/preferences", { pdfMode: "docling", aiOcrFallback: false }, at);
+    ok(
+      "converter prefs saved",
+      r.s === 200 && r.d.pdfMode === "docling" && r.d.aiOcrFallback === false && r.d.enabled,
+      r,
+    );
+    r = await j("PUT", "/converter/preferences", { aiEnhance: true, aiEnhanceScope: "all" }, at);
+    ok("converter enhance prefs saved", r.s === 200 && r.d.aiEnhance === true && r.d.aiEnhanceScope === "all", r);
+    r = await j("PUT", "/converter/preferences", { aiEnhanceScope: "semua" }, at);
+    ok("converter enhance scope invalid 400", r.s === 400, r);
+    r = await j(
+      "PUT",
+      "/converter/preferences",
+      { pdfMode: "auto", aiOcrFallback: true, aiEnhance: false, aiEnhanceScope: "ocr" },
+      at,
+    );
+    r = await j("GET", "/converter/stats", null, at);
+    ok(
+      "converter stats",
+      r.s === 200 && typeof r.d.byMethod === "object" && typeof r.d.reconvert.legacy === "number",
+      r,
+    );
+    r = await j("POST", "/converter/reconvert", { scope: "semua" }, at);
+    ok("converter reconvert invalid scope 400", r.s === 400, r);
+    r = await j("POST", "/converter/convert", new FormData(), at);
+    ok("converter convert without file 400", r.s === 400 || r.s === 422, r);
+    r = await j("GET", "/converter/status", null, at);
+    ok("converter status", r.s === 200 && typeof r.d.reachable === "boolean", r);
+    if (!r.d?.reachable) {
+      console.log("SKIP converter (service tidak aktif: docker compose --profile converter up -d --wait converter)");
+    } else {
+      const docx = new FormData();
+      docx.append("file", new Blob([await makeDocx("Nota dinas uji konverter LifeOS")]), "nota-uji.docx");
+      r = await j("POST", "/converter/convert", docx, at);
+      ok(
+        "converter convert docx via markitdown",
+        r.s === 200 &&
+          r.d.engine === "markitdown" &&
+          r.d.markdown.includes("Nota dinas uji konverter") &&
+          r.d.tokens > 0,
+        r,
+      );
+      const pdf = new FormData();
+      pdf.append("file", new Blob([makePdf("Laporan uji konverter")], { type: "application/pdf" }), "laporan.pdf");
+      pdf.append("mode", "markitdown");
+      r = await j("POST", "/converter/convert", pdf, at);
+      ok("converter convert pdf", r.s === 200 && r.d.markdown.includes("Laporan uji konverter") && r.d.pages === 1, r);
+      // User smoke tanpa key AI: Rapikan gagal dengan pesan (Markdown converter tetap dikembalikan), token tidak bisa dihitung
+      const pdf2 = new FormData();
+      pdf2.append("file", new Blob([makePdf("Laporan uji rapikan")], { type: "application/pdf" }), "rapikan.pdf");
+      pdf2.append("mode", "markitdown");
+      pdf2.append("enhance", "true");
+      pdf2.append("compareTokens", "true");
+      r = await j("POST", "/converter/convert", pdf2, at);
+      ok(
+        "converter enhance without AI key keeps converter markdown",
+        r.s === 200 &&
+          r.d.markdown.includes("Laporan uji rapikan") &&
+          r.d.enhanced === null &&
+          typeof r.d.enhanceError === "string" &&
+          r.d.tokenComparison?.available === false,
+        r,
+      );
+      const bad = new FormData();
+      bad.append("file", new Blob(["MZ"]), "program.exe");
+      r = await j("POST", "/converter/convert", bad, at);
+      ok("converter rejects unsupported format 422", r.s === 422, r);
+      // Upload → worker ekstraksi memakai converter (metadata.method = markitdown, format markdown)
+      const up = new FormData();
+      up.append("file", new Blob([await makeDocx("Isi berkas konverter ekstraksi")]), "ekstraksi.docx");
+      up.append("context", "resource");
+      r = await j("POST", "/uploads", up, at);
+      const convertedId = r.d?.id;
+      let meta;
+      for (let i = 0; i < 30; i++) {
+        await new Promise((res) => setTimeout(res, 1000));
+        meta = await j("GET", `/uploads/${convertedId}/metadata`, null, at);
+        const st = meta.d?.extraction?.status;
+        if (st && st !== "pending" && st !== "extracting") break;
+      }
+      ok(
+        "extraction uses markdown converter",
+        meta.d?.extraction?.status === "completed" &&
+          meta.d.extraction.metadata?.method === "markitdown" &&
+          meta.d.extraction.metadata?.format === "markdown" &&
+          meta.d.extraction.extractedText.includes("Isi berkas konverter"),
+        meta,
+      );
+      r = await j("DELETE", `/uploads/${convertedId}?discard=1`, null, at);
     }
   }
 

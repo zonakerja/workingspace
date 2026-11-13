@@ -63,6 +63,10 @@ const INSTRUCTIONS = [
   "SIMAN = fitur terbuka: Anda boleh menambah workflow di dalamnya (propose_agent_menu placement siman) dan menjalankan",
   "robot bacanya (siman_*: jaga sesi, baca halaman tanpa klik). Proses tiket & surat keputusan diajarkan pemilik dan dibangun",
   "sebagai skill + workflow SIMAN; robot belum menulis apa pun ke SIMAN.",
+  "Aplikasi MCP = fitur terbuka: Anda boleh menambah workflow di dalamnya (propose_agent_menu placement mcp), memakai alat",
+  "aplikasi yang diizinkan (list_app_tools → call_app_tool), dan meminta koneksi baru (request_app_connection) atau perubahan",
+  "izin agen (request_app_access); keduanya menunggu persetujuan pemilik dan kredensial aplikasi tidak pernah Anda pegang.",
+  "Hasil aplikasi berupa tautan (ekspor desain, gambar) disimpan ke LifeOS dengan save_app_file, lalu laporkan resourceId-nya.",
   "Proses baru dibangun sebagai skill + fitur non-native lewat propose_agent_menu, yang menunggu persetujuan pemilik.",
   "Data kerja (agenda, to-do, project, task, catatan, resource, arsip, …) dibaca dengan list_records/get_record dan ditulis",
   "dengan create_record/update_record sesuai permintaan pengguna; panggil describe_record_types bila ragu nama field.",
@@ -805,7 +809,7 @@ export class LifeosMcpService {
               .enum(MENU_PLACEMENTS)
               .optional()
               .describe(
-                "workflow = tab Workflow di AI Agent (bawaan); connection = menu di Connection & MCP; ekinerja = tab Workflow di menu e-Kinerja; srikandi = tab Workflow di menu SRIKANDI; siman = tab Workflow di menu SIMAN",
+                "workflow = tab Workflow di AI Agent (bawaan); connection = menu di Connection & MCP; ekinerja = tab Workflow di menu e-Kinerja; srikandi = tab Workflow di menu SRIKANDI; siman = tab Workflow di menu SIMAN; mcp = tab Workflow di menu Aplikasi MCP",
               ),
             form: z
               .array(
@@ -1129,6 +1133,149 @@ export class LifeosMcpService {
     }
 
     if (can("mcp:apps")) {
+      server.registerTool(
+        "list_app_connections",
+        {
+          title: "Daftar koneksi Aplikasi MCP",
+          description:
+            "Semua aplikasi MCP milik pemilik (termasuk yang belum tersambung / belum diizinkan untuk agen): slug, status, izin agen, jumlah alat; plus katalog aplikasi yang bisa disambungkan. Pakai sebelum request_app_connection / request_app_access.",
+          inputSchema: {},
+        },
+        run("list_app_connections", async () => {
+          const rows = await this.apps.list(principal.user);
+          return text({
+            koneksi: rows.map((c) => ({
+              connection: c.slug,
+              name: c.name,
+              url: c.url,
+              authType: c.authType,
+              status: c.status,
+              statusMessage: c.statusMessage,
+              agentEnabled: c.agentEnabled,
+              allowWrite: c.allowWrite,
+              agentTools: c.agentTools,
+              fileHosts: c.fileHosts,
+              tools: c.tools.length,
+            })),
+            katalog: this.apps
+              .presets()
+              .map((p) => ({ preset: p.key, name: p.name, description: p.description, authType: p.authType })),
+          });
+        }),
+      );
+
+      server.registerTool(
+        "request_app_connection",
+        {
+          title: "Minta sambungkan aplikasi MCP",
+          description:
+            "Ajukan koneksi aplikasi MCP baru (dari katalog lewat preset, atau alamat https server MCP resmi aplikasi). TIDAK langsung dibuat: menunggu persetujuan pemilik di Approval → Usulan Agen. Setelah disetujui pemilik sendiri yang masuk (OAuth) atau mengisi token — Anda tidak pernah menerima kredensial. Koneksi baru belum diizinkan untuk agen; minta izinnya dengan request_app_access.",
+          inputSchema: {
+            preset: z.string().max(40).optional().describe("Kunci katalog dari list_app_connections (mis. notion)"),
+            name: z.string().max(80).optional().describe("Nama aplikasi (wajib bila tanpa preset)"),
+            url: z.string().max(500).optional().describe("Alamat https server MCP (wajib bila tanpa preset)"),
+            authType: z.enum(["none", "token", "oauth"]).optional().describe("Cara masuk; bawaan dari katalog"),
+            reason: z.string().min(3).max(500).describe("Untuk apa aplikasi ini dipakai, untuk dibaca pemilik"),
+          },
+        },
+        run(
+          "request_app_connection",
+          async ({
+            reason,
+            ...input
+          }: {
+            preset?: string;
+            name?: string;
+            url?: string;
+            authType?: string;
+            reason: string;
+          }) => {
+            const result = await this.actions.requestMcpConnect(principal.user, input, reason);
+            return text({
+              pending: true,
+              actionId: result.actionId,
+              ...(result.duplicate ? { catatan_duplikat: "Permintaan untuk alamat ini sudah menunggu." } : {}),
+              message: "Permintaan menunggu persetujuan pemilik di Approval → Usulan Agen atau Aplikasi MCP.",
+            });
+          },
+        ),
+      );
+
+      server.registerTool(
+        "request_app_access",
+        {
+          title: "Minta ubah izin agen atas aplikasi",
+          description:
+            "Ajukan perubahan izin agen untuk satu koneksi: agentEnabled (agen boleh memakai alat baca aplikasi ini), allowWrite (agen boleh menjalankan alat yang mengubah data), dan/atau allowTools (nama alat bertanda Hapus/destructive yang tetap diperlukan, mis. alat yang menyimpan hasil sunting desain; ikut menyalakan allowWrite). TIDAK langsung berlaku: menunggu persetujuan pemilik.",
+          inputSchema: {
+            connection: z.string().min(1).max(80).describe("Nilai connection dari list_app_connections"),
+            agentEnabled: z.boolean().optional(),
+            allowWrite: z.boolean().optional(),
+            allowTools: z
+              .array(z.string().min(1).max(200))
+              .max(20)
+              .optional()
+              .describe("Nama alat bertanda destructive di list_app_tools yang perlu diizinkan"),
+            reason: z.string().min(3).max(500).describe("Mengapa izin ini diperlukan, untuk dibaca pemilik"),
+          },
+        },
+        run(
+          "request_app_access",
+          async ({
+            connection,
+            agentEnabled,
+            allowWrite,
+            allowTools,
+            reason,
+          }: {
+            connection: string;
+            agentEnabled?: boolean;
+            allowWrite?: boolean;
+            allowTools?: string[];
+            reason: string;
+          }) => {
+            const result = await this.actions.requestMcpAccess(
+              principal.user,
+              connection,
+              { agentEnabled, allowWrite, allowTools },
+              reason,
+            );
+            return text({
+              pending: true,
+              actionId: result.actionId,
+              ...(result.duplicate ? { catatan_duplikat: "Permintaan izin untuk koneksi ini sudah menunggu." } : {}),
+              message: "Permintaan menunggu persetujuan pemilik di Approval → Usulan Agen atau Aplikasi MCP.",
+            });
+          },
+        ),
+      );
+
+      server.registerTool(
+        "save_app_file",
+        {
+          title: "Simpan berkas hasil aplikasi ke LifeOS",
+          description:
+            "Unduh berkas hasil aplikasi tersambung (mis. tautan dari export-design Canva, gambar hasil generate-image) dan simpan sebagai berkas LifeOS + Resource Global bertag 'Hasil Agen'. Hanya tautan https di domain aplikasi itu (fileHosts di list_app_connections), maks. 50 MB; koneksi harus diizinkan untuk agen. Hasil: uploadId (bisa dipakai sebagai lampiran lewat update_record) dan resourceId. Bisa dibatalkan pemilik.",
+          inputSchema: {
+            connection: z.string().min(1).max(80).describe("Nilai connection dari list_app_connections"),
+            url: z.string().min(8).max(4000).describe("Tautan unduh dari hasil alat aplikasi"),
+            name: z.string().max(120).optional().describe("Nama berkas (ekstensi ditambahkan otomatis)"),
+            title: z.string().max(300).optional().describe("Judul Resource"),
+            description: z.string().max(2000).optional().describe("Keterangan singkat isi berkas"),
+          },
+        },
+        run(
+          "save_app_file",
+          async (input: { connection: string; url: string; name?: string; title?: string; description?: string }) => {
+            const saved = await this.actions.saveAppFile(principal.user, input);
+            return text({
+              ...saved,
+              message: "Berkas tersimpan di LifeOS (Productivity → Resources, tag Hasil Agen).",
+            });
+          },
+        ),
+      );
+
       server.registerTool(
         "list_app_tools",
         {

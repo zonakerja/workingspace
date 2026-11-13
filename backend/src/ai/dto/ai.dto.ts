@@ -78,6 +78,18 @@ export class AiRoutingDto {
   @IsEnum(AiProvider, { message: "Provider AI tidak dikenal." })
   agent?: AiProvider | null;
 
+  @ApiPropertyOptional({ enum: AiProvider, nullable: true, description: "Rapikan Markdown hasil Markdown Converter" })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(AiProvider, { message: "Provider AI tidak dikenal." })
+  document?: AiProvider | null;
+
+  @ApiPropertyOptional({ enum: AiProvider, nullable: true, description: "Cadangan pertama rapikan dokumen" })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(AiProvider, { message: "Provider AI tidak dikenal." })
+  documentBackup?: AiProvider | null;
+
   @ApiPropertyOptional({ enum: AiProvider, nullable: true, description: "Baca gambar & PDF hasil scan (OCR)" })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)

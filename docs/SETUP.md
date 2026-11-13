@@ -73,6 +73,7 @@ test) semuanya mengandalkan angka yang sama.
 | ONLYOFFICE Docs (opsional, profile `office`) | **8080** | http://localhost:8080 (`/healthcheck` → `true`) | `docker-compose.yml` |
 | Service robot Playwright (opsional, profile `robot`) | **4100** (hanya 127.0.0.1) | http://localhost:4100/health | `docker-compose.yml` |
 | Agen Hermes (opsional, profile `agent`) | **8642** (hanya 127.0.0.1) | http://localhost:8642/health | `docker-compose.yml` |
+| Markdown Converter (opsional, profile `converter`) | **4200** (hanya 127.0.0.1) | http://localhost:4200/health | `docker-compose.yml` |
 | Prisma Studio (opsional) | 5555 | `npm --prefix backend run prisma:studio` | default Prisma |
 | Vite preview build (opsional) | 4173 | `npm --prefix frontend run preview` | default Vite |
 | Stack produksi uji lokal (opsional) | 80 / 443 | http://localhost | `docker-compose.prod.yml` (Caddy) |
@@ -197,6 +198,7 @@ Setelah ini, cukup ikuti §4 setiap mulai bekerja.
 | Folder baru di `backend/prisma/migrations/` | `npm --prefix backend run prisma:deploy` (lalu `npm --prefix backend run prisma:generate`) |
 | `backend/.env.example` punya variabel baru | Salin variabelnya ke `backend/.env` (backend menolak start bila env wajib kosong, §13) |
 | `robot/` (kode robot) | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile robot up -d --build --wait robot"` |
+| `converter/` (kode converter) | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile converter up -d --build --wait converter"` |
 | `infra/onlyoffice/` | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office up -d --build --wait onlyoffice"` |
 | `infra/hermes/` atau `agents/hermes/skills/` | Jalankan ulang `infra/hermes/up.sh` (§4 langkah 8) |
 
@@ -249,7 +251,17 @@ Lalu buka http://localhost:5173 (login `admin@lifeos.com` / `123`).
    `backend/.env` harus berisi `ROBOT_URL` & `ROBOT_TOKEN` (salin dari `backend/.env.example`, lalu restart backend).
    Cek: http://localhost:4100/health → `{"ok":true,…}`.
 
-8. **Opsional — Agen Hermes** (menu **AI Agent**; ± 300–800 MB RAM; nyalakan setelah backend):
+8. **Opsional — Markdown Converter** (Tools → Markdown Converter; MarkItDown + Docling, ± 1,2 GB RAM saat menyala). Berkas yang
+   diunggah dibaca menjadi Markdown di laptop sendiri sehingga AI tidak memakai token untuk membaca berkas; tanpa converter
+   aplikasi tetap jalan (pembaca bawaan + OCR AI):
+   ```powershell
+   wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile converter up -d --wait converter"
+   ```
+   Pertama kali **membangun image** `lifeos-converter` (± 10–15 menit, unduhan torch CPU + model Docling, ukuran ± 5 GB).
+   `backend/.env` harus berisi `CONVERTER_URL` & `CONVERTER_TOKEN` (salin dari `backend/.env.example`, lalu restart backend).
+   Cek: http://localhost:4200/health → `"ready": true` (± 20 detik setelah menyala, model Docling dimuat).
+
+9. **Opsional — Agen Hermes** (menu **AI Agent**; ± 300–800 MB RAM; nyalakan setelah backend):
    ```powershell
    wsl -e sh /mnt/d/Development/Application/LifeOS/infra/hermes/up.sh
    ```
@@ -274,16 +286,16 @@ Data tetap aman — semua langkah di bawah hanya menghentikan proses, tidak meng
 **Ringkas**: `Ctrl+C` di tab C dan B → jalankan perintah di bawah → `q` di lazydocker (tab A) → opsional `wsl --shutdown`.
 
 ```powershell
-wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office --profile robot --profile agent stop"
+wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office --profile robot --profile agent --profile converter stop"
 ```
 
 1. **Frontend & backend**: tekan `Ctrl+C` di Tab C dan Tab B (jawab `Y` bila ditanya *Terminate batch job*). Bila
    dinyalakan Claude, minta Claude "matikan semua".
 2. **Infrastruktur Docker**:
    ```powershell
-   wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office --profile robot --profile agent stop"
+   wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office --profile robot --profile agent --profile converter stop"
    ```
-   (`--profile office --profile robot --profile agent` ikut menghentikan ONLYOFFICE, robot & Hermes bila menyala; aman walau tidak menyala. Di lazydocker: pilih container → tekan `s` untuk stop.) Gunakan **`stop`**, bukan `down -v` — `-v` menghapus data.
+   (`--profile office --profile robot --profile agent --profile converter` ikut menghentikan ONLYOFFICE, robot, Hermes & Markdown Converter bila menyala; aman walau tidak menyala. Di lazydocker: pilih container → tekan `s` untuk stop.) Gunakan **`stop`**, bukan `down -v` — `-v` menghapus data.
 3. **Tab A**: keluar dari lazydocker (`q`) atau tekan `Ctrl+C` pada `sleep infinity`.
 4. Opsional, membebaskan RAM laptop: `wsl --shutdown`.
 5. Pastikan semua sudah mati dengan §6 (tidak ada port tersisa).

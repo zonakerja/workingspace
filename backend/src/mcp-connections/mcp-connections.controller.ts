@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { IsBoolean, IsIn, IsObject, IsOptional, IsString, MaxLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsObject, IsOptional, IsString, MaxLength } from "class-validator";
 import type { Response } from "express";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
@@ -54,6 +54,35 @@ class McpConnectionDto {
   @IsOptional()
   @IsBoolean()
   allowWrite?: boolean;
+
+  @ApiPropertyOptional({ description: "OAuth client yang didaftarkan sendiri; string kosong = hapus" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  oauthClientId?: string;
+
+  @ApiPropertyOptional({ description: "Client secret (tidak pernah dikembalikan)" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  oauthClientSecret?: string;
+
+  @ApiPropertyOptional({ description: "Scope OAuth dipisah spasi; string kosong = sesuai server" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  oauthScope?: string;
+
+  @ApiPropertyOptional({
+    description: "Alat bertanda Hapus yang diizinkan untuk agen (daftar lengkap)",
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  agentTools?: string[];
 }
 
 class CallToolDto {

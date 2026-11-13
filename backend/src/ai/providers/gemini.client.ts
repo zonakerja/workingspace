@@ -52,3 +52,32 @@ export const geminiClient: AiClient = async ({ apiKey, model, prompt, attachment
     throw new AiProviderError("unavailable", error instanceof Error ? error.message : String(error));
   }
 };
+
+/**
+ * Hitung token masukan tanpa menjalankan model (`countTokens`, tanpa biaya). Dipakai Tools → Markdown Converter untuk
+ * membandingkan biaya membaca berkas mentah (PDF/gambar) dengan membaca Markdown hasil konversi.
+ */
+export async function geminiCountTokens({
+  apiKey,
+  model,
+  prompt,
+  attachments,
+}: Pick<Parameters<AiClient>[0], "apiKey" | "model" | "prompt" | "attachments">): Promise<number> {
+  const client = new GoogleGenAI({ apiKey, httpOptions: { timeout: AI_TIMEOUT_MS } });
+  const parts: Part[] = [{ text: prompt }];
+  for (const attachment of attachments) {
+    parts.push(
+      attachment.kind === "text"
+        ? { text: textAttachmentBlock(attachment) }
+        : { inlineData: { mimeType: attachment.mimeType, data: attachment.data.toString("base64") } },
+    );
+  }
+  try {
+    const response = await client.models.countTokens({ model, contents: [{ role: "user", parts }] });
+    return response.totalTokens ?? 0;
+  } catch (error) {
+    if (error instanceof ApiError)
+      throw new AiProviderError(kindFromStatus(error.status, error.message), error.message);
+    throw new AiProviderError("unavailable", error instanceof Error ? error.message : String(error));
+  }
+}

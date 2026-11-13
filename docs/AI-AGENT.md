@@ -1945,6 +1945,7 @@ memakai dialog yang sama, belum diklik satu per satu.
 | e-Kinerja | **Fitur terbuka sejak 2026-11-12** (§26.1): menambah workflow di dalamnya, menjalankan robot baca (Ambil SKP, Pantau, Periksa), meminta pengisian yang menunggu persetujuan pemilik |
 | SRIKANDI | **Fitur terbuka sejak 2026-11-13** (§26.4): menambah workflow di dalamnya, menyiapkan entri Register, menjalankan robot baca (naskah, referensi, klasifikasi) & Periksa Register, meminta pendaftaran yang menunggu persetujuan pemilik |
 | SIMAN | **Fitur terbuka sejak 2026-11-13** (§26.5): menambah workflow di dalamnya, menjalankan robot baca (Jaga sesi, Baca halaman tanpa klik). Belum ada jalur tulis ke SIMAN |
+| Aplikasi MCP | **Fitur terbuka sejak 2026-11-13** (§26.6): menambah workflow di dalamnya, memakai alat aplikasi yang diizinkan, meminta koneksi aplikasi baru / perubahan izin agen yang menunggu persetujuan pemilik. Kredensial aplikasi tidak pernah dipegang agen |
 | Tools, Pengaturan, Profil | Tidak ada akses |
 
 | Fitur buatan agen (non-native) | Aturan |
@@ -2060,6 +2061,41 @@ Rancangan: `SimanAgentService` (pola `SrikandiAgentService`, satu tugas per user
 **Diuji**: unit backend +6, smoke +7 (user sementara tanpa sesi SIMAN: alat tampil hanya dengan izin, alamat logout ditolak, tugas tanpa
 sesi gagal aman; usulan workflow `placement: siman` = draf, nama "SIMAN" ditolak), UI tab Workflow & Cara Kerja. **Belum**: Hermes
 sungguhan memakai alat SIMAN (izin token agen — TODO-USER A33), login SIMAN sungguhan (A28), alur tiket & SK (A25).
+
+### 26.6 Aplikasi MCP menjadi fitur terbuka untuk agen (2026-11-13)
+
+**Arahan user**: Aplikasi MCP seharusnya fitur custom yang boleh diubah Hermes. Pola sama dengan e-Kinerja/SRIKANDI/SIMAN (§26.1, §26.4,
+§26.5): nama "Aplikasi MCP" kini masuk `NATIVE_FEATURES` (sebelumnya belum, sehingga menu buatan agen bisa memakai nama itu) dan kode
+koneksi (klien MCP, OAuth, enkripsi kredensial) tetap bawaan. Yang bisa "diubah" Hermes = isi fitur, bukan kodenya, dan setiap perubahan
+menunggu pemilik.
+
+| Yang boleh dilakukan Hermes | Cara (izin `mcp:apps`, kecuali workflow) | Batas |
+|---|---|---|
+| Menambah workflow di menu Aplikasi MCP (mis. desain Canva dari catatan rapat) | `propose_agent_menu` `placement: "mcp"` (izin `agent:menus`) | Draf sampai disetujui di Approval → Usulan Agen; tampil di tab **Aplikasi MCP → Workflow** |
+| Melihat semua koneksi + katalog | `list_app_connections` | Slug, status, izin agen, jumlah alat — tanpa token/OAuth |
+| Memakai alat aplikasi | `list_app_tools` → `call_app_tool` | Tidak berubah: hanya koneksi yang diizinkan, alat ubah bila `allowWrite`, alat hapus tidak pernah |
+| Menambah aplikasi | `request_app_connection { preset? | name+url+authType, reason }` | `agent_actions` kind `mcp_connect` (pending, satu per alamat; alamat yang sudah ada ditolak; https publik). Disetujui = koneksi dibuat seperti "Tambah aplikasi" (status baru, izin agen **mati**); masuk OAuth / token tetap diisi pemilik |
+| Mengubah izin agen | `request_app_access { connection, agentEnabled?, allowWrite?, allowTools?, reason }` | kind `mcp_access` (pending, satu per koneksi; hanya nilai yang berbeda; aksi tulis ikut menyalakan izin agen). `allowTools` = alat bertanda Hapus yang diperlukan (mis. `commit-editing-transaction` Canva), ikut menyalakan aksi tulis. Disetujui = sakelar di halaman aplikasi diubah |
+| Menyimpan hasil aplikasi ke LifeOS | `save_app_file { connection, url, name?, title?, description? }` | Tautan https di domain aplikasi itu saja (`fileHosts`), tanpa jaringan lokal, maks. 50 MB → berkas + Resource Global tag **Hasil Agen**; tercatat di Riwayat Aksi dan bisa dibatalkan. Koneksi wajib diizinkan untuk agen |
+
+Menghapus koneksi / mengganti alamat / mengisi token tetap hanya oleh pemilik (aplikasi luar tidak punya Sampah LifeOS). Logika murni + test
+`mcp-connections/mcp-agent-logic.ts`; persetujuan di `AgentActionsService.approveMcpConnect|approveMcpAccess`. Frontend: menu
+`/mcp/:tab` (Aplikasi | Workflow), kartu `McpRequestsCard` di tab Aplikasi dan Approval → Usulan Agen. Callback OAuth yang gagal kini
+kembali ke `/mcp/apps`. Tanpa migrasi (kind `agent_actions` berupa teks).
+
+**Diuji**: unit backend +7, smoke +17 (alat tampil, daftar koneksi tanpa token, minta izin → tidak berlaku sebelum disetujui → disetujui →
+berlaku, permintaan sama ditolak, alamat ganda & katalog tak dikenal ditolak, tolak / setujui koneksi → status baru & izin agen mati), lint,
+typecheck, format, UI. **Belum**: Hermes sungguhan memakai alat baru (izin token agen — TODO-USER A34).
+
+**Lanjutan 2026-11-13 — Canva tanpa membuka Canva**: alat bertanda Hapus kini bisa diizinkan **satu per satu** oleh pemilik (Canva menandai
+`commit-editing-transaction` dan `autofill-design` sebagai merusak walau hanya menyimpan suntingan/mengisi templat), dan `save_app_file` membawa
+hasil ekspor ke LifeOS. Alur yang disarankan untuk skill `desain-canva` (belum dibuat): `search-brand-templates` → `create-design-from-brand-template`
+/ `autofill-design` (atau `create-design` dari brief) → `get-design-thumbnail` untuk memeriksa → `export-design` → `save_app_file` → laporkan
+`resourceId`. Diuji 2026-11-13: tautan ekspor Canva asli (PNG) tersimpan lewat MCP.
+
+**Lanjutan 2026-11-13 — Google Workspace & GitHub**: katalog kini memuat server MCP resmi Google (Gmail, Calendar, Drive, Docs, Sheets, Slides,
+Chat, Kontak, Workspace Search; Developer Preview) dengan OAuth client milik pemilik, sehingga `request_app_connection { preset: "gmail" }` dari agen
+menghasilkan koneksi yang memakai client Google yang sudah ada. Agen tetap tidak pernah melihat Client ID/secret maupun token.
 
 ### 26.2 Renaksi ditarik oleh e-Kinerja, dipetakan Hermes (2026-11-12)
 

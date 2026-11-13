@@ -86,7 +86,7 @@ export function parseWebUrl(raw: string): URL {
 }
 
 /** Lookup DNS yang menolak alamat terlarang — dipakai Node saat membuka koneksi. */
-const safeLookup: LookupFunction = (hostname, options, callback) => {
+export const safeLookup: LookupFunction = (hostname, options, callback) => {
   dnsLookup(hostname, { ...options, all: true }, (error, addresses) => {
     if (error) return callback(error, "", 0);
     const list = addresses as unknown as LookupAddress[];

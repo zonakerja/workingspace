@@ -3,20 +3,25 @@ import type { AssetExtractionInfo } from "@/types/api";
 import { EXTRACT_PROMPT } from "./notes-logic";
 
 const POLL_MS = 1500;
-const TIMEOUT_MS = 120_000;
+// Docling (Markdown Converter) membaca scan per halaman di CPU → beri waktu lebih lama
+const TIMEOUT_MS = 300_000;
 
 /** Format yang bisa dibaca langsung oleh model AI (cadangan bila ekstraksi server tidak menghasilkan teks). */
 export const AI_READABLE = (mime: string) =>
   mime === "application/pdf" || mime.startsWith("image/") || mime.startsWith("text/");
 
-/** Tipe berkas yang diterima input dokumen Notes AI (dibaca server: teks, PDF, DOCX, XLSX; gambar lewat OCR). */
-export const DOCUMENT_ACCEPT = ".pdf,.txt,.md,.csv,.json,.docx,.xlsx,image/*";
+/**
+ * Tipe berkas yang diterima input dokumen Notes AI (dibaca server: teks, PDF, DOCX, XLSX; XLS, PPTX, EPUB, HTML lewat
+ * Markdown Converter; gambar lewat OCR Docling / AI).
+ */
+export const DOCUMENT_ACCEPT = ".pdf,.txt,.md,.csv,.json,.docx,.xlsx,.xls,.pptx,.epub,.html,image/*";
 
 const REASON_MESSAGES: Record<string, string> = {
   too_large: "Berkas lebih dari 20 MB tidak bisa dibaca.",
   unsupported_type: "Format berkas ini tidak bisa dibaca. Gunakan PDF, DOCX, XLSX, teks, atau gambar.",
   needs_gemini_key: "Gambar / PDF hasil scan perlu dibaca AI. Atur AI di Pengaturan → Model AI.",
   empty: "Tidak ada teks yang terbaca dari berkas ini.",
+  ocr_off: "Gambar / PDF scan tidak terbaca dan Cadangan OCR AI dimatikan di Tools → Markdown Converter.",
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,7 +65,7 @@ export async function readFileText({
   if (text) return { text, via: "server" };
 
   const reason = extraction?.metadata?.reason;
-  if (canUseAi && AI_READABLE(file.type) && reason !== "too_large") {
+  if (canUseAi && AI_READABLE(file.type) && reason !== "too_large" && reason !== "ocr_off") {
     return { text: await generate(EXTRACT_PROMPT, [file]), via: "ai" };
   }
   throw new Error(

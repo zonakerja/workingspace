@@ -36,7 +36,8 @@ export const SCOPE_LABELS: Record<ApiScope, string> = {
   "requests:write": "Catat pengajuan baru & jalankan analisis/telaah AI (persetujuan tetap oleh Anda)",
   "ai:model": "Model AI agen lewat LifeOS (memakai provider, API key & kuota Anda — key tidak pernah keluar)",
   "agent:menus": "Usulkan fitur non-native: workflow & koneksi (tampil setelah Anda setujui di Approval)",
-  "mcp:apps": "Pakai alat aplikasi MCP yang Anda izinkan (Canva, Notion, …; kredensial tetap di LifeOS)",
+  "mcp:apps":
+    "Pakai alat aplikasi MCP yang Anda izinkan dan minta koneksi / izin baru (menunggu persetujuan; kredensial tetap di LifeOS)",
   "ekinerja:robot":
     "e-Kinerja: usulkan pemetaan kegiatan ke RHK & narasi renaksi, jalankan robot baca (ambil SKP, pantau, periksa); pengisian hanya setelah Anda setujui",
   "srikandi:robot":

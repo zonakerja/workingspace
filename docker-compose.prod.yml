@@ -102,6 +102,10 @@ services:
       # Konektor robot SRIKANDI & e-Kinerja (opsional, COMPOSE_PROFILES=robot, DEPLOYMENT §13)
       ROBOT_URL: ${ROBOT_TOKEN:+http://robot:4100}
       ROBOT_TOKEN: ${ROBOT_TOKEN:-}
+      # Markdown Converter MarkItDown + Docling (opsional, COMPOSE_PROFILES=converter, DEPLOYMENT §15)
+      CONVERTER_URL: ${CONVERTER_TOKEN:+http://converter:4200}
+      CONVERTER_TOKEN: ${CONVERTER_TOKEN:-}
+      CONVERTER_MAX_MB: ${CONVERTER_MAX_MB:-50}
       # Brankas kredensial SRIKANDI/e-Kinerja (64 hex, terpisah dari AI_ENCRYPTION_KEY; kosong = nonaktif)
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
       # Asisten Agen Hermes (opsional, COMPOSE_PROFILES=agent, DEPLOYMENT §14; docs/AI-AGENT.md §23)
@@ -241,6 +245,24 @@ services:
     shm_size: 512m
     init: true
     deploy: { resources: { limits: { memory: "${ROBOT_MEM_LIMIT:-1024m}" } } }
+    logging: *logging
+
+  converter:
+    # Markdown Converter (Tools → Markdown Converter, docs/ARCHITECTURE.md §3.14): MarkItDown + Docling (OCR Tesseract).
+    # Opsional: COMPOSE_PROFILES=converter. Tanpa port publik & tanpa data; model Docling ada di image (tidak perlu internet).
+    build: ./converter
+    image: lifeos-converter:${APP_VERSION:-latest}
+    restart: unless-stopped
+    profiles: ["converter"]
+    environment:
+      # = CONVERTER_TOKEN backend (openssl rand -hex 32)
+      CONVERTER_TOKEN: ${CONVERTER_TOKEN:-}
+      CONVERTER_MAX_MB: ${CONVERTER_MAX_MB:-50}
+      # Thread CPU Docling per konversi (VPS 2 vCPU = 2)
+      DOCLING_THREADS: ${DOCLING_THREADS:-2}
+      OMP_NUM_THREADS: ${DOCLING_THREADS:-2}
+    init: true
+    deploy: { resources: { limits: { memory: "${CONVERTER_MEM_LIMIT:-2048m}" } } }
     logging: *logging
 
   hermes:

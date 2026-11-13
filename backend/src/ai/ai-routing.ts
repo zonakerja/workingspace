@@ -29,31 +29,34 @@ export function providerCandidates(
 /**
  * Pembagian tugas AI per user (`users.ai_routing`): provider untuk chat (asisten LifeOS & My Notebook), fitur AI umum
  * (ringkasan, Notes AI, ikon, AI di editor dokumen), model agen Hermes (lewat proxy `agent/llm`), OCR (gambar & PDF hasil
- * scan), dan embedding indeks pengetahuan.
+ * scan), rapikan Markdown hasil konversi berkas (Markdown Converter), dan embedding indeks pengetahuan.
  * Kosong = ikuti provider aktif (chat/umum) atau urutan bawaan (OCR, embedding).
  */
-export type AiTask = "chat" | "general" | "agent" | "ocr";
-export const AI_TASKS: readonly AiTask[] = ["chat", "general", "agent", "ocr"];
+export type AiTask = "chat" | "general" | "agent" | "document" | "ocr";
+export const AI_TASKS: readonly AiTask[] = ["chat", "general", "agent", "document", "ocr"];
 
 /** Provider embedding yang didukung (keduanya menghasilkan vektor 768 dimensi, kolom `ai_chunks.embedding`). */
 export type EmbeddingProvider = "gemini" | "openai";
 export const EMBEDDING_PROVIDERS: readonly EmbeddingProvider[] = ["gemini", "openai"];
 
 /** Tugas yang punya provider cadangan pilihan user (`<tugas>Backup`). */
-export type BackupTask = "chat" | "general" | "agent";
-export const BACKUP_TASKS: readonly BackupTask[] = ["chat", "general", "agent"];
+export type BackupTask = "chat" | "general" | "agent" | "document";
+export const BACKUP_TASKS: readonly BackupTask[] = ["chat", "general", "agent", "document"];
 export const backupKey = (task: BackupTask) => `${task}Backup` as const;
 
 export interface AiRouting {
   chat?: AiProvider | null;
   general?: AiProvider | null;
   agent?: AiProvider | null;
+  /** Rapikan Markdown hasil Markdown Converter; kosong = ikuti tugas Umum */
+  document?: AiProvider | null;
   ocr?: AiProvider | null;
   embedding?: EmbeddingProvider | null;
   /** Cadangan pertama bila provider tugas gagal (kuota, sibuk, tak terjangkau); kosong = urutan bawaan */
   chatBackup?: AiProvider | null;
   generalBackup?: AiProvider | null;
   agentBackup?: AiProvider | null;
+  documentBackup?: AiProvider | null;
 }
 
 /** Baca kolom jsonb `ai_routing` dengan aman (nilai asing dibuang). */
@@ -70,7 +73,10 @@ export function parseRouting(value: unknown): AiRouting {
   return routing;
 }
 
-/** Provider utama untuk tugas chat/umum/agen: pilihan tugas bila key-nya ada, selain itu provider aktif. */
+/**
+ * Provider utama untuk tugas chat/umum/agen/dokumen: pilihan tugas bila key-nya ada, selain itu provider aktif.
+ * `document` tanpa pilihan mengikuti tugas Umum (rapikan Markdown = pekerjaan ringan seperti ringkasan).
+ */
 export function taskProvider(
   routing: AiRouting,
   task: Exclude<AiTask, "ocr">,
@@ -78,7 +84,8 @@ export function taskProvider(
   configured: readonly AiProvider[],
 ): AiProvider | null {
   const chosen = routing[task];
-  return chosen && configured.includes(chosen) ? chosen : active;
+  if (chosen && configured.includes(chosen)) return chosen;
+  return task === "document" ? taskProvider(routing, "general", active, configured) : active;
 }
 
 /** Cadangan yang benar-benar dipakai untuk tugas (tanpa lampiran): kandidat kedua; null = tidak ada cadangan. */

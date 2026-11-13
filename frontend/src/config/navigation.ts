@@ -1,4 +1,5 @@
 import {
+  FileCode2,
   Activity,
   Archive,
   ArchiveRestore,
@@ -73,7 +74,6 @@ export type ModuleKey =
   | "siman"
   | "custom"
   | "mcp"
-  | "mcpapp"
   | "tools"
   | "settings"
   | "profile";
@@ -274,14 +274,10 @@ export const MODULES: ModuleDef[] = [
     path: "/mcp",
     icon: Plug,
     sidebarGroup: "connection",
-  },
-  {
-    key: "mcpapp",
-    label: "Aplikasi MCP",
-    description: "Aplikasi luar yang tersambung lewat MCP.",
-    path: "/mcp-app",
-    icon: Plug,
-    hiddenInSidebar: true,
+    tabs: [
+      { id: "apps", label: "Aplikasi", icon: Plug },
+      { id: "workflow", label: "Workflow", icon: Workflow },
+    ],
   },
   {
     key: "custom",
@@ -295,13 +291,14 @@ export const MODULES: ModuleDef[] = [
     key: "tools",
     label: "Tools",
     description:
-      "Alat bantu kerja yang dipakai di seluruh aplikasi: editor dokumen ONLYOFFICE, basis pengetahuan, indeks pengetahuan AI (RAG), dan Sampah.",
+      "Alat bantu kerja yang dipakai di seluruh aplikasi: editor dokumen ONLYOFFICE, Markdown Converter, basis pengetahuan, indeks pengetahuan AI (RAG), dan Sampah.",
     path: "/tools",
     icon: Wrench,
     sidebarSubmenu: true,
     sidebarGroup: "system",
     tabs: [
       { id: "onlyoffice", label: "ONLYOFFICE", icon: FilePen },
+      { id: "converter", label: "Markdown Converter", icon: FileCode2 },
       { id: "knowledge", label: "Basis Pengetahuan", icon: Library },
       { id: "index", label: "Indeks Pengetahuan", icon: DatabaseZap },
       { id: "trash", label: "Sampah", icon: Trash2 },

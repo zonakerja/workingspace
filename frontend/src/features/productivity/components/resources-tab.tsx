@@ -596,23 +596,25 @@ function ResourceForm({
   const handleFile = async (file?: File) => {
     if (!file) return;
     setUploading(true);
+    let uploadedId = "";
     try {
       const asset = await uploadsApi.upload(file, "resource", uploadOwnerId);
       acceptAsset(asset, form.title || asset.originalName);
       lastFileRef.current = file;
+      uploadedId = asset.id;
     } catch (error) {
       toast.error("Upload file gagal", { description: errorMessage(error) });
       setUploading(false);
       return;
     }
     setUploading(false);
-    if (aiSummary) void runSummary(file);
+    if (aiSummary) void runSummary(file, uploadedId);
     else summaryRunRef.current++;
   };
 
-  const runSummary = async (file: File) => {
+  const runSummary = async (file: File, uploadId?: string) => {
     const run = ++summaryRunRef.current;
-    const summary = await summarizer.summarize(file);
+    const summary = await summarizer.summarize(file, uploadId);
     if (summary && run === summaryRunRef.current) patch({ aiSummary: summary });
   };
 
@@ -623,7 +625,7 @@ function ResourceForm({
       summaryRunRef.current++;
       summarizer.setStatus("idle");
     } else if (!form.aiSummary && summarizer.status !== "processing") {
-      if (lastFileRef.current) void runSummary(lastFileRef.current);
+      if (lastFileRef.current) void runSummary(lastFileRef.current, form.uploadId);
       else if (officeSource && form.uploadId) void runSummaryUpload(form.uploadId);
     }
   };

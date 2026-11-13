@@ -18,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useRetained } from "@/hooks/use-retained";
 import { AI_NOT_CONFIGURED, useAi } from "@/lib/ai/use-ai";
 import { errorMessage } from "@/lib/api/client";
+import { uploadsApi } from "@/lib/api/endpoints";
 import { fetchAttachmentBlob } from "./resource-utils";
 
 interface AiSummarizable {
@@ -35,6 +36,16 @@ interface AiSummarizable {
 
 const AI_FILE_TYPES = (mime?: string) =>
   !!mime && (mime === "application/pdf" || mime.startsWith("image/") || mime === "text/plain");
+
+/** Teks hasil baca server untuk berkas tersimpan; kosong bila belum/tidak terbaca. */
+async function storedText(uploadId: string) {
+  try {
+    const { extraction } = await uploadsApi.metadata(uploadId);
+    return extraction?.status === "completed" ? (extraction.extractedText ?? "").trim() : "";
+  } catch {
+    return "";
+  }
+}
 
 interface ResourceAiDialogProps {
   resource: AiSummarizable | null;
@@ -65,11 +76,13 @@ function ResourceAiDialogInner({ resource, open, onOpenChange, onSave }: Resourc
     setMode("preview");
     try {
       const files: Blob[] = [];
-      if (AI_FILE_TYPES(resource.mimeType)) {
+      // Utamakan Markdown hasil baca server (Markdown Converter): AI tidak membayar token untuk membaca berkas mentah
+      const text = resource.uploadId ? await storedText(resource.uploadId) : "";
+      if (!text && AI_FILE_TYPES(resource.mimeType)) {
         const blob = await fetchAttachmentBlob(resource);
         if (blob) files.push(blob);
       }
-      const prompt = `Buat ringkasan komprehensif untuk resource berikut untuk keperluan knowledge-base AI masa depan.\nJudul: ${resource.title || resource.name}\nDeskripsi: ${resource.description || resource.content || "-"}\nTipe Referensi: ${resource.type}\n\nEkstrak informasi utama dan sajikan dalam format Markdown yang rapi. Sertakan poin-poin penting. Gunakan delimiter $$ untuk blok rumus matematika.`;
+      const prompt = `Buat ringkasan komprehensif untuk resource berikut untuk keperluan knowledge-base AI masa depan.\nJudul: ${resource.title || resource.name}\nDeskripsi: ${resource.description || resource.content || "-"}\nTipe Referensi: ${resource.type}\n\nEkstrak informasi utama dan sajikan dalam format Markdown yang rapi. Sertakan poin-poin penting. Gunakan delimiter $$ untuk blok rumus matematika.${text ? `\n\n<dokumen>\n${text.slice(0, 150_000)}\n</dokumen>` : ""}`;
       setSummary(await ai.generate(prompt, files));
     } catch (error) {
       toast.error("Gagal membuat ringkasan", { description: errorMessage(error) });

@@ -236,6 +236,29 @@ class EnvironmentVariables {
   @MinLength(32)
   ROBOT_TOKEN?: string;
 
+  /**
+   * Service Markdown Converter (MarkItDown + Docling, docs/ARCHITECTURE.md §3.14). Kosong = ekstraksi berkas memakai
+   * pembaca bawaan + OCR AI. Dev: http://localhost:4200 (compose profile `converter`); produksi: http://converter:4200.
+   */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: "CONVERTER_URL harus URL http(s)." })
+  CONVERTER_URL?: string;
+
+  /** Token antar-service backend ↔ converter (sama dengan CONVERTER_TOKEN container converter). */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  CONVERTER_TOKEN?: string;
+
+  /** Batas ukuran berkas yang dikirim ke converter (MB; sama atau di bawah CONVERTER_MAX_MB container). */
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  CONVERTER_MAX_MB = 50;
+
   /** API server Hermes (Asisten Agen, docs/AI-AGENT.md §23), mis. http://localhost:8642 (dev) / http://hermes:8642. */
   @Transform(emptyToUndefined)
   @IsOptional()

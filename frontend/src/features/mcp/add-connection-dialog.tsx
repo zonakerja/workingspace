@@ -13,10 +13,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMcpConnectionMutations } from "@/data/use-mcp-connections";
+import { useMcpConnectionMutations, useMcpConnections, useMcpPresets } from "@/data/use-mcp-connections";
 import { errorMessage } from "@/lib/api/client";
 import type { McpAuthType, McpConnectionInfo, McpPreset } from "@/types/api";
-import { AUTH_LABEL } from "./mcp-utils";
+import { AUTH_LABEL, sharedClientSource } from "./mcp-utils";
+import { OAuthClientFields, type OAuthClientValue, oauthRedirectUrl } from "./oauth-client-fields";
 
 /**
  * Tambah koneksi: dari katalog (nama/alamat/cara masuk terisi, tetap bisa diubah) atau alamat sendiri. Setelah dibuat,
@@ -35,7 +36,7 @@ export function AddConnectionDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid-cols-1 sm:max-w-lg">
+      <DialogContent className="max-h-[92svh] grid-cols-1 overflow-y-auto sm:max-w-lg">
         {open && <AddConnectionForm key={preset?.key ?? "custom"} preset={preset} onCreated={onCreated} />}
       </DialogContent>
     </Dialog>
@@ -54,12 +55,36 @@ function AddConnectionForm({
   const [url, setUrl] = useState(preset?.url ?? "");
   const [authType, setAuthType] = useState<McpAuthType>(preset?.authType ?? "oauth");
   const [token, setToken] = useState("");
+  const { data: connections } = useMcpConnections();
+  const { data: presets } = useMcpPresets();
+  const [client, setClient] = useState<OAuthClientValue>({
+    clientId: "",
+    clientSecret: "",
+    scope: preset?.scope ?? "",
+  });
+  // Layanan sekelompok (Google) yang sudah punya client: backend memakainya bila Client ID dikosongkan
+  const shared = sharedClientSource(preset, connections ?? [], presets ?? []);
+  const needsClient = authType === "oauth" && !!preset?.needsClient && !shared && !client.clientId.trim();
 
   const submit = () => {
     // Jendela izin OAuth dibuka saat tombol diklik (setelah permintaan selesai browser akan memblokirnya)
     const popup = authType === "oauth" ? window.open("about:blank", "_blank") : null;
     m.create.mutate(
-      { name, url, authType, preset: preset?.key, ...(authType === "token" ? { token } : {}) },
+      {
+        name,
+        url,
+        authType,
+        preset: preset?.key,
+        ...(authType === "token" ? { token } : {}),
+        ...(authType === "oauth"
+          ? {
+              oauthScope: client.scope,
+              ...(client.clientId.trim()
+                ? { oauthClientId: client.clientId, oauthClientSecret: client.clientSecret }
+                : {}),
+            }
+          : {}),
+      },
       {
         onSuccess: (connection) => onCreated(connection, popup),
         onError: (e) => {
@@ -128,13 +153,40 @@ function AddConnectionForm({
           </div>
         )}
         {authType === "oauth" && (
-          <p className="rounded-lg bg-muted/60 p-2 text-xs text-muted-foreground">
-            Setelah disimpan, jendela izin aplikasi terbuka. Masuk dan setujui akses, lalu kembali ke tab ini.
-          </p>
+          <>
+            {preset?.needsClient ? (
+              <OAuthClientFields
+                value={client}
+                onChange={setClient}
+                redirectUrl={oauthRedirectUrl(connections?.[0]?.redirectUrl)}
+                required
+                sharedNote={
+                  shared ? `Kosongkan Client ID untuk memakai OAuth client yang sama dengan ${shared}.` : null
+                }
+              />
+            ) : (
+              <details className="rounded-lg border p-2 text-xs">
+                <summary className="cursor-pointer text-muted-foreground">
+                  Pengaturan OAuth lanjutan (Client ID sendiri, scope)
+                </summary>
+                <div className="mt-2">
+                  <OAuthClientFields
+                    value={client}
+                    onChange={setClient}
+                    redirectUrl={oauthRedirectUrl(connections?.[0]?.redirectUrl)}
+                  />
+                </div>
+              </details>
+            )}
+            <p className="rounded-lg bg-muted/60 p-2 text-xs text-muted-foreground">
+              Setelah disimpan, jendela izin aplikasi terbuka. Masuk dan setujui akses, lalu kembali ke tab ini.
+            </p>
+          </>
         )}
       </div>
       <DialogFooter>
-        <Button onClick={submit} disabled={m.create.isPending || !name.trim() || !url.trim()}>
+        {needsClient && <span className="mr-auto self-center text-xs text-warning">Isi Client ID & Secret dulu.</span>}
+        <Button onClick={submit} disabled={m.create.isPending || !name.trim() || !url.trim() || needsClient}>
           {m.create.isPending && <Loader2 className="animate-spin" />} Simpan & sambungkan
         </Button>
       </DialogFooter>

@@ -1,10 +1,9 @@
-import { Bot, KeyRound, Play, Plug, RefreshCw, Trash2, Wrench } from "lucide-react";
+import { ArrowLeft, Bot, KeyRound, Play, Plug, RefreshCw, Settings2, Trash2, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { SectionCard } from "@/components/common/section-card";
-import { ModulePage } from "@/components/layout/module-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,13 +33,23 @@ import {
   STATUS_TONE,
   TOOL_KIND_LABEL,
   TOOL_KIND_TONE,
+  toggleAgentTool,
   toolKind,
 } from "./mcp-utils";
+import { OAuthClientFields, type OAuthClientValue } from "./oauth-client-fields";
 import { useConnectApp } from "./use-connect-app";
 
-/** Connection & MCP → satu aplikasi tersambung (`/mcp-app/:slug`): status, sambungkan, izin agen, daftar alat. */
+/** Alamat lama `/mcp-app/:slug` (tautan tersimpan, kembalian OAuth lama) → `/mcp/apps/:slug`. */
 export function Component() {
   const { slug } = useParams();
+  return <Navigate to={`/mcp/apps/${slug ?? ""}${window.location.search}`} replace />;
+}
+
+/**
+ * Aplikasi MCP → satu aplikasi (`/mcp/apps/:slug`, dipasang di `mcp-page.tsx`): status, sambungkan, pengaturan OAuth,
+ * izin agen, daftar alat. Dulu halaman sendiri dengan menu di sidebar (keputusan user 2026-11-13: cukup di dalam menu Aplikasi MCP).
+ */
+export function McpAppView({ slug }: { slug: string }) {
   const { data, isLoading } = useMcpConnections();
   const connection = data?.find((c) => c.slug === slug);
   const setParams = useSetSearchParams();
@@ -56,30 +65,35 @@ export function Component() {
   }, [connected, error, setParams]);
 
   return (
-    <ModulePage module="mcpapp" title={connection?.name} description={connection?.url}>
-      {() =>
-        isLoading ? (
-          <Spinner className="m-6" />
-        ) : connection ? (
-          <AppDetail connection={connection} />
-        ) : (
-          <Empty className="rounded-2xl border bg-card">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Plug />
-              </EmptyMedia>
-              <EmptyTitle>Aplikasi tidak ditemukan</EmptyTitle>
-              <EmptyDescription>Koneksi ini sudah dihapus atau belum dibuat.</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button asChild>
-                <Link to="/mcp">Buka Aplikasi MCP</Link>
-              </Button>
-            </EmptyContent>
-          </Empty>
-        )
-      }
-    </ModulePage>
+    <div className="grid grid-cols-1 gap-3">
+      <div>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/mcp/apps">
+            <ArrowLeft /> Semua aplikasi
+          </Link>
+        </Button>
+      </div>
+      {isLoading ? (
+        <Spinner className="m-6" />
+      ) : connection ? (
+        <AppDetail connection={connection} />
+      ) : (
+        <Empty className="rounded-2xl border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Plug />
+            </EmptyMedia>
+            <EmptyTitle>Aplikasi tidak ditemukan</EmptyTitle>
+            <EmptyDescription>Koneksi ini sudah dihapus atau belum dibuat.</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button asChild>
+              <Link to="/mcp/apps">Buka Aplikasi MCP</Link>
+            </Button>
+          </EmptyContent>
+        </Empty>
+      )}
+    </div>
   );
 }
 
@@ -89,10 +103,11 @@ function AppDetail({ connection }: { connection: McpConnectionInfo }) {
   const navigate = useNavigate();
   const [removing, setRemoving] = useState(false);
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [oauthOpen, setOauthOpen] = useState(false);
   const [trying, setTrying] = useState<McpToolSummary | null>(null);
   const waiting = connect.waitingFor === connection.id;
 
-  const patch = (input: { agentEnabled?: boolean; allowWrite?: boolean }) =>
+  const patch = (input: { agentEnabled?: boolean; allowWrite?: boolean; agentTools?: string[] }) =>
     m.update.mutate({ id: connection.id, input }, { onError: (e) => toast.error(errorMessage(e)) });
   const refresh = () =>
     m.refresh.mutate(connection.id, {
@@ -115,6 +130,9 @@ function AppDetail({ connection }: { connection: McpConnectionInfo }) {
         {connection.statusMessage && (
           <p className="text-sm break-words text-muted-foreground">{connection.statusMessage}</p>
         )}
+        {connection.authType === "oauth" && connection.oauthClientId && (
+          <p className="text-xs break-all text-muted-foreground">OAuth client: {connection.oauthClientId}</p>
+        )}
         {connection.lastCheckedAt && (
           <p className="text-xs text-muted-foreground">Terakhir dicek {formatDateTime(connection.lastCheckedAt)}</p>
         )}
@@ -129,6 +147,11 @@ function AppDetail({ connection }: { connection: McpConnectionInfo }) {
           {connection.authType === "token" && (
             <Button variant="outline" onClick={() => setTokenOpen(true)}>
               <KeyRound /> {connection.hasToken ? "Ganti token" : "Isi token"}
+            </Button>
+          )}
+          {connection.authType === "oauth" && (
+            <Button variant="outline" onClick={() => setOauthOpen(true)}>
+              <Settings2 /> Pengaturan OAuth
             </Button>
           )}
           <Button variant="ghost" className="text-destructive" onClick={() => setRemoving(true)}>
@@ -159,7 +182,8 @@ function AppDetail({ connection }: { connection: McpConnectionInfo }) {
           <span className="text-sm">
             <span className="font-medium">Izinkan aksi yang mengubah data</span>
             <span className="block text-xs text-muted-foreground">
-              Alat bertanda Ubah (mis. membuat desain). Alat bertanda Hapus tidak pernah dijalankan agen.
+              Alat bertanda Ubah (mis. membuat desain). Alat bertanda Hapus hanya bila Anda izinkan satu per satu di
+              daftar alat di bawah.
             </span>
           </span>
           <Switch
@@ -208,12 +232,36 @@ function AppDetail({ connection }: { connection: McpConnectionInfo }) {
                   {tool.description && (
                     <p className="mt-1 text-xs break-words text-muted-foreground">{tool.description}</p>
                   )}
+                  {kind === "delete" && connection.agentEnabled && (
+                    <label className="mt-2 flex items-start justify-between gap-3 rounded-lg bg-muted/50 p-2">
+                      <span className="text-xs">
+                        <span className="font-medium">Izinkan agen menjalankan alat ini</span>
+                        <span className="block text-muted-foreground">
+                          Penyedia menandainya bisa menghapus/menimpa data. Izinkan hanya bila alat ini memang perlu
+                          untuk kerja agen (mis. menyimpan hasil sunting desain); butuh izin aksi tulis.
+                        </span>
+                      </span>
+                      <Switch
+                        checked={connection.agentTools.includes(tool.name)}
+                        disabled={!connection.allowWrite || m.update.isPending}
+                        onCheckedChange={(on) =>
+                          patch({ agentTools: toggleAgentTool(connection.agentTools, tool.name, on) })
+                        }
+                      />
+                    </label>
+                  )}
                 </li>
               );
             })}
           </ul>
         )}
       </SectionCard>
+
+      <Dialog open={oauthOpen} onOpenChange={setOauthOpen}>
+        <DialogContent className="max-h-[92svh] grid-cols-1 overflow-y-auto sm:max-w-lg">
+          {oauthOpen && <OAuthSettingsForm connection={connection} onDone={() => setOauthOpen(false)} />}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={removing}
@@ -226,7 +274,7 @@ function AppDetail({ connection }: { connection: McpConnectionInfo }) {
           m.remove.mutate(connection.id, {
             onSuccess: () => {
               toast.success("Koneksi dihapus.");
-              void navigate("/mcp");
+              void navigate("/mcp/apps");
             },
             onError: (e) => toast.error(errorMessage(e)),
           })
@@ -345,6 +393,59 @@ function TryToolForm({ connection, tool }: { connection: McpConnectionInfo; tool
       <DialogFooter>
         <Button onClick={run} disabled={m.call.isPending}>
           {m.call.isPending ? <Spinner /> : <Play />} Jalankan
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+/** Ubah OAuth client / scope. Berubah = izin lama dibuang dan aplikasi perlu disambungkan ulang. */
+function OAuthSettingsForm({ connection, onDone }: { connection: McpConnectionInfo; onDone: () => void }) {
+  const m = useMcpConnectionMutations();
+  const [value, setValue] = useState<OAuthClientValue>({
+    clientId: connection.oauthClientId ?? "",
+    clientSecret: "",
+    scope: connection.oauthScope ?? "",
+  });
+  const save = () =>
+    m.update.mutate(
+      {
+        id: connection.id,
+        input: {
+          oauthClientId: value.clientId,
+          oauthScope: value.scope,
+          ...(value.clientSecret.trim() ? { oauthClientSecret: value.clientSecret } : {}),
+        },
+      },
+      {
+        onSuccess: (c) => {
+          toast.success(c.status === "auth_required" ? "Tersimpan. Tekan Sambungkan untuk masuk ulang." : "Tersimpan.");
+          onDone();
+        },
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    );
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Pengaturan OAuth {connection.name}</DialogTitle>
+        <DialogDescription>
+          Untuk aplikasi yang tidak mendukung pendaftaran otomatis (Google, GitHub OAuth App) isi Client ID & Secret
+          dari OAuth client milik Anda. Mengubahnya membuang izin lama; sambungkan ulang setelah menyimpan.
+        </DialogDescription>
+      </DialogHeader>
+      <OAuthClientFields
+        value={value}
+        onChange={setValue}
+        redirectUrl={connection.redirectUrl}
+        hasSecret={connection.hasClientSecret}
+      />
+      <DialogFooter>
+        <Button variant="outline" onClick={onDone}>
+          Batal
+        </Button>
+        <Button onClick={save} disabled={m.update.isPending}>
+          {m.update.isPending && <Spinner />} Simpan
         </Button>
       </DialogFooter>
     </>

@@ -306,8 +306,7 @@
   --module: var(--mod-siman);
   --module-2: var(--mod-siman-2);
 }
-[data-module="mcp"],
-[data-module="mcpapp"] {
+[data-module="mcp"] {
   --module: var(--mod-mcp);
   --module-2: var(--mod-mcp-2);
 }

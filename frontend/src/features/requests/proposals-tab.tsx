@@ -12,6 +12,7 @@ import { errorMessage } from "@/lib/api/client";
 import type { AgentMenu } from "@/lib/api/endpoints";
 import { getAppIcon } from "@/lib/icons/icon-registry";
 import { EkinerjaFillRequestsCard } from "@/features/kinerja/fill-requests-card";
+import { McpRequestsCard } from "@/features/mcp/mcp-requests-card";
 import { SrikandiRegisterRequestsCard } from "@/features/srikandi/register-requests-card";
 import { DeleteRequestsCard } from "./delete-requests-card";
 
@@ -21,6 +22,7 @@ const PLACEMENT_LABELS: Record<AgentMenu["placement"], string> = {
   ekinerja: "e-Kinerja → Workflow",
   srikandi: "SRIKANDI → Workflow",
   siman: "SIMAN → Workflow",
+  mcp: "Aplikasi MCP → Workflow",
 };
 
 /**
@@ -47,6 +49,7 @@ export function ProposalsTab() {
         <DeleteRequestsCard />
         <EkinerjaFillRequestsCard />
         <SrikandiRegisterRequestsCard />
+        <McpRequestsCard />
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Usulan fitur agen hanya untuk pemilik agen (HERMES_OWNER_EMAIL).
         </Card>
@@ -61,6 +64,7 @@ export function ProposalsTab() {
       <DeleteRequestsCard />
       <EkinerjaFillRequestsCard />
       <SrikandiRegisterRequestsCard />
+      <McpRequestsCard />
       <Card className="flex items-start gap-3 p-4">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-module-soft text-module">
           <ShieldCheck className="size-5" />
@@ -70,8 +74,9 @@ export function ProposalsTab() {
             Agen hanya bisa membuat fitur non-native, dan semuanya menunggu persetujuan Anda
           </p>
           <p className="mt-1 text-muted-foreground">
-            Workspace, Sistem, Tools, serta e-Kinerja, SRIKANDI, dan SIMAN adalah fitur native yang tidak bisa diubah
-            agen. Periksa langkah kerja dan isian modalnya sebelum menyetujui.
+            Workspace, Sistem, dan Tools adalah fitur native yang tidak bisa diubah agen. e-Kinerja, SRIKANDI, SIMAN,
+            dan Aplikasi MCP terbuka: agen boleh menambah workflow di dalamnya. Periksa langkah kerja dan isian modalnya
+            sebelum menyetujui.
           </p>
         </div>
       </Card>
@@ -110,7 +115,9 @@ export function ProposalsTab() {
                           ? "/srikandi/workflow"
                           : menu.placement === "siman"
                             ? "/siman/workflow"
-                            : "/agent/workflow"
+                            : menu.placement === "mcp"
+                              ? "/mcp/workflow"
+                              : "/agent/workflow"
                   }
                 >
                   Buka
