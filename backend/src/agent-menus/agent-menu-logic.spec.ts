@@ -57,7 +57,13 @@ describe("agent-menu-logic", () => {
     expect(normalizeMenuProposal({ ...proposal, placement: "srikandi" })).toMatchObject({ placement: "srikandi" });
     expect(EXTENSIBLE_FEATURES.SRIKANDI).toBe("srikandi");
     expect(normalizeMenuProposal({ ...proposal, label: "Srikandi" })).toHaveProperty("error");
-    expect(normalizeMenuProposal({ ...proposal, placement: "siman" })).toHaveProperty("error");
+    expect(normalizeMenuProposal({ ...proposal, placement: "tools" })).toHaveProperty("error");
+  });
+
+  it("SIMAN fitur terbuka: workflow boleh ditempatkan di dalamnya, namanya tetap dikunci", () => {
+    expect(normalizeMenuProposal({ ...proposal, placement: "siman" })).toMatchObject({ placement: "siman" });
+    expect(EXTENSIBLE_FEATURES.SIMAN).toBe("siman");
+    expect(normalizeMenuProposal({ ...proposal, label: "siman" })).toHaveProperty("error");
   });
 
   it("normalizeMenuProposal: menolak isian tidak sah dengan pesan yang bisa diperbaiki agen", () => {

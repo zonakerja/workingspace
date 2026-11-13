@@ -20,6 +20,7 @@ export const AGENT_READONLY_TYPES = new Set<string>([
   "archive_move_log",
   "action_plan_month",
   "srikandi_letter",
+  "srikandi_inbox",
   "srikandi_reference",
   "skp",
   "skp_target",

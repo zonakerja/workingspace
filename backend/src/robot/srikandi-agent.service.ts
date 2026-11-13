@@ -8,6 +8,7 @@ import {
   summarizeCheck,
   summarizeTask,
 } from "./srikandi-agent-logic";
+import { RecordsService } from "../records/records.service";
 import { RobotService } from "./robot.service";
 
 interface AgentTask {
@@ -38,7 +39,10 @@ export class SrikandiAgentService {
   private readonly logger = new Logger(SrikandiAgentService.name);
   private readonly tasks = new Map<string, AgentTask[]>();
 
-  constructor(private readonly robot: RobotService) {}
+  constructor(
+    private readonly robot: RobotService,
+    private readonly records: RecordsService,
+  ) {}
 
   start(user: AuthUser, task: SrikandiAgentTask, entryId?: string) {
     if (task === "check" && !isEntryId(entryId)) throw new BadRequestException("ID entri Register wajib diisi.");
@@ -70,11 +74,14 @@ export class SrikandiAgentService {
     try {
       let result: unknown;
       if (item.task === "letters") result = await this.robot.syncSrikandiLetters(user, "agent");
+      else if (item.task === "inbox") result = await this.robot.syncSrikandiInbox(user, "agent");
       else if (item.task === "references") result = await this.robot.syncSrikandiReferences(user, undefined, "agent");
       else if (item.task === "classifications")
         result = await this.robot.syncSrikandiReferences(user, ["classification"], "agent");
       else {
-        const check = await this.robot.registerSrikandiOutgoing(user, item.target, true);
+        const check = (await this.isRegistered(user, item.target))
+          ? await this.robot.updateSrikandiOutgoing(user, item.target, true)
+          : await this.robot.registerSrikandiOutgoing(user, item.target, true);
         result = check;
         item.result = summarizeCheck(check);
       }
@@ -87,6 +94,11 @@ export class SrikandiAgentService {
     } finally {
       item.finishedAt = new Date().toISOString();
     }
+  }
+
+  private async isRegistered(user: AuthUser, entryId: string) {
+    const record = await this.records.findOne("srikandi_outgoing", entryId, {}, user);
+    return (record.payload as { status?: string }).status === "submitted";
   }
 
   /** Status sesi konektor + tugas agen terakhir (terbaru dulu). */

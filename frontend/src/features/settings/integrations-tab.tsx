@@ -40,6 +40,7 @@ const SCOPE_SHORT: Record<ApiScope, string> = {
   "mcp:apps": "Aplikasi MCP",
   "ekinerja:robot": "e-Kinerja",
   "srikandi:robot": "SRIKANDI",
+  "siman:robot": "SIMAN",
 };
 
 /**

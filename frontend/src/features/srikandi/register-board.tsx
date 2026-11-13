@@ -8,6 +8,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
+  RefreshCw,
   ScanSearch,
   Send,
   Trash2,
@@ -33,7 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useSrikandiLetters, useSrikandiOutgoings } from "@/data/collections";
+import { useSrikandiInbox, useSrikandiLetters, useSrikandiOutgoings } from "@/data/collections";
 import { queryKeys } from "@/data/query-keys";
 import { useRequests } from "@/data/use-requests";
 import { RunDialog } from "@/features/tools/robot/robot-settings";
@@ -45,9 +46,11 @@ import { officeApi, robotApi, uploadsApi } from "@/lib/api/endpoints";
 import { formatShortDate, parseLocalYMD } from "@/lib/dates";
 import { generateId } from "@/lib/ids";
 import type { SrikandiLetter, SrikandiOutgoing } from "@/types/entities";
+import { replyDraft } from "./inbox-logic";
 import { RegisterDialog } from "./register-dialog";
 import {
   canLinkAsDraft,
+  changedSinceRegister,
   emptyOutgoing,
   finalLetterCandidates,
   FORM_TYPE_LABELS,
@@ -99,11 +102,14 @@ export function RegisterBoard() {
   const [editId, setEditId] = useSearchParam("register");
   const [requestParam] = useSearchParam("request");
   const [docParam] = useSearchParam("doc");
+  const [replyParam] = useSearchParam("reply");
+  const { items: inbox } = useSrikandiInbox();
   const setParams = useSetSearchParams();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [deleting, setDeleting] = useState<SrikandiOutgoing | null>(null);
   const [registering, setRegistering] = useState<SrikandiOutgoing | null>(null);
+  const [updating, setUpdating] = useState<SrikandiOutgoing | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const client = useQueryClient();
@@ -123,6 +129,7 @@ export function RegisterBoard() {
   const editing = isNew ? null : (items.find((e) => e.id === editId) ?? null);
   const request = requestParam ? requests?.find((r) => r.id === requestParam) : undefined;
   const doc = request?.documents.find((d) => d.uploadId === docParam);
+  const replyTo = replyParam ? inbox.find((i) => i.id === replyParam) : undefined;
   // Objek stabil per (entri baru, dokumen asal) — useLatchedWhileOpen membutuhkan nilai yang tidak berganti tiap render
   const initialNew = useMemo<SrikandiOutgoing | null>(
     () =>
@@ -140,16 +147,17 @@ export function RegisterBoard() {
                   sourceTitle: request.title,
                 }
               : {}),
+            ...(replyTo ? replyDraft(replyTo) : {}),
           }
         : null,
-    [isNew, newId, request, doc],
+    [isNew, newId, request, doc, replyTo],
   );
   // Tunggu daftar pengajuan dimuat agar isian awal dari Approval tidak terlewat
   const waitingRequest = isNew && !!requestParam && !requests;
   const dialogEntry = useLatchedWhileOpen(!!editId, isNew ? initialNew : editing);
 
   const closeDialog = () => {
-    setParams({ register: null, request: null, doc: null });
+    setParams({ register: null, request: null, doc: null, reply: null });
     setNewId(generateId("reg"));
   };
 
@@ -179,6 +187,43 @@ export function RegisterBoard() {
             action: { label: "Lihat", onClick: () => setRunId(r.runId) },
           },
         );
+      }
+    } catch (error) {
+      toast.error(errorMessage(error), { id: pending });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Robot membuka Edit konsep di Log Naskah Keluar dan hanya mengubah isian yang berbeda; dryRun = rencana tanpa klik
+  const runUpdate = async (entry: SrikandiOutgoing, dryRun: boolean) => {
+    setBusy(entry.id);
+    const pending = toast.loading(
+      dryRun ? "Robot membaca konsep di SRIKANDI…" : "Robot memperbarui konsep di SRIKANDI…",
+    );
+    try {
+      const r = await robotApi.updateOutgoing(entry.id, dryRun);
+      await client.invalidateQueries({ queryKey: queryKeys.records("srikandi_outgoing") });
+      const steps = r.plan.length ? r.plan.join(" · ") : "";
+      const notes = [steps, ...r.warnings].filter(Boolean).join(" · ");
+      if (r.status === "unchanged") {
+        toast.success("Konsep di SRIKANDI sudah sama dengan entri ini.", { id: pending });
+      } else if (r.status === "preview") {
+        toast.success(`${r.plan.length} perubahan akan dilakukan — belum disimpan.`, {
+          id: pending,
+          description: notes,
+          duration: 12_000,
+          action: { label: "Lihat", onClick: () => setRunId(r.runId) },
+        });
+      } else {
+        toast.success("Konsep diperbarui di SRIKANDI (belum dikirim).", {
+          id: pending,
+          description: [notes, r.remaining.length ? `Belum sama: ${r.remaining.join(" · ")}` : ""]
+            .filter(Boolean)
+            .join(" · "),
+          duration: 12_000,
+          action: { label: "Lihat", onClick: () => setRunId(r.runId) },
+        });
       }
     } catch (error) {
       toast.error(errorMessage(error), { id: pending });
@@ -294,6 +339,9 @@ export function RegisterBoard() {
                       <Badge variant="secondary">{entry.attachments.length} lampiran</Badge>
                     )}
                     {entry.signer && <Badge variant="secondary">TTD: {entry.signer.label.split(" - ")[0]}</Badge>}
+                    {changedSinceRegister(entry) && (
+                      <Badge className="bg-warning/15 text-warning">Berubah — perlu diperbarui di SRIKANDI</Badge>
+                    )}
                     {entry.submittedAt && status !== "incomplete" && status !== "ready" && (
                       <span className="text-muted-foreground">
                         Didaftarkan {formatShortDate(new Date(entry.submittedAt))}
@@ -312,6 +360,11 @@ export function RegisterBoard() {
                   {status === "ready" && (
                     <Button size="sm" disabled={!!busy} onClick={() => setRegistering(entry)}>
                       {busy === entry.id ? <Loader2 className="animate-spin" /> : <Send />} Daftarkan ke SRIKANDI
+                    </Button>
+                  )}
+                  {status === "submitted" && changedSinceRegister(entry) && (
+                    <Button size="sm" disabled={!!busy} onClick={() => setUpdating(entry)}>
+                      {busy === entry.id ? <Loader2 className="animate-spin" /> : <RefreshCw />} Perbarui di SRIKANDI
                     </Button>
                   )}
                   {status === "submitted" && (
@@ -365,6 +418,16 @@ export function RegisterBoard() {
                       {status === "ready" && (
                         <DropdownMenuItem onSelect={() => setStage(entry, "submitted")}>
                           <CheckCircle2 /> Tandai terdaftar (manual)
+                        </DropdownMenuItem>
+                      )}
+                      {status === "submitted" && (
+                        <DropdownMenuItem disabled={!!busy} onSelect={() => void runUpdate(entry, true)}>
+                          <ScanSearch /> Periksa perubahan di SRIKANDI (tanpa simpan)
+                        </DropdownMenuItem>
+                      )}
+                      {status === "submitted" && !changedSinceRegister(entry) && (
+                        <DropdownMenuItem disabled={!!busy} onSelect={() => setUpdating(entry)}>
+                          <RefreshCw /> Perbarui di SRIKANDI
                         </DropdownMenuItem>
                       )}
                       {status === "submitted" && (
@@ -428,6 +491,19 @@ export function RegisterBoard() {
         onConfirm={() => {
           if (registering) void runRobot(registering, false);
           setRegistering(null);
+        }}
+      />
+      <ConfirmDialog
+        open={!!updating}
+        onOpenChange={(o) => !o && setUpdating(null)}
+        title="Perbarui konsep di SRIKANDI?"
+        description="Robot membuka Edit konsep ini di Log Naskah Keluar dan hanya mengubah yang berbeda dari entri LifeOS: isian & file naskah (Perbarui Naskah), lampiran, tujuan/tembusan, verifikator, penandatangan — termasuk menghapus baris yang sudah Anda lepas di LifeOS. Konsep yang sudah dikirim tidak bisa diubah. Kirim Konsep tetap Anda lakukan sendiri. Gunakan Periksa perubahan (menu ⋯) bila ingin melihat rencananya dulu."
+        itemName={updating?.subject || "(tanpa hal)"}
+        confirmLabel="Perbarui"
+        destructive={false}
+        onConfirm={() => {
+          if (updating) void runUpdate(updating, false);
+          setUpdating(null);
         }}
       />
       <RunDialog id={runId} onClose={() => setRunId(null)} />

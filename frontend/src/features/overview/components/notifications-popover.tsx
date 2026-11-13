@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { useProjects, useProjectTasks, useSchedules, useTodos } from "@/data/collections";
+import { useProjects, useProjectTasks, useSchedules, useSrikandiInbox, useTodos } from "@/data/collections";
 import { useIncomingShares } from "@/data/use-sharing";
 import { useAutomationAlerts } from "@/data/use-automation";
 import { RobotAlertsSection } from "@/features/tools/automation/robot-alerts";
+import { INBOX_KIND_LABELS, inboxTitle, isUnread, unreadInbox } from "@/features/srikandi/inbox-logic";
 import { scheduleStart } from "@/features/planner/lib/planner-logic";
 import { useToday } from "@/hooks/use-today";
 import { formatDayMonth, formatNumericDate, formatRelative, parseLocalYMD } from "@/lib/dates";
@@ -28,7 +29,7 @@ import { agendaTimeLabel } from "../lib/overview-logic";
 const OVERDUE_LIMIT = 5;
 
 /**
- * Lonceng notifikasi: robot & otomasi (sesi kedaluwarsa, tugas gagal), agenda 3 hari ke depan, tugas terlambat, pengingat
+ * Lonceng notifikasi: robot & otomasi (sesi kedaluwarsa, tugas gagal), naskah masuk SRIKANDI belum dibaca, agenda 3 hari ke depan, tugas terlambat, pengingat
  * deadline project, item baru dibagikan.
  */
 export function NotificationsPopover() {
@@ -41,12 +42,15 @@ export function NotificationsPopover() {
   const { items: todos } = useTodos();
   const { data: incoming } = useIncomingShares();
   const { data: robotAlerts = [] } = useAutomationAlerts();
+  const { items: inboxItems } = useSrikandiInbox();
+  const inbox = unreadInbox(inboxItems);
+  const inboxUnread = inboxItems.filter(isUnread).length;
 
   const agenda = upcomingSchedules(schedules, today);
   const overdue = overdueReminders(todos, tasks, today);
   const reminders = projectReminders(projects, tasks, today);
   const shared = recentIncomingShares(incoming ?? [], today);
-  const total = robotAlerts.length + agenda.length + overdue.length + reminders.length + shared.length;
+  const total = robotAlerts.length + inboxUnread + agenda.length + overdue.length + reminders.length + shared.length;
 
   const go = (path: string) => {
     setOpen(false);
@@ -76,7 +80,38 @@ export function NotificationsPopover() {
           <div className="flex flex-col gap-4 p-4">
             {/* Paling atas: perlu ditindaklanjuti segera (jadwal robot dijeda selama sesi kedaluwarsa) */}
             <RobotAlertsSection alerts={robotAlerts} onOpen={go} />
-            <section className={cn("flex flex-col gap-2", robotAlerts.length > 0 && "border-t pt-4")}>
+            {inbox.length > 0 && (
+              <section className={cn("flex flex-col gap-2", robotAlerts.length > 0 && "border-t pt-4")}>
+                <h3 className="flex items-center justify-between text-sm font-bold">
+                  Naskah Masuk Belum Dibaca <Badge className="bg-info/12 text-info">{inboxUnread}</Badge>
+                </h3>
+                {inbox.map((i) => (
+                  <button
+                    key={i.id}
+                    type="button"
+                    onClick={() => go(links.srikandiInbox(i.id))}
+                    className="rounded-xl border bg-muted/40 p-3 text-left transition-colors hover:bg-muted"
+                  >
+                    <span className="mb-1 flex justify-between gap-2 text-[10px] font-semibold text-muted-foreground">
+                      <span>{INBOX_KIND_LABELS[i.kind]}</span>
+                      <span>{i.sentDate || i.date ? formatNumericDate(parseLocalYMD(i.sentDate || i.date!)) : ""}</span>
+                    </span>
+                    <span className="block truncate text-sm font-semibold">{inboxTitle(i)}</span>
+                    {i.origin && (
+                      <span className="block truncate text-[11px] text-muted-foreground">dari {i.origin}</span>
+                    )}
+                  </button>
+                ))}
+                {inboxUnread > inbox.length && (
+                  <button type="button" onClick={() => go("/srikandi/inbox")} className="text-left text-xs text-info">
+                    +{inboxUnread - inbox.length} lainnya di SRIKANDI → Naskah Masuk
+                  </button>
+                )}
+              </section>
+            )}
+            <section
+              className={cn("flex flex-col gap-2", (robotAlerts.length > 0 || inbox.length > 0) && "border-t pt-4")}
+            >
               <h3 className="flex items-center justify-between text-sm font-bold">
                 Agenda (3 Hari) <Badge className="bg-mod-planner/15 text-mod-planner">{agenda.length}</Badge>
               </h3>

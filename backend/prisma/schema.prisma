@@ -131,6 +131,7 @@ model User {
   actionPlanMonths          ActionPlanMonth[]
   srikandiReferences        SrikandiReference[]
   srikandiLetters           SrikandiLetter[]
+  srikandiInboxs            SrikandiInbox[]
   srikandiOutgoings         SrikandiOutgoing[]
   archiveClassifications    ArchiveClassification[]
   archiveRetentionSchedules ArchiveRetentionSchedule[]
@@ -1124,6 +1125,34 @@ model SrikandiLetter {
   @@index([userId, date])
   @@index([userId, number])
   @@map("srikandi_letters")
+}
+
+/// Record type `srikandi_inbox`
+model SrikandiInbox {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  clientId       String    @map("client_id")
+  kind           String?
+  date           DateTime? @db.Date
+  sentDate       DateTime? @map("sent_date") @db.Date
+  number         String?
+  subject        String?
+  origin         String?
+  readStatus     String?   @map("read_status")
+  followUpStatus String?   @map("follow_up_status")
+  syncedAt       DateTime? @map("synced_at") @db.Timestamptz(3)
+  extra          Json      @default("{}")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([userId, deletedAt])
+  @@index([userId, kind])
+  @@index([userId, date])
+  @@index([userId, number])
+  @@map("srikandi_inboxes")
 }
 
 /// Record type `srikandi_outgoing`

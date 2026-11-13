@@ -36,6 +36,7 @@ export const INDEXED_TYPES: Partial<Record<RecordType, string>> = {
   archive_physical_reference: "Lokasi Arsip Fisik",
   archive_borrowing: "Peminjaman Arsip",
   archive_disposition: "Berita Acara Penyusutan",
+  srikandi_inbox: "Naskah Masuk SRIKANDI",
 };
 
 export const isIndexedType = (type: string): type is RecordType => Object.hasOwn(INDEXED_TYPES, type);

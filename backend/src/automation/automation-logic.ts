@@ -32,6 +32,8 @@ export const DEFAULT_SCHEDULES: Record<AutomationKind, AutomationSchedule> = {
   ekinerja_skp: { mode: "daily", time: "07:00", days: EVERY_DAY, timezone: TZ },
   ekinerja_renaksi: { mode: "daily", time: "07:05", days: EVERY_DAY, timezone: TZ },
   srikandi_letters: { mode: "hourly", minute: 0, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
+  // Naskah masuk & disposisi tiap jam kerja (menit ke-15 agar tidak bertumpuk dengan naskah keluar & jaga sesi)
+  srikandi_inbox: { mode: "hourly", minute: 15, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
   srikandi_references: { mode: "daily", time: "07:00", days: EVERY_DAY, timezone: TZ },
   srikandi_classifications: { mode: "daily", time: "07:00", days: [1], timezone: TZ },
 };

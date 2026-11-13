@@ -558,8 +558,10 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   | e-Kinerja | `/jobs/ekinerja/renaksi` (`mode: add \| sync`) | `POST /robot/ekinerja/renaksi/fill` | samakan Rencana Aksi bulanan dengan LifeOS: baca & impor dulu, tambah butir, tulis ulang baris yang berubah (`dryRun` = Periksa); tidak pernah Kirim Penilaian |
   | e-Kinerja | `/jobs/ekinerja/renaksi/read` | `POST /robot/ekinerja/renaksi/sync` | baca semua bulan (status draf/diajukan/dinilai, tanggal pengajuan, rating, isi, feedback) → `action_plan_month` + impor |
   | SRIKANDI | `/jobs/srikandi/outgoing` | `POST /robot/srikandi/letters/sync` | Daftar Naskah Keluar + PDF ber-TTD & lampiran → `srikandi_letter`, Resource Global |
+  | SRIKANDI | `/jobs/srikandi/inbox` | `POST /robot/srikandi/inbox/sync` | daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya halaman daftar; detail tidak dibuka agar status baca tetap) → `srikandi_inbox` ([AI-AGENT.md](AI-AGENT.md) §21.14) |
   | SRIKANDI | `/jobs/srikandi/references` (`categories?`) | `POST /robot/srikandi/references/sync`, `…/classifications/sync` | tabel menu Pengguna (7 kategori) / Klasifikasi Arsip (1.048 baris) → `srikandi_reference` |
   | SRIKANDI | `/jobs/srikandi/register` (body ≤ 40 MB, berkas base64) | `POST /robot/srikandi/register/:id { dryRun? }` | isi formulir Registrasi Naskah Keluar dari `srikandi_outgoing` → **Simpan** = konsep di Log Naskah Keluar (tidak ganda); tidak pernah Kirim Konsep |
+  | SRIKANDI | `/jobs/srikandi/register/update` (body ≤ 40 MB) | `POST /robot/srikandi/register/:id/update { dryRun? }` | **Edit** konsep di Log Naskah Keluar: hanya isian yang berbeda (Perbarui Naskah, Tambah/hapus baris lampiran, tujuan, verifikator, penandatangan); konsep terkirim = `locked`; pengenal perubahan `pushedSignature` ([AI-AGENT.md](AI-AGENT.md) §21.13) |
 
   Pengaman bersama: `safeClick` menolak tombol berteks kirim/ajukan/submit/hapus; pilihan react-select diklik (tidak
   pernah Enter); setiap job memeriksa ulang status login setelah halaman dimuat. Robot tidak pernah menandatangani,
@@ -577,6 +579,10 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   `srikandi_request_register` → `agent_actions` kind `srikandi_register` (pending, `after` = ringkasan entri) → **Setujui & daftarkan**
   (`RobotService.registerSrikandiOutgoing` dengan isi terkini, berhenti di Simpan) atau Tolak. Workflow agen `placement: "srikandi"` →
   tab SRIKANDI → Workflow.
+- **Robot SIMAN untuk agen** (`src/robot/siman-agent.service.ts`, logika murni + test `siman-agent-logic.ts`; keputusan user 2026-11-13,
+  [AI-AGENT.md](AI-AGENT.md) §26.5): alat MCP cakupan `siman:robot` — `siman_check_session` (Jaga sesi) & `siman_read_page` (buka satu alamat
+  SIMAN, rekam struktur teks tanpa klik; alamat keluar/hapus/kirim/unggah ditolak) di latar belakang, dibaca lewat `siman_status`. Belum ada
+  jalur tulis ke SIMAN. Workflow agen `placement: "siman"` → tab SIMAN → Workflow.
 - **Usulan renaksi** (`src/robot/renaksi-proposals.service.ts`, logika murni + test `renaksi-candidates.ts`, [AI-AGENT.md](AI-AGENT.md) §26.2):
   kegiatan bulan itu dari Productivity (task/agenda/kegiatan) + SKP & RHK → MCP `ekinerja_renaksi_context`; `ekinerja_propose_renaksi` menyimpan
   `action_plan_entry` bertanda `proposed: true` yang tidak pernah diisikan robot sampai pemilik mencentangnya. Run Hermes dari tombol:

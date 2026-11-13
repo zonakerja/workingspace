@@ -39,6 +39,12 @@ export interface OutgoingEntry {
   signatureType?: "elektronik" | "konvensional";
   visualTte?: "qr" | "spesimen";
   status?: string;
+  /** Hal konsep di SRIKANDI saat terakhir didaftarkan/diperbarui (mencari baris di Log Naskah Keluar) */
+  pushedSubject?: string;
+  /** Pengenal isi saat terakhir dikirim ke SRIKANDI (`outgoingSignature`) */
+  pushedSignature?: string;
+  /** Berkas naskah yang terakhir dikirim — beda = file naskah diganti saat Perbarui */
+  pushedFileId?: string;
 }
 
 export interface ReferenceLite {
@@ -123,4 +129,42 @@ export function buildRegisterFields(entry: OutgoingEntry, references: ReferenceL
     signatureType: entry.signatureType === "konvensional" ? "konvensional" : "elektronik",
     visualTte: entry.visualTte === "spesimen" ? "spesimen" : "qr",
   } as const;
+}
+
+/**
+ * Pengenal isi entri yang dikirim ke SRIKANDI (salinan frontend `register-logic.ts` — ubah keduanya bersamaan): sama =
+ * konsep di SRIKANDI sudah sesuai, beda = perlu "Perbarui di SRIKANDI". FNV-1a atas JSON isian yang diisikan robot.
+ */
+export function outgoingSignature(entry: OutgoingEntry) {
+  const ids = (picks?: OutgoingPick[]) => (picks ?? []).map((p) => p.id);
+  const text = (v?: string) => (v ?? "").replace(/\s+/g, " ").trim();
+  const keluar = (entry.formType ?? "keluar") === "keluar";
+  const data = JSON.stringify([
+    entry.formType ?? "keluar",
+    text(entry.unit),
+    text(entry.docType),
+    text(entry.nature),
+    text(entry.classification),
+    entry.autoNumber ? "#auto" : text(entry.number),
+    text(entry.subject),
+    text(entry.summary),
+    entry.file?.uploadId ?? "",
+    (entry.attachments ?? []).map((a) => a.uploadId),
+    ids(entry.recipientGroups),
+    ids(entry.recipients),
+    ids(entry.recipientsExternal),
+    ids(entry.ccGroups),
+    ids(entry.cc),
+    ids(entry.ccExternal),
+    keluar ? ids(entry.verifiers) : [],
+    keluar ? (entry.signer?.id ?? "") : "",
+    keluar ? (entry.signatureType ?? "elektronik") : "",
+    keluar ? (entry.visualTte ?? "qr") : "",
+  ]);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < data.length; i++) {
+    hash ^= data.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
 }

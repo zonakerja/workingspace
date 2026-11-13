@@ -115,6 +115,8 @@ export interface LogRow {
   subject: string;
   sendStatus: string;
   detailId: string | null;
+  /** Tautan Edit (`…/form?id=…&formode=Ubah`) — hanya ada selama konsep belum dikirim */
+  editHref?: string | null;
 }
 
 /** Draf di Log yang sama dengan entri (hal sama, belum terkirim) — dipakai agar pendaftaran tidak ganda. */

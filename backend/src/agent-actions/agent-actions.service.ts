@@ -19,7 +19,7 @@ import {
   periodLabel,
 } from "../robot/ekinerja-agent-logic";
 import {
-  registerRequestError,
+  registerRequestMode,
   registerRequestTitle,
   registerSnapshot,
   SRIKANDI_REGISTER_KIND,
@@ -178,21 +178,21 @@ export class AgentActionsService {
     const record = await this.records.findOne(SRIKANDI_REGISTER_RECORD, entryId, {}, user).catch(() => null);
     if (!record || record.share) throw new NotFoundException("Entri Register Naskah Keluar tidak ditemukan.");
     const entry = { ...(record.payload as Payload), id: entryId } as unknown as OutgoingEntry;
-    const error = registerRequestError(entry);
-    if (error) throw new BadRequestException(error);
+    const checked = registerRequestMode(entry);
+    if ("error" in checked) throw new BadRequestException(checked.error);
     const action = await this.prisma.agentAction.create({
       data: {
         userId: user.id,
         kind: SRIKANDI_REGISTER_KIND,
         recordType: SRIKANDI_REGISTER_RECORD,
         clientId: entryId,
-        title: registerRequestTitle(entry),
-        after: json(registerSnapshot(entry)),
+        title: registerRequestTitle(entry, checked.mode),
+        after: json(registerSnapshot(entry, checked.mode)),
         reason: reason.trim(),
         status: "pending",
       },
     });
-    return { actionId: action.id, pending: true };
+    return { actionId: action.id, pending: true, mode: checked.mode };
   }
 
   list(user: AuthUser, query: { status?: string; take?: number }) {
@@ -312,8 +312,18 @@ export class AgentActionsService {
    * Setujui pendaftaran: robot mengisi formulir Registrasi SRIKANDI dari isi entri terkini lalu berhenti di Simpan (draf di
    * Log Naskah Keluar), sama dengan tombol "Daftarkan ke SRIKANDI". Kirim Konsep tetap keputusan pemilik di SRIKANDI.
    */
-  private async approveSrikandiRegister(user: AuthUser, action: { id: string; clientId: string }) {
+  private async approveSrikandiRegister(user: AuthUser, action: { id: string; clientId: string; after: unknown }) {
+    const mode = (action.after as { mode?: string } | null)?.mode;
     try {
+      if (mode === "update") {
+        const result = await this.robot.updateSrikandiOutgoing(user, action.clientId, false);
+        const message =
+          result.status === "unchanged"
+            ? "Konsep di SRIKANDI sudah sama — tidak ada yang diubah."
+            : `Konsep diperbarui di Log Naskah Keluar (${result.plan.length} perubahan) — belum dikirim; Kirim Konsep tetap di SRIKANDI.`;
+        await this.decide(action.id, "approved", message);
+        return { status: "approved" as const, removed: 0, message };
+      }
       const result = await this.robot.registerSrikandiOutgoing(user, action.clientId, false);
       const message =
         result.status === "exists"

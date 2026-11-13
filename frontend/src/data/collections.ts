@@ -25,6 +25,7 @@ import {
   type Schedule,
   type Skp,
   type SkpTarget,
+  type SrikandiInbox,
   type SrikandiLetter,
   type SrikandiOutgoing,
   type SrikandiReference,
@@ -59,6 +60,7 @@ export const useParaArchiveLogs = () => useCollection<ParaArchiveLog>("para_arch
 export const useSkps = () => useCollection<Skp>("skp", { ownOnly: true });
 export const useSkpTargets = () => useCollection<SkpTarget>("skp_target", { ownOnly: true });
 export const useSrikandiLetters = () => useCollection<SrikandiLetter>("srikandi_letter", { ownOnly: true });
+export const useSrikandiInbox = () => useCollection<SrikandiInbox>("srikandi_inbox", { ownOnly: true });
 export const useSrikandiReferences = () => useCollection<SrikandiReference>("srikandi_reference", { ownOnly: true });
 export const useSrikandiOutgoings = () => useCollection<SrikandiOutgoing>("srikandi_outgoing", { ownOnly: true });
 export const useActionPlanEntries = () => useCollection<ActionPlanEntry>("action_plan_entry", { ownOnly: true });

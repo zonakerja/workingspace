@@ -136,7 +136,8 @@ export type ApiScope =
   | "agent:menus"
   | "mcp:apps"
   | "ekinerja:robot"
-  | "srikandi:robot";
+  | "srikandi:robot"
+  | "siman:robot";
 
 export interface ApiTokenInfo {
   id: string;
@@ -498,6 +499,7 @@ export const RECORD_TYPES = [
   "action_plan_entry",
   "action_plan_month",
   "srikandi_letter",
+  "srikandi_inbox",
   "srikandi_reference",
   "srikandi_outgoing",
   "archive_classification",
@@ -1191,6 +1193,7 @@ export type AutomationKind =
   | "ekinerja_renaksi"
   | "srikandi_session"
   | "srikandi_letters"
+  | "srikandi_inbox"
   | "srikandi_references"
   | "srikandi_classifications"
   | "siman_session";

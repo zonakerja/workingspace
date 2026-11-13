@@ -4,6 +4,8 @@ import { authorized, parseInput } from "./logic.js";
 import { validRows } from "./ekinerja-renaksi.js";
 import { validAnswer, validCredentials } from "./login-form.js";
 import { parseRegisterForm } from "./srikandi-register.js";
+import { parseUpdateForm } from "./srikandi-register-edit.js";
+import { inboxRequestedKinds } from "./srikandi-inbox.js";
 import { requestedCategories } from "./srikandi-reference.js";
 
 /**
@@ -184,6 +186,20 @@ async function route(req: IncomingMessage, res: ServerResponse) {
       200,
       await pool.srikandiRegister({ ...target(body), form: parsed.form, dryRun: body.dryRun === true }),
     );
+  }
+  if (req.method === "POST" && url.pathname === "/jobs/srikandi/register/update") {
+    const body = await readJson(req, MAX_REGISTER_BODY);
+    const parsed = parseUpdateForm(body.form);
+    if ("error" in parsed) throw new HttpError(400, parsed.error);
+    return json(
+      res,
+      200,
+      await pool.srikandiRegisterUpdate({ ...target(body), form: parsed.form, dryRun: body.dryRun === true }),
+    );
+  }
+  if (req.method === "POST" && url.pathname === "/jobs/srikandi/inbox") {
+    const body = await readJson(req);
+    return json(res, 200, await pool.srikandiInbox({ ...target(body), kinds: inboxRequestedKinds(body.kinds) }));
   }
   if (req.method === "POST" && url.pathname === "/jobs/srikandi/references") {
     const body = await readJson(req);

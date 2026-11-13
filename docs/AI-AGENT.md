@@ -1290,6 +1290,92 @@ memuat data) → sesi kedaluwarsa dilaporkan, bukan 0 baris. Uji 2026-10-31 (set
 klasifikasi, 107 halaman, 69 dtk; 1.032 AKTIF + 16 NON-AKTIF (status terbaca huruf kapital); label sama persis dengan opsi
 formulir ("KU.204 - Laporan Keuangan", "AJ - ANGKUTAN JALAN").
 
+### 21.13 Edit register: perbarui konsep di Log Naskah Keluar (2026-11-13)
+
+**Permintaan user**: Register Naskah Keluar harus bisa mengakomodasi **edit register** (menu Edit di Log Naskah Keluar SRIKANDI);
+boleh mencoba robot ke SRIKANDI asal **tidak Kirim Konsep**. Sebelumnya entri yang sudah terdaftar terkunci: perubahan di LifeOS
+tidak pernah sampai ke konsep di SRIKANDI.
+
+**Peta halaman Edit** (direkam lewat browser jarak jauh pada konsep uji `[UJI LifeOS]`): tautan Edit hanya ada pada konsep yang belum
+dikirim (`/pembuatan-naskah-keluar/log-naskah-keluar/form?id=<acak>&formode=Ubah&is_forward=false&editor=true&from=log`; naskah yang sudah
+disetujui hanya punya "Lihat Status Saat Ini"). Judul "Ubah Log Naskah Keluar"; **Tipe Form terkunci**.
+
+| Bagian | Cara menyimpan | Catatan |
+|---|---|---|
+| Dikirimkan melalui, Jenis, Sifat, Klasifikasi, Nomor (+ Ambil Nomor), Nomor Referensi, Diberkaskan Oleh Unit Pengolah, Hal, Isi Ringkas, Tipe TTD, Visual TTE, Ukuran QR, File naskah | Tombol **Perbarui Naskah** → kembali ke Log + dialog "Berhasil — Update Naskah Keluar" | Pilihan **berantai**: mengganti satu pilihan mengosongkan pilihan di bawahnya (Sifat → Klasifikasi & Nomor kosong). Tanpa nomor, Perbarui ditolak **diam-diam**. Ambil Nomor tanpa klasifikasi → "Gagal: Pastikan Tata Usaha / Sekretaris telah membuat format nomor" |
+| Lampiran | **Tambah** → modal "Tambah Lampiran Baru" (satu berkas) → Simpan; ikon hapus per baris | Format & batas sama dengan formulir Registrasi |
+| Tujuan | **Tambah** → menu Tujuan Utama / Tembusan → Internal/Eksternal Srikandi / Eksternal Non Srikandi → modal "Kepada" → Simpan; kolom Jenis UTAMA / TEMBUSAN | Opsi Tembusan dari daftar **Tembusan** (bukan daftar Tujuan). Pengguna bertanda "perlu pembaruan" ditolak: "Tidak bisa menyimpan tujuan apabila pengguna yang dipilih perlu pembaruan" |
+| Daftar Verifikator, Daftar Penandatangan | **Tambah** → modal "Pengguna" → Simpan; ikon hapus | Urutan verifikator = urutan tambah |
+| Hapus baris | Konfirmasi "Data <nama> akan dihapus ?" → Hapus | Modal SRIKANDI bukan `role=dialog` |
+
+**Dibangun**:
+- Robot `POST /jobs/srikandi/register/update` (`robot/src/srikandi-register-edit.ts` logika murni + test, `BrowserPool.srikandiRegisterUpdate`):
+  cari konsep di Log dari hal saat terakhir dikirim (`findSubject`, cadangan hal terbaru — Perbarui yang terhenti di tengah jalan) →
+  tanpa tautan Edit = `locked` → baca isi halaman Edit (`readEditState`) → `planEdit` (hanya yang berbeda; nama dicocokkan tanpa
+  jabatan/instansi; grup tujuan tidak bisa dicocokkan karena SRIKANDI memecahnya → tidak dihapus, diberi peringatan) → `dryRun` = rencana
+  tanpa klik → bagian atas (pilihan berantai diisi ulang mulai pilihan pertama yang berubah, nomor diisi ulang, file naskah hanya bila
+  diganti) → tambah lampiran/tujuan/verifikator/penandatangan → hapus baris yang dilepas (satu-satunya "Hapus" yang boleh diklik robot:
+  `isRowRemovalConfirm` = halaman Edit + "Data … akan dihapus ?") → baca ulang (`remaining` = yang masih berbeda). Sebelum tiap langkah
+  tabel robot memastikan masih di halaman Edit (Simpan bisa memuat ulang halaman). Kirim Konsep tidak pernah disentuh.
+- Backend `POST /robot/srikandi/register/:id/update { dryRun? }` (`RobotService.updateSrikandiOutgoing`): hanya entri berstatus
+  terdaftar; berhasil / sudah sama → `pushedSubject`, `pushedSignature` (`outgoingSignature`, FNV-1a isian yang dikirim; salinan frontend
+  `register-logic.ts`), `pushedFileId`, `updatedInSrikandiAt`. Pendaftaran baru juga mencatat ketiganya. Run + tangkapan layar di
+  Riwayat Connector.
+- UI tab Register: entri terdaftar yang diubah di LifeOS → penanda **"Berubah — perlu diperbarui di SRIKANDI"** + tombol **Perbarui di
+  SRIKANDI** (konfirmasi); menu ⋯ **Periksa perubahan di SRIKANDI (tanpa simpan)** (toast berisi rencana + "Lihat" tangkapan layar).
+  Entri yang ditandai terdaftar manual tidak punya pengenal → tidak ditandai, tetapi tetap bisa Perbarui dari menu ⋯.
+- Agen (§26.4): `srikandi_check_register` atas entri terdaftar = rencana Edit; `srikandi_request_register` atas entri terdaftar yang
+  berubah = permintaan **perbarui konsep** (`after.mode = "update"`, judul "Perbarui di SRIKANDI: …"); tanpa perubahan / final tertaut ditolak.
+
+**Uji ke SRIKANDI sungguhan 2026-11-13** (konsep uji `[UJI LifeOS] Uji edit register v2 - abaikan`, tidak pernah Kirim Konsep): baca halaman
+Edit = cocok dengan entri ("sudah sama") → ubah Hal, Isi Ringkas, Sifat (Biasa → Terbatas, Klasifikasi & Ambil Nomor diisi ulang otomatis),
+tambah lampiran, tambah tembusan, tambah verifikator kedua → hapus lampiran, tembusan, verifikator kedua, Sifat kembali Biasa → Periksa
+akhir "sudah sama". Ditemukan & diperbaiki selama uji: Perbarui Naskah kembali ke Log, pilihan berantai & nomor kosong, dialog lain
+`role=dialog` tertangkap sebagai pesan, Perbarui setengah jalan (hal sudah berganti), tabel dimuat terlambat. **Belum**: Nomor Referensi,
+Diberkaskan Oleh Unit Pengolah, Ukuran QR, ubah urutan verifikator, tujuan Eksternal Non Srikandi, grup tujuan lewat Edit.
+**Konsep uji masih ada di Log Naskah Keluar** (menunggu izin user untuk dihapus).
+
+### 21.14 Riset Naskah Masuk SRIKANDI (2026-11-13, belum dibangun)
+
+**Permintaan user**: melihat naskah masuk di LifeOS — surat yang ditujukan ke kita, disposisi, arahan, dan sejenisnya. Dipetakan lewat
+browser jarak jauh, **hanya halaman daftar** (detail surat tidak dibuka agar Status Baca di SRIKANDI tidak berubah).
+
+| Menu (Penciptaan Arsip → Naskah Masuk) | Alamat `/penerimaan-naskah-masuk/…` | Kolom daftar |
+|---|---|---|
+| Daftar Naskah Masuk | `naskah-dinas-masuk` | Tanggal Naskah · Nomor Naskah · Hal · Asal Naskah · Status Tindak Lanjut · Status Baca · Aksi (+ tombol Disposisi Banyak Naskah) |
+| Tembusan | `naskah-tembusan` | Tanggal Naskah · Nomor · Hal · Asal Naskah · Status Tindak Lanjut · Status Baca · Aksi |
+| Disposisi | `disposisi` | Tanggal Disposisi · Tanggal Naskah Masuk · Uraian Informasi · Instruksi · Instruksi Tambahan · Status Tindak Lanjut · Status Baca · Aksi (+ Buat Laporan rentang tanggal) |
+| Koordinasi | `koordinasi` | Tanggal Koordinasi · Tanggal Naskah Masuk · Uraian Informasi · Instruksi · Status Tindak Lanjut · Status Baca · Aksi |
+| Arahan | `arahan` | Tanggal Arahan · Tanggal Naskah Masuk · Uraian Informasi · Instruksi · Status Tindak Lanjut · Status Baca · Aksi |
+| Log Disposisi / Log Koordinasi / Log Arahan (yang **kita** kirim) | `log-disposisi`, `log-koordinasi`, `log-arahan` | Nomor · Hal · Kepada · Instruksi/Pesan · (Instruksi Tambahan) · Lampiran · Tanggal · **Batas Waktu** · Aksi |
+| Agenda | `agenda` | Kalender (Hari Ini, Unduh Kalender) |
+
+Semua tabel memakai pola yang sama dengan Daftar Naskah Keluar (filter per kolom, Hitung Total, `nav` halaman). Saat dipetakan **semua
+daftar kosong** di akun user ("Tidak ada data ditemukan", juga setelah menunggu 18 dtk), jadi isi baris, kolom Aksi, dan halaman detail
+belum terlihat. Risiko yang perlu diputuskan: membuka detail kemungkinan mengubah **Status Baca** menjadi sudah dibaca (pengirim/atasan
+melihatnya), sehingga robot sebaiknya hanya membaca daftar, atau hanya mengambil PDF dari naskah yang sudah dibaca user.
+
+**Tahap 1 dibangun 2026-11-13** (persetujuan user atas rekomendasi):
+- Robot `POST /jobs/srikandi/inbox` (`robot/src/srikandi-inbox.ts` logika murni + test, `BrowserPool.srikandiInbox` + `readTablePages`):
+  membuka kelima halaman daftar, Hitung Total, lalu halaman berikutnya sampai habis (maks. 30 halaman); baris dibaca per judul kolom
+  (diselaraskan dari kanan seperti referensi), baris filter/"tidak ada data" dibuang. **Detail tidak pernah dibuka.**
+- Backend record type `srikandi_inbox` (migrasi `20261113120000_srikandi_inbox`; kolom kind, date, sent_date, number, subject, origin,
+  read_status, follow_up_status, synced_at; sisanya di `extra`), `POST /robot/srikandi/inbox/sync` → `RobotService.syncSrikandiInbox`
+  (logika murni + test `backend/src/robot/srikandi-inbox.ts`): ID `si-<hash isi>` (ID detail SRIKANDI acak), kolom robot ditimpa, kolom LifeOS
+  (`todoId`, `firstSeenAt`) tetap, tanpa perubahan = tidak ditulis ulang, butir yang hilang dari SRIKANDI tidak dihapus. Jenis otomasi
+  `srikandi_inbox` (bawaan tiap jam kerja menit ke-15, nonaktif), MCP `srikandi_sync_inbox` (izin `srikandi:robot`), baca-saja untuk agen
+  (`AGENT_READONLY_TYPES`), diindeks RAG ("Naskah Masuk SRIKANDI").
+- Frontend tab **SRIKANDI → Naskah Masuk** (tab pertama, `inbox-board.tsx`, logika murni + test `inbox-logic.ts`, `?inbox=<id>` menyorot):
+  chip Semua / Belum dibaca / per jenis + jumlah, cari per kata, terbaru dulu (tanggal disposisi didahulukan), penanda status baca & tindak
+  lanjut, instruksi; **Jadikan to-do** (Planner hari ini, prioritas tinggi untuk disposisi/arahan, `todoId`), **Buat balasan** (naskah masuk/
+  tembusan bernomor → Register baru `?register=new&reply=<id>`: Nomor Referensi + "Tanggapan atas …", `SrikandiOutgoing.replyTo`), tombol ke
+  halaman daftar di SRIKANDI. Lonceng: bagian **Naskah Masuk Belum Dibaca** (maks. 5 + tautan).
+- **Diuji**: unit robot +3, backend +4, frontend +3, smoke +4; sinkron sungguhan ke SRIKANDI (kelima daftar terbaca, 0 butir = sesuai akun);
+  UI dengan 3 naskah dummy LifeOS (daftar, filter, Jadikan to-do, Buat balasan terisi, lonceng; data uji dihapus).
+- **Belum**: isi baris & detail sungguhan belum terlihat (akun kosong); PDF/lampiran naskah masuk (butuh keputusan status baca); Log
+  Disposisi/Koordinasi/Arahan (yang dikirim user, berisi Batas Waktu) & Agenda; robot Register belum mengisi kolom Nomor Referensi (isian
+  balasan baru tersimpan di LifeOS); menindaklanjuti / mendisposisikan di SRIKANDI (tahap 2, menulis).
+
 ## 22. Revisi 2026-10-31 — Dokumen bertemplat ditangani agen (Hermes: skill & workflow), Approval kembali ke Workspace
 
 **Keputusan user (2026-10-31)**:
@@ -1858,7 +1944,7 @@ memakai dialog yang sama, belum diklik satu per satu.
 | Approval | Mencatat pengajuan & hasil kerja. Menyetujui, menolak, dan mengirim tetap oleh pemilik |
 | e-Kinerja | **Fitur terbuka sejak 2026-11-12** (§26.1): menambah workflow di dalamnya, menjalankan robot baca (Ambil SKP, Pantau, Periksa), meminta pengisian yang menunggu persetujuan pemilik |
 | SRIKANDI | **Fitur terbuka sejak 2026-11-13** (§26.4): menambah workflow di dalamnya, menyiapkan entri Register, menjalankan robot baca (naskah, referensi, klasifikasi) & Periksa Register, meminta pendaftaran yang menunggu persetujuan pemilik |
-| SIMAN | Tidak ada alat ubah. Robot dipicu pemilik atau jadwal baca-saja |
+| SIMAN | **Fitur terbuka sejak 2026-11-13** (§26.5): menambah workflow di dalamnya, menjalankan robot baca (Jaga sesi, Baca halaman tanpa klik). Belum ada jalur tulis ke SIMAN |
 | Tools, Pengaturan, Profil | Tidak ada akses |
 
 | Fitur buatan agen (non-native) | Aturan |
@@ -1879,7 +1965,7 @@ memakai dialog yang sama, belum diklik satu per satu.
 
 Keterbatasan di laptop: port yang dipublikasikan WSL (mis. 5432) masih terjangkau lewat gateway jaringan container, tetapi agen tidak lagi punya alat untuk memakainya. Hermes tidak bisa membuka situs web, jadi skill yang butuh web harus lewat LifeOS. Compose produksi baru divalidasi konfigurasinya, belum dijalankan.
 
-**PSP & SIMAN**: tiket masuk di SIMAN berisi lampiran Excel dari satker → koneksi SIMAN mengecek tiket → agen memproses di AI Agent & Approval (verifikasi ke master aset, dokumen) → setelah produk jadi, surat keputusan dimasukkan lewat koneksi SIMAN. Caranya akan diajarkan user. Konektor robot SIMAN baru login + Jaga sesi; ini merevisi keputusan 2026-10-24 sebatas koneksi, data master tetap OnTrack.
+**PSP & SIMAN**: tiket masuk di SIMAN berisi lampiran Excel dari satker → koneksi SIMAN mengecek tiket → agen memproses di AI Agent & Approval (verifikasi ke master aset, dokumen) → setelah produk jadi, surat keputusan dimasukkan lewat koneksi SIMAN. Caranya akan diajarkan user. Konektor robot SIMAN baru login + Jaga sesi; ini merevisi keputusan 2026-10-24 sebatas koneksi, data master tetap OnTrack. Sejak 2026-11-13 SIMAN fitur terbuka (§26.5): proses tiket & SK menjadi workflow agen di menu SIMAN.
 
 **Kebijakan Otomatis**: pencocokan aset opsional per aturan (`verify_assets`, bawaan mati). Tanpa itu hasil agen selalu ke pemilik dan mode Otomatis ditolak, karena server tidak punya dasar untuk memutuskan. Jenis PSP/penghapusan/pemanfaatan tetap label kategori.
 
@@ -1940,8 +2026,8 @@ nama "SRIKANDI" tetap tidak bisa dipakai menu buatan agen, tetapi Hermes boleh m
 | Menambah workflow di menu SRIKANDI (mis. menyiapkan Register dari dokumen Approval, memeriksa naskah yang belum diambil) | `propose_agent_menu` dengan `placement: "srikandi"` (izin `agent:menus`) | Draf sampai disetujui di Approval → Usulan Agen; tampil di tab **SRIKANDI → Workflow** |
 | Menyiapkan entri Register Naskah Keluar | `create_record` / `update_record` jenis `srikandi_outgoing` (izin `workspace:write`) | Tercatat di Riwayat Aksi dan bisa dibatalkan pemilik. Referensi (`srikandi_reference`) dibaca dengan `list_records` |
 | Ambil Daftar Naskah Keluar, referensi, klasifikasi arsip | `srikandi_sync_letters`, `srikandi_sync_references { classifications? }` (izin `srikandi:robot`) | Hanya membaca SRIKANDI; latar belakang, hasil di `srikandi_status`; tercatat di riwayat Otomasi dengan pemicu Agen |
-| Periksa satu entri Register | `srikandi_check_register { entryId }` | `dryRun`: formulir diisi tanpa Simpan |
-| Mendaftarkan ke SRIKANDI | `srikandi_request_register { entryId, reason }` | Hanya **permintaan** (entri lengkap, milik sendiri, belum terdaftar; satu permintaan menunggu per entri): kartu "Permintaan daftarkan naskah ke SRIKANDI dari agen" di Approval → Usulan Agen, SRIKANDI → Register, dan SRIKANDI → Workflow. Setelah **Setujui & daftarkan** robot menyimpan konsep di Log Naskah Keluar dari isi entri terkini. **Kirim Konsep, Kirim Naskah, dan tanda tangan tidak pernah** |
+| Periksa satu entri Register | `srikandi_check_register { entryId }` | `dryRun`: formulir diisi tanpa Simpan; entri terdaftar = rencana perubahan konsep lewat Edit (§21.13) |
+| Mendaftarkan / memperbarui di SRIKANDI | `srikandi_request_register { entryId, reason }` | Hanya **permintaan** (entri lengkap, milik sendiri; entri terdaftar yang berubah = perbarui konsep lewat Edit, §21.13; satu permintaan menunggu per entri): kartu "Permintaan daftarkan naskah ke SRIKANDI dari agen" di Approval → Usulan Agen, SRIKANDI → Register, dan SRIKANDI → Workflow. Setelah **Setujui & daftarkan** robot menyimpan konsep di Log Naskah Keluar dari isi entri terkini. **Kirim Konsep, Kirim Naskah, dan tanda tangan tidak pernah** |
 
 Rancangan: `SrikandiAgentService` (tugas latar belakang, satu per user, riwayat 10 tugas di memori) dan kind `agent_actions`
 `srikandi_register` (`after` = ringkasan entri: hal, jenis, nomor, berkas, tujuan, penandatangan). Robot sibuk saat disetujui (409) →
@@ -1952,6 +2038,28 @@ Kebijakan Otomatis (§24) tetap jalur terpisah. Tanpa migrasi.
 entri tak dikenal & belum lengkap ditolak, permintaan → menunggu → ganda dikenali → disetujui tanpa sesi = gagal aman tanpa menandai entri →
 minta ulang → tolak → tidak bisa disetujui lagi). **Belum**: Hermes sungguhan memakai alat SRIKANDI (izin token agen perlu diperbarui —
 TODO-USER A32), pendaftaran ke SRIKANDI sungguhan setelah disetujui (uji robot ditunda, data dummy dulu).
+
+### 26.5 SIMAN menjadi fitur terbuka untuk agen (2026-11-13)
+
+**Arahan user**: SIMAN seharusnya fitur custom yang boleh diubah Hermes (merevisi keputusan 2026-11-09 yang menguncinya). Pola sama dengan
+e-Kinerja (§26.1) dan SRIKANDI (§26.4): nama "SIMAN" tetap tidak bisa dipakai menu buatan agen dan kode koneksi (login KemenkeuID, Jaga sesi)
+tetap bawaan, tetapi Hermes boleh menambah workflow di dalamnya dan menjalankan robotnya. Bedanya, alur tiket & unggah surat keputusan
+**belum diajarkan** pemilik (TODO-USER A25), jadi robot SIMAN untuk agen sengaja hanya membaca.
+
+| Yang boleh dilakukan Hermes | Cara | Batas |
+|---|---|---|
+| Menambah workflow di menu SIMAN (mis. cek tiket satker, siapkan SK) | `propose_agent_menu` dengan `placement: "siman"` (izin `agent:menus`) | Draf sampai disetujui di Approval → Usulan Agen; tampil di tab **SIMAN → Workflow** |
+| Jaga sesi login | `siman_check_session` (izin `siman:robot`) | Sama dengan tombol Cek sesi / jadwal Jaga sesi; tercatat di riwayat Otomasi dengan pemicu Agen |
+| Mempelajari halaman SIMAN | `siman_read_page { url? }` | Robot membuka **satu alamat** di dalam SIMAN dengan sesi pemilik dan membaca struktur teks (snapshot aksesibilitas, maks. 15 rb karakter) **tanpa klik, tanpa mengisi, tanpa mengunggah**. Alamat bertanda keluar/hapus/batal/setuju/tolak/kirim/unggah ditolak (membuka alamat = GET). Rekaman juga tersimpan di riwayat koneksi |
+| Hasil tugas | `siman_status` | Sesi + 10 tugas terakhir (memori satu proses backend) |
+
+Rancangan: `SimanAgentService` (pola `SrikandiAgentService`, satu tugas per user, latar belakang karena batas waktu MCP Hermes 180 dtk) +
+`RobotService.readSimanPage` (Eksplor halaman dengan kunci sistem agar tidak bertabrakan dengan Jaga sesi). Tanpa migrasi. Menulis ke SIMAN
+(unggah SK) kelak = kind `agent_actions` baru yang menunggu persetujuan pemilik, dibangun setelah prosesnya diajarkan dan diuji dengan data dummy.
+
+**Diuji**: unit backend +6, smoke +7 (user sementara tanpa sesi SIMAN: alat tampil hanya dengan izin, alamat logout ditolak, tugas tanpa
+sesi gagal aman; usulan workflow `placement: siman` = draf, nama "SIMAN" ditolak), UI tab Workflow & Cara Kerja. **Belum**: Hermes
+sungguhan memakai alat SIMAN (izin token agen — TODO-USER A33), login SIMAN sungguhan (A28), alur tiket & SK (A25).
 
 ### 26.2 Renaksi ditarik oleh e-Kinerja, dipetakan Hermes (2026-11-12)
 

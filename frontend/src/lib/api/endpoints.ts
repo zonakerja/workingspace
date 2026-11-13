@@ -708,9 +708,9 @@ export interface AgentMenu {
   instructions: string;
   /**
    * workflow = AI Agent → Workflow; connection = menu di Connection & MCP; ekinerja = e-Kinerja → Workflow;
-   * srikandi = SRIKANDI → Workflow
+   * srikandi = SRIKANDI → Workflow; siman = SIMAN → Workflow
    */
-  placement: "workflow" | "connection" | "ekinerja" | "srikandi";
+  placement: "workflow" | "connection" | "ekinerja" | "srikandi" | "siman";
   form: AgentMenuField[];
   status: "draft" | "active";
   createdAt: string;
@@ -831,6 +831,16 @@ export const robotApi = {
     }>("/robot/srikandi/letters/sync", {
       method: "POST",
     }),
+  /** Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya daftar; detail tidak dibuka agar status baca tetap). */
+  syncInbox: () =>
+    request<{
+      counts: Partial<Record<"masuk" | "tembusan" | "disposisi" | "koordinasi" | "arahan", number>>;
+      total: number;
+      added: number;
+      updated: number;
+      newUnread: number;
+      summary: string;
+    }>("/robot/srikandi/inbox/sync", { method: "POST" }),
   /** Daftarkan entri Register ke SRIKANDI (SIMPAN = konsep di Log Naskah Keluar); `dryRun` = isi tanpa menyimpan. */
   registerOutgoing: (id: string, dryRun = false) =>
     request<{
@@ -839,6 +849,18 @@ export const robotApi = {
       draft: { number: string; subject: string; sendStatus: string } | null;
       runId: string;
     }>(`/robot/srikandi/register/${encodeURIComponent(id)}`, { method: "POST", body: { dryRun } }),
+  /**
+   * Perbarui konsep entri yang sudah terdaftar lewat Edit di Log Naskah Keluar (hanya isian yang berubah; Kirim Konsep
+   * tetap oleh user). `dryRun` = rencana perubahan tanpa klik.
+   */
+  updateOutgoing: (id: string, dryRun = false) =>
+    request<{
+      status: "updated" | "unchanged" | "preview";
+      plan: string[];
+      warnings: string[];
+      remaining: string[];
+      runId: string;
+    }>(`/robot/srikandi/register/${encodeURIComponent(id)}/update`, { method: "POST", body: { dryRun } }),
   /** Klasifikasi arsip SRIKANDI (±1.000 baris, beberapa menit) → referensi kategori classification */
   syncClassifications: () =>
     request<{ counts: Record<string, number>; totals: Record<string, number>; pages: Record<string, number> }>(

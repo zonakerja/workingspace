@@ -8,6 +8,9 @@ export const links = {
   srikandiRegister: (id: string) => `/srikandi/register?register=${encodeURIComponent(id)}`,
   srikandiRegisterFromRequest: (requestId: string, uploadId: string) =>
     `/srikandi/register?register=new&request=${encodeURIComponent(requestId)}&doc=${encodeURIComponent(uploadId)}`,
+  /** Naskah Masuk SRIKANDI (disorot) dan Register baru sebagai balasannya */
+  srikandiInbox: (id: string) => `/srikandi/inbox?inbox=${encodeURIComponent(id)}`,
+  srikandiRegisterReply: (inboxId: string) => `/srikandi/register?register=new&reply=${encodeURIComponent(inboxId)}`,
   /** Tampilan lihat agenda (link meeting, dasar pelaksanaan, hasil agenda) */
   schedule: (id: string) => `/planner/schedule?agenda=${encodeURIComponent(id)}`,
   /** Seri agenda berulang → tampilan lihat pertemuan terdekat */

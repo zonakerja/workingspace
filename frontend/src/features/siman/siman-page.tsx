@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ModulePage } from "@/components/layout/module-page";
 import { Card } from "@/components/ui/card";
 import { RobotSettings } from "@/features/tools/robot/robot-settings";
+import { SimanWorkflowTab } from "./siman-workflow-tab";
 
 const STEPS: {
   icon: ComponentType<{ className?: string }>;
@@ -20,8 +21,8 @@ const STEPS: {
   {
     icon: Workflow,
     title: "2. Diproses agen",
-    text: "Pemrosesan dan pemeriksaan terjadi di AI Agent dan Approval, bukan di menu ini.",
-    to: "/agent/workflow",
+    text: "Proses yang diajarkan pemilik dijalankan agen sebagai workflow SIMAN; hasilnya diperiksa di Approval.",
+    to: "/siman/workflow",
     link: "Buka Workflow",
   },
   {
@@ -31,18 +32,23 @@ const STEPS: {
   },
 ];
 
-/** Connection & MCP → SIMAN: hanya koneksi. Pengecekan tiket & unggah SK dibangun setelah prosesnya diajarkan pemilik. */
+/**
+ * Connection & MCP → SIMAN: fitur terbuka untuk agen (keputusan user 2026-11-13). Kode koneksi tetap bawaan; proses tiket
+ * & unggah SK dibangun Hermes sebagai workflow berpenempatan `siman` setelah prosesnya diajarkan pemilik.
+ */
 export function Component() {
   return (
     <ModulePage module="siman">
       {(tab) =>
         tab === "connector" ? (
           <RobotSettings systems={["siman"]} />
+        ) : tab === "workflow" ? (
+          <SimanWorkflowTab />
         ) : (
           <div className="grid grid-cols-1 gap-3">
             <p className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-sm text-warning">
-              Pengecekan tiket dan unggah surat keputusan belum dibangun, menunggu prosesnya diajarkan. Saat ini tab
-              Connector baru menyimpan sesi login.
+              Pengecekan tiket dan unggah surat keputusan belum dibangun, menunggu prosesnya diajarkan kepada agen. Saat
+              ini robot SIMAN hanya menjaga sesi login dan, atas permintaan agen, membaca halaman tanpa mengklik.
             </p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               {STEPS.map(({ icon: Icon, title, text, to, link }) => (

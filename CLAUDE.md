@@ -368,7 +368,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   diindeks** (`noteDocument`), tidak diperiksa (`noteProblems`/`vaultHealth`), dan baca saja (`findEditable` → 400 untuk
   sunting/properti/pindah/hapus/sematkan tautan). Jenis data baru → `SOURCES` (service) + `buildExport` + `EXPORT_KINDS`.
 - **Integrasi agen / MCP** (`src/integrations/`, detail `docs/ARCHITECTURE.md` §3.7): token akses pribadi `api_tokens`
-  (`lifeos_pat_…`, hash SHA-256, cakupan `knowledge:read|knowledge:write|workspace:read|workspace:write|ai:chat|requests:read|requests:write|ai:model|agent:menus|mcp:apps|ekinerja:robot|srikandi:robot`,
+  (`lifeos_pat_…`, hash SHA-256, cakupan `knowledge:read|knowledge:write|workspace:read|workspace:write|ai:chat|requests:read|requests:write|ai:model|agent:menus|mcp:apps|ekinerja:robot|srikandi:robot|siman:robot`,
   kedaluwarsa; `/integrations/tokens|scopes|activity`) + **MCP server** `POST /api/v1/mcp` (Streamable HTTP stateless,
   Bearer token — JWT login ditolak; tools disaring izin: search/read knowledge, inbox, search workspace, agenda, task
   terbuka, buat to-do lewat `RecordsService`, tanya asisten, daftar/buka/catat/analisis pengajuan, **alat skill agen**:
@@ -416,7 +416,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   menerima `[A-Za-z0-9_-]{24,128}` (JWT bertitik tetap ditolak). Logika murni + test `agent-llm.ts`.
   **Run agen permanen** di tabel `agent_runs` (tombol, chat, aturan; `hermesRunId`) + pemantau 10 dtk di `AgentService`
   (mulai run antrian, baca status, batas 45 menit) — tidak lagi hilang saat backend restart.
-  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; `EXTENSIBLE_FEATURES` = fitur native yang **terbuka** untuk agen (e-Kinerja → placement `ekinerja`, keputusan user 2026-11-12; SRIKANDI → placement `srikandi`, keputusan user 2026-11-13: nama tetap dikunci, kode tetap bawaan, agen boleh menambah workflow di dalamnya & menjalankan robotnya); tabel `agent_menus` (`placement` workflow | connection | ekinerja | srikandi, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
+  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; `EXTENSIBLE_FEATURES` = fitur native yang **terbuka** untuk agen (e-Kinerja → placement `ekinerja`, keputusan user 2026-11-12; SRIKANDI → placement `srikandi` & SIMAN → placement `siman`, keputusan user 2026-11-13: nama tetap dikunci, kode tetap bawaan, agen boleh menambah workflow di dalamnya & menjalankan robotnya); tabel `agent_menus` (`placement` workflow | connection | ekinerja | srikandi | siman, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
   **Kebijakan Otomatis** (`agent-policy.service.ts`, logika murni + test `agent-policy.ts`, detail `docs/AI-AGENT.md` §24.6):
   **pencocokan aset opsional per aturan** (`verify_assets`, bawaan mati): tanpa itu hasil agen selalu ke pemilik dan mode auto ditolak 422 (keputusan user 2026-11-09). Aturan pemilik di `agent_policies` (jenis + grup → skill, mode off/shadow/auto, ambang skor aset, kolom kritis, toleransi,
   batas harian, masa tunda, templat Register). Pengajuan baru yang cocok → run `queued` (trigger `policy`) → agen memanggil
@@ -440,7 +440,11 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   rekaman eksplor + **Rekam halaman ini** di tayangan (`POST /robot/sessions/:id/capture`, untuk formulir/modal yang muncul
   setelah klik); peta e-Kinerja: `/skp` → SKP per periode → `/skp/renaksi/<id>` (`docs/AI-AGENT.md` §21.2). **Job robot**
   (tabel lengkap `docs/ARCHITECTURE.md` §3.10): SKP/RHK & Renaksi e-Kinerja, naskah ber-TTD SRIKANDI, referensi (+ klasifikasi
-  `categories`), **Register** `POST /robot/srikandi/register/:id { dryRun? }` → `registerSrikandiOutgoing` (berkas dari object
+  `categories`), **Naskah Masuk** `POST /robot/srikandi/inbox/sync` → `syncSrikandiInbox` (robot `srikandi-inbox.ts`: hanya halaman daftar
+  Naskah Masuk/Tembusan/Disposisi/Koordinasi/Arahan, detail **tidak pernah dibuka** agar Status Baca tetap; record `srikandi_inbox` ID `si-<hash>`,
+  kolom LifeOS `todoId` dipertahankan, butir hilang tidak dihapus; `docs/AI-AGENT.md` §21.14), **Edit register** `POST /robot/srikandi/register/:id/update { dryRun? }` → `updateSrikandiOutgoing` (robot
+  `srikandi-register-edit.ts`: baca halaman Edit konsep di Log → `planEdit` → hanya yang berbeda; pengenal `pushedSignature` =
+  `outgoingSignature` backend = frontend `register-logic.ts`, ubah keduanya bersamaan; `docs/AI-AGENT.md` §21.13), **Register** `POST /robot/srikandi/register/:id { dryRun? }` → `registerSrikandiOutgoing` (berkas dari object
   storage → robot `/jobs/srikandi/register`, body ≤ 40 MB) → konsep di Log Naskah Keluar, entri `submitted`. **Tautan publik berkas** `src/uploads/public-links.ts` (`public_links`, token hash, `/api/v1/public/files/:token`).
   **Brankas digital** `src/uploads/public-vaults.ts` (+ `vault-logic.ts` + test; `public_vaults`, `public_vault_files`,
   `public_vault_accesses`): satu tautan publik `/brankas/bv_<token>` per poin renaksi berisi beberapa berkas terisolasi; `/vaults*`
@@ -458,16 +462,21 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   `RobotService.fillEkinerjaRenaksi` dengan isi terkini (approved + ringkasan / failed + galat), `reject` = ditolak. `pending-count` ikut menghitungnya.
 - **Robot SRIKANDI untuk agen** (`src/robot/srikandi-agent.service.ts`, logika murni + test `srikandi-agent-logic.ts`, keputusan user 2026-11-13,
   detail `docs/AI-AGENT.md` §26.4): MCP cakupan `srikandi:robot` — `srikandi_sync_letters`, `srikandi_sync_references { classifications? }`,
-  `srikandi_check_register { entryId }` (`dryRun`) di latar belakang (satu tugas per user, pemicu robot `agent`), dibaca lewat `srikandi_status`.
+  `srikandi_sync_inbox`, `srikandi_check_register { entryId }` (`dryRun`) di latar belakang (satu tugas per user, pemicu robot `agent`), dibaca lewat `srikandi_status`.
   Mendaftarkan = `srikandi_request_register { entryId, reason }` → `agent_actions` kind `srikandi_register` (pending, satu per entri, entri wajib
   lengkap/belum terdaftar, `after` = ringkasan entri) → approve = `RobotService.registerSrikandiOutgoing` (isi terkini, berhenti di Simpan; 409 = tetap
   menunggu, galat lain = failed tanpa menandai entri). Daftar kind yang menunggu keputusan = `APPROVAL_KINDS` (`agent-action-logic.ts`).
+- **Robot SIMAN untuk agen** (`src/robot/siman-agent.service.ts`, logika murni + test `siman-agent-logic.ts`, keputusan user 2026-11-13,
+  detail `docs/AI-AGENT.md` §26.5): MCP cakupan `siman:robot` — `siman_check_session` (= Jaga sesi, `RobotService.check` pemicu `agent`) &
+  `siman_read_page { url? }` (`RobotService.readSimanPage` = Eksplor halaman dengan kunci sistem: buka satu alamat SIMAN, rekam struktur teks,
+  **tanpa klik**; `simanPageUrl` menolak alamat keluar/hapus/batal/kirim/unggah; struktur dipotong 15 rb karakter) di latar belakang, dibaca lewat
+  `siman_status`. **Hanya membaca**: belum ada jalur tulis ke SIMAN (unggah SK kelak = kind `agent_actions` baru yang menunggu persetujuan).
 - **Otomasi terjadwal** (`src/automation/`, detail `docs/ARCHITECTURE.md` §3.12): jadwal sinkron robot **baca-saja** per user
   (`automation_jobs` = sumber kebenaran, `schedule` jsonb daily/hourly/cron + zona waktu, maks. sekali per jam; logika murni +
   test `automation-logic.ts`) → job scheduler BullMQ `auto:<userId>:<kind>` di antrian `automation` (disamakan dengan tabel saat
   start), worker concurrency 1, satu percobaan. Jenis = `ROBOT_JOB_KINDS` (`robot/robot-jobs.ts`): `*_session` (**Jaga
   sesi login** = `RobotService.check`: sesi dibuka → `storageState` terbaru disimpan ulang terenkripsi; sesi habis = gagal),
-  `ekinerja_skp`, `ekinerja_renaksi`, `srikandi_letters`, `srikandi_references`, `srikandi_classifications`; isi Renaksi &
+  `ekinerja_skp`, `ekinerja_renaksi`, `srikandi_letters`, `srikandi_inbox`, `srikandi_references`, `srikandi_classifications`; isi Renaksi &
   daftarkan naskah **tidak** dijadwalkan. Sesi belum ada / `status = expired` → worker **melewati** tugas sistem itu tanpa
   membuka sistem (`pauseReason`), jalan lagi sendiri setelah login ulang. **Notifikasi** `GET /automation/alerts`
   (`automationAlerts` + test: `session_expired` / `session_missing` (jadwal aktif tanpa sesi) / `job_failed`; tanpa membuat
@@ -478,7 +487,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
 - **Database**: tabel & kolom snake_case (`@@map/@map`), timestamptz(3), FK `users` cascade. 28 tabel domain
   (agenda_types, schedules, routines, todos, routine_completions, free_notes, ai_notes, note_lists, areas, projects,
   activities, tasks, resources, para_archives, para_archive_logs, archive_classifications, archive_retention_schedules,
-  archive_locations, archive_borrowings, archive_dispositions, archive_move_logs, skps, skp_targets, action_plan_entries, action_plan_months, srikandi_references, srikandi_letters, srikandi_outgoings) dengan kolom sistem
+  archive_locations, archive_borrowings, archive_dispositions, archive_move_logs, skps, skp_targets, action_plan_entries, action_plan_months, srikandi_references, srikandi_letters, srikandi_inboxes, srikandi_outgoings) dengan kolom sistem
   `id, user_id, client_id, extra, created_at, updated_at, deleted_at` + `UNIQUE(user_id, client_id)`.
   - **Sumber tunggal** `src/records/record-schema.ts` (type → model/tabel, field & jenis
     string|int|float|bool|ymd|dateKey|timestamp|json, indeks, `audit`). Blok model di `schema.prisma` antara marker
@@ -508,7 +517,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (record type `action_plan_month` — potret bulan Rencana Aksi e-Kinerja) + `20261031140000_public_vaults` (brankas digital + log
   akses) + `20261101120000_automation_jobs` (jadwal & riwayat otomasi) + `20261106130000_ai_router_endpoints` (jalur router per kredensial AI) + `20261106140000_knowledge_prefs` (preferensi menu Knowledge) + `20261106120000_agent_policies` (Kebijakan Otomatis,
   `agent_runs`, sakelar darurat, `requests.asset_check`/`auto_decision`) + `20261107120000_knowledge_note_versions` (riwayat versi
-  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi). Migrasi baru → lihat docs/SETUP.md §10
+  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI). Migrasi baru → lihat docs/SETUP.md §10
     (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`, lalu cek
     drift dengan `--exit-code`; shadow DB dari `SHADOW_DATABASE_URL`).
 - **Records API**: `GET /records/:type?from&to` (milik sendiri + item bersama bertanda `share`), `PUT
@@ -1198,7 +1207,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   centang → isi ulang; indikator sementara bila bulan akan kosong, `modalPasses`; baris kosong tidak pernah dilepas). Backend sinkron: `POST
   /robot/ekinerja/skp/sync { year }` (`RobotService.syncEkinerjaSkp` menulis lewat `RecordsService`; logika murni + test
   `ekinerja-sync.ts`), robot `POST /jobs/ekinerja/skp` (`robot/src/ekinerja.ts` + test).
-- **SIMAN** (grup Connection & MCP, `/siman/:tab`, `features/siman/siman-page.tsx`, warna `--mod-siman`): fungsinya **hanya koneksi**: cek tiket pengajuan satker, lalu memasukkan surat keputusan yang sudah jadi; pemrosesan terjadi di AI Agent & Approval. Tab **Cara Kerja** (keterangan, alur belum dibangun) & **Connector** (sistem robot `siman`, baru login + Jaga sesi). Alamat bawaan
+- **SIMAN** (grup Connection & MCP, `/siman/:tab`, `features/siman/siman-page.tsx`, warna `--mod-siman`): fungsinya **koneksi**: cek tiket pengajuan satker, lalu memasukkan surat keputusan yang sudah jadi. **Fitur terbuka untuk agen** (keputusan user 2026-11-13, pola e-Kinerja/SRIKANDI): proses tiket & SK dibangun Hermes sebagai workflow `placement: siman` setelah diajarkan pemilik. Tab **Cara Kerja** (keterangan, alur belum dibangun), **Workflow** (`siman-workflow-tab.tsx` = `FeatureWorkflowTab placement="siman"`) & **Connector** (sistem robot `siman`: login + Jaga sesi; agen bisa membaca halaman tanpa klik). Alamat bawaan
   `https://siman.kemenkeu.go.id/login` (hanya tombol Login) → KemenkeuID `sso.kemenkeu.go.id` (Username, Password, lalu OTP): `SYSTEM_INFO.defaultHosts`
   mengizinkan host SSO (`connectorHosts`), login otomatis robot mengklik tombol pembuka halaman login dulu (`pickLoginEntry`: teks persis
   Login/Masuk/Sign in, hanya berpindah halaman). Konektor lama tanpa alamat diisi alamat bawaan saat daftar konektor dimuat. Dari
@@ -1216,7 +1225,10 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
 - **SRIKANDI** (grup Connection & MCP, `/srikandi/:tab`, `features/srikandi/srikandi-page.tsx`; **fitur terbuka untuk agen** (2026-11-13): tab
   **Workflow** `srikandi-workflow-tab.tsx` = menu agen `placement: srikandi` yang disetujui (komponen bersama `features/agent/feature-workflow-tab.tsx`,
   juga dipakai e-Kinerja) + kartu `SrikandiRegisterRequestsCard` (`register-requests-card.tsx`: permintaan daftar dari agen, Setujui & daftarkan / Tolak)
-  yang juga tampil di atas tab Register dan di Approval → Usulan Agen): tab **Register Naskah Keluar** (id `register`, tab pertama; `register-board.tsx` + `register-dialog.tsx` + `register-file-picker.tsx`, logika murni + test `register-logic.ts`; record `srikandi_outgoing`, `?register=<id>|new` + `&request=&doc=` dari Approval = `links.srikandiRegister*`; detail `docs/AI-AGENT.md` §21.11–§21.12; **Daftarkan ke SRIKANDI** = `robotApi.registerOutgoing` → `POST /robot/srikandi/register/:id` (backend `registerSrikandiOutgoing` + logika murni `srikandi-register.ts`) → robot `POST /jobs/srikandi/register` (`robot/src/srikandi-register.ts` + test): isi formulir → **Simpan** = konsep di Log Naskah Keluar, draf berhal sama tidak dibuat ulang, `dryRun` = **Periksa di SRIKANDI** (dialog `RunDialog` dari `robot-settings.tsx`); robot tidak pernah Kirim Konsep), tab **Daftar Naskah Keluar** (id `outgoing`; record
+  yang juga tampil di atas tab Register dan di Approval → Usulan Agen): tab **Naskah Masuk** (id `inbox`, tab pertama; `inbox-board.tsx`, logika
+  murni + test `inbox-logic.ts`, record `srikandi_inbox`, `?inbox=<id>` = `links.srikandiInbox`: chip jenis/belum dibaca, cari, Jadikan to-do
+  (`todoId`), Buat balasan → `links.srikandiRegisterReply` = Register baru dengan Nomor Referensi + `replyTo`, balasan dikenali dari
+  `SrikandiOutgoing.replyTo`; lonceng = bagian Naskah Masuk Belum Dibaca), tab **Register Naskah Keluar** (id `register`, tab pertama; `register-board.tsx` + `register-dialog.tsx` + `register-file-picker.tsx`, logika murni + test `register-logic.ts`; record `srikandi_outgoing`, `?register=<id>|new` + `&request=&doc=` dari Approval = `links.srikandiRegister*`; detail `docs/AI-AGENT.md` §21.11–§21.12; **Daftarkan ke SRIKANDI** = `robotApi.registerOutgoing` → `POST /robot/srikandi/register/:id` (backend `registerSrikandiOutgoing` + logika murni `srikandi-register.ts`) → robot `POST /jobs/srikandi/register` (`robot/src/srikandi-register.ts` + test): isi formulir → **Simpan** = konsep di Log Naskah Keluar, draf berhal sama tidak dibuat ulang, `dryRun` = **Periksa di SRIKANDI** (dialog `RunDialog` dari `robot-settings.tsx`); robot tidak pernah Kirim Konsep), tab **Daftar Naskah Keluar** (id `outgoing`; record
   `srikandi_letter`, cari + paginasi, Lihat PDF lewat `previewFile`, tombol **Ambil dari SRIKANDI** → `POST
   /robot/srikandi/letters/sync`) & **Connector** (`<RobotSettings systems={["srikandi"]} />`). Sinkron: robot `POST
   /jobs/srikandi/outgoing` (`robot/src/srikandi.ts` + test) membaca Daftar Naskah Keluar, untuk naskah ber-TTD (`isSigned`)
@@ -1396,6 +1408,9 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | Filter cakupan renaksi pilih-banyak (Area / Project / Lepas; disimpan per akun, berlaku untuk agen) + tombol "Generate usulan" | ✅ 2026-11-12 — unit backend +3 & frontend +2, smoke +4, migrasi tanpa drift, lint, format, build; browser (kecualikan Area Kepegawaian → 3 kegiatan tersembunyi, Sertakan semua → kembali; pengaturan admin dikembalikan kosong) |
 | Asal pembuka tautan brankas di log akses (tahap 1 pembatasan tautan bukti: e-Kinerja / LifeOS / situs lain / tanpa asal; belum memblokir) + nama kegiatan & RHK utuh di modal renaksi | ✅ 2026-11-12 — unit backend +2 & frontend +1, smoke +1, migrasi tanpa drift, lint, format, build; browser (klik dari LifeOS → "LifeOS", ditempel → "Tanpa asal"; brankas uji dihapus). **Belum**: data asal dari e-Kinerja sungguhan (butuh VPS) → keputusan tahap 2 |
 | e-Kinerja fitur terbuka untuk agen: workflow agen di tab e-Kinerja → Workflow, alat MCP robot (Ambil SKP, Pantau, Periksa) di latar belakang, permintaan isi yang menunggu persetujuan pemilik | ✅ 2026-11-12 — unit backend +6, smoke +11 (user tanpa sesi e-Kinerja), lint, typecheck, format, UI (tab Workflow, kartu di e-Kinerja & Usulan Agen, Tolak, Riwayat Aksi; data uji dibersihkan). **Belum**: Hermes sungguhan memakai alat baru (izin token agen perlu diperbarui, TODO-USER A30), pengisian setelah disetujui ke e-Kinerja sungguhan (ditunda: uji robot dengan data dummy) |
+| Naskah Masuk SRIKANDI tahap 1 (baca daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan; tab Naskah Masuk, Jadikan to-do, Buat balasan, lonceng, otomasi & alat agen) | ✅ 2026-11-13 — unit robot +3, backend +4, frontend +3, smoke +4; sinkron sungguhan ke SRIKANDI (5 daftar, 0 butir = akun kosong); UI dengan data dummy (dibersihkan). **Belum**: baris & detail sungguhan, PDF naskah masuk (status baca), Log disposisi + batas waktu, robot mengisi Nomor Referensi, tindak lanjut di SRIKANDI (tahap 2) |
+| Edit register SRIKANDI: entri terdaftar yang diubah di LifeOS → Perbarui di SRIKANDI (robot Edit konsep di Log Naskah Keluar, hanya yang berbeda) + Periksa perubahan + penanda Berubah + jalur agen (permintaan perbarui) | ✅ 2026-11-13 — unit robot +7, backend +2, frontend +1, smoke +5, lint, typecheck, format; diuji ke SRIKANDI sungguhan pada konsep `[UJI LifeOS]` (bagian atas berantai + Ambil Nomor, tambah/hapus lampiran, tembusan, verifikator; tanpa Kirim Konsep). **Belum**: Nomor Referensi, Unit Pengolah, Ukuran QR, urutan verifikator, Eksternal Non Srikandi, grup; konsep uji masih di Log (menunggu izin hapus) |
+| SIMAN fitur terbuka untuk agen: tab SIMAN → Workflow (workflow agen `placement: siman`), alat MCP robot baca `siman:robot` (Jaga sesi, Baca halaman tanpa klik; alamat keluar/hapus/kirim/unggah ditolak) | ✅ 2026-11-13 — unit backend +6 (468), frontend 322, smoke +7 (user tanpa sesi SIMAN; total 612 lulus), lint, typecheck, format; UI tab Workflow & Cara Kerja. **Belum**: Hermes sungguhan memakai alat SIMAN (izin token agen, TODO-USER A33), login SIMAN sungguhan (A28), alur tiket & unggah SK (menunggu A25) |
 | SRIKANDI fitur terbuka untuk agen: workflow agen di tab SRIKANDI → Workflow, alat MCP robot (ambil naskah, referensi, klasifikasi, periksa Register) di latar belakang, permintaan daftarkan naskah yang menunggu persetujuan pemilik | ✅ 2026-11-13 — unit backend +5 & frontend tetap lulus, smoke +15 (user tanpa sesi SRIKANDI), lint, typecheck, format. **Belum**: Hermes sungguhan memakai alat baru (izin token agen, TODO-USER A32), pendaftaran ke SRIKANDI sungguhan setelah disetujui (uji robot ditunda, data dummy) |
 | Tampilan ringkas seluruh aplikasi (header, banner modul satu baris, tab, kartu, dialog, kartu statistik, kartu arsip, penjelasan PARA dapat dibuka) | ✅ 2026-11-12 — lint, typecheck, unit (313), format, build; UI diuji 1366×768 & 375 px di semua modul (tanpa luberan horizontal; konten mulai ± 215 px, dulu ± 330 px; revisi banner/tab/kartu ringkasan sesuai arahan user); hanya kelas tampilan, logika/alur tidak berubah; modal utama (Project, Area, Agenda lihat & form, Proses Arsip, Approval, Notes AI) diperiksa di browser. **Belum**: modal yang jarang dipakai (robot, brankas, register SRIKANDI) hanya lewat aturan umum, belum dilihat satu per satu |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
@@ -1409,6 +1424,15 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 3. Uji robot ditunda atas keputusan user sampai Knowledge & AI Agent matang, dimulai dengan data dummy / robot dummy. Robot boleh menyala, tetapi jangan menjalankan alurnya ke SRIKANDI/e-Kinerja sungguhan untuk uji.
 4. **Tampilan ringkas (2026-11-12)** sudah di-commit (`style(ui): compact layout across modules and dialogs`), belum di-push. Modal yang jarang dipakai (robot, brankas, Register SRIKANDI) belum dilihat satu per satu.
 5. Commit lokal bisa belum di-push (cek `git status -sb`): push hanya atas perintah user, lalu user mengecek CI.
+6d. **Commit gabungan (2026-11-13, atas perintah user)**: Edit register + Naskah Masuk di-commit **bersama** pekerjaan sesi "SIMAN connection
+   feature" yang belum selesai (bercampur di 19 berkas yang sama), belum di-push. Sesi SIMAN melanjutkan di atas commit itu. Sebelum
+   commit: test backend/frontend/robot + smoke lulus.
+6c. **Naskah Masuk tahap 1 (2026-11-13)** sudah di-commit (6d); tunggu naskah masuk sungguhan di akun user untuk memetakan baris, kolom Aksi, dan
+   detail (jangan buka detail tanpa izin: Status Baca berubah). Usulan tahap 2: PDF untuk naskah yang sudah dibaca, Log Disposisi + batas waktu,
+   Nomor Referensi di robot Register.
+6e. **SIMAN fitur terbuka (2026-11-13)** ikut di-commit di 6d sebagai kerja berjalan (dikerjakan bersamaan dengan chat SRIKANDI di working tree yang sama — berkas bersama: `lifeos-mcp.service.ts`, `robot.module.ts`, `robot-logic.ts`, `robot.service.ts`, `smoke.mjs`, CLAUDE.md). Hermes perlu izin `siman:robot` (TODO-USER A33). Langkah berikutnya SIMAN = pemilik mengajarkan proses tiket (A25), lalu Hermes membaca halaman tiket lewat `siman_read_page` dan menyusun skill + workflow SIMAN; jalur tulis (unggah SK) dibangun sebagai permintaan yang disetujui pemilik, dengan data dummy dulu.
+6b. **Edit register SRIKANDI (2026-11-13)** sudah di-commit (6d); konsep uji `[UJI LifeOS] Uji edit register v2 - abaikan` masih di Log Naskah
+   Keluar SRIKANDI dan entri ujinya di tab Register (menunggu izin user untuk dihapus — hapus konsep di SRIKANDI butuh izin eksplisit).
 6a. **SRIKANDI fitur terbuka (2026-11-13)** sudah di-commit (`feat(srikandi): open SRIKANDI to the agent…`), belum di-push; Hermes perlu izin `srikandi:robot` (TODO-USER A32).
 6. Peta jalan no. 3 = **AI Agent selayaknya Claude web/desktop** (permintaan user 2026-11-09, dikerjakan nanti): riwayat percakapan tersimpan, daftar percakapan, dan pengalaman chat yang sepadan. Agen juga belum bisa menyimpan skill ke folder yang dibaca LifeOS (`agents/hermes/skills` baca saja), jadi skill buatan Hermes belum muncul di daftar skill LifeOS.
 7. **Pekerjaan e-Kinerja 2026-11-12 (chat ini akan dihapus user — semua konteks ada di sini, `docs/AI-AGENT.md` §21.10b & §26.1–§26.3, `docs/TODO-USER.md` A30–A31)**. Selesai & **di-commit** (`feat(ekinerja): agent-open e-Kinerja…`, belum di-push): e-Kinerja fitur terbuka untuk agen, renaksi ditarik dari Productivity + Generate usulan, filter cakupan Area/Project/Lepas, modal renaksi tidak terpotong, asal pembuka tautan brankas, centang semua usulan, salin dari bulan lalu. **Tertunda**:
@@ -2306,12 +2330,33 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   dibuat, Generate usulan hanya lewat tombol. Dibangun "Salin dari bulan lalu" untuk butir rutin: bukti data dukung sengaja tidak disalin karena
   bukti tiap bulan harus dokumen bulan itu (brankas terikat pada satu entri), dan butir yang sudah ada tidak bisa disalin ulang agar tidak ganda.
 
+- 2026-11-13 — **SIMAN menjadi fitur terbuka untuk agen** (permintaan user: "fitur ini seharusnya fitur custom dan dapat diubah2 oleh hermes";
+  merevisi keputusan 2026-11-09 yang mengunci SIMAN). Pola sama dengan e-Kinerja & SRIKANDI: nama dikunci, kode koneksi tetap bawaan, workflow
+  agen `placement: siman` di tab SIMAN → Workflow. Karena alur tiket & SK belum diajarkan, robot untuk agen sengaja **hanya membaca**: Jaga sesi
+  dan **Baca halaman** (struktur teks satu alamat, tanpa klik) agar Hermes bisa mempelajari halaman tiket bersama pemilik. Membuka alamat = GET,
+  jadi alamat bertanda keluar/hapus/batal/kirim/unggah ditolak sebelum robot dipanggil. Smoke memakai ulang token smoke SRIKANDI karena
+  pembuatan token dibatasi 10/menit (token ketiga berturut-turut kena 429).
+
 - 2026-11-13 — **SRIKANDI menjadi fitur terbuka untuk agen** (permintaan user: "fitur ini seharusnya fitur custom dan dapat diubah-ubah Hermes";
   merevisi keputusan 2026-11-09 yang mengunci SRIKANDI). Mengikuti pola e-Kinerja yang dipilih user 2026-11-12 (menu terbuka + Hermes boleh
   menjalankan robot), tanpa membangun ulang kode SRIKANDI karena robot Register & sinkron naskah sudah teruji ke SRIKANDI sungguhan. Agen menyiapkan
   entri Register lewat record (bisa dibatalkan), membaca SRIKANDI lewat robot, memeriksa Register (`dryRun`), dan **meminta** pendaftaran; robot
   menyimpan konsep hanya setelah pemilik menyetujui, dan Kirim Konsep tetap di tangan pemilik. Tab Workflow e-Kinerja & SRIKANDI kini satu komponen
   bersama. Uji memakai user tanpa sesi SRIKANDI (uji robot ditunda).
+
+- 2026-11-13 — **Edit register SRIKANDI** (permintaan user: register harus mengakomodasi edit di Log Naskah Keluar; boleh mencoba robot
+  ke SRIKANDI asal tidak Kirim Konsep). Dirancang "baca dulu, ubah yang berbeda" (bukan menulis ulang semua) karena Lampiran/Tujuan/
+  Verifikator/Penandatangan di halaman Edit adalah tabel terpisah yang tiap baris disimpan langsung; menghapus baris dibatasi ke konfirmasi
+  "Data … akan dihapus ?" di halaman Edit (hapus konsep dari Log tetap tidak pernah). LifeOS = sumber isi; baris yang tidak ada di entri
+  dihapus, kecuali tujuan bila entri memakai grup. Pengenal perubahan disalin backend↔frontend (pola `entrySignature` e-Kinerja). Konsep
+  dicari dari hal saat terakhir dikirim karena ID Log acak per muat. Uji memakai satu konsep `[UJI LifeOS]` yang dibuat robot dan masih ada.
+
+- 2026-11-13 — **Naskah Masuk SRIKANDI tahap 1** (permintaan user: melihat surat yang ditujukan ke kita, disposisi, arahan; rekomendasi disetujui
+  "Ya, bangun tahap 1"). Robot hanya membaca halaman daftar dan tidak pernah membuka detail, karena membuka detail kemungkinan menandai naskah
+  "sudah dibaca" yang terlihat pengirim/atasan. Butir disimpan sebagai record (sinkron, cari, chatbot, agen memakai jalur yang ada); ID dari isi
+  karena ID SRIKANDI acak per muat; butir yang hilang tidak dihapus. To-do dibuat hanya atas klik pemilik, bukan otomatis; balasan lewat
+  Register (gerbang yang sudah ada), tautannya dihitung dari `replyTo` agar tidak ada dua sumber kebenaran. Daftar di akun user kosong saat
+  dibangun → diuji dengan data dummy LifeOS.
 
 ## 13. Konvensi Kode
 
@@ -2431,7 +2476,7 @@ Label jenis baru → `KIND_LABELS`/`RECORD_LABELS` (`trash-utils.ts`).
 **Menambah aplikasi ke katalog MCP**: entri di `MCP_PRESETS` (`mcp-connection-logic.ts`: key, nama, deskripsi, alamat resmi dari dokumentasi
 penyedia, `authType`, ikon dari registry ikon frontend). Tanpa perubahan frontend. Aplikasi yang tidak ada di katalog cukup lewat "Aplikasi lain".
 
-**Membuka fitur native untuk agen** (pola e-Kinerja 2026-11-12, SRIKANDI 2026-11-13): placement baru di `MENU_PLACEMENTS` + entri `EXTENSIBLE_FEATURES`
+**Membuka fitur native untuk agen** (pola e-Kinerja 2026-11-12, SRIKANDI & SIMAN 2026-11-13): placement baru di `MENU_PLACEMENTS` + entri `EXTENSIBLE_FEATURES`
 (nama tetap di `NATIVE_FEATURES`), tab Workflow di halaman fitur lewat `<FeatureWorkflowTab placement>` (+ tipe `placement` di `endpoints.ts`), label & tautan Buka di
 `proposals-tab.tsx`. Aksi robot yang **membaca** → alat MCP asinkron (tugas latar belakang + alat status), cakupan sendiri. Aksi yang **menulis**
 ke sistem luar → kind baru di `agent_actions` + `APPROVAL_KINDS` (pending) yang dijalankan saat pemilik menyetujui (`AgentActionsService.approve`; 409 robot sibuk = tetap menunggu), + kartu
@@ -2458,6 +2503,10 @@ menyimpan kata sandi. Versi `playwright` npm = tag image di `robot/Dockerfile`.
 **Mengubah isian sistem tanpa ubah/hapus per butir** (pelajaran e-Kinerja): simpan tanda tangan isi saat terkirim (pengenal
 perubahan), baca & impor isi sistem sebelum menulis, tulis ulang satu unit terkecil yang bisa dihapus (baris indikator) lalu isi
 ulang dari LifeOS; jangan pernah melepas baris kosong / mengosongkan unit yang wajib ada; selalu sediakan `dryRun`.
+
+**Mengubah isian di sistem yang menyimpan per bagian** (pelajaran Edit register SRIKANDI): baca halaman → rencana murni (`planEdit`)
+→ `dryRun` → ubah hanya yang berbeda, tambah dulu lalu hapus; tombol hapus hanya lewat penjaga teks konfirmasi + URL halaman; pastikan
+masih di halaman yang benar sebelum tiap langkah (simpan bisa berpindah halaman); baca ulang di akhir (`remaining`).
 
 **Mengisi formulir react-select** (pelajaran Registrasi SRIKANDI): tandai kolom lewat teks label → `input[role=combobox]`
 berikutnya, ketik istilah pendek (`searchTerm`), tunggu opsi dari server, **klik** opsi (`pickOption`) — jangan Enter (bisa
@@ -2711,6 +2760,11 @@ utama tetap < 500 kB (cek output `npm run build`).
 - Hermes tanpa baris `API_SERVER_KEY` di `/opt/data/.env` bisa gagal membuka API server setelah container dimulai ulang: log `No messaging platforms enabled.`, port 8642 tertutup, padahal env container benar dan konfigurasi terbaca benar saat diperiksa manual. `configure.sh` menyamakannya; nilai di `.env` menang atas env. Jangan memakai `HERMES_GATEWAY_NO_SUPERVISE`: container berhenti terus karena gateway dianggap ganda. Saat menyalakan: Hermes menjawab 404 di `/v1/runs` ± 20 dtk pertama.
 - Skenario smoke yang butuh vault harus berada sebelum `PUT /knowledge/vault { folder: null }`; dengan penjaga `if (status.folder)` skenario di luar blok itu terlewat diam-diam dan smoke tetap lulus. Cek baris `PASS` skenarionya, bukan hanya "Semua test lulus". Satu pelanggaran `ok` tidak menghentikan skenario berikutnya, tetapi `Semua test lulus` hilang.
 - Hermes membaca daftar alat MCP saat container menyala: setelah izin agen diubah di **Siapkan agen** atau alat MCP baru ditambahkan, jalankan `docker restart lifeos-hermes` dan tunggu ± 20 dtk (segera sesudah restart `/v1/runs` menjawab 404).
+- SRIKANDI halaman Edit konsep (Log Naskah Keluar): pilihan Dikirimkan melalui → Jenis → Sifat → Klasifikasi **berantai** (mengganti satu
+  mengosongkan yang di bawahnya **dan** Nomor Naskah); Perbarui Naskah tanpa nomor ditolak tanpa pesan. Perbarui Naskah kembali ke Log.
+  Modal Tambah bukan `role=dialog`, tetapi ada elemen `role=dialog` lain ("×OKNoCancel") — penunggu pesan wajib menyaring teksnya. Opsi
+  Tembusan dari daftar Tembusan; pengguna "[ PERLU PEMBARUAN ]" ditolak saat disimpan. Robot berjalan di container: perubahan `robot/src`
+  baru berlaku setelah `docker compose --profile robot up -d --build --wait robot`.
 - Hermes 0.22.2–0.22.5: `GET /v1/skills` selalu 500 (`_find_all_skills() got an unexpected keyword argument
   'include_editorial'`) → daftar skill dibaca backend dari folder repo. Cek ulang saat upgrade Hermes.
 - Claude Opus/Sonnet 5.5 lewat proxy agen: `ClaudeTurnMemory` ada di memori satu proses (seperti peta run agen). Cek cache lewat

@@ -416,6 +416,37 @@ export interface ActionPlanMonth extends Owned {
   syncedAt?: string;
 }
 
+/** Jenis naskah masuk SRIKANDI (halaman daftar di menu Naskah Masuk). */
+export type SrikandiInboxKind = "masuk" | "tembusan" | "disposisi" | "koordinasi" | "arahan";
+
+/**
+ * Naskah masuk SRIKANDI (diambil robot dari halaman daftar saja; detail tidak dibuka agar Status Baca tetap). Kolom
+ * dari robot ditimpa setiap sinkron; kolom tindak lanjut LifeOS (`todoId`) dipertahankan.
+ */
+export interface SrikandiInbox extends Owned {
+  id: string;
+  kind: SrikandiInboxKind;
+  /** Tanggal naskah (YYYY-MM-DD); disposisi/koordinasi/arahan = Tanggal Naskah Masuk */
+  date?: string;
+  /** Tanggal disposisi / koordinasi / arahan (YYYY-MM-DD) */
+  sentDate?: string;
+  number?: string;
+  subject?: string;
+  origin?: string;
+  /** Uraian Informasi (disposisi, koordinasi, arahan) */
+  info?: string;
+  instruction?: string;
+  extraInstruction?: string;
+  followUpStatus?: string;
+  readStatus?: string;
+  /** Semua kolom daftar SRIKANDI */
+  fields?: Record<string, string>;
+  firstSeenAt?: string;
+  syncedAt?: string;
+  /** To-do Planner yang dibuat dari naskah ini (balasan dikenali dari `SrikandiOutgoing.replyTo`) */
+  todoId?: string;
+}
+
 /** Naskah keluar SRIKANDI (diambil robot; PDF ber-TTD = berkas LifeOS `uploadId`). */
 export interface SrikandiLetter extends Owned {
   id: string;
@@ -520,6 +551,8 @@ export interface SrikandiOutgoing extends Owned {
   signatureType?: "elektronik" | "konvensional";
   visualTte?: "qr" | "spesimen";
   status: SrikandiOutgoingStage;
+  /** Naskah masuk yang dibalas (`srikandi_inbox.id`) */
+  replyTo?: string;
   /** Asal berkas mentah */
   sourceType?: "request" | "file" | "upload";
   /** ID pengajuan Approval (sourceType "request") */
@@ -527,6 +560,14 @@ export interface SrikandiOutgoing extends Owned {
   sourceTitle?: string;
   /** Waktu entri didaftarkan ke SRIKANDI (ISO) — oleh user, nanti oleh robot */
   submittedAt?: string;
+  /** Hal konsep di SRIKANDI saat terakhir didaftarkan/diperbarui robot (mencari baris Log Naskah Keluar) */
+  pushedSubject?: string;
+  /** Pengenal isi saat terakhir dikirim robot (`outgoingSignature`) — beda = perlu "Perbarui di SRIKANDI" */
+  pushedSignature?: string;
+  /** File naskah yang terakhir dikirim robot */
+  pushedFileId?: string;
+  /** Waktu terakhir konsep diperbarui robot lewat Edit di Log Naskah Keluar (ISO) */
+  updatedInSrikandiAt?: string;
   /** Naskah final (`srikandi_letter.id`) dari Daftar Naskah Keluar */
   letterId?: string;
   /** PDF final juga ditautkan sebagai dokumen final dari file naskah DOCX (konsep ↔ final ONLYOFFICE) */

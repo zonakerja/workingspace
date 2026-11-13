@@ -69,7 +69,27 @@ import {
   type SelectKey,
   searchTerm,
   detailIdOf,
+  normalizeOption,
 } from "./srikandi-register.js";
+import {
+  INBOX_PAGES,
+  type InboxItem,
+  type InboxKind,
+  MAX_INBOX_PAGES,
+  mergeInboxItems,
+  parseInboxRows,
+} from "./srikandi-inbox.js";
+import {
+  describePlan,
+  EDIT_MARKER,
+  findEditRow,
+  type EditState,
+  isRowRemovalConfirm,
+  planEdit,
+  planIsEmpty,
+  recipientMenu,
+  type UpdateForm,
+} from "./srikandi-register-edit.js";
 
 /** Alamat yang tampak seperti berkas lampiran. */
 const FILE_URL = /\.(pdf|docx?|xlsx?|pptx?|odt|ods|jpe?g|png|zip)$/i;
@@ -1095,7 +1115,11 @@ export class BrowserPool {
       { label, key },
     );
     if (!marked) throw new Error(`Kolom "${label}" tidak ditemukan di formulir.`);
-    const input = page.locator(`[data-lifeos-select="${key}"]`);
+    await this.chooseOption(page, page.locator(`[data-lifeos-select="${key}"]`), value, label);
+  }
+
+  /** Ketik istilah cari di react-select lalu klik opsi yang cocok (Enter tidak pernah dipakai: bisa mengirim formulir). */
+  private async chooseOption(page: Page, input: Locator, value: RegisterPick, label: string) {
     await input.scrollIntoViewIfNeeded().catch(() => undefined);
     await input.click();
     await input.fill("");
@@ -1121,6 +1145,441 @@ export class BrowserPool {
     await page.keyboard.press("Escape");
   }
 
+  /**
+   * SRIKANDI: perbarui konsep yang sudah didaftarkan lewat **Edit** di Log Naskah Keluar. Konsep dicari dari hal saat
+   * terakhir dikirim (`findSubject`); hanya konsep yang masih punya tautan Edit (belum dikirim) yang bisa diubah. Robot
+   * membaca isi halaman Edit, menyusun rencana (`planEdit`), lalu hanya mengubah yang berbeda: bagian atas → Perbarui
+   * Naskah; lampiran, tujuan, verifikator, penandatangan → Tambah (modal + Simpan) dan ikon hapus baris (konfirmasi
+   * "Data … akan dihapus ?" saja). `dryRun` = baca + rencana tanpa klik. Kirim Konsep tidak pernah disentuh.
+   */
+  async srikandiRegisterUpdate(target: Target & { form: UpdateForm; dryRun?: boolean }) {
+    return this.withPage(target, async (page, hosts, markers) => {
+      const form = target.form;
+      const base = target.baseUrl.replace(/\/+$/, "");
+      await this.open(page, base + LOG_PATH, hosts);
+      await this.dismissInfoDialog(page);
+      const info = await this.describe(page, markers);
+      const empty = { plan: [] as string[], warnings: [] as string[], draft: null as LogRow | null };
+      if (!info.loggedIn) return { ...info, ...empty, status: "logged_out" as const, screenshot: null };
+
+      const rows = await this.readLog(page);
+      const row = findEditRow(rows, form.findSubject, form.subject);
+      if (!row) return { ...info, ...empty, status: "not_found" as const, screenshot: await this.jpeg(page) };
+      if (!row.editHref) {
+        return { ...info, ...empty, draft: row, status: "locked" as const, screenshot: await this.jpeg(page) };
+      }
+
+      await this.open(page, new URL(row.editHref, base + "/").toString(), hosts);
+      await this.dismissInfoDialog(page);
+      await page.getByText("Ubah Log Naskah Keluar").first().waitFor({ timeout: 20_000 });
+      await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+      const before = await this.readEditState(page);
+      const plan = planEdit(form, before);
+      const steps = describePlan(plan);
+      if (target.dryRun || planIsEmpty(plan)) {
+        return {
+          ...info,
+          draft: row,
+          plan: steps,
+          warnings: plan.warnings,
+          before,
+          status: planIsEmpty(plan) ? ("unchanged" as const) : ("preview" as const),
+          url: page.url(),
+          screenshot: await this.fullJpeg(page),
+        };
+      }
+
+      // 1. Bagian atas + file naskah → Perbarui Naskah
+      if (plan.top.length) {
+        const selects: [SelectKey, string, string][] = [
+          ["unit", "Dikirimkan melalui", form.unit],
+          ["docType", "Jenis Naskah", form.docType],
+          ["nature", "Sifat Naskah", form.nature],
+          ["classification", "Klasifikasi", form.classification],
+        ];
+        // Pilihan berantai: mengganti satu pilihan mengosongkan pilihan di bawahnya (Sifat → Klasifikasi & Nomor), jadi
+        // mulai dari pilihan pertama yang berubah semua pilihan sesudahnya dipilih ulang berurutan
+        const first = selects.findIndex(([, label]) => plan.top.includes(label));
+        if (first >= 0)
+          for (const [key, , value] of selects.slice(first)) await this.pickSelect(page, key, { label: value });
+        // Tanpa nomor, Perbarui Naskah ditolak diam-diam → isi ulang
+        const number = page.getByPlaceholder("Masukkan Nomor Naskah...");
+        if (plan.top.includes("Nomor Naskah") || !(await number.inputValue()).trim()) {
+          if (form.autoNumber) {
+            await this.safeClick(page.getByRole("button", { name: "Ambil Nomor", exact: true }));
+            const failure = page.locator(".swal2-popup:visible, [role=dialog]:visible").filter({ hasText: /gagal/i });
+            for (let i = 0; i < 30 && !(await number.inputValue()).trim(); i++) {
+              if (await failure.count()) {
+                const text = ((await failure.first().textContent()) ?? "").replace(/\s+/g, " ").trim();
+                throw new Error(`Ambil Nomor ditolak SRIKANDI: ${text.slice(0, 250)}`);
+              }
+              await page.waitForTimeout(500);
+            }
+            if (!(await number.inputValue()).trim()) throw new Error("Ambil Nomor tidak mengisi nomor naskah.");
+          } else await number.fill(form.number ?? "");
+        }
+        if (plan.top.includes("Hal")) await page.getByPlaceholder(/^Masukkan Hal/).fill(form.subject);
+        if (plan.top.includes("Isi Ringkas")) await page.getByPlaceholder(/^Masukkan Isi Ringkas/).fill(form.summary);
+        if (plan.top.includes("Tipe Tanda Tangan")) {
+          await page
+            .getByRole("radio", {
+              name: form.signatureType === "konvensional" ? "Konvensional" : "Elektronik",
+              exact: true,
+            })
+            .check();
+        }
+        if (plan.top.includes("Visual TTE")) {
+          await page
+            .getByRole("radio", { name: form.visualTte === "spesimen" ? "Spesimen Gambar" : "QR Code", exact: true })
+            .check();
+        }
+        if (plan.replaceFile && form.file) {
+          await page
+            .locator("input[type=file]")
+            .first()
+            .setInputFiles({
+              name: form.file.name,
+              mimeType: form.file.mimeType,
+              buffer: Buffer.from(form.file.data, "base64"),
+            });
+          await page.waitForTimeout(800);
+        }
+        await this.safeClick(page.getByRole("button", { name: "Perbarui Naskah", exact: true }));
+        await this.expectSuccess(page);
+        // Perbarui Naskah kembali ke Log ("Berhasil — Update Naskah Keluar"): buka lagi Edit dengan hal terbaru
+        if (!page.url().includes(EDIT_MARKER)) await this.openEditPage(page, base, hosts, form.subject);
+      }
+
+      // 2. Tabel: tambah dulu, hapus kemudian (daftar verifikator/penandatangan tidak pernah kosong di tengah proses).
+      // Simpan di tabel bisa memuat ulang / berpindah halaman → pastikan berada di halaman Edit sebelum tiap langkah.
+      const onEdit = async () => {
+        const here = page.url().includes(EDIT_MARKER) && (await page.getByText("Ubah Log Naskah Keluar").count()) > 0;
+        if (!here) await this.openEditPage(page, base, hosts, form.subject);
+        await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+      };
+      for (const file of plan.attachmentsAdd) {
+        await onEdit();
+        const modal = await this.openAddModal(page, "Lampiran");
+        await modal
+          .locator("input[type=file]")
+          .first()
+          .setInputFiles({ name: file.name, mimeType: file.mimeType, buffer: Buffer.from(file.data, "base64") });
+        await page.waitForTimeout(600);
+        await this.saveEditModal(page, modal);
+      }
+      for (const r of plan.recipientsAdd) {
+        await onEdit();
+        const modal = await this.openAddModal(page, "Tujuan", recipientMenu(r.slot));
+        await this.chooseInModal(page, modal, r.pick);
+        await this.saveEditModal(page, modal);
+      }
+      for (const v of plan.verifiersAdd) {
+        await onEdit();
+        const modal = await this.openAddModal(page, "Daftar Verifikator");
+        await this.chooseInModal(page, modal, v);
+        await this.saveEditModal(page, modal);
+      }
+      if (plan.signerAdd) {
+        await onEdit();
+        const modal = await this.openAddModal(page, "Daftar Penandatangan");
+        await this.chooseInModal(page, modal, plan.signerAdd);
+        await this.saveEditModal(page, modal);
+      }
+      const removals: [string, string[], number][] = [
+        ["Lampiran", plan.attachmentsRemove, 0],
+        ["Tujuan", plan.recipientsRemove, 0],
+        ["Daftar Verifikator", plan.verifiersRemove, 1],
+        ["Daftar Penandatangan", plan.signersRemove, 1],
+      ];
+      for (const [heading, names, column] of removals) {
+        for (const name of names) {
+          await onEdit();
+          await this.removeEditRow(page, heading, name, column);
+        }
+      }
+
+      await this.openEditPage(page, base, hosts, form.subject);
+      const after = await this.readEditState(page);
+      const rest = describePlan(planEdit({ ...form, file: undefined }, after));
+      return {
+        ...info,
+        draft: row,
+        plan: steps,
+        warnings: plan.warnings,
+        remaining: rest,
+        before,
+        after,
+        status: "updated" as const,
+        url: page.url(),
+        screenshot: await this.fullJpeg(page),
+      };
+    });
+  }
+
+  /** Baca isi halaman Edit konsep (bagian atas + empat tabel). */
+  private async readEditState(page: Page): Promise<EditState> {
+    const raw = await page.evaluate(() => {
+      const clean = (t: string | null | undefined) => (t ?? "").replace(/\*/g, "").replace(/\s+/g, " ").trim();
+      const textNodes = () => {
+        const out: Text[] = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node: Node | null;
+        while ((node = walker.nextNode())) if (clean(node.textContent)) out.push(node as Text);
+        return out;
+      };
+      const nodes = textNodes();
+      const labelNode = (label: string) => nodes.find((n) => clean(n.textContent) === label) ?? null;
+      const selectValue = (label: string) => {
+        const anchor = labelNode(label)?.parentElement;
+        if (!anchor) return "";
+        const input = Array.from(document.querySelectorAll("input[role=combobox]")).find(
+          (el) => anchor.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+        let box: Element | null = input ?? null;
+        for (let i = 0; i < 6 && box; i++) {
+          const single = box.querySelector("[class*=singleValue]");
+          if (single) return clean(single.textContent);
+          box = box.parentElement;
+        }
+        return "";
+      };
+      const fileName = (() => {
+        const start = nodes.findIndex((n) => clean(n.textContent) === "File naskah");
+        if (start < 0) return "";
+        const next = nodes[start + 1];
+        const text = next ? clean(next.textContent) : "";
+        return /^Format yang didukung/i.test(text) ? "" : text;
+      })();
+      const table = (heading: string) => {
+        const h = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).find(
+          (el) => clean(el.textContent) === heading,
+        );
+        let box: Element | null = h ?? null;
+        while (box && !box.querySelector("table")) box = box.parentElement;
+        const t = box?.querySelector("table");
+        if (!t) return [] as string[][];
+        return Array.from(t.querySelectorAll("tbody tr"))
+          .filter((tr) => !tr.querySelector("input"))
+          .map((tr) => Array.from((tr as HTMLTableRowElement).cells).map((c) => clean(c.textContent)))
+          .filter((cells) => cells.length > 1 && cells.some((c) => c));
+      };
+      const value = (sel: string) => ((document.querySelector(sel) as HTMLInputElement | null)?.value ?? "").trim();
+      return {
+        unit: selectValue("Dikirimkan melalui"),
+        docType: selectValue("Jenis Naskah"),
+        nature: selectValue("Sifat Naskah"),
+        classification: selectValue("Klasifikasi"),
+        number: value("input[placeholder^='Masukkan Nomor Naskah']"),
+        subject: value("textarea[placeholder^='Masukkan Hal'], input[placeholder^='Masukkan Hal']"),
+        summary: value("textarea[placeholder^='Masukkan Isi Ringkas'], input[placeholder^='Masukkan Isi Ringkas']"),
+        fileName,
+        attachments: table("Lampiran").map((c) => c[0]),
+        recipients: table("Tujuan").map((c) => ({ name: c[0], kind: c[1] ?? "" })),
+        verifiers: table("Daftar Verifikator").map((c) => c[1] ?? ""),
+        signers: table("Daftar Penandatangan").map((c) => c[1] ?? ""),
+      };
+    });
+    const checked = async (name: string) =>
+      page
+        .getByRole("radio", { name, exact: true })
+        .isChecked({ timeout: 2_000 })
+        .catch(() => false);
+    return {
+      ...raw,
+      signatureType: (await checked("Konvensional"))
+        ? "konvensional"
+        : (await checked("Elektronik"))
+          ? "elektronik"
+          : "",
+      visualTte: (await checked("Spesimen Gambar")) ? "spesimen" : (await checked("QR Code")) ? "qr" : "",
+    };
+  }
+
+  /** Bagian tabel halaman Edit (kartu yang memuat judul + tabelnya). */
+  private editSection(page: Page, heading: string) {
+    return page.getByRole("heading", { name: heading, exact: true }).locator("xpath=ancestor::*[.//table][1]");
+  }
+
+  /** Klik Tambah di satu bagian (Tujuan: lewat menu induk → anak), lalu kembalikan modal yang terbuka. */
+  private async openAddModal(page: Page, heading: string, menu?: { parent: string; child: string }) {
+    const section = this.editSection(page, heading);
+    await this.safeClick(section.getByRole("button", { name: "Tambah" }).first());
+    if (menu) {
+      const items = page.getByRole("menuitem");
+      await items.first().waitFor({ timeout: 10_000 });
+      // Item anak muncul di bawah induknya; buka induk bila anaknya belum terlihat
+      const names = (await items.allTextContents()).map((t) => t.replace(/\s+/g, " ").trim());
+      const parentAt = names.indexOf(menu.parent);
+      const childAfter = names.findIndex((n, i) => i > parentAt && n === menu.child);
+      const nextParent = names.findIndex((n, i) => i > parentAt && (n === "Tujuan Utama" || n === "Tembusan"));
+      if (childAfter < 0 || (nextParent >= 0 && childAfter > nextParent)) {
+        await items.nth(parentAt).click();
+        await page.waitForTimeout(400);
+      }
+      const fresh = (await items.allTextContents()).map((t) => t.replace(/\s+/g, " ").trim());
+      const p = fresh.indexOf(menu.parent);
+      const c = fresh.findIndex((n, i) => i > p && n === menu.child);
+      if (p < 0 || c < 0) throw new Error(`Menu "${menu.parent} → ${menu.child}" tidak ditemukan.`);
+      await items.nth(c).click();
+    }
+    // Modal SRIKANDI bukan role=dialog: tandai wadah terdekat judul "… Baru" yang memuat tombol Simpan
+    await page.waitForTimeout(600);
+    const marked = await page.evaluate(() => {
+      const clean = (t: string | null | undefined) => (t ?? "").replace(/\s+/g, " ").trim();
+      const visible = (el: Element) => {
+        const r = (el as HTMLElement).getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      document
+        .querySelectorAll("[data-lifeos-edit-modal]")
+        .forEach((el) => el.removeAttribute("data-lifeos-edit-modal"));
+      const titles = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6,div,span,p"))
+        .filter((el) => visible(el) && el.children.length <= 2 && /baru$/i.test(clean(el.textContent)))
+        .reverse();
+      for (const title of titles) {
+        let box: Element | null = title.parentElement;
+        for (let i = 0; i < 8 && box; i++, box = box.parentElement) {
+          const hasSave = Array.from(box.querySelectorAll("button")).some((b) =>
+            /^simpan$/i.test(clean(b.textContent)),
+          );
+          if (hasSave) {
+            box.setAttribute("data-lifeos-edit-modal", "1");
+            return clean(title.textContent);
+          }
+        }
+      }
+      return null;
+    });
+    if (!marked) throw new Error(`Modal Tambah di bagian ${heading} tidak terbuka.`);
+    return page.locator("[data-lifeos-edit-modal]");
+  }
+
+  /** Pilih nilai react-select di dalam modal Tambah. */
+  private async chooseInModal(page: Page, modal: Locator, value: RegisterPick) {
+    const input = modal.locator("input[role=combobox]").first();
+    if ((await input.count()) === 0) {
+      // Eksternal non SRIKANDI bisa berupa kotak teks biasa
+      await modal.locator("input[type=text], textarea").first().fill(value.label);
+      return;
+    }
+    await this.chooseOption(page, input, value, "modal Tambah");
+  }
+
+  /** Simpan modal Tambah lalu pastikan SRIKANDI menyatakan berhasil. */
+  private async saveEditModal(page: Page, modal: Locator) {
+    await this.safeClick(modal.getByRole("button", { name: /^simpan$/i }).first());
+    await this.expectSuccess(page);
+  }
+
+  /** Tunggu pesan SRIKANDI setelah menyimpan: selain "berhasil" = galat. Lalu tutup pesannya. */
+  private async expectSuccess(page: Page) {
+    const popup = page
+      .locator(".swal2-popup:visible, .swal-modal:visible, [role=dialog]:visible, [role=alertdialog]:visible")
+      .filter({ hasText: /berhasil|sukses|gagal|galat|error|wajib|harus|akan dihapus/i })
+      .first();
+    let message = "";
+    // Popup konfirmasi sebelumnya bisa masih terlihat sesaat: tunggu pesan hasil
+    for (let i = 0; i < 60; i++) {
+      try {
+        await popup.waitFor({ timeout: 30_000 });
+      } catch {
+        throw new Error(
+          `SRIKANDI tidak menampilkan pesan hasil (${page.url()}). ${await this.visibleErrors(page)}`.trim(),
+        );
+      }
+      message = ((await popup.textContent().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
+      if (message && !/akan dihapus/i.test(message)) break;
+      await page.waitForTimeout(500);
+    }
+    if (!/berhasil|sukses/i.test(message)) throw new Error(`SRIKANDI menolak: ${message.slice(0, 300)}`);
+    await this.dismissInfoDialog(page);
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+    await page.waitForTimeout(500);
+  }
+
+  /** Pesan validasi yang terlihat di halaman (untuk galat yang bisa dibaca bila SRIKANDI tidak menyimpan). */
+  private async visibleErrors(page: Page) {
+    const texts = await page
+      .evaluate(() => {
+        const clean = (t: string | null | undefined) => (t ?? "").replace(/\s+/g, " ").trim();
+        return Array.from(
+          document.querySelectorAll(
+            ".invalid-feedback, .text-danger, [class*=error], [class*=Error], [role=alert], .Toastify__toast, .toast",
+          ),
+        )
+          .filter((el) => (el as HTMLElement).offsetParent !== null)
+          .map((el) => clean(el.textContent))
+          .filter((t) => t && t.length < 300);
+      })
+      .catch(() => [] as string[]);
+    return texts.length ? `Pesan di halaman: ${[...new Set(texts)].slice(0, 5).join(" | ")}` : "";
+  }
+
+  /** Buka halaman Edit konsep berhal `subject` dari Log (tautan Edit terenkripsi berganti setiap muat). */
+  private async openEditPage(page: Page, base: string, hosts: string[], subject: string) {
+    await this.open(page, base + LOG_PATH, hosts);
+    await this.dismissInfoDialog(page);
+    const want = normalizeOption(subject);
+    const row = (await this.readLog(page)).find((r) => normalizeOption(r.subject) === want && r.editHref);
+    if (!row?.editHref) throw new Error(`Konsep "${subject}" tidak lagi bisa diubah di Log Naskah Keluar.`);
+    await this.open(page, new URL(row.editHref, base + "/").toString(), hosts);
+    await this.dismissInfoDialog(page);
+    await page.getByText("Ubah Log Naskah Keluar").first().waitFor({ timeout: 20_000 });
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+  }
+
+  /**
+   * Hapus satu baris tabel halaman Edit. Satu-satunya tempat robot mengklik "Hapus": konfirmasi harus berbunyi
+   * "Data <nama> akan dihapus ?" di halaman Edit (`isRowRemovalConfirm`) — hapus konsep dari Log tidak pernah.
+   */
+  private async removeEditRow(page: Page, heading: string, name: string, column: number) {
+    const section = this.editSection(page, heading);
+    const rows = section.locator("tbody tr");
+    const want = normalizeOption(name);
+    let target: Locator | null = null;
+    // Tabel dimuat terpisah dari halaman: tunggu barisnya muncul (maks. ± 10 dtk)
+    for (let attempt = 0; attempt < 20 && !target; attempt++) {
+      if (attempt) await page.waitForTimeout(500);
+      const count = await rows.count();
+      for (let i = 0; i < count; i++) {
+        const cell =
+          (await rows
+            .nth(i)
+            .locator("td")
+            .nth(column)
+            .textContent()
+            .catch(() => "")) ?? "";
+        if (normalizeOption(cell) === want) {
+          target = rows.nth(i);
+          break;
+        }
+      }
+    }
+    if (!target) throw new Error(`Baris "${name}" di bagian ${heading} tidak ditemukan.`);
+    const icon = target.locator("td").last().locator("img[alt='Hapus'], img, svg, button").first();
+    await icon.scrollIntoViewIfNeeded().catch(() => undefined);
+    await icon.click({ timeout: 10_000 });
+    const popup = page.locator(".swal2-popup:visible, .swal-modal:visible").first();
+    await popup.waitFor({ timeout: 10_000 });
+    const body = popup.locator(".swal2-html-container, .swal2-content, .swal-text").first();
+    const message = (((await body.count()) ? await body.textContent() : await popup.textContent()) ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!isRowRemovalConfirm(page.url(), message)) {
+      await popup
+        .getByRole("button", { name: /batal/i })
+        .first()
+        .click()
+        .catch(() => undefined);
+      throw new Error(`Konfirmasi tak dikenal, dibatalkan: ${message.slice(0, 200)}`);
+    }
+    await popup
+      .getByRole("button", { name: /^hapus$/i })
+      .first()
+      .click({ timeout: 10_000 });
+    await this.expectSuccess(page);
+  }
+
   /** Baca baris halaman pertama Log Naskah Keluar (kolom dikenali dari judulnya). */
   private async readLog(page: Page): Promise<LogRow[]> {
     await page
@@ -1139,11 +1598,14 @@ export class BrowserPool {
       return Array.from(table.querySelectorAll("tbody tr")).flatMap((tr) => {
         const cells = Array.from((tr as HTMLTableRowElement).cells).map((c) => clean(c.textContent));
         const link = tr.querySelector("a[href*='detail?id=']")?.getAttribute("href") ?? null;
+        const edit = tr.querySelector("a[href*='formode=Ubah']")?.getAttribute("href") ?? null;
         if (!link || subject < 0) return [];
-        return [{ number: cells[number] ?? "", subject: cells[subject] ?? "", sendStatus: cells[send] ?? "", link }];
+        return [
+          { number: cells[number] ?? "", subject: cells[subject] ?? "", sendStatus: cells[send] ?? "", link, edit },
+        ];
       });
     });
-    return rows.map(({ link, ...r }) => ({ ...r, detailId: detailIdOf(link) }));
+    return rows.map(({ link, edit, ...r }) => ({ ...r, detailId: detailIdOf(link), editHref: edit }));
   }
 
   private async fullJpeg(page: Page) {
@@ -1151,6 +1613,106 @@ export class BrowserPool {
       (await page.screenshot({ type: "jpeg", quality: 55, fullPage: true }).catch(() => null))?.toString("base64") ??
       null
     );
+  }
+
+  /**
+   * SRIKANDI → Naskah Masuk: baca halaman daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (semua halaman).
+   * Hanya membaca daftar — detail naskah tidak pernah dibuka (bisa mengubah Status Baca), tombol yang diklik hanya
+   * Hitung Total dan halaman berikutnya.
+   */
+  async srikandiInbox(target: Target & { kinds?: InboxKind[] }) {
+    return this.withPage(target, async (page, hosts, markers) => {
+      const base = target.baseUrl.replace(/\/+$/, "");
+      const result: { kind: InboxKind; items: InboxItem[]; pages: number; total: number | null }[] = [];
+      let info = await this.describe(page, markers);
+      const wanted = target.kinds ?? INBOX_PAGES.map((p) => p.kind);
+      for (const inbox of INBOX_PAGES.filter((p) => wanted.includes(p.kind))) {
+        await this.open(page, `${base}${inbox.path}`, hosts);
+        await this.dismissInfoDialog(page);
+        info = await this.describe(page, markers);
+        if (!info.loggedIn) return { ...info, inbox: result };
+        const read = await this.readTablePages(page, MAX_INBOX_PAGES);
+        // SRIKANDI baru mengalihkan ke /auth/login setelah memuat data → periksa ulang
+        info = await this.describe(page, markers);
+        if (!info.loggedIn) return { ...info, inbox: result };
+        const items = mergeInboxItems(read.pages.map((t) => parseInboxRows(inbox.kind, t.headers, t.rows)));
+        result.push({ kind: inbox.kind, items, pages: read.pages.length, total: read.total });
+      }
+      return { ...info, inbox: result };
+    });
+  }
+
+  /**
+   * Baca tabel pertama halaman ini, semua halaman: tunggu data, klik Hitung Total (pembanding), lalu tombol halaman
+   * berikutnya sampai isi tidak berganti / tombol nonaktif / batas halaman.
+   */
+  private async readTablePages(page: Page, maxPages: number) {
+    await page
+      .waitForFunction(
+        () =>
+          document.querySelectorAll("table tbody tr").length > 1 ||
+          /Tidak ada data|Data tidak ditemukan|Belum ada data/i.test(document.body.innerText),
+        undefined,
+        { timeout: 20_000 },
+      )
+      .catch(() => undefined);
+    let total: number | null = null;
+    const counter = page.getByRole("button", { name: /Hitung Total/i }).first();
+    if (await counter.count()) {
+      await counter.click({ timeout: 10_000 }).catch(() => undefined);
+      await page
+        .waitForFunction(() => !/Mohon Tunggu/i.test(document.body.innerText), undefined, { timeout: 45_000 })
+        .catch(() => undefined);
+      const nav = page.locator("nav[aria-label='Table navigation']");
+      total = parseTotal(await nav.innerText().catch(() => ""));
+    }
+    const pages: { headers: string[]; rows: string[][] }[] = [];
+    for (let i = 0; i < maxPages; i++) {
+      const table = await page.evaluate(() => {
+        const el = document.querySelector("table");
+        if (!el) return null;
+        const headers = [...el.querySelectorAll("thead th, tr:first-child th")].map(
+          (th) => (th as HTMLElement).innerText,
+        );
+        const rows = [...el.querySelectorAll("tbody tr")].map((tr) =>
+          [...(tr as HTMLTableRowElement).cells].map((c) => (c as HTMLElement).innerText),
+        );
+        return {
+          headers: [...new Set(headers)],
+          rows,
+          signature: (el.querySelector("tbody") as HTMLElement)?.innerText ?? "",
+        };
+      });
+      if (!table) break;
+      pages.push({ headers: table.headers, rows: table.rows });
+      if (/Tidak ada data|Data tidak ditemukan/i.test(table.signature)) break;
+      const next = page
+        .locator("nav[aria-label='Table navigation'] button")
+        .filter({ hasNotText: /Hitung Total/i })
+        .last();
+      if (!(await next.count())) break;
+      let enabled = false;
+      for (let j = 0; j < 20 && !enabled; j++) {
+        enabled = !(await next.isDisabled().catch(() => true));
+        if (!enabled) await page.waitForTimeout(500);
+      }
+      if (!enabled) break;
+      await next.click({ timeout: 10_000 }).catch(() => undefined);
+      const changed = await page
+        .waitForFunction(
+          (old) => {
+            const text = (document.querySelector("table tbody") as HTMLElement | null)?.innerText ?? "";
+            return text !== old && !/memuat|loading/i.test(text);
+          },
+          table.signature,
+          { timeout: 15_000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+      if (!changed) break;
+    }
+    return { pages, total };
   }
 
   async srikandiReferences(target: Target & { categories?: ReferenceCategory[] }) {

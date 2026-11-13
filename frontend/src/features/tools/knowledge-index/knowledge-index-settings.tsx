@@ -51,6 +51,7 @@ const SOURCE_LABELS: Record<string, string> = {
   archive_physical_reference: "Lokasi arsip",
   archive_borrowing: "Peminjaman",
   archive_disposition: "Berita acara",
+  srikandi_inbox: "Naskah masuk SRIKANDI",
 };
 
 const formatTime = (iso: string | null) =>

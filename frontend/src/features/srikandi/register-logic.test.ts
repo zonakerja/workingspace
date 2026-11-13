@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SrikandiLetter, SrikandiOutgoing, SrikandiReference } from "@/types/entities";
 import {
+  changedSinceRegister,
+  outgoingSignature,
   attachmentError,
   classificationChoices,
   cleanAttachmentName,
@@ -141,5 +143,25 @@ describe("referensi & naskah final", () => {
         ],
       }),
     ).toEqual(["u2"]);
+  });
+});
+
+describe("perubahan sejak didaftarkan", () => {
+  it("pengenal sama dengan backend & menandai entri terdaftar yang berubah", () => {
+    // Nilai acuan sama dengan backend/src/robot/srikandi-register.spec.ts
+    expect(outgoingSignature({ id: "a", subject: "Hal", autoNumber: true })).toBe("0af767ed");
+    const entry = {
+      id: "a",
+      subject: "Hal",
+      autoNumber: true,
+      formType: "keluar",
+      status: "submitted",
+    } as SrikandiOutgoing;
+    const pushed = { ...entry, pushedSignature: outgoingSignature(entry) };
+    expect(changedSinceRegister(pushed)).toBe(false);
+    expect(changedSinceRegister({ ...pushed, summary: "baru" })).toBe(true);
+    // Ditandai terdaftar manual (tanpa pengenal) atau belum terdaftar → tidak ditandai
+    expect(changedSinceRegister({ ...entry, summary: "baru" })).toBe(false);
+    expect(changedSinceRegister({ ...pushed, status: "draft", summary: "baru" })).toBe(false);
   });
 });

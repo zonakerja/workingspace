@@ -202,6 +202,34 @@ export class RobotClient {
     >("/jobs/srikandi/register", target, "POST", 300_000);
   }
 
+  /**
+   * SRIKANDI: perbarui konsep di Log Naskah Keluar lewat Edit (hanya yang berbeda); `dryRun` = rencana tanpa klik.
+   * Status: updated | unchanged | preview | locked (sudah dikirim) | not_found | logged_out.
+   */
+  srikandiRegisterUpdate(target: RobotTarget & { form: Record<string, unknown>; dryRun?: boolean }) {
+    return this.json<
+      PageInfo & {
+        storageState: StorageState;
+        status: "updated" | "unchanged" | "preview" | "locked" | "not_found" | "logged_out";
+        plan: string[];
+        warnings: string[];
+        remaining?: string[];
+        draft: { number: string; subject: string; sendStatus: string; detailId: string | null } | null;
+        screenshot: string | null;
+      }
+    >("/jobs/srikandi/register/update", target, "POST", 600_000);
+  }
+
+  /** SRIKANDI: daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya halaman daftar; bisa lama). */
+  srikandiInbox(target: RobotTarget & { kinds?: string[] }) {
+    return this.json<
+      PageInfo & {
+        storageState: StorageState;
+        inbox: { kind: string; items: unknown[]; pages?: number; total?: number | null }[];
+      }
+    >("/jobs/srikandi/inbox", target, "POST", 600_000);
+  }
+
   /** SRIKANDI: tabel referensi menu Pengguna (semua halaman; bisa lama). */
   srikandiReferences(target: RobotTarget & { categories?: string[] }) {
     return this.json<

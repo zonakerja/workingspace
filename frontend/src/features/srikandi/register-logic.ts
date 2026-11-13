@@ -236,3 +236,48 @@ export function emptyOutgoing(id: string): SrikandiOutgoing {
     attachments: [],
   };
 }
+
+/**
+ * Pengenal isi entri yang dikirim ke SRIKANDI — salinan backend `robot/srikandi-register.ts` (`outgoingSignature`), ubah
+ * keduanya bersamaan. FNV-1a atas JSON isian yang diisikan robot.
+ */
+export function outgoingSignature(entry: Partial<SrikandiOutgoing>) {
+  const ids = (picks?: { id: string }[]) => (picks ?? []).map((p) => p.id);
+  const text = (v?: string) => (v ?? "").replace(/\s+/g, " ").trim();
+  const keluar = (entry.formType ?? "keluar") === "keluar";
+  const data = JSON.stringify([
+    entry.formType ?? "keluar",
+    text(entry.unit),
+    text(entry.docType),
+    text(entry.nature),
+    text(entry.classification),
+    entry.autoNumber ? "#auto" : text(entry.number),
+    text(entry.subject),
+    text(entry.summary),
+    entry.file?.uploadId ?? "",
+    (entry.attachments ?? []).map((a) => a.uploadId),
+    ids(entry.recipientGroups),
+    ids(entry.recipients),
+    ids(entry.recipientsExternal),
+    ids(entry.ccGroups),
+    ids(entry.cc),
+    ids(entry.ccExternal),
+    keluar ? ids(entry.verifiers) : [],
+    keluar ? (entry.signer?.id ?? "") : "",
+    keluar ? (entry.signatureType ?? "elektronik") : "",
+    keluar ? (entry.visualTte ?? "qr") : "",
+  ]);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < data.length; i++) {
+    hash ^= data.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+/**
+ * Entri terdaftar (konsep di SRIKANDI) yang diubah di LifeOS sejak terakhir dikirim robot → perlu "Perbarui di SRIKANDI".
+ * Entri yang ditandai terdaftar manual / didaftarkan sebelum fitur ini tidak punya pengenal → tidak ditandai.
+ */
+export const changedSinceRegister = (entry: SrikandiOutgoing) =>
+  entry.status === "submitted" && !!entry.pushedSignature && entry.pushedSignature !== outgoingSignature(entry);

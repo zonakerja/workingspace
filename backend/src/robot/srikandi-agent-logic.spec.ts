@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   isEntryId,
   registerRequestError,
+  registerRequestMode,
   registerRequestTitle,
   registerSnapshot,
   summarizeCheck,
   summarizeTask,
 } from "./srikandi-agent-logic";
-import type { OutgoingEntry } from "./srikandi-register";
+import { outgoingSignature, type OutgoingEntry } from "./srikandi-register";
 
 const complete: OutgoingEntry = {
   id: "reg-1",
@@ -33,10 +34,15 @@ describe("robot SRIKANDI untuk agen", () => {
     expect(isEntryId(5)).toBe(false);
   });
 
-  it("permintaan daftar ditolak bila belum lengkap atau sudah terdaftar", () => {
-    expect(registerRequestError(complete)).toBeNull();
-    expect(registerRequestError({ ...complete, status: "submitted" })).toMatch(/sudah terdaftar/);
-    expect(registerRequestError({ ...complete, status: "done" })).toMatch(/sudah terdaftar/);
+  it("entri terdaftar yang berubah = perbarui konsep; tanpa perubahan / final tertaut / belum lengkap = ditolak", () => {
+    expect(registerRequestMode(complete)).toEqual({ mode: "register" });
+    expect(registerRequestMode({ ...complete, status: "submitted" })).toEqual({ mode: "update" });
+    const pushed = { ...complete, status: "submitted", pushedSignature: outgoingSignature(complete) };
+    expect(registerRequestError(pushed)).toMatch(/Tidak ada perubahan/);
+    expect(registerRequestMode({ ...pushed, summary: "Isi baru" })).toEqual({ mode: "update" });
+    expect(registerRequestError({ ...complete, status: "done" })).toMatch(/final sudah tertaut/);
+    expect(registerRequestTitle(complete, "update")).toBe("Perbarui di SRIKANDI: Permohonan PSP BMN");
+    expect(registerSnapshot(complete, "update").mode).toBe("update");
     const missing = registerRequestError({ ...complete, subject: " ", signer: undefined });
     expect(missing).toMatch(/Hal/);
     expect(missing).toMatch(/Penandatangan/);
@@ -66,6 +72,10 @@ describe("robot SRIKANDI untuk agen", () => {
       nomor_draf: null,
     });
     expect(summarizeTask("check", { status: "exists" })).toMatch(/sudah ada/);
+    expect(summarizeTask("check", { status: "preview", plan: ["Hapus lampiran: a.pdf"] })).toBe(
+      "1 perubahan direncanakan untuk konsep",
+    );
+    expect(summarizeCheck({ status: "unchanged", plan: [] })).toMatchObject({ langkah: [] });
     expect(summarizeTask("letters", { letters: 3, imported: 1 })).toBe("3 naskah terbaca, 1 PDF baru diambil");
     expect(summarizeTask("classifications", { counts: { classification: 10 } })).toBe("10 referensi dari 1 kategori");
   });

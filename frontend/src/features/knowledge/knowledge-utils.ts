@@ -47,6 +47,8 @@ export function recordSourcePath(type: string, id: string): string | null {
       return links.task(id);
     case "para_activity":
       return links.areas();
+    case "srikandi_inbox":
+      return links.srikandiInbox(id);
     default:
       return sharedItemPath(type as RecordType, id);
   }

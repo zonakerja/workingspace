@@ -28,6 +28,7 @@ import { ReferencesBoard } from "./references-board";
 import { RegisterBoard } from "./register-board";
 import { SrikandiRegisterRequestsCard } from "./register-requests-card";
 import { SrikandiWorkflowTab } from "./srikandi-workflow-tab";
+import { InboxBoard } from "./inbox-board";
 import { usePagination } from "@/hooks/use-pagination";
 import { errorMessage } from "@/lib/api/client";
 import { robotApi } from "@/lib/api/endpoints";
@@ -58,6 +59,8 @@ export function Component() {
           <ReferencesBoard />
         ) : tab === "outgoing" ? (
           <LettersBoard letters={items} />
+        ) : tab === "inbox" ? (
+          <InboxBoard />
         ) : tab === "workflow" ? (
           <SrikandiWorkflowTab />
         ) : (

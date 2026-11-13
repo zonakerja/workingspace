@@ -11,6 +11,7 @@ export const ROBOT_JOB_KINDS = [
   "ekinerja_renaksi",
   "srikandi_session",
   "srikandi_letters",
+  "srikandi_inbox",
   "srikandi_references",
   "srikandi_classifications",
   "siman_session",
@@ -26,6 +27,7 @@ export const ROBOT_JOBS: Record<RobotJobKind, { system: RobotSystem; label: stri
   ekinerja_renaksi: { system: "ekinerja", label: "Pantau Rencana Aksi" },
   srikandi_session: { system: "srikandi", label: "Jaga sesi login" },
   srikandi_letters: { system: "srikandi", label: "Ambil Daftar Naskah Keluar" },
+  srikandi_inbox: { system: "srikandi", label: "Ambil Naskah Masuk & disposisi" },
   srikandi_references: { system: "srikandi", label: "Ambil referensi" },
   srikandi_classifications: { system: "srikandi", label: "Ambil klasifikasi arsip" },
   siman_session: { system: "siman", label: "Jaga sesi login" },
@@ -65,6 +67,8 @@ export function summarizeRobotJob(kind: RobotJobKind, result: unknown): string {
       return `SKP ${num(r.year)}: ${num(r.skps)} SKP, ${num(r.rhk)} RHK`;
     case "ekinerja_renaksi":
       return `${len(r.months)} bulan terbaca dari ${num(r.skps)} SKP, ${num(r.imported)} entri diimpor`;
+    case "srikandi_inbox":
+      return typeof r.summary === "string" ? r.summary : `${num(r.total)} naskah masuk terbaca`;
     case "srikandi_letters":
       return `${num(r.letters)} naskah terbaca, ${num(r.imported)} PDF baru diambil`;
     case "srikandi_references":

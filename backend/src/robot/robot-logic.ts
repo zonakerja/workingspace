@@ -41,6 +41,11 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
         scheduled: false,
       },
       { label: "Ambil naskah ber-TTD & lampirannya dari Daftar Naskah Keluar", scheduled: true },
+      {
+        label:
+          "Ambil daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya daftar; detail tidak dibuka agar status baca tetap)",
+        scheduled: true,
+      },
       { label: "Ambil referensi pengguna (penandatangan, tujuan, pemeriksa, tembusan)", scheduled: true },
       { label: "Ambil klasifikasi arsip", scheduled: true },
       { label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true },
@@ -72,9 +77,12 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
     loginMarkers: ["siman.kemenkeu.go.id/login", "sso.kemenkeu.go.id"],
     defaultHosts: ["sso.kemenkeu.go.id"],
     homeUrl: "https://siman.kemenkeu.go.id/profile",
-    flows: [{ label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true }],
+    flows: [
+      { label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true },
+      { label: "Baca isi satu halaman atas permintaan agen (tanpa klik, untuk mempelajari tiket)", scheduled: false },
+    ],
     limits:
-      "Baru menjaga sesi login. Pengecekan tiket & unggah surat keputusan belum dibangun, jadi robot belum melakukan apa pun di dalam SIMAN.",
+      "Robot hanya membaca: menjaga sesi dan membuka halaman tanpa klik. Pengecekan tiket & unggah surat keputusan dibangun sebagai workflow agen setelah prosesnya diajarkan; robot belum menulis apa pun ke SIMAN.",
   },
 };
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRegisterFields,
   cleanAttachmentName,
+  outgoingSignature,
   registerBlockers,
   registerSizeError,
   type OutgoingEntry,
@@ -56,5 +57,18 @@ describe("register SRIKANDI — batas berkas", () => {
     expect(registerSizeError(5 * MB + 1, [])).toMatch(/naskah/);
     expect(registerSizeError(1, [5 * MB + 1])).toMatch(/lampiran lebih/);
     expect(registerSizeError(1, [5 * MB, 5 * MB, 5 * MB, 5 * MB, 1])).toMatch(/Total/);
+  });
+});
+
+describe("pengenal perubahan entri Register", () => {
+  it("sama untuk isi yang sama, berubah bila isian yang dikirim ke SRIKANDI berubah", () => {
+    const base = outgoingSignature(entry);
+    expect(base).toMatch(/^[0-9a-f]{8}$/);
+    expect(outgoingSignature({ ...entry, subject: `  ${entry.subject}  ` })).toBe(base);
+    expect(outgoingSignature({ ...entry, status: "submitted" })).toBe(base);
+    expect(outgoingSignature({ ...entry, summary: "Isi ringkas lain" })).not.toBe(base);
+    expect(outgoingSignature({ ...entry, attachments: [{ uploadId: "x", name: "x.pdf" }] })).not.toBe(base);
+    // Salinan frontend (register-logic.ts) harus menghasilkan nilai yang sama
+    expect(outgoingSignature({ id: "a", subject: "Hal", autoNumber: true })).toBe("0af767ed");
   });
 });

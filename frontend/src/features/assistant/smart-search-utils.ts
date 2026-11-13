@@ -48,6 +48,7 @@ const KIND_LABEL: Record<string, string> = {
   asset: "Berkas",
   obsidian: "Catatan vault",
   obsidian_canvas: "Canvas",
+  srikandi_inbox: "Naskah masuk",
 };
 
 const ARCHIVAL_LABEL: Record<string, string> = {

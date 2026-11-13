@@ -29,6 +29,7 @@ import {
   HeartPulse,
   Hourglass,
   Inbox,
+  Info,
   Landmark,
   Layers,
   LayoutGrid,
@@ -238,11 +239,12 @@ export const MODULES: ModuleDef[] = [
     key: "srikandi",
     label: "SRIKANDI",
     description:
-      "Register naskah keluar sebelum didaftarkan ke SRIKANDI, lalu naskah ber-TTD diambil robot kembali ke LifeOS — tanda tangan & pengiriman tetap oleh Anda.",
+      "Naskah masuk & disposisi dari SRIKANDI, register naskah keluar sebelum didaftarkan, dan naskah ber-TTD yang diambil robot — tanda tangan & pengiriman tetap oleh Anda.",
     path: "/srikandi",
     icon: FileSignature,
     sidebarGroup: "connection",
     tabs: [
+      { id: "inbox", label: "Naskah Masuk", icon: Inbox },
       { id: "register", label: "Register Naskah Keluar", icon: FilePlus2 },
       { id: "outgoing", label: "Daftar Naskah Keluar", icon: FileSignature },
       { id: "references", label: "Referensi", icon: BookUser },
@@ -259,7 +261,8 @@ export const MODULES: ModuleDef[] = [
     icon: Landmark,
     sidebarGroup: "connection",
     tabs: [
-      { id: "process", label: "Cara Kerja", icon: Workflow },
+      { id: "process", label: "Cara Kerja", icon: Info },
+      { id: "workflow", label: "Workflow", icon: Workflow },
       { id: "connector", label: "Connector", icon: Bot },
     ],
   },

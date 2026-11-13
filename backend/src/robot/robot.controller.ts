@@ -167,6 +167,28 @@ export class RobotController {
     return this.robot.registerSrikandiOutgoing(user, id, dto.dryRun);
   }
 
+  /**
+   * SRIKANDI: perbarui konsep yang sudah didaftarkan lewat Edit di Log Naskah Keluar (hanya isian yang berubah; Kirim
+   * Konsep tetap oleh user). `dryRun` = baca konsep + rencana perubahan tanpa klik.
+   */
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
+  @HttpCode(200)
+  @Post("srikandi/register/:id/update")
+  updateOutgoing(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: RegisterOutgoingDto) {
+    return this.robot.updateSrikandiOutgoing(user, id, dto.dryRun);
+  }
+
+  /**
+   * SRIKANDI: ambil daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan. Hanya membaca halaman daftar — detail
+   * naskah tidak dibuka agar Status Baca di SRIKANDI tidak berubah.
+   */
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
+  @HttpCode(200)
+  @Post("srikandi/inbox/sync")
+  syncInbox(@CurrentUser() user: AuthUser) {
+    return this.robot.syncSrikandiInbox(user);
+  }
+
   /** SRIKANDI: ambil klasifikasi arsip (Instrumen Kearsipan, ±1.000 baris — terpisah karena lama). Hanya membaca. */
   @Throttle({ default: { ttl: 60_000, limit: 2 } })
   @HttpCode(200)

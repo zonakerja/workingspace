@@ -78,6 +78,12 @@ export const KIND_INFO: Record<AutomationKind, { description: string; where: str
     where: "SRIKANDI → Daftar Naskah Keluar → Ambil dari SRIKANDI",
     path: "/srikandi/outgoing",
   },
+  srikandi_inbox: {
+    description:
+      "Membaca daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, dan Arahan. Detail naskah tidak dibuka, jadi status baca di SRIKANDI tetap.",
+    where: "SRIKANDI → Naskah Masuk → Ambil dari SRIKANDI",
+    path: "/srikandi/inbox",
+  },
   srikandi_references: {
     description: "Membaca referensi menu Pengguna (penandatangan, tujuan, verifikator, tembusan, grup).",
     where: "SRIKANDI → Referensi → Ambil referensi",
@@ -98,6 +104,7 @@ export const KIND_RECORDS: Record<AutomationKind, RecordType[]> = {
   ekinerja_skp: ["skp", "skp_target"],
   ekinerja_renaksi: ["action_plan_month", "action_plan_entry"],
   srikandi_letters: ["srikandi_letter", "para_resource"],
+  srikandi_inbox: ["srikandi_inbox"],
   srikandi_references: ["srikandi_reference"],
   srikandi_classifications: ["srikandi_reference"],
 };

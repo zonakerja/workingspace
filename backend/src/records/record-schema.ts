@@ -381,6 +381,27 @@ export const RECORD_TABLES = {
     indexes: [["date"], ["number"]],
   },
 
+  // Naskah Masuk SRIKANDI (hanya dibaca robot dari halaman daftar): naskah masuk, tembusan, disposisi, koordinasi, arahan.
+  // Kolom daftar lengkap di `extra.fields`; tindak lanjut LifeOS (to-do, balasan) dicatat di `extra`.
+  srikandi_inbox: {
+    model: "SrikandiInbox",
+    table: "srikandi_inboxes",
+    titleKey: "subject",
+    dateKey: "date",
+    fields: [
+      s("kind"),
+      f("date", "ymd"),
+      f("sentDate", "ymd"),
+      s("number"),
+      s("subject"),
+      s("origin"),
+      s("readStatus"),
+      s("followUpStatus"),
+      f("syncedAt", "timestamp"),
+    ],
+    indexes: [["kind"], ["date"], ["number"]],
+  },
+
   // Register Naskah Keluar: gerbang LifeOS sebelum naskah didaftarkan ke SRIKANDI (isian formulir Registrasi Naskah
   // Keluar + berkas mentah dari Approval / Productivity); naskah final dari Daftar Naskah Keluar ditautkan lewat `letterId`
   srikandi_outgoing: {

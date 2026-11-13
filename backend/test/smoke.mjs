@@ -343,6 +343,18 @@ try {
   // Entri terhapus / tanpa sesi SRIKANDI tidak pernah sampai ke robot
   r = await j("POST", "/robot/srikandi/register/smoke-reg-1", { dryRun: true }, at);
   ok("srikandi register deleted entry rejected", r.s === 404 || r.s === 400, r);
+  // Perbarui konsep (Edit di Log): entri terhapus / belum terdaftar ditolak sebelum robot dipanggil
+  r = await j("POST", "/robot/srikandi/register/smoke-reg-1/update", { dryRun: true }, at);
+  ok("srikandi update deleted entry rejected", r.s === 404 || r.s === 400, r);
+  await j(
+    "PUT",
+    "/records/srikandi_outgoing/smoke-reg-2",
+    { payload: { id: "smoke-reg-2", formType: "keluar", subject: "Smoke draf", status: "draft" } },
+    at,
+  );
+  r = await j("POST", "/robot/srikandi/register/smoke-reg-2/update", { dryRun: true }, at);
+  ok("srikandi update draft entry rejected", r.s === 400 && /terdaftar|sesi|login/i.test(r.d?.message ?? ""), r);
+  await j("DELETE", "/records/srikandi_outgoing/smoke-reg-2", null, at);
   r = await j(
     "PUT",
     "/records/todo/numeric-5",
@@ -2012,7 +2024,7 @@ try {
     return { s: res.status, d: await res.json().catch(() => null) };
   };
   r = await j("GET", "/integrations/scopes", null, at);
-  ok("integrations scopes", r.s === 200 && r.d.length === 12, r);
+  ok("integrations scopes", r.s === 200 && r.d.length === 13, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: [] }, at);
   ok("token without scopes 400", r.s === 400, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: ["admin:all"] }, at);
@@ -2228,8 +2240,9 @@ try {
   // Robot SRIKANDI untuk agen (fitur terbuka): baca lewat tugas latar belakang, pendaftaran hanya lewat permintaan yang
   // disetujui. User sementara tidak punya sesi SRIKANDI → robot tidak pernah membuka SRIKANDI sungguhan.
   {
-    const skPat = (await j("POST", "/integrations/tokens", { name: "Smoke srikandi", scopes: ["srikandi:robot"] }, at))
-      .d;
+    const skPat = (
+      await j("POST", "/integrations/tokens", { name: "Smoke srikandi", scopes: ["srikandi:robot", "siman:robot"] }, at)
+    ).d;
     const sk = async (name, args = {}) => {
       const res = await mcp(skPat.token, "tools/call", { name, arguments: args });
       const raw = res.d?.result?.content?.[0]?.text ?? "";
@@ -2245,9 +2258,13 @@ try {
     const skTools = (r.d?.result?.tools ?? []).map((t) => t.name);
     ok(
       "srikandi tools listed only with scope",
-      ["srikandi_status", "srikandi_sync_letters", "srikandi_check_register", "srikandi_request_register"].every((n) =>
-        skTools.includes(n),
-      ) && !skTools.includes("ekinerja_status"),
+      [
+        "srikandi_status",
+        "srikandi_sync_letters",
+        "srikandi_sync_inbox",
+        "srikandi_check_register",
+        "srikandi_request_register",
+      ].every((n) => skTools.includes(n)) && !skTools.includes("ekinerja_status"),
       skTools,
     );
     let e = await sk("srikandi_status");
@@ -2312,7 +2329,57 @@ try {
     ok("srikandi register reject", r.s === 200 && r.d.status === "rejected", r);
     r = await j("POST", `/agent/actions/${e.out.actionId}/approve`, null, at);
     ok("srikandi register decided cannot be approved", r.s === 409, r);
+    // Entri yang sudah terdaftar lalu diubah → permintaan memperbarui konsep (Edit di Log Naskah Keluar)
+    r = await j("GET", `/records/srikandi_outgoing/${regId}`, null, at);
+    await j(
+      "PUT",
+      `/records/srikandi_outgoing/${regId}`,
+      { payload: { ...r.d.payload, status: "submitted", summary: "Isi diubah" } },
+      at,
+    );
+    e = await sk("srikandi_request_register", { entryId: regId, reason: "Perbarui isi ringkas" });
+    ok("srikandi request on registered entry → update", !e.isError && e.out.jenis === "perbarui konsep", e);
+    r = await j("GET", "/agent/actions?status=pending", null, at);
+    const upd = r.d?.find?.((x) => x.id === e.out.actionId);
+    ok("srikandi update request snapshot", upd?.after?.mode === "update" && upd.title.startsWith("Perbarui"), upd);
+    await j("POST", `/agent/actions/${e.out.actionId}/reject`, {}, at);
     await j("DELETE", `/records/srikandi_outgoing/${regId}`, null, at);
+
+    // Robot SIMAN untuk agen (fitur terbuka): hanya membaca lewat tugas latar belakang. User sementara tanpa sesi SIMAN →
+    // robot tidak pernah membuka SIMAN sungguhan; alamat yang bisa mengubah data ditolak sebelum robot dipanggil. Token
+    // smoke SRIKANDI dipakai ulang (membawa cakupan siman:robot) karena pembuatan token dibatasi 10/menit.
+    const smPat = skPat;
+    const sm = async (name, args = {}) => {
+      const res = await mcp(smPat.token, "tools/call", { name, arguments: args });
+      const raw = res.d?.result?.content?.[0]?.text ?? "";
+      let out = raw;
+      try {
+        out = JSON.parse(raw);
+      } catch {
+        // pesan galat berupa teks
+      }
+      return { isError: !!res.d?.result?.isError, out };
+    };
+    r = await mcp(smPat.token, "tools/list");
+    const smTools = (r.d?.result?.tools ?? []).map((t) => t.name);
+    ok(
+      "siman tools listed only with scope",
+      ["siman_status", "siman_check_session", "siman_read_page"].every((n) => smTools.includes(n)) &&
+        !smTools.includes("ekinerja_status"),
+      smTools,
+    );
+    e = await sm("siman_status");
+    ok("siman status: no session", !e.isError && String(e.out.sesi).startsWith("belum login"), e);
+    e = await sm("siman_read_page", { url: "https://siman.kemenkeu.go.id/Account/Logout" });
+    ok("siman read page rejects logout url", e.isError && String(e.out).includes("tidak dibuka"), e);
+    e = await sm("siman_read_page", {});
+    ok("siman read page starts in background", !e.isError && e.out.dimulai === true, e);
+    task = undefined;
+    for (let i = 0; i < 20 && task?.status !== "failed" && task?.status !== "done"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      task = (await sm("siman_status")).out.tugas?.[0];
+    }
+    ok("siman task without session fails safely", task?.status === "failed" && !!task.error, task);
     await j("DELETE", `/integrations/tokens/${skPat.id}`, null, at);
   }
 
@@ -2782,6 +2849,23 @@ try {
       arguments: { ...menuBody, label: "Approval" },
     });
     ok("mcp propose_agent_menu rejects native feature", nativeMenu.d?.result?.isError === true, nativeMenu);
+    const simanMenu = await mcp(menuPat.d.token, "tools/call", {
+      name: "propose_agent_menu",
+      arguments: { ...menuBody, label: "Smoke Tiket SIMAN", placement: "siman" },
+    });
+    const simanDraft = JSON.parse(simanMenu.d?.result?.content?.[0]?.text ?? "{}");
+    ok(
+      "mcp propose_agent_menu placement siman = draft",
+      simanDraft.placement === "siman" && simanDraft.status === "draft",
+      simanMenu,
+    );
+    const simanName = await mcp(menuPat.d.token, "tools/call", {
+      name: "propose_agent_menu",
+      arguments: { ...menuBody, label: "SIMAN", placement: "siman" },
+    });
+    ok("mcp propose_agent_menu rejects SIMAN name", simanName.d?.result?.isError === true, simanName);
+    const simanRow = (await j("GET", "/agent/menus", null, ownerAt)).d?.find?.((m) => m.slug === simanDraft.slug);
+    if (simanRow) await j("DELETE", `/agent/menus/${simanRow.id}`, null, ownerAt);
     r = await j("GET", "/agent/menus", null, ownerAt);
     const smokeMenu = r.d?.find?.((m) => m.slug === "smoke-menu-uji");
     if (r.s === 200 && smokeMenu) {
@@ -3357,9 +3441,10 @@ try {
   // ---- Otomasi terjadwal (tab Connector). User sementara tanpa sesi robot → tugas gagal sebelum sampai ke robot.
   r = await j("GET", "/automation/jobs", null, at);
   ok(
-    "automation jobs default (8, nonaktif, jadwal bawaan)",
+    "automation jobs default (nonaktif, jadwal bawaan)",
     r.s === 200 &&
-      r.d.length === 8 &&
+      r.d.length >= 9 &&
+      r.d.find((x) => x.kind === "srikandi_inbox")?.cron === "15 7-17 * * 1,2,3,4,5" &&
       r.d.find((x) => x.kind === "srikandi_session")?.cron === "30 7-17 * * 1,2,3,4,5" &&
       r.d.every((x) => !x.enabled) &&
       r.d.find((x) => x.kind === "srikandi_letters")?.cron === "0 7-17 * * 1,2,3,4,5" &&
@@ -3406,6 +3491,42 @@ try {
   r = await j("POST", "/robot/srikandi/classifications/sync", null, at);
   r = await j("GET", "/automation/runs?kind=srikandi_classifications", null, at);
   ok("automation records button sync", r.s === 200 && r.d[0]?.trigger === "button", r);
+  // Naskah Masuk SRIKANDI: tanpa sesi → ditolak sebelum robot; record tindak lanjut LifeOS bisa ditulis
+  r = await j("POST", "/robot/srikandi/inbox/sync", null, at);
+  ok("srikandi inbox sync without session rejected", r.s === 400 && /sesi|login/i.test(r.d?.message ?? ""), r);
+  r = await j("GET", "/automation/runs?kind=srikandi_inbox", null, at);
+  ok(
+    "srikandi inbox run recorded (button)",
+    r.s === 200 && r.d[0]?.trigger === "button" && r.d[0]?.status === "failed",
+    r,
+  );
+  r = await j(
+    "PUT",
+    "/records/srikandi_inbox/si-smoke",
+    {
+      payload: {
+        id: "si-smoke",
+        kind: "disposisi",
+        date: "2026-11-12",
+        sentDate: "2026-11-13",
+        info: "Smoke disposisi",
+        instruction: "Untuk ditindaklanjuti",
+        readStatus: "BELUM DIBACA",
+        todoId: "todo-smoke",
+      },
+    },
+    at,
+  );
+  r = await j("GET", "/records/srikandi_inbox", null, at);
+  const inboxRow = r.d?.find?.((x) => x.clientId === "si-smoke");
+  ok(
+    "srikandi_inbox round-trip",
+    inboxRow?.payload?.kind === "disposisi" &&
+      inboxRow.payload.sentDate === "2026-11-13" &&
+      inboxRow.payload.todoId === "todo-smoke",
+    inboxRow,
+  );
+  await j("DELETE", "/records/srikandi_inbox/si-smoke", null, at);
   r = await j("GET", "/automation/runs?kind=srikandi_letters", null, pt);
   ok("automation runs isolated per user", r.s === 200 && !r.d.some((x) => x.id === autoRunId), r);
   r = await j("PATCH", "/automation/jobs/srikandi_letters", { enabled: false }, at);

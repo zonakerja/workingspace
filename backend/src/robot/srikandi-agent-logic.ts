@@ -1,4 +1,4 @@
-import { registerBlockers, type OutgoingEntry } from "./srikandi-register";
+import { outgoingSignature, registerBlockers, type OutgoingEntry } from "./srikandi-register";
 import { summarizeRobotJob } from "./robot-jobs";
 
 /**
@@ -10,14 +10,15 @@ import { summarizeRobotJob } from "./robot-jobs";
  * pemilik menyetujuinya di Approval → Usulan Agen; Kirim Konsep / Kirim Naskah / tanda tangan tidak pernah dilakukan robot.
  */
 
-export const SRIKANDI_AGENT_TASKS = ["letters", "references", "classifications", "check"] as const;
+export const SRIKANDI_AGENT_TASKS = ["letters", "inbox", "references", "classifications", "check"] as const;
 export type SrikandiAgentTask = (typeof SRIKANDI_AGENT_TASKS)[number];
 
 export const SRIKANDI_TASK_LABELS: Record<SrikandiAgentTask, string> = {
   letters: "Ambil Daftar Naskah Keluar",
+  inbox: "Ambil Naskah Masuk & disposisi",
   references: "Ambil referensi",
   classifications: "Ambil klasifikasi arsip",
-  check: "Periksa Register (tanpa menyimpan)",
+  check: "Periksa Register / perubahan konsep (tanpa menyimpan)",
 };
 
 /** Jenis aksi agen untuk permintaan pendaftaran naskah (tabel `agent_actions`). */
@@ -33,29 +34,47 @@ const text = (v: unknown, max = 160) => {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 };
 
-export const registerRequestTitle = (entry: Pick<OutgoingEntry, "subject">) =>
-  `Daftarkan ke SRIKANDI: ${text(entry.subject, 120) || "(tanpa hal)"}`;
+export const registerRequestTitle = (entry: Pick<OutgoingEntry, "subject">, mode: RegisterMode = "register") =>
+  `${mode === "update" ? "Perbarui di SRIKANDI" : "Daftarkan ke SRIKANDI"}: ${text(entry.subject, 120) || "(tanpa hal)"}`;
+
+/** `register` = daftarkan konsep baru; `update` = perbarui konsep yang sudah terdaftar lewat Edit di Log Naskah Keluar. */
+export type RegisterMode = "register" | "update";
 
 /** Status entri yang sudah tidak bisa didaftarkan lagi. */
 export const isRegistered = (entry: Pick<OutgoingEntry, "status">) =>
   entry.status === "submitted" || entry.status === "done";
 
+/** Entri terdaftar yang isinya berubah sejak terakhir dikirim (tanpa catatan pengiriman = dianggap perlu dicek). */
+export const changedSincePush = (entry: OutgoingEntry) =>
+  !entry.pushedSignature || entry.pushedSignature !== outgoingSignature(entry);
+
 /**
- * Kenapa entri Register belum bisa diminta untuk didaftarkan (null = boleh). Pesan berbahasa Indonesia agar agen bisa
- * melengkapinya lewat update_record lalu mencoba lagi.
+ * Jenis permintaan untuk entri ini, atau alasan ditolak (pesan berbahasa Indonesia agar agen bisa memperbaikinya lewat
+ * update_record lalu mencoba lagi): belum terdaftar → daftarkan; sudah terdaftar & berubah → perbarui lewat Edit; naskah
+ * final sudah tertaut / tidak ada perubahan → ditolak.
  */
-export function registerRequestError(entry: OutgoingEntry): string | null {
-  if (isRegistered(entry)) return "Entri ini sudah terdaftar di SRIKANDI.";
+export function registerRequestMode(entry: OutgoingEntry): { mode: RegisterMode } | { error: string } {
+  if (entry.status === "done") return { error: "Naskah final sudah tertaut — konsep tidak bisa diubah lagi." };
   const blockers = registerBlockers(entry);
-  return blockers.length ? `Isian Register belum lengkap: ${blockers.join(", ")}.` : null;
+  if (blockers.length) return { error: `Isian Register belum lengkap: ${blockers.join(", ")}.` };
+  if (!isRegistered(entry)) return { mode: "register" };
+  if (!changedSincePush(entry)) return { error: "Tidak ada perubahan sejak terakhir dikirim ke SRIKANDI." };
+  return { mode: "update" };
+}
+
+/** Kompatibel: alasan ditolak saja (null = boleh diminta). */
+export function registerRequestError(entry: OutgoingEntry): string | null {
+  const result = registerRequestMode(entry);
+  return "error" in result ? result.error : null;
 }
 
 const names = (picks: { label?: string }[] | undefined) => (picks ?? []).map((p) => text(p.label, 80)).filter(Boolean);
 
 /** Isi entri saat diminta, diringkas untuk ditinjau pemilik sebelum menyetujui. */
-export function registerSnapshot(entry: OutgoingEntry) {
+export function registerSnapshot(entry: OutgoingEntry, mode: RegisterMode = "register") {
   return {
     entryId: entry.id,
+    mode,
     formType: entry.formType ?? "keluar",
     subject: text(entry.subject, 300),
     docType: text(entry.docType, 80),
@@ -74,10 +93,27 @@ export function registerSnapshot(entry: OutgoingEntry) {
   };
 }
 
-type CheckResult = { status: string; filled?: unknown; draft?: { number?: string | null } | null; runId?: string };
+type CheckResult = {
+  status: string;
+  filled?: unknown;
+  draft?: { number?: string | null } | null;
+  runId?: string;
+  plan?: string[];
+  warnings?: string[];
+};
 
 /** Hasil "Periksa" untuk agen: status & isian formulir yang terbaca robot, tanpa tangkapan layar. */
 export function summarizeCheck(result: CheckResult) {
+  if (result.plan) {
+    return {
+      status:
+        result.status === "unchanged"
+          ? "konsep di SRIKANDI sudah sama dengan entri"
+          : "rencana perubahan konsep, TIDAK disimpan (periksa)",
+      langkah: result.plan,
+      peringatan: result.warnings ?? [],
+    };
+  }
   return {
     status:
       result.status === "preview"
@@ -93,9 +129,14 @@ export function summarizeCheck(result: CheckResult) {
 /** Ringkasan tugas yang selesai, satu baris Bahasa Indonesia. */
 export function summarizeTask(task: SrikandiAgentTask, result: unknown): string {
   if (task === "letters") return summarizeRobotJob("srikandi_letters", result);
+  if (task === "inbox") return summarizeRobotJob("srikandi_inbox", result);
   if (task === "references") return summarizeRobotJob("srikandi_references", result);
   if (task === "classifications") return summarizeRobotJob("srikandi_classifications", result);
   const r = (result && typeof result === "object" ? result : {}) as CheckResult;
+  if (r.plan)
+    return r.status === "unchanged"
+      ? "Konsep di SRIKANDI sudah sama"
+      : `${r.plan.length} perubahan direncanakan untuk konsep`;
   return r.status === "exists"
     ? "Draf berhal sama sudah ada di Log Naskah Keluar"
     : r.status === "preview"

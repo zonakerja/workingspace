@@ -20,6 +20,7 @@ const PLACEMENT_LABELS: Record<AgentMenu["placement"], string> = {
   connection: "Connection & MCP",
   ekinerja: "e-Kinerja → Workflow",
   srikandi: "SRIKANDI → Workflow",
+  siman: "SIMAN → Workflow",
 };
 
 /**
@@ -107,7 +108,9 @@ export function ProposalsTab() {
                         ? "/kinerja/workflow"
                         : menu.placement === "srikandi"
                           ? "/srikandi/workflow"
-                          : "/agent/workflow"
+                          : menu.placement === "siman"
+                            ? "/siman/workflow"
+                            : "/agent/workflow"
                   }
                 >
                   Buka

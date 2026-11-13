@@ -77,9 +77,19 @@ import {
   buildRegisterFields,
   cleanAttachmentName,
   type OutgoingEntry,
+  outgoingSignature,
   registerBlockers,
   registerSizeError,
 } from "./srikandi-register";
+import {
+  cleanInboxItem,
+  INBOX_KINDS,
+  type InboxKind,
+  inboxClientId,
+  isUnread,
+  mergeInboxRecord,
+  summarizeInboxSync,
+} from "./srikandi-inbox";
 
 /** Tag konteks Resource Global untuk dokumen final bertanda tangan (sama dengan frontend `FINAL_CONTEXT_TAG`). */
 const FINAL_CONTEXT_TAG = "Dokumen Final";
@@ -443,6 +453,14 @@ export class RobotService {
       await this.fail(userId, connector, "capture", error);
       throw error;
     }
+  }
+
+  /**
+   * Agen membaca satu halaman SIMAN (alat MCP `siman_read_page`): sama dengan Eksplor halaman — buka alamat, rekam struktur
+   * & tangkapan layar, tanpa klik — tetapi memakai kunci sistem agar tidak bertabrakan dengan Jaga sesi / tugas lain.
+   */
+  readSimanPage(userId: string, url: string) {
+    return this.exclusive(userId, "siman", "Baca halaman", () => this.capture(userId, "siman", url));
   }
 
   /**
@@ -1106,6 +1124,64 @@ export class RobotService {
   }
 
   /**
+   * SRIKANDI → Naskah Masuk: robot membaca daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan → record
+   * `srikandi_inbox` (ID stabil dari isi). Detail naskah tidak dibuka (Status Baca di SRIKANDI tetap); isian tindak lanjut
+   * LifeOS pada record dipertahankan, dan butir yang tidak lagi tampil tidak dihapus.
+   */
+  syncSrikandiInbox(user: AuthUser, trigger: RobotJobTrigger = "button") {
+    return this.job(user.id, "srikandi_inbox", trigger, () => this.readSrikandiInbox(user));
+  }
+
+  private async readSrikandiInbox(user: AuthUser) {
+    const connector = await this.connector(user.id, "srikandi");
+    this.requireSession(connector);
+    let result: Awaited<ReturnType<RobotClient["srikandiInbox"]>>;
+    try {
+      result = await this.robot.srikandiInbox({ ...this.target(connector) });
+    } catch (error) {
+      await this.fail(user.id, connector, "sync", error);
+      throw error;
+    }
+    await this.saveState(connector.id, result, false);
+    if (!result.loggedIn) {
+      await this.log(user.id, connector.id, "sync", result, { note: "Sesi kedaluwarsa — login ulang lalu coba lagi" });
+      throw new BadRequestException("Sesi SRIKANDI kedaluwarsa. Login ulang di SRIKANDI → Connector.");
+    }
+    const existing = new Map(
+      (await this.records.findMany("srikandi_inbox", {}, user))
+        .filter((r) => !r.share)
+        .map((r) => [r.clientId, r.payload as Record<string, unknown>]),
+    );
+    const now = new Date().toISOString();
+    const counts: Partial<Record<InboxKind, number>> = {};
+    let added = 0;
+    let updated = 0;
+    const unread: string[] = [];
+    for (const group of result.inbox) {
+      const items = (Array.isArray(group.items) ? group.items : [])
+        .map(cleanInboxItem)
+        .filter((i): i is NonNullable<typeof i> => !!i);
+      const kind = INBOX_KINDS.find((k) => k === group.kind);
+      if (!kind) continue;
+      counts[kind] = items.length;
+      for (const item of items) {
+        const id = inboxClientId(item);
+        const merged = mergeInboxRecord(id, item, existing.get(id) ?? null, now);
+        if (merged.isNew && isUnread(item.readStatus)) unread.push(id);
+        if (!merged.changed) continue;
+        await this.records.upsert("srikandi_inbox", id, { payload: merged.payload }, user);
+        existing.set(id, merged.payload);
+        if (merged.isNew) added += 1;
+        else updated += 1;
+      }
+    }
+    const summary = summarizeInboxSync(counts, added);
+    await this.log(user.id, connector.id, "sync", result, { note: `Naskah masuk SRIKANDI: ${summary}` });
+    const total = Object.values(counts).reduce((s, n) => s + (n ?? 0), 0);
+    return { counts, total, added, updated, newUnread: unread.length, summary };
+  }
+
+  /**
    * SRIKANDI: daftarkan satu entri Register Naskah Keluar (`srikandi_outgoing` milik user) lewat formulir Registrasi.
    * Robot berhenti di SIMPAN — draf masuk Log Naskah Keluar, Kirim Konsep tetap keputusan user. Draf berhal sama yang
    * belum terkirim dipakai ulang (tidak ganda). `dryRun` = isi formulir tanpa menyimpan, untuk diperiksa.
@@ -1127,10 +1203,26 @@ export class RobotService {
     const blockers = registerBlockers(entry);
     if (blockers.length) throw new BadRequestException(`Isian belum lengkap: ${blockers.join(", ")}.`);
 
+    const form = await this.outgoingForm(user, entry, true);
+
+    let result: Awaited<ReturnType<RobotClient["srikandiRegister"]>>;
+    try {
+      result = await this.robot.srikandiRegister({ ...this.target(connector), form, dryRun });
+    } catch (error) {
+      await this.fail(user.id, connector, "register", error);
+      throw error;
+    }
+    return this.finishRegister(user, connector, entryId, entry, result, dryRun);
+  }
+
+  /**
+   * Isian formulir Registrasi dari entri Register + berkasnya dari object storage. `withMain` = sertakan file naskah
+   * (Perbarui hanya mengirimnya bila diganti). Batas formulir SRIKANDI diperiksa sebelum berkas dibaca ke memori.
+   */
+  private async outgoingForm(user: AuthUser, entry: OutgoingEntry, withMain: boolean) {
     const references = (await this.records.findMany("srikandi_reference", {}, user))
       .filter((r) => !r.share)
       .map((r) => r.payload as unknown as { id: string; label: string; fields?: Record<string, string> });
-    // Batas formulir SRIKANDI diperiksa sebelum berkas dibaca ke memori (robot juga menolaknya)
     const sizes = await this.prisma.asset.findMany({
       where: { id: { in: [entry.file!, ...(entry.attachments ?? [])].map((f) => f.uploadId) } },
       select: { id: true, size: true },
@@ -1150,19 +1242,36 @@ export class RobotService {
         data: buffer.toString("base64"),
       };
     };
-    const form = {
+    return {
       ...buildRegisterFields(entry, references),
-      file: await loadFile(entry.file!, false),
+      ...(withMain ? { file: await loadFile(entry.file!, false) } : {}),
       attachments: await Promise.all((entry.attachments ?? []).map((a) => loadFile(a, true))),
     };
+  }
 
-    let result: Awaited<ReturnType<RobotClient["srikandiRegister"]>>;
-    try {
-      result = await this.robot.srikandiRegister({ ...this.target(connector), form, dryRun });
-    } catch (error) {
-      await this.fail(user.id, connector, "register", error);
-      throw error;
-    }
+  /** Simpan tangkapan layar run robot SRIKANDI ke object storage (Riwayat Connector). */
+  private async saveRunScreenshot(userId: string, runId: string, screenshot: string | null) {
+    if (!screenshot) return;
+    const image = Buffer.from(screenshot, "base64");
+    const key = `robot/${userId}/${runId}.jpg`;
+    await this.storage.putObject({
+      key,
+      body: image,
+      contentLength: image.length,
+      contentType: "image/jpeg",
+      checksum: createHash("sha256").update(image).digest("hex"),
+    });
+    await this.prisma.robotRun.update({ where: { id: runId }, data: { screenshotKey: key } });
+  }
+
+  private async finishRegister(
+    user: AuthUser,
+    connector: Awaited<ReturnType<RobotService["connector"]>>,
+    entryId: string,
+    entry: OutgoingEntry & Record<string, unknown>,
+    result: Awaited<ReturnType<RobotClient["srikandiRegister"]>>,
+    dryRun: boolean,
+  ) {
     await this.saveState(connector.id, result, false);
     if (result.status === "logged_out") {
       await this.log(user.id, connector.id, "register", result, {
@@ -1178,18 +1287,7 @@ export class RobotService {
           ? `Register: draf berhal sama sudah ada di Log Naskah Keluar — ${subject}`
           : `Register: draf disimpan di Log Naskah Keluar (belum dikirim) — ${subject}`;
     const run = await this.log(user.id, connector.id, "register", result, { note });
-    if (result.screenshot) {
-      const image = Buffer.from(result.screenshot, "base64");
-      const key = `robot/${user.id}/${run.id}.jpg`;
-      await this.storage.putObject({
-        key,
-        body: image,
-        contentLength: image.length,
-        contentType: "image/jpeg",
-        checksum: createHash("sha256").update(image).digest("hex"),
-      });
-      await this.prisma.robotRun.update({ where: { id: run.id }, data: { screenshotKey: key } });
-    }
+    await this.saveRunScreenshot(user.id, run.id, result.screenshot);
     if (!dryRun) {
       await this.records.upsert(
         "srikandi_outgoing",
@@ -1201,12 +1299,91 @@ export class RobotService {
             submittedAt: new Date().toISOString(),
             srikandiDraftId: result.draft?.detailId ?? undefined,
             srikandiNumber: result.draft?.number ?? undefined,
+            pushedSubject: entry.subject?.trim(),
+            pushedSignature: outgoingSignature(entry),
+            pushedFileId: entry.file?.uploadId,
           },
         },
         user,
       );
     }
     return { status: result.status, filled: result.filled, draft: result.draft, runId: run.id };
+  }
+
+  /**
+   * SRIKANDI: perbarui konsep entri yang sudah terdaftar lewat Edit di Log Naskah Keluar. Hanya isian yang berbeda yang
+   * diubah robot; file naskah dikirim hanya bila diganti. Konsep yang sudah dikirim (tanpa tautan Edit) ditolak.
+   * Berhasil → pengenal perubahan entri diperbarui. `dryRun` = rencana tanpa klik.
+   */
+  updateSrikandiOutgoing(user: AuthUser, entryId: string, dryRun = false) {
+    return this.exclusive(user.id, "srikandi", "Perbarui naskah", () =>
+      this.editSrikandiOutgoing(user, entryId, dryRun),
+    );
+  }
+
+  private async editSrikandiOutgoing(user: AuthUser, entryId: string, dryRun: boolean) {
+    const connector = await this.connector(user.id, "srikandi");
+    this.requireSession(connector);
+    const record = await this.records.findOne("srikandi_outgoing", entryId, {}, user);
+    const entry = record.payload as unknown as OutgoingEntry & Record<string, unknown>;
+    if (entry.status !== "submitted") {
+      throw new BadRequestException("Hanya entri yang sudah terdaftar (konsep di SRIKANDI) yang bisa diperbarui.");
+    }
+    const blockers = registerBlockers(entry);
+    if (blockers.length) throw new BadRequestException(`Isian belum lengkap: ${blockers.join(", ")}.`);
+    const replaceFile = !!entry.pushedFileId && entry.file?.uploadId !== entry.pushedFileId;
+    const form = {
+      ...(await this.outgoingForm(user, entry, replaceFile)),
+      findSubject: (entry.pushedSubject || entry.subject || "").trim(),
+    };
+
+    let result: Awaited<ReturnType<RobotClient["srikandiRegisterUpdate"]>>;
+    try {
+      result = await this.robot.srikandiRegisterUpdate({ ...this.target(connector), form, dryRun });
+    } catch (error) {
+      await this.fail(user.id, connector, "register", error);
+      throw error;
+    }
+    await this.saveState(connector.id, result, false);
+    const subject = entry.subject?.trim() ?? "";
+    const messages: Record<typeof result.status, string> = {
+      logged_out: "Sesi SRIKANDI kedaluwarsa. Login ulang di SRIKANDI → Connector.",
+      not_found: `Konsep "${form.findSubject}" tidak ditemukan di Log Naskah Keluar (mungkin dihapus atau halnya diubah langsung di SRIKANDI).`,
+      locked: "Konsep ini sudah dikirim / diproses di SRIKANDI sehingga tidak bisa diubah lewat Edit.",
+      preview: `Perbarui (periksa, tidak disimpan): ${subject}`,
+      unchanged: `Perbarui: konsep di SRIKANDI sudah sama — ${subject}`,
+      updated: `Perbarui: konsep diubah di Log Naskah Keluar (belum dikirim) — ${subject}`,
+    };
+    const run = await this.log(user.id, connector.id, "register", result, {
+      note: [messages[result.status], ...result.plan].join(" · ").slice(0, 1_000),
+    });
+    await this.saveRunScreenshot(user.id, run.id, result.screenshot);
+    if (result.status === "logged_out" || result.status === "not_found" || result.status === "locked") {
+      throw new BadRequestException(messages[result.status]);
+    }
+    if (result.status === "updated" || result.status === "unchanged") {
+      await this.records.upsert(
+        "srikandi_outgoing",
+        entryId,
+        {
+          payload: {
+            ...entry,
+            pushedSubject: subject,
+            pushedSignature: outgoingSignature(entry),
+            pushedFileId: entry.file?.uploadId,
+            updatedInSrikandiAt: result.status === "updated" ? new Date().toISOString() : entry.updatedInSrikandiAt,
+          },
+        },
+        user,
+      );
+    }
+    return {
+      status: result.status,
+      plan: result.plan,
+      warnings: result.warnings,
+      remaining: result.remaining ?? [],
+      runId: run.id,
+    };
   }
 
   /**

@@ -69,6 +69,9 @@ export const TOOL_LABELS: Record<string, string> = {
   srikandi_sync_references: "Ambil referensi SRIKANDI",
   srikandi_check_register: "Periksa Register di SRIKANDI",
   srikandi_request_register: "Minta daftarkan naskah ke SRIKANDI",
+  siman_status: "Status robot SIMAN",
+  siman_check_session: "Jaga sesi SIMAN",
+  siman_read_page: "Baca halaman SIMAN",
 };
 
 /** Ringkasan argumen untuk tabel log: "query: sewa · limit: 3". */

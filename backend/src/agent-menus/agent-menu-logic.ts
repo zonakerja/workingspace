@@ -9,9 +9,10 @@ export type MenuStatus = (typeof MENU_STATUSES)[number];
 
 /**
  * `workflow` = tab Workflow di AI Agent; `connection` = menu di kelompok Connection & MCP; `ekinerja` = tab Workflow
- * di menu e-Kinerja; `srikandi` = tab Workflow di menu SRIKANDI (keduanya fitur terbuka, lihat `EXTENSIBLE_FEATURES`).
+ * di menu e-Kinerja; `srikandi` = tab Workflow di menu SRIKANDI; `siman` = tab Workflow di menu SIMAN (ketiganya fitur terbuka,
+ * lihat `EXTENSIBLE_FEATURES`).
  */
-export const MENU_PLACEMENTS = ["workflow", "connection", "ekinerja", "srikandi"] as const;
+export const MENU_PLACEMENTS = ["workflow", "connection", "ekinerja", "srikandi", "siman"] as const;
 export type MenuPlacement = (typeof MENU_PLACEMENTS)[number];
 
 /**
@@ -36,13 +37,14 @@ export const NATIVE_FEATURES = [
 ] as const;
 
 /**
- * Fitur native yang **terbuka** untuk agen (keputusan user 2026-11-12 e-Kinerja, 2026-11-13 SRIKANDI): namanya tetap tidak bisa dipakai fitur buatan
+ * Fitur native yang **terbuka** untuk agen (keputusan user 2026-11-12 e-Kinerja, 2026-11-13 SRIKANDI & SIMAN): namanya tetap tidak bisa dipakai fitur buatan
  * agen dan kodenya tetap bawaan, tetapi agen boleh menambah workflow di dalamnya (penempatan) dan menjalankan
  * robotnya lewat alat MCP berizin. Pengisian ke sistem asal tetap menunggu persetujuan pemilik.
  */
 export const EXTENSIBLE_FEATURES: Partial<Record<(typeof NATIVE_FEATURES)[number], MenuPlacement>> = {
   "e-Kinerja": "ekinerja",
   SRIKANDI: "srikandi",
+  SIMAN: "siman",
 };
 
 /** Batas fitur per user agar menu tetap terbaca. */
