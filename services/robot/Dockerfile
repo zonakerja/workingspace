@@ -6,13 +6,13 @@
 # Versi image HARUS sama dengan versi `playwright` di package.json.
 # ============================================================================
 
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS prune
+FROM mcr.microsoft.com/playwright:v1.65.1-noble AS prune
 WORKDIR /repo
 RUN npm install -g turbo@2.11.10
 COPY . .
 RUN turbo prune @workingspace/robot --docker
 
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS build
+FROM mcr.microsoft.com/playwright:v1.65.1-noble AS build
 WORKDIR /app
 COPY --from=prune /repo/out/json/ ./
 RUN npm ci
@@ -21,7 +21,7 @@ RUN npm run build -w @workingspace/robot \
   && npm prune --omit=dev \
   && mkdir -p services/robot/node_modules
 
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS runtime
+FROM mcr.microsoft.com/playwright:v1.65.1-noble AS runtime
 ENV NODE_ENV=production \
   NPM_CONFIG_UPDATE_NOTIFIER=false \
   PORT=4100
