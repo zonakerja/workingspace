@@ -26,6 +26,10 @@ import { VersionHistoryDialog } from "./version-history-dialog";
 import { DocumentLinksButton } from "./document-links";
 
 const OfficeEditor = lazy(() => import("./office-editor"));
+// Modal Register Naskah Keluar dimuat saat editor dibuka (tidak memperberat chunk utama)
+const RegisterFromOfficeButton = lazy(() =>
+  import("@/features/srikandi/register-from-office").then((m) => ({ default: m.RegisterFromOfficeButton })),
+);
 
 export interface OfficeDocumentRef {
   uploadId: string;
@@ -164,6 +168,16 @@ function EditorFrame({ doc }: { doc: OfficeDocumentRef }) {
           </span>
         )}
         <span className="flex-1" />
+        {info && (
+          <Suspense fallback={null}>
+            <RegisterFromOfficeButton
+              uploadId={doc.uploadId}
+              name={title}
+              canEdit={info.access === "edit"}
+              onLeave={() => void requestClose()}
+            />
+          </Suspense>
+        )}
         <DocumentLinksButton uploadId={doc.uploadId} name={title} />
         <Button variant="ghost" size="xs" disabled={closing} onClick={() => setVersionsOpen(true)}>
           <History /> <span className="hidden sm:inline">Riwayat versi</span>

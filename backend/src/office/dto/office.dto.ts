@@ -76,3 +76,9 @@ export class OfficeLinkCandidatesQuery {
   @MaxLength(100)
   q?: string;
 }
+
+export class RenameOfficeDocumentDto {
+  @IsString()
+  @MaxLength(200)
+  title: string;
+}

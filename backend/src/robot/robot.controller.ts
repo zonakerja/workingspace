@@ -221,6 +221,17 @@ export class RobotController {
     return this.robot.syncSrikandiReferences(user, ["classification"]);
   }
 
+  /**
+   * SRIKANDI: ambil Instansi Pengirim = pilihan "Dikirimkan melalui" di formulir Registrasi Naskah Keluar (robot membuka
+   * formulir & menggulir daftar pilihan; formulir tidak diisi / disimpan).
+   */
+  @Throttle({ default: { ttl: 60_000, limit: 2 } })
+  @HttpCode(200)
+  @Post("srikandi/sender-units/sync")
+  syncSenderUnits(@CurrentUser() user: AuthUser) {
+    return this.robot.syncSrikandiReferences(user, ["sender_unit"]);
+  }
+
   /** SRIKANDI: ambil referensi menu Pengguna (penandatangan, tujuan, verifikator, tembusan, grup) — hanya membaca. */
   @Throttle({ default: { ttl: 60_000, limit: 2 } })
   @HttpCode(200)

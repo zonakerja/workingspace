@@ -73,6 +73,7 @@ export const queryKeys = {
   officePreferences: ["office", "preferences"] as const,
   officeFonts: ["office", "fonts"] as const,
   officeTemplates: ["office", "templates"] as const,
+  officeWorkspace: ["office", "workspace"] as const,
   officeLinksAll: ["office", "links"] as const,
   officeLinks: (uploadId: string) => ["office", "links", "file", uploadId] as const,
   officeLinkBadges: (ids: string) => ["office", "links", "badges", ids] as const,

@@ -26,10 +26,35 @@ export const REFERENCE_LABELS: Record<SrikandiReferenceCategory, string> = {
   cc_group: "Grup Tembusan",
   disposition_group: "Grup Disposisi",
   classification: "Klasifikasi",
+  sender_unit: "Instansi Pengirim",
 };
 const CATEGORIES = Object.keys(REFERENCE_LABELS) as SrikandiReferenceCategory[];
-/** Kategori menu Pengguna (tombol Ambil referensi); klasifikasi diambil terpisah karena ±1.000 baris. */
-const USER_CATEGORIES = CATEGORIES.filter((c) => c !== "classification");
+/**
+ * Kategori yang diambil terpisah (tombol sendiri): klasifikasi (±1.000 baris) dan Instansi Pengirim (pilihan "Dikirimkan
+ * melalui" formulir Registrasi yang digulir sampai habis, ± 1.500 unit). Sisanya = menu Pengguna (Ambil referensi).
+ */
+const SEPARATE: Partial<
+  Record<
+    SrikandiReferenceCategory,
+    {
+      button: string;
+      busy: string;
+      run: () => Promise<{ counts: Record<string, number>; totals: Record<string, number> }>;
+    }
+  >
+> = {
+  classification: {
+    button: "Ambil klasifikasi",
+    busy: "Mengambil… (± 3–5 menit)",
+    run: () => robotApi.syncClassifications(),
+  },
+  sender_unit: {
+    button: "Ambil instansi pengirim",
+    busy: "Mengambil… (± 2–3 menit)",
+    run: () => robotApi.syncSenderUnits(),
+  },
+};
+const USER_CATEGORIES = CATEGORIES.filter((c) => !SEPARATE[c]);
 /** Kolom yang sudah tampil di label klasifikasi ("KODE - Nama") tidak diulang. */
 const HIDDEN_FIELDS = new Set(["Dibuat Pada", "Kode", "Nama Klasifikasi"]);
 
@@ -73,16 +98,18 @@ export function ReferencesBoard() {
     .sort()
     .at(-1);
 
-  const isClassification = category === "classification";
+  const separate = SEPARATE[category];
   const sync = async () => {
     setSyncing(true);
     try {
-      if (isClassification) {
-        const r = await robotApi.syncClassifications();
+      if (separate) {
+        const r = await separate.run();
         await client.invalidateQueries({ queryKey: queryKeys.records("srikandi_reference") });
-        const n = r.counts.classification ?? 0;
-        const total = r.totals.classification;
-        toast.success(`${n} klasifikasi diambil dari SRIKANDI${total !== undefined ? ` (total ${total})` : ""}.`);
+        const n = r.counts[category] ?? 0;
+        const total = r.totals[category];
+        toast.success(
+          `${n} ${REFERENCE_LABELS[category].toLowerCase()} diambil dari SRIKANDI${total !== undefined ? ` (total ${total})` : ""}.`,
+        );
         return;
       }
       const r = await robotApi.syncReferences();
@@ -115,13 +142,7 @@ export function ReferencesBoard() {
       action={
         <Button size="sm" onClick={() => void sync()} disabled={syncing}>
           {syncing ? <Loader2 className="animate-spin" /> : <CloudDownload />}{" "}
-          {syncing
-            ? isClassification
-              ? "Mengambil… (± 3–5 menit)"
-              : "Mengambil… (± 1–2 menit)"
-            : isClassification
-              ? "Ambil klasifikasi"
-              : "Ambil referensi"}
+          {syncing ? (separate?.busy ?? "Mengambil… (± 1–2 menit)") : (separate?.button ?? "Ambil referensi")}
         </Button>
       }
       contentClassName="flex flex-col gap-3"
@@ -165,7 +186,7 @@ export function ReferencesBoard() {
             <EmptyDescription>
               {count(category)
                 ? `Belum ada ${REFERENCE_LABELS[category].toLowerCase()} yang cocok.`
-                : `Klik ${isClassification ? "Ambil klasifikasi" : "Ambil referensi"}. Pastikan sesi SRIKANDI aktif di tab Connector.`}
+                : `Klik ${separate?.button ?? "Ambil referensi"}. Pastikan sesi SRIKANDI aktif di tab Connector.`}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

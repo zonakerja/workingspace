@@ -161,6 +161,20 @@ export function referenceChoices(
 }
 
 /**
+ * Pilihan "Dikirimkan melalui" = referensi Instansi Pengirim (urutan SRIKANDI), unit yang pernah dipakai di entri lain
+ * didahulukan. Nilai lama yang tidak ada di referensi tetap ditawarkan agar entri lama tidak kehilangan isiannya.
+ */
+export function senderUnitChoices(refs: SrikandiReference[], used: string[] = []) {
+  const units = refs
+    .filter((r) => r.category === "sender_unit")
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((r) => r.label);
+  if (!units.length) return [];
+  const usedFirst = used.filter((u) => u.trim());
+  return [...new Set([...usedFirst, ...units])];
+}
+
+/**
  * Pilihan Klasifikasi formulir: klasifikasi berstatus Aktif (yang Non-Aktif tidak dipakai untuk naskah baru), urut kode.
  * Bila status belum terbaca (tidak ada yang Aktif), semua ditampilkan.
  */
@@ -225,6 +239,15 @@ export const ownedUploadIds = (entry: Pick<SrikandiOutgoing, "file" | "attachmen
     .map((f) => f.uploadId);
 
 /** Entri baru kosong (tipe Naskah Keluar, TTE elektronik + QR seperti bawaan SRIKANDI). */
+/** Entri register (milik sendiri) yang file naskahnya = berkas ini; yang terbaru bila lebih dari satu. */
+export function registerEntryForFile(entries: SrikandiOutgoing[], uploadId: string) {
+  return (
+    entries
+      .filter((e) => !e.share && e.file?.uploadId === uploadId)
+      .sort((a, b) => (b.createdAt ?? b.id).localeCompare(a.createdAt ?? a.id))[0] ?? null
+  );
+}
+
 export function emptyOutgoing(id: string): SrikandiOutgoing {
   return {
     id,

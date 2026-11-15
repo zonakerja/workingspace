@@ -848,6 +848,27 @@ export interface OfficeLinks {
 export type OfficeLinkBadges = Record<string, { draftId: string | null; finals: number }>;
 
 /** Templat dokumen milik user (Tools → ONLYOFFICE), berkas dengan konteks `office-template`. */
+/** Dokumen ruang kerja ONLYOFFICE (Tools → ONLYOFFICE → Dokumen): tidak masuk Resource. */
+export interface OfficeWorkspaceDocument {
+  id: string;
+  /** Nama tanpa ekstensi */
+  name: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  /** Nomor versi isi (bertambah setiap sesi edit tersimpan) */
+  version: number;
+  format: string;
+  /** Jenis dokumen salinan saat dipanggil dari Working Space; null = tidak bisa disalin */
+  target: OfficeFormat | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Waktu isi terakhir disimpan editor */
+  savedAt: string;
+  /** Jumlah dokumen final yang tertaut ke dokumen ini (konsep ↔ final) */
+  finals: number;
+}
+
 export interface OfficeTemplate {
   id: string;
   /** Nama tanpa ekstensi */

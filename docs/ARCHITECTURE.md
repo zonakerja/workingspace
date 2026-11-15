@@ -356,6 +356,16 @@ tetap Asset LifeOS di object storage.
   `infra/onlyoffice/Dockerfile` bersama jembatan `lifeos-ai-bridge.js`) dengan `editorConfig.plugins.options[GUID AI] =
   { lifeos: { token, proxy, url, … } }`; jembatan mengisi mode pengaturan server plugin (provider "AI LifeOS", tanpa tombol
   Settings) sehingga semua permintaan lewat `/office/ai/proxy` memakai provider & key Pengaturan → Model AI. Detail: ONLYOFFICE.md §3.4.
+- **Ruang kerja dokumen** (2026-11-15, Tools → ONLYOFFICE → sub-tab **Dokumen**): dokumen dibuat (kosong / templat / impor) dengan
+  context `office-workspace` (`OFFICE_WORKSPACE_CONTEXT`) dan **tidak** menjadi Resource Global / File Control. `GET /office/workspace`
+  (milik sendiri: nama, format, `target` salinan, versi, waktu simpan, jumlah final tertaut), `PATCH /office/workspace/:id { title }`
+  (ekstensi tetap, `renamedDocumentName` + test), hapus = `DELETE /uploads/:id` (Sampah). Working Space memanggilnya lewat form
+  Resource/lampiran → **Buat Dokumen (ONLYOFFICE) → Dari Dokumen Saya** = `POST /office/documents { templateId: <dokumen ruang kerja>,
+  context }` → **salinan** di context lampiran (dokumen asal tidak tersentuh; salinan diperlakukan seperti dokumen baru: dibuang saat
+  form batal). Salinan dipilih (bukan rujukan) agar hapus item/Resource tidak pernah menghapus dokumen ruang kerja.
+- **Dokumen tidak hilang saat form ditutup** (2026-11-15): `DELETE /uploads/:id?discard=1` atas berkas milik sendiri yang sudah disunting di
+  ONLYOFFICE (`version > 1`, `shouldRescueOnDiscard`) → context menjadi `office-workspace`, respons `kept: true` (frontend menampilkan toast
+  dengan tombol Buka). Berkas yang belum disunting tetap dibuang permanen; hapus biasa (Sampah) & pembersihan internal tidak terpengaruh.
 - **Alamat backend untuk ONLYOFFICE** (`ONLYOFFICE_BACKEND_URL`): `auto` (dev) = IPv4 antarmuka Windows `vEthernet (WSL…)`
   dibaca setiap membuat config; produksi `http://backend:4000`. Logika murni + test: `office-logic.ts`.
 
@@ -499,7 +509,7 @@ manual (UI) atau oleh agen (MCP), dikerjakan AI, lalu **diputuskan user** — se
   JSON tervalidasi. Analisis mengisi data surat yang masih kosong; status maju otomatis tetapi **tidak pernah mundur**
   dan tidak pernah `disetujui/dikirim` (hanya user).
 - **Mesin templat** (`template-engine.ts` + test, `docxtemplater` + `pizzip`): templat DOCX milik user (context
-  `office-template`, Tools → ONLYOFFICE → Templat) dengan penanda gaya SRIKANDI `${nama_isian}` dan paragraf
+  `office-template`, Tools → ONLYOFFICE → Dokumen → Templat dokumen) dengan penanda gaya SRIKANDI `${nama_isian}` dan paragraf
   petunjuk `[…]` (paragraf yang seluruhnya dalam kurung siku). Penanda SRIKANDI (`jabatan_tujuan*`, `jabatan_pengirim*`, `nama_pengirim*`, `nip_pengirim*`, `nomor_naskah`, `tanggal_naskah`,
   `ttd*`) dan penanda tanpa nilai **dibiarkan utuh**; paragraf petunjuk diganti teks (format paragraf & run pertama
   dipertahankan; teks beberapa baris → beberapa paragraf bergaya sama; kosong → petunjuk tetap tertulis). Usulan nilai
@@ -588,7 +598,7 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   | e-Kinerja | `/jobs/ekinerja/renaksi/read` | `POST /robot/ekinerja/renaksi/sync` | baca semua bulan (status draf/diajukan/dinilai, tanggal pengajuan, rating, isi, feedback) → `action_plan_month` + impor |
   | SRIKANDI | `/jobs/srikandi/outgoing` | `POST /robot/srikandi/letters/sync` | Daftar Naskah Keluar + PDF ber-TTD & lampiran → `srikandi_letter`, Resource Global |
   | SRIKANDI | `/jobs/srikandi/inbox` | `POST /robot/srikandi/inbox/sync` | daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya halaman daftar; detail tidak dibuka agar status baca tetap) → `srikandi_inbox` ([AI-AGENT.md](AI-AGENT.md) §21.14) |
-  | SRIKANDI | `/jobs/srikandi/references` (`categories?`) | `POST /robot/srikandi/references/sync`, `…/classifications/sync` | tabel menu Pengguna (7 kategori) / Klasifikasi Arsip (1.048 baris) → `srikandi_reference` |
+  | SRIKANDI | `/jobs/srikandi/references` (`categories?`) | `POST /robot/srikandi/references/sync`, `…/classifications/sync`, `…/sender-units/sync` | tabel menu Pengguna (7 kategori) / Klasifikasi Arsip (1.048 baris) / **Instansi Pengirim** = pilihan "Dikirimkan melalui" formulir Registrasi yang digulir sampai habis (± 1.470, formulir tidak diisi/disimpan) → `srikandi_reference` |
   | SRIKANDI | `/jobs/srikandi/register` (body ≤ 40 MB, berkas base64) | `POST /robot/srikandi/register/:id { dryRun? }` | isi formulir Registrasi Naskah Keluar dari `srikandi_outgoing` → **Simpan** = konsep di Log Naskah Keluar (tidak ganda); tidak pernah Kirim Konsep |
   | SRIKANDI | `/jobs/srikandi/register/send` (tanpa `confirm: "KIRIM_KONSEP"` selalu dryRun) | `POST /robot/srikandi/register/:id/send { dryRun?, pin? }` | **Kirim Konsep** konsep terdaftar ke verifikator dari halaman Detail Log; bawaan dryRun (tandai tombol, tanpa klik); kirim wajib PIN setiap kali (`PinService.confirmAction`, hanya sesi login) → `draftSentAt` ([AI-AGENT.md](AI-AGENT.md) §21.15) |
   | SRIKANDI | `/jobs/srikandi/register/update` (body ≤ 40 MB) | `POST /robot/srikandi/register/:id/update { dryRun? }` | **Edit** konsep di Log Naskah Keluar: hanya isian yang berbeda (Perbarui Naskah, Tambah/hapus baris lampiran, tujuan, verifikator, penandatangan); konsep terkirim = `locked`; pengenal perubahan `pushedSignature` ([AI-AGENT.md](AI-AGENT.md) §21.13) |
@@ -805,7 +815,7 @@ dikirim ke AI (pertanyaan visual).
 **Pustaka hasil konversi** (2026-11-14, sub-tab **Dokumen**, bawaan): tabel `converted_documents` (milik user, cascade; `title`, `file_name`,
 `mime_type`, `size`, `options` mode/enhance/compareTokens, `status` queued → processing → done | failed, `error`, `engine`, `markdown`,
 `enhanced_markdown`, `result` = metadata konversi tanpa isi). `POST /converter/documents` (202) → antrean di memori `ConverterLibraryService`
-(2 paralel; maks. 10 antre & 500 dokumen per user) → `ConverterService.convert` (termasuk Rapikan & Bandingkan token; format tak didukung ditolak 400 saat unggah). Berkas asal **tidak** disimpan di storage — hanya di memori selama diproses — jadi tidak ada sampah; backend restart = dokumen yang belum
+(2 paralel; maks. 10 antre & 500 dokumen per user) → `ConverterService.convert` (termasuk Rapikan & Bandingkan token; format tak didukung ditolak 400 saat unggah; `.md`/`.txt`/`.csv` diterima — `libraryAccepts`). Berkas asal **tidak** disimpan di storage — hanya di memori selama diproses — jadi tidak ada sampah; backend restart = dokumen yang belum
 selesai ditandai gagal (unggah ulang). `GET /converter/documents` (tanpa Markdown + ringkasan `librarySummary`), `GET /converter/documents/:id`,
 `PATCH` (judul), `DELETE` (permanen, bukan Sampah). Pustaka tidak diindeks RAG dan tidak dibaca agen.
 
@@ -904,7 +914,7 @@ dengan `ON DELETE CASCADE`, soft delete `deleted_at` pada tabel domain.
 | `skp_target` | `skp_targets` | year, skp_id, name, section (UTAMA/TAMBAHAN), leader, indicators, order — RHK milik SKP (robot) atau manual per tahun |
 | `action_plan_entry` | `action_plan_entries` | period (YYYY-MM), skp_id, target_id, description, document_url, source_type/id/title, status (draft/ready/filled), filled_at — rencana aksi e-Kinerja yang dipilih user dari Productivity (di `extra`: realization, time_realization, indicators, pushedSignature + pushed = pengenal perubahan, deleted = hapus tertunda) |
 | `action_plan_month` | `action_plan_months` | period, skp_id, status (empty/unavailable/draft/submitted/rated), submitted_at, synced_at — potret bulan Rencana Aksi e-Kinerja (di `extra`: workday, ratings, rows + feedback) |
-| `srikandi_reference` | `srikandi_references` | category (signer/recipient/recipient_group/verifier/cc/cc_group/disposition_group/classification), label, fields, order, synced_at — referensi SRIKANDI diambil robot (klasifikasi: label "KODE - Nama", fields.Status) |
+| `srikandi_reference` | `srikandi_references` | category (signer/recipient/recipient_group/verifier/cc/cc_group/disposition_group/classification/sender_unit), label, fields, order, synced_at — referensi SRIKANDI diambil robot (klasifikasi: label "KODE - Nama", fields.Status) |
 | `srikandi_letter` | `srikandi_letters` | number, date, subject, origin, sign_status, send_status, upload_id, imported_at — naskah keluar ber-TTD dari Daftar Naskah Keluar (di `extra`: attachments, resources) |
 | `srikandi_outgoing` | `srikandi_outgoings` | form_type, subject, number, status (draft/submitted/done), upload_id, source_type/id, letter_id, submitted_at — Register Naskah Keluar (isian formulir Registrasi, berkas, tujuan, verifikator, penandatangan di `extra`) |
 | `archive_classification` | `archive_classifications` | jenis, kode_pokok/sub/item, nama_* |

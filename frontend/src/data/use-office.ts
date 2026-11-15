@@ -64,6 +64,19 @@ export function useOfficeTemplates(enabled = true) {
   return useQuery({ queryKey: queryKeys.officeTemplates, queryFn: officeApi.templates, enabled });
 }
 
+/** Dokumen ruang kerja ONLYOFFICE milik user (Tools → ONLYOFFICE → Dokumen). */
+export function useOfficeWorkspace(enabled = true) {
+  return useQuery({ queryKey: queryKeys.officeWorkspace, queryFn: officeApi.workspace, enabled });
+}
+
+export function useRenameOfficeWorkspace() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => officeApi.renameWorkspace(id, title),
+    onSuccess: () => void client.invalidateQueries({ queryKey: queryKeys.officeWorkspace }),
+  });
+}
+
 /** Font server ONLYOFFICE + berkas font tambahan (khusus admin). */
 export function useOfficeFonts(enabled = true) {
   return useQuery({ queryKey: queryKeys.officeFonts, queryFn: officeApi.fonts, enabled });

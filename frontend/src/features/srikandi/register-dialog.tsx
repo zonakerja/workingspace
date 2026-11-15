@@ -21,6 +21,7 @@ import { useSrikandiOutgoings, useSrikandiReferences } from "@/data/collections"
 import { useOpenSession } from "@/hooks/use-retained";
 import { uploadsApi } from "@/lib/api/endpoints";
 import { untrackPendingUpload } from "@/lib/pending-uploads";
+import { cn } from "@/lib/utils";
 import type {
   SrikandiOutgoing,
   SrikandiOutgoingFile,
@@ -33,6 +34,7 @@ import {
   attachmentError,
   attachmentsTotal,
   classificationChoices,
+  senderUnitChoices,
   cleanAttachmentName,
   DOC_TYPE_SUGGESTIONS,
   FORM_TYPE_LABELS,
@@ -51,13 +53,15 @@ interface RegisterDialogProps {
   entry: SrikandiOutgoing | null;
   isNew: boolean;
   onClose: () => void;
+  /** Setelah entri disimpan (mis. toast dengan tautan dari editor ONLYOFFICE) */
+  onSaved?: (entry: SrikandiOutgoing) => void;
 }
 
 /**
  * Formulir Register Naskah Keluar — urutan & isian sama dengan formulir Registrasi Naskah Keluar SRIKANDI. Berkas yang
  * diunggah dalam satu sesi buka dibuang bila dialog ditutup tanpa disimpan.
  */
-export function RegisterDialog({ open, entry, isNew, onClose }: RegisterDialogProps) {
+export function RegisterDialog({ open, entry, isNew, onClose, onSaved }: RegisterDialogProps) {
   const session = useOpenSession(open);
   const { upsert } = useSrikandiOutgoings();
   // Unggahan baru sesi ini (milik register) — dibuang bila tidak jadi disimpan
@@ -88,6 +92,7 @@ export function RegisterDialog({ open, entry, isNew, onClose }: RegisterDialogPr
     for (const id of dropped) void uploadsApi.remove(id).catch(() => undefined);
     for (const id of unused) void uploadsApi.discard(id).catch(() => undefined);
     onClose();
+    onSaved?.(next);
   };
 
   return (
@@ -150,6 +155,7 @@ function RegisterForm({ initial, onUploaded, onCancel, onSave }: FormProps) {
   const exclude = [draft.file?.uploadId, ...attachments.map((a) => a.uploadId)].filter((v): v is string => !!v);
   const noRefs = refs.length === 0;
   const classificationOptions = classificationChoices(refs).map((r) => ({ value: r.label, label: r.label }));
+  const unitOptions = senderUnitChoices(refs, suggestions.unit).map((label) => ({ value: label, label }));
 
   const onPick = ({ file, request }: PickedFile) => {
     if (file.owned) onUploaded(file.uploadId);
@@ -201,14 +207,28 @@ function RegisterForm({ initial, onUploaded, onCancel, onSave }: FormProps) {
         <FieldSet className="min-w-0">
           <FieldLegend>Detil isi naskah</FieldLegend>
           <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <SuggestInput
-              id="reg-unit"
-              label="Dikirimkan melalui"
-              placeholder="Unit kerja pengirim"
-              value={draft.unit}
-              options={suggestions.unit}
-              onChange={(v) => set("unit", v)}
-            />
+            {unitOptions.length ? (
+              <Field>
+                <FieldLabel>Dikirimkan melalui</FieldLabel>
+                <SearchableSelect
+                  value={draft.unit}
+                  onChange={(v) => set("unit", v)}
+                  options={unitOptions}
+                  placeholder={draft.unit || "Pilih instansi pengirim…"}
+                  wrap
+                  searchPlaceholder="Cari unit kerja / instansi…"
+                />
+              </Field>
+            ) : (
+              <SuggestInput
+                id="reg-unit"
+                label="Dikirimkan melalui"
+                placeholder="Unit kerja pengirim (ambil Instansi Pengirim di tab Referensi)"
+                value={draft.unit}
+                options={suggestions.unit}
+                onChange={(v) => set("unit", v)}
+              />
+            )}
             <SuggestInput
               id="reg-type"
               label="Jenis naskah"
@@ -233,6 +253,7 @@ function RegisterForm({ initial, onUploaded, onCancel, onSave }: FormProps) {
                   onChange={(v) => set("classification", v)}
                   options={classificationOptions}
                   placeholder={draft.classification || "Pilih klasifikasi…"}
+                  wrap
                   searchPlaceholder="Cari kode / nama klasifikasi…"
                 />
               </Field>
@@ -569,10 +590,13 @@ function RefPicker(props: {
             <Badge
               key={v.id}
               variant="secondary"
-              className={known.has(v.id) ? "max-w-full gap-1" : "max-w-full gap-1 bg-warning/15 text-warning"}
+              className={cn(
+                "h-auto max-w-full shrink justify-start gap-1 rounded-lg py-0.5 text-left whitespace-normal",
+                !known.has(v.id) && "bg-warning/15 text-warning",
+              )}
               title={known.has(v.id) ? v.label : `${v.label} — tidak ada lagi di referensi SRIKANDI`}
             >
-              <span className="truncate">{v.label}</span>
+              <span className="min-w-0 break-words">{v.label}</span>
               <button
                 type="button"
                 aria-label={`Lepas ${v.label}`}

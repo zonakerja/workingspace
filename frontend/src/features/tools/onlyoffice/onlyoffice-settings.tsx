@@ -2,11 +2,13 @@ import {
   CheckCircle2,
   FilePen,
   FilePlus2,
+  FolderOpen,
   History,
   Info,
   RefreshCw,
   Save,
   Server,
+  Settings2,
   Share2,
   Sparkles,
   XCircle,
@@ -21,23 +23,44 @@ import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 import { errorMessage } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { officeFormatsByMode } from "./office-formats";
-import { OfficeAiCard, OfficeFontsCard, OfficeTemplatesCard } from "./onlyoffice-cards";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSearchParam } from "@/hooks/use-search-param";
+import { OfficeDocuments } from "./office-documents";
+import { OfficeAiCard, OfficeFontsCard } from "./onlyoffice-cards";
 
 /**
- * Tools → ONLYOFFICE. Editor sendiri tidak punya menu dokumen — ia dipanggil dari fitur mana pun yang punya berkas
- * (pratinjau lampiran/resource, "Edit di ONLYOFFICE", "Buat Dokumen" di form lampiran).
- * Tampilan per role (keputusan user): semua user melihat Cara memakai, Templat dokumen, dan AI di editor (urutan ini);
- * status server, format, dan font hanya untuk admin, di bawahnya.
+ * Tools → ONLYOFFICE, dua sub-tab `?sub=` (keputusan user 2026-11-15, pola Markdown Converter):
+ * - **Dokumen** (bawaan): ruang kerja dokumen pribadi (buat & simpan; tidak masuk Resource — `office-documents.tsx`) +
+ *   modal **Templat dokumen** (keputusan user 2026-11-15: templat pindah dari Pengaturan ke tab Dokumen).
+ * - **Pengaturan**: Cara memakai, AI di editor; status server, format, dan font hanya untuk admin.
+ * Editor tetap bisa dipanggil dari fitur mana pun yang punya berkas (pratinjau, "Edit di ONLYOFFICE", "Buat Dokumen").
  */
 export function OnlyofficeSettings() {
   const admin = isAdminRole(useAuthStore((state) => state.user?.role));
+  const [sub, setSub] = useSearchParam("sub");
+  const tab = sub === "settings" ? "settings" : "documents";
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
-      <UsageCard />
-      <OfficeTemplatesCard />
-      <OfficeAiCard />
-      {admin && <ServerStatusCard />}
-      {admin && <OfficeFontsCard />}
+      <Tabs value={tab} onValueChange={(value) => setSub(value === "documents" ? null : value)}>
+        <TabsList>
+          <TabsTrigger value="documents">
+            <FolderOpen /> Dokumen
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings2 /> Pengaturan
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {tab === "documents" ? (
+        <OfficeDocuments />
+      ) : (
+        <>
+          <UsageCard />
+          <OfficeAiCard />
+          {admin && <ServerStatusCard />}
+          {admin && <OfficeFontsCard />}
+        </>
+      )}
     </div>
   );
 }
@@ -120,10 +143,14 @@ function UsageCard() {
           Klik lampiran atau Resource berupa DOCX/XLSX/PPTX untuk melihatnya; tombol <b>Edit di ONLYOFFICE</b> membuka
           editor (termasuk PDF).
         </Tip>
-        <Tip icon={FilePlus2} title="Buat dokumen baru">
+        <Tip icon={FolderOpen} title="Ruang kerja dokumen">
+          Tab <b>Dokumen</b>: buat & simpan konsep pribadi tanpa masuk Resource. Panggil ke Working Space lewat{" "}
+          <b>Buat Dokumen (ONLYOFFICE) → Dari Dokumen Saya</b> (disalin, aslinya tetap di sini).
+        </Tip>
+        <Tip icon={FilePlus2} title="Buat dokumen di Working Space">
           Di form lampiran Project, Action/Task, Tandai Selesai, Agenda, dan form Resource: pilih Tipe{" "}
-          <b>Buat Dokumen (ONLYOFFICE)</b>, lalu jenis dokumen kosong, templat, atau <b>Impor berkas</b>. Tag, File
-          Control, dan Ringkas AI tetap berlaku.
+          <b>Buat Dokumen (ONLYOFFICE)</b>, lalu jenis dokumen kosong, templat, <b>Impor berkas</b>, atau{" "}
+          <b>Dari Dokumen Saya</b>. Tag, File Control, dan Ringkas AI tetap berlaku.
         </Tip>
         <Tip icon={Save} title="Penyimpanan">
           Dokumen tersimpan otomatis saat editor ditutup. <b>Ctrl+S</b> menyimpan versi tanpa menutup editor.

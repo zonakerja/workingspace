@@ -27,6 +27,7 @@ import { formatDateTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { ConvertedDocumentSummary, ConverterMode, ConverterPrefs, ConverterStatus } from "@/types/api";
 import { ConversionResultView } from "./conversion-result";
+import { WorkspaceConceptNote } from "../workspace-concept-note";
 import {
   CONVERTER_ACCEPT,
   DOCUMENT_STATUS_LABELS,
@@ -49,6 +50,7 @@ export function ConverterDocuments({ status, prefs }: { status?: ConverterStatus
   const [openId, setOpenId] = useSearchParam("doc");
   return (
     <div className="flex flex-col gap-4">
+      <WorkspaceConceptNote kind="converter" />
       <UploadCard key={prefs ? "ready" : "loading"} status={status} prefs={prefs} />
       <DocumentList onOpen={(id) => setOpenId(id, { replace: false })} />
       <DocumentDialog id={openId} onClose={() => setOpenId(null)} />

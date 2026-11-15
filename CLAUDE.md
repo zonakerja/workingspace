@@ -581,6 +581,13 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   `ONLYOFFICE_FONTS_DIR` (validasi `fontKind`/`safeFontFileName`); `diagnostics` juga khusus admin. **Konsep ↔ dokumen
   final**: `assets.draft_id` (final → konsep, SetNull), `GET /office/files/:id/links`, `PUT /office/files/:id/draft`,
   `GET /office/links?ids=`, `GET /office/link-candidates` (aturan `isDraftFormat`/`finalLinkError` + test).
+  **Ruang kerja dokumen** (keputusan user 2026-11-15): context `office-workspace` (`OFFICE_WORKSPACE_CONTEXT`), `GET /office/workspace`,
+  `PATCH /office/workspace/:id { title }` (`renamedDocumentName`: ekstensi tetap); tidak menjadi Resource; Working Space memakai
+  **salinan** lewat `POST /office/documents { templateId }` (dokumen asal tidak pernah dirujuk/dihapus oleh item Working Space).
+  **Dokumen tidak hilang saat form ditutup** (keputusan user 2026-11-15): `DELETE /uploads/:id?discard=1` (buang unggahan form: Batal, X/Esc,
+  ganti tipe, pembersih unggahan saat reload) untuk berkas milik sendiri yang **sudah disunting di ONLYOFFICE** (`version > 1`) tidak
+  menghapus, melainkan memindah ke `office-workspace` dan menjawab `kept: true` (`shouldRescueOnDiscard`, `uploads/office-rescue.ts` + test;
+  opsi `rescueEdited` hanya dari controller — `UploadsService.remove` internal tetap permanen). Belum disunting = dibuang seperti biasa.
 - **Sampah** (`src/trash/`, `@Global`, logika murni + test `trash-logic.ts`, keputusan user 2026-11-10): **semua hapus** oleh user
   maupun agen bisa dipulihkan 30 hari (`TRASH_RETENTION_DAYS`), lalu dihapus permanen otomatis (`purgeExpired` tiap 6 jam). Tabel
   `trash_items` (kind `record | asset | request | notebook | vault_note`, `batchId` = hapus beruntun oleh pelaku yang sama dalam 20 dtk =
@@ -1162,6 +1169,19 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   paginasi, ganti judul, hapus permanen; `?doc=<id>` = modal hasil, dipantau 2 dtk selama diproses) dan **Pengaturan** (`settings`: status,
   sakelar, Berkas tersimpan, cara kerja). Penampil hasil `ConversionResultView` (`conversion-result.tsx`; pasang dengan `key` per hasil);
   dokumen → hasil lewat `documentResult` (+ test).
+- **Ruang kerja Tools (ONLYOFFICE & MD Converter)** (keputusan user 2026-11-15): keduanya sub-tab `?sub=` **Dokumen** (bawaan) |
+  **Pengaturan**. Isinya **tidak masuk Resource** kecuali dipanggil dari form Working Space (Resource & `AttachmentForm`), selalu
+  sebagai **salinan**: Buat Dokumen (ONLYOFFICE) → **Dari Dokumen Saya** (`NewOfficeDocumentPicker`, `TemplatePickerDialog heading`)
+  dan tipe Berkas → **Dari MD Converter** (`converted-document-picker.tsx`: Markdown dirapikan/asli → `File .md` → `handleFile`
+  form, jadi Ringkas AI / File Control / buang saat batal tetap berlaku). Keterangan konsep di kedua halaman =
+  `WorkspaceConceptNote` (`features/tools/workspace-concept-note.tsx`). ONLYOFFICE → Dokumen = `office-documents.tsx`
+  (Buat dokumen + judul opsional, daftar Dokumen saya: cari, paginasi, buka editor, ganti judul, hapus ke Sampah; hook
+  `useOfficeWorkspace` / `useRenameOfficeWorkspace`). `uploadsApi.discard` dibungkus `withOfficeKeptToast` (`lib/office-kept-toast.ts`):
+  respons `kept` → toast "Dokumen disimpan ke Tools → ONLYOFFICE → Dokumen" + Buka. Konfirmasi "Buang dokumen yang sudah berisi?" dihapus
+  (`useOfficeDiscardConfirm` kini hanya untuk tombol **Hapus dokumen** = ke Sampah lewat `uploadsApi.remove`). Tombol **Templat dokumen (n)** = modal `OfficeTemplatesDialog`
+  (`onlyoffice-cards.tsx`: unggah, cari, sunting — modal ditutup selama editor terbuka lalu dibuka lagi — hapus). Templat tidak lagi
+  di tab Pengaturan (keputusan user 2026-11-15). Tombol **Dari Dokumen Saya** di form Working Space hanya tampil bila ruang kerja
+  punya dokumen (seperti Dari templat / Dari MD Converter).
 - **Tools → ONLYOFFICE** (`features/tools/`, detail: `docs/ONLYOFFICE.md` §3.3): modul `tools` ber-sub-menu di sidebar
   (`ModuleDef.sidebarSubmenu` → `SubmenuModuleItem`, juga dipakai Pengaturan; sub menu baru = tab baru di `navigation.ts`).
   Editor dibuka dari mana saja lewat `openOfficeEditor({ uploadId, name?, mode? })` (`OfficeEditorHost` di AppShell, editor
@@ -1308,7 +1328,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   yang juga tampil di atas tab Register dan di Approval → Usulan Agen): tab **Naskah Masuk** (id `inbox`, tab pertama; `inbox-board.tsx`, logika
   murni + test `inbox-logic.ts`, record `srikandi_inbox`, `?inbox=<id>` = `links.srikandiInbox`: chip jenis/belum dibaca, cari, Jadikan to-do
   (`todoId`), Buat balasan → `links.srikandiRegisterReply` = Register baru dengan Nomor Referensi + `replyTo`, balasan dikenali dari
-  `SrikandiOutgoing.replyTo`; lonceng = bagian Naskah Masuk Belum Dibaca), tab **Register Naskah Keluar** (id `register`, tab pertama; `register-board.tsx` + `register-dialog.tsx` + `register-file-picker.tsx`, logika murni + test `register-logic.ts`; record `srikandi_outgoing`, `?register=<id>|new` + `&request=&doc=` dari Approval = `links.srikandiRegister*`; detail `docs/AI-AGENT.md` §21.11–§21.12; **Daftarkan ke SRIKANDI** = `robotApi.registerOutgoing` → `POST /robot/srikandi/register/:id` (backend `registerSrikandiOutgoing` + logika murni `srikandi-register.ts`) → robot `POST /jobs/srikandi/register` (`robot/src/srikandi-register.ts` + test): isi formulir → **Simpan** = konsep di Log Naskah Keluar, draf berhal sama tidak dibuat ulang, `dryRun` = **Periksa di SRIKANDI** (dialog `RunDialog` dari `robot-settings.tsx`); **Kirim Konsep** = tombol pada entri terdaftar `canSendDraft` → `send-draft-dialog.tsx` (Periksa dulu tanpa kirim + PIN), §21.15), tab **Daftar Naskah Keluar** (id `outgoing`; record
+  `SrikandiOutgoing.replyTo`; lonceng = bagian Naskah Masuk Belum Dibaca), tab **Register Naskah Keluar** (id `register`, tab pertama; `register-board.tsx` + `register-dialog.tsx` + `register-file-picker.tsx`, logika murni + test `register-logic.ts`; record `srikandi_outgoing`, `?register=<id>|new` + `&request=&doc=` dari Approval = `links.srikandiRegister*`; detail `docs/AI-AGENT.md` §21.11–§21.12; **Daftarkan ke SRIKANDI** = `robotApi.registerOutgoing` → `POST /robot/srikandi/register/:id` (backend `registerSrikandiOutgoing` + logika murni `srikandi-register.ts`) → robot `POST /jobs/srikandi/register` (`robot/src/srikandi-register.ts` + test): isi formulir → **Simpan** = konsep di Log Naskah Keluar, draf berhal sama tidak dibuat ulang, `dryRun` = **Periksa di SRIKANDI** (dialog `RunDialog` dari `robot-settings.tsx`); **Kirim Konsep** = tombol pada entri terdaftar `canSendDraft` → `send-draft-dialog.tsx` (Periksa dulu tanpa kirim + PIN), §21.15; **Tautkan final** tampil di baris setelah `draftSentAt`, sebelum itu di menu ⋯; **Register naskah** di header editor ONLYOFFICE = `register-from-office.tsx` (DOCX/PDF, simpan paksa → `RegisterDialog` di atas editor, entri yang sudah ada dibuka, `onSaved` → Buka Register), §21.17), tab **Daftar Naskah Keluar** (id `outgoing`; record
   `srikandi_letter`, cari + paginasi, Lihat PDF lewat `previewFile`, tombol **Ambil dari SRIKANDI** → `POST
   /robot/srikandi/letters/sync`) & **Connector** (`<RobotSettings systems={["srikandi"]} />`). Sinkron: robot `POST
   /jobs/srikandi/outgoing` (`robot/src/srikandi.ts` + test) membaca Daftar Naskah Keluar, untuk naskah ber-TTD (`isSigned`)
@@ -1329,7 +1349,9 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   Tab **Referensi** (`references-board.tsx`, record `srikandi_reference`: kategori signer/recipient/recipient_group/verifier/
   cc/cc_group/disposition_group, `label` + `fields`): **Ambil referensi** → `POST /robot/srikandi/references/sync` → robot
   `POST /jobs/srikandi/references` (`robot/src/srikandi-reference.ts` + test) membaca 7 tabel menu Pengguna SRIKANDI (+ kategori `classification` = Klasifikasi
-  Arsip lewat **Ambil klasifikasi** / `POST /robot/srikandi/classifications/sync`, job dengan `categories`) semua
+  Arsip lewat **Ambil klasifikasi** / `POST /robot/srikandi/classifications/sync`, job dengan `categories`; kategori `sender_unit` = **Instansi Pengirim** lewat
+  **Ambil instansi pengirim** / `POST /robot/srikandi/sender-units/sync`: robot membuka formulir Registrasi, klik "Dikirimkan melalui", gulir daftar pilihan sampai
+  habis (`readSenderUnits` + `parseSenderUnits`; tidak mengisi/menyimpan) → pilihan bercari Dikirimkan melalui di formulir Register (`senderUnitChoices`); §21.17) semua
   halaman: klik **Hitung Total** (tunggu "Mohon Tunggu" hilang → total pembanding), lalu tombol `chevron_right` di
   `nav[aria-label='Table navigation']` (tunggu aktif) sampai jumlah = total / 2 halaman tanpa data baru; judul kolom
   dinormalkan (`headerName`, innerText ikut huruf kapital CSS). ID `sr-<hash kategori|label|jabatan>`; entri hilang dihapus
@@ -1360,7 +1382,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   status PIN termuat dan, bila ada item terkunci & sesi belum terbuka, membuka dialog mode `login` ("Masuk dengan PIN?" — **Masuk dengan PIN** /
   **Lanjut tanpa PIN**). Tidak muncul saat halaman dimuat ulang (sesi dipulihkan dari cookie) atau bila akun tanpa PIN / tanpa item terkunci. Hook `data/use-pin.ts` (setelah
   buka/kunci/atur, semua query dimuat ulang). Logika murni + test `pin-logic.ts` (salinan aturan PIN lemah backend).
-- **Komponen umum**: `ConfirmDialog`, `SectionCard`, `RenameDialog`, `SearchableSelect`, `PaginationControl`+`paginate()`,
+- **Komponen umum**: `ConfirmDialog`, `SectionCard`, `RenameDialog`, `SearchableSelect` (pilihan panjang dibungkus ke baris berikutnya + `title`; prop `wrap` = nilai terpilih tampil utuh di tombol, dipakai Dikirimkan melalui & Klasifikasi Register; keputusan user 2026-11-15), `PaginationControl`+`paginate()`,
   `Markdown`, `PriorityBadge`, `PageLoader`, `DateRangeFilter`, `SearchInput`.
 - **Paginasi daftar**: `usePagination(items, ukuranAwal)` (`hooks/use-pagination.ts`) → `{ pageItems, setPage,
   controlProps }`, sebarkan `controlProps` ke `<PaginationControl>`; halaman otomatis dijepit, panggil `setPage(1)` saat
@@ -1509,6 +1531,8 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | Tampilan ringkas seluruh aplikasi (header, banner modul satu baris, tab, kartu, dialog, kartu statistik, kartu arsip, penjelasan PARA dapat dibuka) | ✅ 2026-11-12 — lint, typecheck, unit (313), format, build; UI diuji 1366×768 & 375 px di semua modul (tanpa luberan horizontal; konten mulai ± 215 px, dulu ± 330 px; revisi banner/tab/kartu ringkasan sesuai arahan user); hanya kelas tampilan, logika/alur tidak berubah; modal utama (Project, Area, Agenda lihat & form, Proses Arsip, Approval, Notes AI) diperiksa di browser. **Belum**: modal yang jarang dipakai (robot, brankas, register SRIKANDI) hanya lewat aturan umum, belum dilihat satu per satu |
 | **Markdown Converter** (Tools; MarkItDown + Docling dipakai worker ekstraksi untuk semua fitur AI; Coba konversi (dihapus 2026-11-14, diganti pustaka Dokumen), Baca ulang berkas lama, Cadangan OCR AI) | ✅ 2026-11-13 — pytest 9, unit backend +5 (498) & frontend +4 (337), smoke +11, migrasi tanpa drift, lint, typecheck, format; ujung-ke-ujung: DOCX/XLSX → MarkItDown (tabel), PNG & PDF scan → Docling OCR sempurna, risalah rapat sungguhan 6 halaman (4 scan) 21 dtk ± 2.900 token, service mati → pembaca bawaan; UI desktop & 375 px; compose produksi divalidasi (belum dijalankan). **Belum**: berkas lama admin dev belum dibaca ulang (71 berkas, tombol Baca ulang), OCR tulisan tangan/teks miring (judul terbalik di risalah terbaca acak), PPTX/EPUB/MSG sungguhan |
 | Markdown Converter: **pustaka Dokumen** (hasil konversi disimpan & bisa dibuka lagi, banyak berkas sekaligus di latar belakang, ganti judul, hapus permanen; berkas asal tidak disimpan; Coba konversi dihapus) | ✅ 2026-11-14 — unit backend +2 (508) & frontend +2 (343), smoke +7, migrasi tanpa drift, lint, format, build; browser (unggah 2 berkas → pindah menu → kembali → buka hasil, ganti judul, hapus permanen → tabel kosong; 375 px tanpa luberan). Database diperiksa: tidak ada sisa data uji converter. **Belum**: konversi ulang dengan mesin lain (berkas asal tidak disimpan → unggah ulang), simpan langsung ke Catatan Bebas |
+| Dokumen ONLYOFFICE yang sudah diisi tidak hilang saat form Working Space ditutup (dipindah ke Tools → ONLYOFFICE → Dokumen + toast) + 3 berkas yatim lama dipindah ke sana | ✅ 2026-11-15 — unit backend 518 (+3) & frontend 348, smoke penuh lulus (+1), lint, typecheck, format, build; browser (buat dokumen dari form Resource → ketik di editor → Esc form → toast → Buka → dokumen ada di daftar; dokumen uji dihapus permanen). Database diperiksa: tidak ada dokumen bersunting yang tercecer; yang dulu dibuang sudah terhapus permanen (tidak bisa dipulihkan) |
+| **Ruang kerja dokumen ONLYOFFICE** (Tools → ONLYOFFICE → Dokumen | Pengaturan; buat, simpan, ganti judul, hapus; tidak masuk Resource) + panggil ke Working Space sebagai salinan (**Dari Dokumen Saya**, **Dari MD Converter**) + keterangan konsep di kedua halaman | ✅ 2026-11-15 — unit backend 515 (+3) & frontend 348, smoke penuh lulus (+6), lint, typecheck, format, build; browser (buat dokumen → editor → tersimpan di daftar, salin ke form Resource → editor, Batal = salinan terbuang & asal tetap, MD → berkas .md terlampir, ganti judul, hapus → Sampah → hapus permanen; data uji bersih). Ditemukan & diperbaiki: pustaka MD menolak .md/.txt sejak cek format (`libraryAccepts`) |
 | Markdown Converter: **Rapikan dengan AI** (sakelar + cakupan OCR/semua, tugas AI baru "Rapikan dokumen", penjaga isi & angka) + **Bandingkan token** (countTokens Gemini) + pembersihan converter (tabel palsu PDF, kepala/kaki & nomor halaman, gambar lokal PPTX) | ✅ 2026-11-13 — pytest 13, unit backend 504 & frontend 334, smoke +3, lint, typecheck, format; **uji token 8 dokumen sungguhan dari Downloads** (hasil di `docs/ARCHITECTURE.md` §3.14: PDF −32…−78 %, rapikan diterima 7/8, Surat Bupati hasil OCR ditata ulang benar tanpa mengubah nomor); UI tabel token. Tugas "Rapikan dokumen" akun admin dev diarahkan ke **Gemini** (bawaan = ikuti Umum = Claude Opus). **Belum**: isi gambar/diagram tidak terbaca (Docling tanpa deskripsi gambar), uji dengan Claude/OpenAI sebagai perapi |
 | Tab Resources Productivity: tampilan Grid & Tabel, kartu ringkasan/filter jenis, ikon & warna per jenis berkas; menu Tools/Pengaturan bisa dibuka saat sidebar diciutkan | ✅ 2026-11-13 — unit frontend +4 (339), lint, typecheck, format, build; browser 1366×768 (grid, tabel, filter Web link, menu melayang Tools → Sampah) & 375 px tanpa luberan |
 | Menu Productivity berganti nama **Working Space** (label saja; path `/productivity`, API, data tetap) + kajian kredit & paket Classai Router (`docs/ARCHITECTURE.md` §3.1) | ✅ 2026-11-13 — typecheck, lint, format, unit frontend 339 & backend (agent-menus, knowledge, integrations) lulus; sidebar, banner, breadcrumb tampil "Working Space" di browser |
@@ -1516,6 +1540,7 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Kirim Konsep SRIKANDI dengan PIN** (tombol di tab Register, Periksa dulu tanpa kirim, PIN wajib setiap kali, hanya sesi login; agen/jadwal tidak pernah) | ✅ 2026-11-15 — unit robot +6 (65), backend 512, frontend 344, smoke penuh lulus (+4), lint, typecheck, format; halaman Log & Detail direkam Playwright **tanpa klik**, dryRun dari API & dialog = tombol KIRIM KONSEP ditemukan pada konsep uji. **Tidak pernah dikirim** (perintah user): klik → dialog konfirmasi → hasil belum pernah dijalankan (TODO-USER A38) |
 | **Tab Penilaian e-Kinerja** (bulan draf/diajukan/dinilai dipisah dari Rencana Aksi; rating, feedback, isi, Kirim Penilaian pindah ke sini) | ✅ 2026-11-15 — unit frontend +2 (347), lint, typecheck, format, build; browser dengan potret sungguhan akun admin (Okt draf + Jan–Sep dinilai, hanya dibaca), tautan Rencana Aksi membuka Oktober, Rencana Aksi tanpa tombol Kirim Penilaian, 375 px tanpa luberan |
 | **Kirim Penilaian Ke Atasan dengan PIN** (tombol di tab Penilaian, Periksa dulu tanpa kirim, PIN setiap kali, isi e-Kinerja wajib sama dengan LifeOS & lengkap; agen/jadwal tidak pernah) | ✅ 2026-11-15 — unit robot +6 (71), backend 513, frontend 345, smoke penuh 700 lulus (+3), lint, typecheck, format; halaman Rencana Aksi direkam Playwright **tanpa klik**; alur kirim diuji pada **halaman e-Kinerja tiruan** di container robot (ready, mismatch, incomplete, sudah diajukan, dialog asing dibatalkan, konfirmasi dummy → sent); UI akun uji + data dummy (dihapus). **Tidak pernah dikirim ke e-Kinerja**: dialog konfirmasi sungguhan belum diketahui (TODO-USER A39) |
+| **Instansi Pengirim** (referensi "Dikirimkan melalui" dari daftar pilihan formulir Registrasi SRIKANDI) + **Register naskah dari editor ONLYOFFICE** + Tautkan final setelah Kirim Konsep | ✅ 2026-11-15 — unit robot +1 (72), backend 513, frontend +1 (348), smoke penuh lulus (+1), lint, typecheck, format; **diuji ke SRIKANDI sungguhan** (baca saja: 1.472 instansi, formulir tidak diisi/disimpan); browser: pilihan bercari di formulir Register, tombol Register naskah di editor (templat Nota Dinas, dibatalkan — tanpa entri baru & tanpa versi templat). **Belum**: robot Register memilih Dikirimkan melalui dari daftar baru (masih mengetik istilah cari seperti sebelumnya — sudah teruji) |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -1541,6 +1566,10 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 6e. **SIMAN fitur terbuka (2026-11-13)** ikut di-commit di 6d sebagai kerja berjalan (dikerjakan bersamaan dengan chat SRIKANDI di working tree yang sama — berkas bersama: `lifeos-mcp.service.ts`, `robot.module.ts`, `robot-logic.ts`, `robot.service.ts`, `smoke.mjs`, CLAUDE.md). Hermes perlu izin `siman:robot` (TODO-USER A33). Langkah berikutnya SIMAN = pemilik mengajarkan proses tiket (A25), lalu Hermes membaca halaman tiket lewat `siman_read_page` dan menyusun skill + workflow SIMAN; jalur tulis (unggah SK) dibangun sebagai permintaan yang disetujui pemilik, dengan data dummy dulu.
 6h. **Kirim Konsep dengan PIN (2026-11-15)** ikut commit gabungan 6i, belum di-push. Pengiriman pertama oleh user (A38); bila robot melapor dialog tak dikenal, petakan teks dialognya lalu sesuaikan `pickSendConfirm`. Konsep uji jangan dikirim.
 6i. **Kirim Penilaian dengan PIN + tab Penilaian (2026-11-15)** sudah di-commit dalam **commit gabungan** atas perintah user (`feat(security,ekinerja,srikandi,converter): …`) bersama pekerjaan sesi lain yang berbagi berkas (PIN keamanan, pustaka Markdown Converter, Kirim Konsep, tampilan Resources), belum di-push. Sebelum commit: unit backend 513, frontend 347, robot 71, smoke penuh 700 lulus. Pengiriman pertama oleh user (A39); bila robot melapor dialog tak dikenal, petakan teksnya lalu sesuaikan `pickSubmitConfirm`. Uji ulang alur tanpa e-Kinerja: `dummy-ekinerja.mjs` (pola di `docs/AI-AGENT.md` §21.16) dijalankan di container robot.
+6j. **Ruang kerja dokumen ONLYOFFICE + panggil dari Working Space + dokumen tidak hilang saat form ditutup (2026-11-15)** di-commit dalam
+   **commit gabungan** atas perintah user bersama pekerjaan sesi SRIKANDI yang berbagi berkas (Instansi Pengirim, Register dari ONLYOFFICE),
+   belum di-push. Sebelum commit: unit backend 518, frontend 348, robot 72, smoke penuh lulus. User perlu membersihkan berkas lama di
+   Tools → ONLYOFFICE → Dokumen (A40).
 6b. **Edit register SRIKANDI (2026-11-13)** sudah di-commit (6d); konsep uji `[UJI LifeOS] Uji edit register v2 - abaikan` masih di Log Naskah
    Keluar SRIKANDI dan entri ujinya di tab Register (menunggu izin user untuk dihapus — hapus konsep di SRIKANDI butuh izin eksplisit).
 6a. **SRIKANDI fitur terbuka (2026-11-13)** sudah di-commit (`feat(srikandi): open SRIKANDI to the agent…`), belum di-push; Hermes perlu izin `srikandi:robot` (TODO-USER A32).
@@ -2545,6 +2574,11 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   cache kunci (item pulihan terbuka ± 30 dtk); (4) riwayat chatbot menampilkan jawaban lama berisi isi terkunci; (5) tebakan PIN paralel bisa
   membaca hitungan salah yang sama → `increment` atomik; (6) Resource File Control yang dikunci membuat prosedur kearsipan bekerja atas
   kerangka → ditolak. Penerima item bersama membuka item terkunci pemilik dengan **PIN-nya sendiri** (disengaja).
+- 2026-11-15 — **Instansi Pengirim + Register dari ONLYOFFICE** (permintaan user: referensi "Dikirimkan melalui" bernama Instansi Pengirim yang di SRIKANDI
+  hanya terlihat dengan menggulir daftar pilihan formulir Registrasi; tombol register naskah dari editor saat menyusun konsep; arti Tautkan final). Robot
+  membaca daftar pilihan formulir sebagai "tabel" referensi (klik kolom, gulir, Esc) tanpa memilih apa pun, diambil lewat tombol sendiri karena ± 2 menit.
+  Register dari editor membuka modal yang sama di atas editor (tidak pindah halaman) agar konsep tetap terbuka; dokumen disimpan paksa dulu agar yang
+  terdaftar = isi terakhir. Tautkan final dipindah ke menu ⋯ sampai konsep dikirim karena naskah final baru ada setelah TTE.
 - 2026-11-15 — **Kirim Konsep dengan PIN** (permintaan user: fitur PIN dipakai untuk Kirim Konsep; jangan pernah kirim konsep saat membangun, data dummy,
   Playwright hanya untuk identifikasi elemen). Merevisi AG-27/§21.11 "Kirim Konsep hanya user" menjadi "hanya atas klik pemilik + PIN". PIN diminta
   **setiap kali** (bukan status PIN sesi) karena ini tindakan resmi atas nama pejabat; hanya dari sesi login (token agen 403) dan tidak ada jalur
@@ -2577,6 +2611,21 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   tidak masuk RAG agar tidak menggandakan berkas yang juga diunggah di fitur lain. Lanjutan (permintaan user, hari yang sama): **Coba konversi
   dihapus** (kartu, `POST /converter/convert`, `useConvertFile`, `converterApi.convert`) karena pustaka sudah mencakupnya; smoke converter
   dipindah ke `/converter/documents`; format tak didukung kini ditolak 400 saat unggah (sebelum antre).
+
+- 2026-11-15 — **Ruang kerja dokumen ONLYOFFICE** (permintaan user: fitur seperti Markdown Converter untuk membuat dokumen ONLYOFFICE,
+  pengaturan & ruang kerja dipisah; keduanya tidak masuk Resource kecuali dipanggil dari Working Space, dan informasinya ditulis di kedua
+  halaman). Merevisi keputusan 2026-10-15 "Tools hanya halaman pengaturan". Dipanggil sebagai **salinan**, bukan rujukan: aturan hapus
+  berkas Working Space (hapus item/Resource ikut menghapus berkasnya) akan menghapus dokumen ruang kerja bila dirujuk langsung, dan form
+  membuang berkas sesi saat Batal. Salinan memakai jalur templat yang sudah ada (`templateId`), jadi tanpa endpoint baru. Hasil MD
+  Converter dipanggil sebagai berkas `.md` lewat jalur unggah form agar Ringkas AI / File Control / tag tetap sama. Ditemukan saat uji:
+  pustaka MD menolak `.md`/`.txt` (cek format kemarin memakai `converterHandles` milik worker) → `libraryAccepts`.
+  Lanjutan (permintaan user, hari yang sama): Templat dokumen dipindah dari Pengaturan ke tab Dokumen sebagai modal.
+  Lanjutan: dokumen yang dibuat di form Working Space lalu form-nya tertutup tidak lagi hilang — keputusan diambil **server** di jalur
+  "buang unggahan" (satu titik untuk semua form + pembersih unggahan saat reload), bukan di tiap form. Patokan "berisi" = `version > 1`
+  (versi hanya bertambah saat editor menyimpan perubahan), sehingga dokumen kosong / salinan templat yang tidak disentuh tetap dibuang dan
+  tidak menyampahi ruang kerja. Konfirmasi "Buang dokumen yang sudah berisi?" dihapus karena tidak ada lagi yang hilang; tombol Hapus dokumen
+  kini ke Sampah. Database diperiksa: dokumen yang dulu dibuang sudah terhapus permanen; 3 berkas tanpa rujukan (2 CV dari form Resource
+  10 Okt, 1 berkas uji) dipindah ke ruang kerja agar dibersihkan user (TODO-USER A40).
 
 ## 13. Konvensi Kode
 
@@ -2772,7 +2821,7 @@ memutuskan) → `docker restart lifeos-hermes` → muncul di Asisten Agen & pane
 resep "Menambah tool MCP".
 
 **Menambah jenis pengajuan / templat**: jenis baru → `REQUEST_KINDS` + `KIND_LABELS` (backend `request-logic.ts`) & frontend
-`request-utils.ts` (label sama). Templat baru cukup diunggah user (Tools → ONLYOFFICE → Templat) dengan penanda
+`request-utils.ts` (label sama). Templat baru cukup diunggah user (Tools → ONLYOFFICE → Dokumen → Templat dokumen) dengan penanda
 `${nama_isian}` (huruf/angka/garis bawah) dan paragraf petunjuk yang seluruhnya `[…]`; penanda khusus SRIKANDI baru →
 `isSrikandiTag` (`template-engine.ts`).
 

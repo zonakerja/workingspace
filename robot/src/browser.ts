@@ -46,6 +46,8 @@ import {
 import {
   mergeReferenceItems,
   parseReferenceRows,
+  parseSenderUnits,
+  SENDER_UNIT_LABEL,
   parseTotal,
   DEFAULT_REFERENCE_CATEGORIES,
   maxReferencePages,
@@ -2073,6 +2075,13 @@ export class BrowserPool {
       let info = await this.describe(page, markers);
       const wanted = target.categories ?? DEFAULT_REFERENCE_CATEGORIES;
       for (const ref of REFERENCE_PAGES.filter((p) => wanted.includes(p.category))) {
+        if (ref.category === "sender_unit") {
+          const units = await this.readSenderUnits(page, `${base}${ref.path}`, hosts, markers);
+          info = units.info;
+          if (!info.loggedIn) return { ...info, references: result };
+          result.push({ category: ref.category, items: units.items, pages: units.steps, total: null, nav: units.note });
+          continue;
+        }
         await this.open(page, `${base}${ref.path}`, hosts);
         await this.dismissInfoDialog(page);
         info = await this.describe(page, markers);
@@ -2193,6 +2202,73 @@ export class BrowserPool {
       }
       return { ...info, references: result };
     });
+  }
+
+  /**
+   * Instansi Pengirim: buka formulir Registrasi Naskah Keluar, klik kolom "Dikirimkan melalui" (tanpa mengetik), lalu gulir
+   * daftar pilihan sampai habis (pilihan dimuat bertahap saat digulir). Formulir tidak pernah diisi / disimpan: tidak ada
+   * pilihan yang diklik, Enter tidak pernah ditekan, daftar ditutup dengan Esc.
+   */
+  private async readSenderUnits(page: Page, url: string, hosts: string[], markers: string[]) {
+    await this.open(page, url, hosts);
+    await this.dismissInfoDialog(page);
+    let info = await this.describe(page, markers);
+    const empty = { items: [] as ReferenceItem[], steps: 0, note: "" };
+    if (!info.loggedIn) return { info, ...empty };
+    await page.getByText(SENDER_UNIT_LABEL).first().waitFor({ timeout: 20_000 });
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+    info = await this.describe(page, markers);
+    if (!info.loggedIn) return { info, ...empty };
+    const marked = await page.evaluate((label) => {
+      const clean = (t: string | null | undefined) => (t ?? "").replace(/\*/g, "").replace(/\s+/g, " ").trim();
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        if (clean(node.textContent) !== label || !node.parentElement) continue;
+        const anchor = node.parentElement;
+        const input = Array.from(document.querySelectorAll("input[role=combobox]")).find(
+          (el) => anchor.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+        if (input) {
+          input.setAttribute("data-lifeos-sender", "1");
+          return true;
+        }
+      }
+      return false;
+    }, SENDER_UNIT_LABEL);
+    if (!marked) throw new Error(`Kolom "${SENDER_UNIT_LABEL}" tidak ditemukan di formulir Registrasi.`);
+    const input = page.locator("[data-lifeos-sender='1']");
+    await input.scrollIntoViewIfNeeded().catch(() => undefined);
+    await input.click();
+    await page
+      .getByRole("option")
+      .first()
+      .waitFor({ timeout: 20_000 })
+      .catch(() => undefined);
+    const texts: string[] = [];
+    let steps = 0;
+    let idle = 0;
+    let last = 0;
+    for (; steps < 400 && idle < 4; steps++) {
+      const round = await page.evaluate(() => {
+        const options = Array.from(document.querySelectorAll("[role=option]")) as HTMLElement[];
+        const list = options[0]?.parentElement ?? null;
+        // Wadah gulir = leluhur terdekat yang bisa digulir (react-select MenuList)
+        let box: HTMLElement | null = list;
+        while (box && box.scrollHeight <= box.clientHeight + 1) box = box.parentElement;
+        if (box && box !== document.body && box !== document.documentElement) box.scrollTop = box.scrollHeight;
+        const menu = document.querySelector("[id*='-listbox']") as HTMLElement | null;
+        return { texts: options.map((o) => o.innerText), menuText: (menu?.innerText ?? "").slice(-200) };
+      });
+      texts.push(...round.texts);
+      const unique = new Set(texts.map((t) => t.replace(/\s+/g, " ").trim().toLowerCase())).size;
+      idle = unique > last ? 0 : idle + 1;
+      last = unique;
+      await page.waitForTimeout(idle ? 900 : 500);
+    }
+    await page.keyboard.press("Escape").catch(() => undefined);
+    const items = parseSenderUnits(texts);
+    return { info, items, steps, note: `${items.length} pilihan setelah ${steps} kali gulir` };
   }
 
   private async record(page: Page, markers: string[]) {

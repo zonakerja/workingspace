@@ -333,6 +333,14 @@ Code review menyeluruh atas lanjutan tahap 3 + tahap 4 → 8 temuan, semuanya di
   (konsisten dengan popover, tanpa membocorkan berkas user lain) dan izin hanya dicek untuk berkas milik user lain;
   modal "Dari templat" tetap terbuka bila pembuatan gagal; opsi `mobile` dihapus dari API config (selalu desktop).
 
+### 3.6.2 Ruang kerja dokumen (2026-11-15)
+
+Keputusan user: Tools → ONLYOFFICE dipisah menjadi sub-tab **Dokumen** (ruang kerja: buat & simpan dokumen pribadi, daftar, cari,
+ganti judul, hapus ke Sampah, + tombol **Templat dokumen** yang membuka modal unggah/sunting/hapus templat) dan **Pengaturan**
+(Cara memakai, AI di editor, status/format/font admin) — pola Markdown Converter. Dokumen ruang kerja (context `office-workspace`) **tidak masuk Resource**; dipakai di Working Space hanya bila dipanggil
+dari form Resource/lampiran → Buat Dokumen (ONLYOFFICE) → **Dari Dokumen Saya** (disalin; aslinya tetap). Ini merevisi keputusan
+2026-10-15 "Tools hanya halaman pengaturan". Detail teknis: ARCHITECTURE.md §3.5.
+
 ### 3.7 Rencana berikutnya (dari user, teknologi dibahas nanti — mis. n8n / OpenClaw)
 
 - **Agen SRIKANDI** ✅ (dibangun sebagai robot, bukan menu Tools — [AI-AGENT.md](AI-AGENT.md) §21.6–§21.12): mengambil
@@ -374,7 +382,7 @@ Code review menyeluruh atas lanjutan tahap 3 + tahap 4 → 8 temuan, semuanya di
 ### 4.3 Bahan yang disiapkan user (opsional, untuk tahap 3)
 
 - [ ] **Templat dokumen** (kop surat, nota dinas, laporan, notulen) dalam DOCX/XLSX/PPTX (atau DOTX/XLTX/POTX): unggah di
-  **Tools → ONLYOFFICE → Templat dokumen** — langsung muncul di "Buat Dokumen" → Dari templat.
+  **Tools → ONLYOFFICE → Dokumen → Templat dokumen** — langsung muncul di "Buat Dokumen" → Dari templat.
 - [ ] **Font** yang belum ada di server (Arial, Times New Roman, Calibri, Cambria, Tahoma sudah ada; yang belum: mis.
   Bookman Old Style, Century Gothic, Garamond, Segoe UI, font kop instansi). Font Microsoft berlisensi — pakai berkas
   font yang memang boleh Anda pakai (mis. dari Windows/Office berlisensi Anda untuk server pribadi). Salin `.ttf/.otf`

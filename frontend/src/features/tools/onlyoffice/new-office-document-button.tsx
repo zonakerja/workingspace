@@ -1,9 +1,9 @@
-import { FileStack, FileUp } from "lucide-react";
+import { FileStack, FileUp, FolderOpen } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useOfficeStatus, useOfficeTemplates } from "@/data/use-office";
+import { useOfficeStatus, useOfficeTemplates, useOfficeWorkspace } from "@/data/use-office";
 import { errorMessage } from "@/lib/api/client";
 import { officeApi, uploadsApi } from "@/lib/api/endpoints";
 import type { OfficeFormat, OfficeTemplate, UploadedAsset } from "@/types/api";
@@ -15,6 +15,9 @@ import { DOCUMENT_ACCEPT, importNeedsConversion, isDocumentFile } from "./office
 /** Pilihan tipe "Buat Dokumen (ONLYOFFICE)" di form lampiran / Resource (nilai UI, disimpan sebagai tipe `file`). */
 export const OFFICE_ATTACHMENT_TYPE = "office";
 export const OFFICE_ATTACHMENT_LABEL = "Buat Dokumen (ONLYOFFICE)";
+
+/** Context dokumen ruang kerja Tools → ONLYOFFICE → Dokumen (tidak masuk Resource). */
+export const OFFICE_WORKSPACE_CONTEXT = "office-workspace";
 
 /** ONLYOFFICE aktif di server → pilihan "Buat Dokumen" ditawarkan di form. */
 export const useOfficeEnabled = () => useOfficeStatus().data?.enabled ?? false;
@@ -47,6 +50,13 @@ export function NewOfficeDocumentPicker({
   const { data: templates = [] } = useOfficeTemplates();
   const importRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Dokumen ruang kerja Tools → ONLYOFFICE → Dokumen hanya ditawarkan di form Working Space (bukan di ruang kerja itu sendiri)
+  const fromWorkspace = context !== OFFICE_WORKSPACE_CONTEXT;
+  const { data: workspace = [] } = useOfficeWorkspace(fromWorkspace);
+  const workspaceDocs: OfficeTemplate[] = workspace.flatMap((doc) =>
+    doc.target ? [{ ...doc, target: doc.target }] : [],
+  );
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
 
   /** true = dokumen dibuat (error ditampilkan sebagai toast). */
   const run = async (key: string, task: () => Promise<UploadedAsset>) => {
@@ -77,6 +87,14 @@ export function NewOfficeDocumentPicker({
       officeApi.createDocument({ templateId: template.id }, { title: title?.trim() || undefined, context, ownerId }),
     );
     if (created) setPickerOpen(false);
+  };
+
+  // Dokumen ruang kerja dipanggil ke Working Space sebagai SALINAN (dokumen di Tools tetap utuh & tidak menjadi Resource)
+  const createFromWorkspace = async (doc: OfficeTemplate) => {
+    const created = await run(`workspace:${doc.id}`, () =>
+      officeApi.createDocument({ templateId: doc.id }, { title: title?.trim() || doc.name, context, ownerId }),
+    );
+    if (created) setWorkspaceOpen(false);
   };
 
   // Impor: berkas diunggah apa adanya; format lama yang hanya bisa dilihat (DOC, PPT, …) dikonversi ke DOCX/PPTX
@@ -143,22 +161,36 @@ export function NewOfficeDocumentPicker({
           }}
         />
       </div>
-      {templates.length > 0 ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled || !!busy}
-          onClick={() => setPickerOpen(true)}
-        >
-          <FileStack /> Dari templat <span className="text-muted-foreground">({templates.length})</span>
-        </Button>
-      ) : (
-        <p className="text-muted-foreground text-xs">
-          Templat instansi (kop surat, nota dinas) bisa diunggah di{" "}
-          <span className="font-medium">Tools → ONLYOFFICE → Templat dokumen</span>.
-        </p>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {fromWorkspace && workspaceDocs.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            title="Salin dokumen dari Tools → ONLYOFFICE → Dokumen ke sini (dokumen asal tetap di ruang kerja)"
+            disabled={disabled || !!busy}
+            onClick={() => setWorkspaceOpen(true)}
+          >
+            <FolderOpen /> Dari Dokumen Saya <span className="text-muted-foreground">({workspaceDocs.length})</span>
+          </Button>
+        )}
+        {templates.length > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled || !!busy}
+            onClick={() => setPickerOpen(true)}
+          >
+            <FileStack /> Dari templat <span className="text-muted-foreground">({templates.length})</span>
+          </Button>
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            Templat instansi (kop surat, nota dinas) bisa diunggah di{" "}
+            <span className="font-medium">Tools → ONLYOFFICE → Dokumen → Templat dokumen</span>.
+          </p>
+        )}
+      </div>
       <TemplatePickerDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
@@ -166,6 +198,17 @@ export function NewOfficeDocumentPicker({
         selectingId={busy?.startsWith("template:") ? busy.slice("template:".length) : null}
         onSelect={(template) => void createFromTemplate(template)}
       />
+      {fromWorkspace && (
+        <TemplatePickerDialog
+          open={workspaceOpen}
+          onOpenChange={setWorkspaceOpen}
+          templates={workspaceDocs}
+          selectingId={busy?.startsWith("workspace:") ? busy.slice("workspace:".length) : null}
+          onSelect={(doc) => void createFromWorkspace(doc)}
+          heading="Dari Dokumen Saya"
+          description="Dokumen dari Tools → ONLYOFFICE → Dokumen disalin ke sini sebagai dokumen baru. Dokumen asal tetap di ruang kerja dan tidak menjadi Resource."
+        />
+      )}
     </div>
   );
 }

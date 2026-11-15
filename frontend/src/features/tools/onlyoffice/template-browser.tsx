@@ -40,7 +40,7 @@ export function matchesTemplate(template: Pick<OfficeTemplate, "name">, query: s
 
 /**
  * Daftar templat dengan pencarian, filter jenis, dan paginasi (templat instansi bisa puluhan). Dipakai modal "Dari
- * templat" (Buat Dokumen) dan kartu Templat dokumen di Tools → ONLYOFFICE; aksi per baris dari pemanggil.
+ * templat" (Buat Dokumen) dan modal Templat dokumen di Tools → ONLYOFFICE → Dokumen; aksi per baris dari pemanggil.
  */
 export function TemplateBrowser({
   templates,
@@ -159,24 +159,26 @@ export function TemplatePickerDialog({
   templates,
   selectingId,
   onSelect,
+  heading = "Buat dari templat",
+  description = "Klik templat untuk membuat dokumen baru berisi salinannya (templat tetap utuh). Templat dikelola di Tools → ONLYOFFICE → Dokumen.",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   templates: OfficeTemplate[];
   selectingId: string | null;
   onSelect: (template: OfficeTemplate) => void;
+  /** Judul & keterangan modal (dipakai juga untuk memilih dokumen ruang kerja) */
+  heading?: string;
+  description?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90svh] flex-col sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileStack className="size-4 text-module" /> Buat dari templat
+            <FileStack className="size-4 text-module" /> {heading}
           </DialogTitle>
-          <DialogDescription>
-            Klik templat untuk membuat dokumen baru berisi salinannya (templat tetap utuh). Templat dikelola di Tools →
-            ONLYOFFICE.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 overflow-y-auto">
           <TemplateBrowser templates={templates} onSelect={onSelect} selectingId={selectingId} />

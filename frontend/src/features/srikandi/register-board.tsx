@@ -380,7 +380,9 @@ export function RegisterBoard() {
                       <Send /> Kirim Konsep
                     </Button>
                   )}
-                  {status === "submitted" && (
+                  {/* Naskah final (PDF ber-TTD dari Daftar Naskah Keluar) baru ada setelah konsep dikirim & ditandatangani →
+                      tombol tampil setelah Kirim Konsep; sebelum itu tersedia di menu ⋯ (konsep dikirim langsung di SRIKANDI) */}
+                  {status === "submitted" && entry.draftSentAt && (
                     <Button size="sm" variant="outline" onClick={() => setLinking(entry)}>
                       <Link2 /> Tautkan final
                     </Button>
@@ -441,6 +443,11 @@ export function RegisterBoard() {
                       {status === "submitted" && !entry.draftSentAt && !changedSinceRegister(entry) && (
                         <DropdownMenuItem disabled={!!busy} onSelect={() => setUpdating(entry)}>
                           <RefreshCw /> Perbarui di SRIKANDI
+                        </DropdownMenuItem>
+                      )}
+                      {status === "submitted" && !entry.draftSentAt && (
+                        <DropdownMenuItem onSelect={() => setLinking(entry)}>
+                          <Link2 /> Tautkan naskah final (setelah ditandatangani)
                         </DropdownMenuItem>
                       )}
                       {status === "submitted" && (

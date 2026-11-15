@@ -1082,6 +1082,30 @@ try {
     r = await j("POST", "/office/documents", { format: "pptx", title: "Paparan", context: "task" }, at);
     ok("office new doc for attachment keeps context", r.s === 201 && r.d.context === "task", r);
     await j("DELETE", `/uploads/${r.d.id}`, null, at);
+    // Ruang kerja dokumen (Tools → ONLYOFFICE → Dokumen): daftar, ganti judul, salinan untuk Working Space
+    r = await j("POST", "/office/documents", { format: "docx", title: "Konsep Ruang Kerja", context: "office-workspace" }, at);
+    const wsId = r.d?.id;
+    ok("office workspace new doc", r.s === 201 && r.d.context === "office-workspace", r);
+    r = await j("GET", "/office/workspace", null, at);
+    ok(
+      "office workspace list",
+      r.s === 200 && r.d.some((d) => d.id === wsId && d.name === "Konsep Ruang Kerja" && d.format === "docx"),
+      r,
+    );
+    r = await j("PATCH", `/office/workspace/${wsId}`, { title: "Nota  Dinas.docx" }, at);
+    ok("office workspace rename keeps extension", r.s === 200 && r.d.originalName === "Nota Dinas.docx", r);
+    r = await j("PATCH", `/office/workspace/${wsId}`, { title: "Curi" }, pt);
+    ok("office workspace rename other user 404", r.s === 404, r);
+    r = await j("GET", "/office/workspace", null, pt);
+    ok("office workspace isolated per user", r.s === 200 && !r.d.some((d) => d.id === wsId), r);
+    r = await j("POST", "/office/documents", { templateId: wsId, context: "task" }, at);
+    ok(
+      "office workspace doc copied into attachment",
+      r.s === 201 && r.d.id !== wsId && r.d.context === "task" && r.d.originalName === "Nota Dinas.docx",
+      r,
+    );
+    await j("DELETE", `/uploads/${r.d.id}?discard=1`, null, at);
+    await j("DELETE", `/uploads/${wsId}?discard=1`, null, at);
     r = await j("POST", "/office/documents", { format: "docx", ownerId: tempUserId }, pt);
     ok("office new doc into other user's space without share 403", r.s === 403, r);
     r = await j("GET", "/office/diagnostics", null, at);
@@ -1432,6 +1456,14 @@ try {
       }
     }
     await j("DELETE", "/records/para_resource/sm-office", null, at);
+    // Form Working Space ditutup: dokumen yang sudah disunting (versi > 1) dipindah ke ruang kerja, bukan dibuang
+    r = await j("DELETE", `/uploads/${docId}?discard=1`, null, at);
+    const kept = await j("GET", "/office/workspace", null, at);
+    ok(
+      "office edited doc discarded from form → kept in workspace",
+      r.s === 200 && r.d.kept === true && kept.d.some((d) => d.id === docId),
+      { r, kept },
+    );
     r = await j("DELETE", `/uploads/${docId}`, null, at);
     ok("office doc delete (with versions)", r.s === 200, r);
     r = await j("GET", `/office/files/${finalPdf.d.id}/links`, null, at);
@@ -3794,6 +3826,9 @@ try {
   r = await j("POST", "/robot/srikandi/classifications/sync", null, at);
   r = await j("GET", "/automation/runs?kind=srikandi_classifications", null, at);
   ok("automation records button sync", r.s === 200 && r.d[0]?.trigger === "button", r);
+  // Instansi Pengirim (pilihan Dikirimkan melalui): tanpa sesi → ditolak sebelum robot membuka formulir
+  r = await j("POST", "/robot/srikandi/sender-units/sync", null, at);
+  ok("srikandi sender units without session rejected", r.s === 400 && /sesi|login/i.test(r.d?.message ?? ""), r);
   // Naskah Masuk SRIKANDI: tanpa sesi → ditolak sebelum robot; record tindak lanjut LifeOS bisa ditulis
   r = await j("POST", "/robot/srikandi/inbox/sync", null, at);
   ok("srikandi inbox sync without session rejected", r.s === 400 && /sesi|login/i.test(r.d?.message ?? ""), r);

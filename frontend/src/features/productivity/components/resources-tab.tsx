@@ -43,6 +43,7 @@ import {
   OFFICE_ATTACHMENT_TYPE,
   useOfficeEnabled,
 } from "@/features/tools/onlyoffice/new-office-document-button";
+import { ConvertedDocumentPicker } from "@/features/tools/converter/converted-document-picker";
 import { openOfficeEditor } from "@/features/tools/onlyoffice/office-editor-host";
 import { isOfficeEditable } from "@/features/tools/onlyoffice/office-formats";
 import { useOfficeDiscardConfirm } from "@/features/tools/onlyoffice/use-office-discard-confirm";
@@ -586,11 +587,15 @@ function ResourceForm({
     };
   });
 
-  /** Buang berkas sesi ini dari form (dan storage); ringkasan AI yang sedang berjalan diabaikan. */
-  const dropSessionUpload = () => {
+  /**
+   * Buang berkas sesi ini dari form (dan storage); ringkasan AI yang sedang berjalan diabaikan. `toTrash` = tombol
+   * "Hapus dokumen" (sengaja dihapus → Sampah); selain itu dibuang (dokumen ONLYOFFICE berisi dipindah ke ruang kerja).
+   */
+  const dropSessionUpload = (toTrash = false) => {
     if (!form.uploadId || !sessionUploads.current.delete(form.uploadId)) return;
     untrackPendingUpload(form.uploadId);
-    cleanup.discardUploads([form.uploadId]);
+    if (toTrash) void uploadsApi.remove(form.uploadId).catch(() => undefined);
+    else cleanup.discardUploads([form.uploadId]);
     summaryRunRef.current++;
     summarizer.setStatus("idle");
     lastFileRef.current = null;
@@ -600,7 +605,7 @@ function ResourceForm({
   /** Tombol "Hapus dokumen": selalu dikonfirmasi; setelahnya jenis dokumen lain bisa dipilih. */
   const deleteOfficeDoc = async () => {
     if (!form.uploadId || !(await officeDiscard.confirm(form.uploadId, { explicit: true }))) return;
-    dropSessionUpload();
+    dropSessionUpload(true);
   };
 
   /** Buka berkas di ONLYOFFICE; setelah ditutup (tersimpan) ringkas ulang isinya bila "Ringkas dengan AI" dicentang. */
@@ -776,16 +781,20 @@ function ResourceForm({
           <FieldLabel>{officeSource ? "Jenis dokumen baru" : "Upload File"}</FieldLabel>
           <div className="flex flex-wrap items-center gap-2">
             {!officeSource ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={uploading || filed}
-                title={filed ? "Dokumen arsip yang sudah diberkaskan tidak bisa diganti" : undefined}
-                onClick={() => fileRef.current?.click()}
-              >
-                {uploading ? <Spinner /> : <Upload />} {form.uploadId ? "Ganti File" : "Pilih File"}
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={uploading || filed}
+                  title={filed ? "Dokumen arsip yang sudah diberkaskan tidak bisa diganti" : undefined}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {uploading ? <Spinner /> : <Upload />} {form.uploadId ? "Ganti File" : "Pilih File"}
+                </Button>
+                {/* Hasil Markdown Converter dipanggil ke Working Space sebagai salinan berkas .md */}
+                {!filed && <ConvertedDocumentPicker disabled={uploading} onPick={(file) => void handleFile(file)} />}
+              </>
             ) : (
               !form.uploadId && (
                 <NewOfficeDocumentPicker

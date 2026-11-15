@@ -15,6 +15,8 @@ export const REFERENCE_CATEGORIES = [
   "cc_group",
   "disposition_group",
   "classification",
+  // Instansi Pengirim = pilihan "Dikirimkan melalui" formulir Registrasi (dibaca dari daftar pilihan formulir)
+  "sender_unit",
 ] as const;
 export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
 

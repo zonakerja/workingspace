@@ -101,9 +101,14 @@ export class UploadsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  /** Hapus = pindah ke Sampah. `?discard=1` = buang permanen unggahan yang belum pernah disimpan (batal unggah). */
+  /**
+   * Hapus = pindah ke Sampah. `?discard=1` = buang permanen unggahan yang belum pernah disimpan (batal unggah); dokumen yang
+   * sudah disunting di ONLYOFFICE tidak dibuang tetapi dipindah ke ruang kerja dokumen (respons `kept: true`).
+   */
   @Delete(":id")
   remove(@Param("id") id: string, @CurrentUser() user: AuthUser, @Query("discard") discard?: string) {
-    return this.uploads.remove(id, user, { trash: discard !== "1" && discard !== "true" });
+    const permanent = discard === "1" || discard === "true";
+    // Buang dari form: dokumen ONLYOFFICE yang sudah disunting dipindah ke Tools → ONLYOFFICE → Dokumen (`kept: true`)
+    return this.uploads.remove(id, user, { trash: !permanent, rescueEdited: permanent });
   }
 }

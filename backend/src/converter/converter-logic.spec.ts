@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  libraryAccepts,
   libraryTitle,
   librarySummary,
   converterExtension,
@@ -81,5 +82,12 @@ describe("converter-logic", () => {
         markdown: "x",
       }),
     ).toEqual({ pages: 3, tokens: 900, durationMs: 1200, enhanced: true, enhanceError: null });
+  });
+
+  it("accepts text formats in the library but not executables", () => {
+    expect(libraryAccepts("text/markdown", "catatan.md")).toBe(true);
+    expect(libraryAccepts("text/plain", "a.txt")).toBe(true);
+    expect(libraryAccepts("application/pdf", "a.pdf")).toBe(true);
+    expect(libraryAccepts("application/octet-stream", "program.exe")).toBe(false);
   });
 });

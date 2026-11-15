@@ -35,6 +35,7 @@ import {
   OfficeDraftLinkDto,
   OfficeLinkCandidatesQuery,
   OfficePreferencesDto,
+  RenameOfficeDocumentDto,
 } from "./dto/office.dto";
 import { ONLYOFFICE_JWT_HEADER, OfficeService } from "./office.service";
 
@@ -90,6 +91,21 @@ export class OfficeController {
   @Get("link-candidates")
   linkCandidates(@CurrentUser() user: AuthUser, @Query() query: OfficeLinkCandidatesQuery) {
     return this.office.linkCandidates(user, query);
+  }
+
+  /** Ruang kerja dokumen (Tools → ONLYOFFICE → Dokumen): dokumen milik user dengan context `office-workspace`. */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get("workspace")
+  workspace(@CurrentUser() user: AuthUser) {
+    return this.office.workspaceDocuments(user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch("workspace/:id")
+  renameWorkspace(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: RenameOfficeDocumentDto) {
+    return this.office.renameWorkspaceDocument(user, id, dto.title);
   }
 
   /** Templat dokumen milik user (diunggah lewat /uploads dengan context `office-template`). */
@@ -177,7 +193,10 @@ export class OfficeController {
     return this.office.diagnose(user);
   }
 
-  /** Dokumen kosong baru (menjadi berkas milik user; frontend menjadikannya Resource Global). */
+  /**
+   * Dokumen baru milik user: kosong / dari templat / salinan dokumen ruang kerja (`templateId`). Context `office-workspace` =
+   * ruang kerja Tools (tidak masuk Resource); context lampiran = form Working Space (frontend menjadikannya lampiran/Resource).
+   */
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("documents")

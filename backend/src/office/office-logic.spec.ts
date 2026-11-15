@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  renamedDocumentName,
   MAX_VERSIONS,
   buildEditorConfig,
   callbackCarriesFile,
@@ -350,5 +351,18 @@ describe("tautan konsep ↔ dokumen final", () => {
     expect(finalLinkError({ ...base, draftFormat: "pdf" })).toMatch(/Konsep harus/);
     expect(finalLinkError({ ...base, draftIsFinal: true })).toMatch(/dokumen final/);
     expect(finalLinkError({ ...base, finalHasFinals: true })).toMatch(/sudah punya dokumen final/);
+  });
+});
+
+describe("renamedDocumentName", () => {
+  it("keeps the original extension", () => {
+    expect(renamedDocumentName("  Nota   Dinas ", "lama.docx")).toBe("Nota Dinas.docx");
+    expect(renamedDocumentName("Laporan.xlsx", "data.xlsx")).toBe("Laporan.xlsx");
+    expect(renamedDocumentName("a/b:c", "x.pptx")).toBe("a b c.pptx");
+  });
+
+  it("rejects empty titles and names without extension", () => {
+    expect(renamedDocumentName("   ", "x.docx")).toBeNull();
+    expect(renamedDocumentName("Judul", "tanpa-ekstensi")).toBeNull();
   });
 });

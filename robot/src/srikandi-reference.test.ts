@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { mergeReferenceItems, parseReferenceRows, referenceKey } from "./srikandi-reference.js";
+import {
+  DEFAULT_REFERENCE_CATEGORIES as DEFAULTS,
+  mergeReferenceItems,
+  parseReferenceRows,
+  parseSenderUnits,
+  referenceKey,
+  requestedCategories as requested,
+} from "./srikandi-reference.js";
 
 describe("referensi SRIKANDI", () => {
   it("penandatangan: kotak centang & baris filter dilewati, nama jadi label", () => {
@@ -121,5 +128,22 @@ describe("klasifikasi arsip", async () => {
     expect(DEFAULT_REFERENCE_CATEGORIES).not.toContain("classification");
     expect(requestedCategories(undefined)).toEqual(DEFAULT_REFERENCE_CATEGORIES);
     expect(requestedCategories(["classification", "x"])).toEqual(["classification"]);
+  });
+});
+
+describe("parseSenderUnits", () => {
+  it("membuang pesan memuat & ganda, kategori sender_unit, tidak masuk Ambil referensi bawaan", () => {
+    const items = parseSenderUnits([
+      "Bagian Keuangan Setditjen Hubud",
+      " Loading... ",
+      "bagian keuangan setditjen hubud",
+      "",
+      "Data tidak ditemukan",
+      "Biro Umum",
+    ]);
+    expect(items.map((i) => i.label)).toEqual(["Bagian Keuangan Setditjen Hubud", "Biro Umum"]);
+    expect(items[0].category).toBe("sender_unit");
+    expect(DEFAULTS).not.toContain("sender_unit");
+    expect(requested(["sender_unit"])).toEqual(["sender_unit"]);
   });
 });

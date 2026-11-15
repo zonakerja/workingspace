@@ -109,7 +109,7 @@ function TemplateFillForm({ request, onDone }: { request: RequestDetail; onDone:
       <p className="text-sm text-muted-foreground">
         Belum ada templat DOCX. Unggah templat instansi di{" "}
         <Link to="/tools/onlyoffice" className="font-medium text-module underline" onClick={onDone}>
-          Tools → ONLYOFFICE → Templat dokumen
+          Tools → ONLYOFFICE → Dokumen → Templat dokumen
         </Link>
         . Tandai isian dengan <code>{"${nama_penanda}"}</code> dan paragraf yang ditulis AI dengan{" "}
         <code>[petunjuk isi]</code>.

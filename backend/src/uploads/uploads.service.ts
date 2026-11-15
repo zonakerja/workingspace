@@ -30,6 +30,7 @@ import { pipeline } from "node:stream/promises";
 import { AuthUser } from "../common/types/auth-user";
 import { ASSET_SOURCE } from "../ai/index/index-text";
 import { KNOWLEDGE_VAULT_CONTEXT } from "../knowledge/knowledge-constants";
+import { OFFICE_WORKSPACE_CONTEXT, shouldRescueOnDiscard } from "./office-rescue";
 import { ExtractionQueueService } from "../extraction/extraction-queue.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { type SharePermission } from "../sharing/share-graph";
@@ -273,7 +274,11 @@ export class UploadsService implements OnModuleInit {
    * `trash: true` = pindah ke Sampah (baris disimpan sebagai salinan, objek storage dibiarkan sampai masa simpan habis);
    * bawaan = hapus permanen (unggahan yang belum pernah disimpan, pembersihan internal modul lain).
    */
-  async remove(id: string, user: AuthUser, options: { trash?: boolean; source?: TrashSource } = {}) {
+  async remove(
+    id: string,
+    user: AuthUser,
+    options: { trash?: boolean; source?: TrashSource; rescueEdited?: boolean } = {},
+  ): Promise<{ success: boolean; batchId?: string; trashed?: boolean; kept?: boolean }> {
     const asset = await this.findAccessible(id, user);
     if (asset.userId !== user.id && asset.uploadedById !== user.id) {
       throw new ForbiddenException("Hanya pemilik yang dapat menghapus file ini.");
@@ -292,6 +297,11 @@ export class UploadsService implements OnModuleInit {
       );
     }
     if (options.trash) return this.moveToTrash(asset.id, user, options.source);
+    // Form Working Space ditutup/dibatalkan: dokumen yang sudah disunting di ONLYOFFICE disimpan ke ruang kerja, bukan dihapus
+    if (options.rescueEdited && shouldRescueOnDiscard(asset, user.id)) {
+      await this.prisma.asset.update({ where: { id: asset.id }, data: { context: OFFICE_WORKSPACE_CONTEXT } });
+      return { success: true, kept: true };
+    }
     // Versi lama (editor ONLYOFFICE) ikut terhapus (cascade); objek storage-nya dihapus di bawah
     const versions = await this.prisma.assetVersion.findMany({
       where: { assetId: asset.id },

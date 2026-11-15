@@ -29,6 +29,8 @@ interface SearchableSelectProps {
   className?: string;
   disabled?: boolean;
   id?: string;
+  /** Nilai terpilih yang panjang ditampilkan utuh (beberapa baris) di tombol, bukan dipotong "…" */
+  wrap?: boolean;
 }
 
 /** Dropdown dengan pencarian (combobox). */
@@ -43,6 +45,7 @@ export function SearchableSelect({
   className,
   disabled,
   id,
+  wrap,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const allGroups: OptionGroup[] = groups ?? [{ options: options ?? [] }];
@@ -58,13 +61,19 @@ export function SearchableSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground", className)}
+          title={selected?.label}
+          className={cn(
+            "w-full justify-between font-normal",
+            wrap && "h-auto min-h-9 rounded-xl py-1.5 text-left whitespace-normal",
+            !selected && "text-muted-foreground",
+            className,
+          )}
         >
-          <span className="truncate">{selected?.label ?? placeholder}</span>
+          <span className={wrap ? "min-w-0 break-words" : "truncate"}>{selected?.label ?? placeholder}</span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-(--radix-popover-trigger-width) min-w-64 p-0" align="start">
+      <PopoverContent className="w-(--radix-popover-trigger-width) max-w-[calc(100vw-1rem)] min-w-72 p-0" align="start">
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
@@ -81,9 +90,15 @@ export function SearchableSelect({
                         setOpen(false);
                       }}
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate">{option.label}</p>
-                        {option.hint && <p className="truncate text-xs text-muted-foreground">{option.hint}</p>}
+                      {/* Teks panjang (nama unit, jabatan) dibungkus ke baris berikutnya, tidak dipotong */}
+                      <div
+                        className="min-w-0 flex-1"
+                        title={option.hint ? `${option.label} — ${option.hint}` : option.label}
+                      >
+                        <p className="break-words whitespace-normal">{option.label}</p>
+                        {option.hint && (
+                          <p className="text-xs break-words whitespace-normal text-muted-foreground">{option.hint}</p>
+                        )}
                       </div>
                       <Check className={cn("ml-auto", option.value === value ? "opacity-100" : "opacity-0")} />
                     </CommandItem>

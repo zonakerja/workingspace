@@ -14,14 +14,44 @@ export const REFERENCE_PAGES = [
   { category: "disposition_group", path: "/pengguna/grup-tujuan-disposisi" },
   // Klasifikasi arsip (Instrumen Kearsipan): ±1.000 baris → diambil terpisah lewat `categories`
   { category: "classification", path: "/klasifikasi-arsip/klasifikasi" },
+  // Instansi Pengirim = pilihan "Dikirimkan melalui" di formulir Registrasi Naskah Keluar (tidak ada tabel referensinya di
+  // SRIKANDI): dibaca dari daftar pilihan formulir yang digulir sampai habis, tanpa mengisi / menyimpan formulir
+  { category: "sender_unit", path: "/pembuatan-naskah-keluar/registrasi-naskah-keluar" },
 ] as const;
 
 export type ReferenceCategory = (typeof REFERENCE_PAGES)[number]["category"];
 
 /** Kategori yang diambil "Ambil referensi" bila tidak disebut (klasifikasi punya tombol sendiri karena lama). */
 export const DEFAULT_REFERENCE_CATEGORIES: ReferenceCategory[] = REFERENCE_PAGES.map((p) => p.category).filter(
-  (c) => c !== "classification",
+  (c) => c !== "classification" && c !== "sender_unit",
 );
+
+/** Label kolom formulir Registrasi tempat pilihan Instansi Pengirim dibaca. */
+export const SENDER_UNIT_LABEL = "Dikirimkan melalui";
+
+/**
+ * Teks pilihan react-select "Dikirimkan melalui" → item referensi Instansi Pengirim. Pesan memuat / kosong / petunjuk
+ * ketik dibuang, label ganda digabung (urutan pertama muncul).
+ */
+export function parseSenderUnits(texts: string[]): ReferenceItem[] {
+  const seen = new Set<string>();
+  const items: ReferenceItem[] = [];
+  for (const raw of texts) {
+    const label = tidy(raw);
+    if (!label || label.length > 300) continue;
+    if (
+      /^(loading|memuat|mohon tunggu|data tidak ditemukan|tidak ada (data|pilihan)|no options|ketik|cari)\b/i.test(
+        label,
+      )
+    )
+      continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({ category: "sender_unit", label, fields: {} });
+  }
+  return items;
+}
 
 /** Batas halaman tabel per kategori (10 baris/halaman; klasifikasi ±105 halaman). */
 export const maxReferencePages = (category: ReferenceCategory) => (category === "classification" ? 160 : 60);

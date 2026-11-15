@@ -33,6 +33,7 @@ import {
 import { openOfficeEditor } from "@/features/tools/onlyoffice/office-editor-host";
 import { isOfficeEditable } from "@/features/tools/onlyoffice/office-formats";
 import { useOfficeDiscardConfirm } from "@/features/tools/onlyoffice/use-office-discard-confirm";
+import { ConvertedDocumentPicker } from "@/features/tools/converter/converted-document-picker";
 import { useDialogCloseGuard } from "@/components/common/dialog-close-guard";
 import type { UploadedAsset } from "@/types/api";
 
@@ -187,9 +188,16 @@ export function AttachmentForm({
     patch({ uploadId: undefined, mimeType: undefined, size: undefined, aiSummary: undefined });
   };
 
-  /** Tombol "Hapus dokumen": selalu dikonfirmasi; setelahnya jenis dokumen lain bisa dipilih. */
+  /** Tombol "Hapus dokumen": selalu dikonfirmasi, dokumen ke Sampah; setelahnya jenis dokumen lain bisa dipilih. */
   const deleteOfficeDoc = async () => {
-    if (!draft.uploadId || !(await officeDiscard.confirm(draft.uploadId, { explicit: true }))) return;
+    const id = draft.uploadId;
+    if (!id || !(await officeDiscard.confirm(id, { explicit: true }))) return;
+    // Bukan "buang" (dokumen berisi akan dipindah ke ruang kerja): user sengaja menghapus → Sampah
+    if (pendingUploadRef.current === id) {
+      pendingUploadRef.current = null;
+      untrackPendingUpload(id);
+    }
+    void uploadsApi.remove(id).catch(() => undefined);
     dropUpload();
   };
 
@@ -363,15 +371,19 @@ export function AttachmentForm({
       {draft.type === "file" && (
         <div className="flex flex-wrap items-center gap-3">
           {!officeSource ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={uploading}
-              onClick={() => fileRef.current?.click()}
-            >
-              {uploading ? <Spinner /> : <Upload />} {draft.uploadId ? "Ganti File" : "Pilih File"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                {uploading ? <Spinner /> : <Upload />} {draft.uploadId ? "Ganti File" : "Pilih File"}
+              </Button>
+              {/* Hasil Markdown Converter dipanggil ke Working Space sebagai salinan berkas .md */}
+              <ConvertedDocumentPicker disabled={uploading} onPick={(file) => void handleFile(file)} />
+            </>
           ) : (
             !draft.uploadId && (
               <NewOfficeDocumentPicker

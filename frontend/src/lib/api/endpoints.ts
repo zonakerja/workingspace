@@ -1,4 +1,5 @@
 import { withTrashToast } from "@/lib/trash-toast";
+import { withOfficeKeptToast } from "@/lib/office-kept-toast";
 import { apiUrl, request } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type {
@@ -86,6 +87,7 @@ import type {
   OfficeLinks,
   OfficePreferences,
   OfficeTemplate,
+  OfficeWorkspaceDocument,
   OfficeStatus,
   OfficeVersions,
   AiIndexStatus,
@@ -255,8 +257,14 @@ export const uploadsApi = {
   /** Hapus berkas tersimpan → Sampah (bisa dipulihkan 30 hari). */
   remove: (id: string) =>
     withTrashToast(request<{ success: boolean; batchId?: string }>(`/uploads/${id}`, { method: "DELETE" })),
-  /** Buang permanen unggahan yang belum pernah disimpan (batal unggah, form ditutup) — tidak masuk Sampah. */
-  discard: (id: string) => request<{ success: boolean }>(`/uploads/${id}`, { method: "DELETE", query: { discard: 1 } }),
+  /**
+   * Buang permanen unggahan yang belum pernah disimpan (batal unggah, form ditutup) — tidak masuk Sampah. Dokumen yang
+   * sudah disunting di ONLYOFFICE tidak dibuang server, tetapi dipindah ke Tools → ONLYOFFICE → Dokumen (`kept`).
+   */
+  discard: (id: string) =>
+    withOfficeKeptToast(
+      request<{ success: boolean; kept?: boolean }>(`/uploads/${id}`, { method: "DELETE", query: { discard: 1 } }),
+    ),
   /** Metadata + hasil ekstraksi teks (PDF/DOCX/XLSX/teks; gambar lewat OCR Gemini) yang dikerjakan backend. */
   metadata: (id: string) => request<AssetMetadata>(`/uploads/${id}/metadata`),
   /** Link sementara (10 menit) yang bisa dibuka di tab baru / <img>. */
@@ -305,6 +313,13 @@ export const officeApi = {
     source: { format: OfficeFormat } | { templateId: string },
     options: { title?: string; context?: string; ownerId?: string } = {},
   ) => request<UploadedAsset>("/office/documents", { method: "POST", body: { ...source, ...options } }),
+  /** Ruang kerja dokumen (Tools → ONLYOFFICE → Dokumen); dokumen baru di sini memakai context `office-workspace`. */
+  workspace: () => request<OfficeWorkspaceDocument[]>("/office/workspace"),
+  renameWorkspace: (id: string, title: string) =>
+    request<{ id: string; originalName: string; name: string }>(`/office/workspace/${id}`, {
+      method: "PATCH",
+      body: { title },
+    }),
   preferences: () => request<OfficePreferences>("/office/preferences"),
   updatePreferences: (input: { ai: boolean }) =>
     request<OfficePreferences>("/office/preferences", { method: "PATCH", body: input }),
@@ -920,6 +935,11 @@ export const robotApi = {
       remaining: string[];
       runId: string;
     }>(`/robot/srikandi/register/${encodeURIComponent(id)}/update`, { method: "POST", body: { dryRun } }),
+  /** Instansi Pengirim = pilihan "Dikirimkan melalui" formulir Registrasi (± 2 menit) → referensi kategori sender_unit */
+  syncSenderUnits: () =>
+    request<{ counts: Record<string, number>; totals: Record<string, number> }>("/robot/srikandi/sender-units/sync", {
+      method: "POST",
+    }),
   /** Klasifikasi arsip SRIKANDI (±1.000 baris, beberapa menit) → referensi kategori classification */
   syncClassifications: () =>
     request<{ counts: Record<string, number>; totals: Record<string, number>; pages: Record<string, number> }>(

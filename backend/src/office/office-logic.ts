@@ -180,6 +180,22 @@ export function newDocumentName(title: string | undefined, format: NewDocumentFo
   return `${base}.${format}`;
 }
 
+/**
+ * Nama baru untuk berkas yang sudah ada (ganti judul dokumen di Tools → ONLYOFFICE → Dokumen): ekstensi berkas lama selalu
+ * dipertahankan agar format tidak berubah; judul dibersihkan seperti dokumen baru. Ekstensi kosong → null (tidak diganti).
+ */
+export function renamedDocumentName(title: string, currentName: string) {
+  const ext = /\.([0-9a-z]+)$/i.exec(currentName)?.[1];
+  if (!ext) return null;
+  const base = title
+    .replace(/[\\/:*?"<>|\p{Cc}]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(new RegExp(`\\.${ext}$`, "i"), "")
+    .slice(0, 120);
+  return base ? `${base}.${ext}` : null;
+}
+
 /** Hak akses efektif di editor: format yang tidak bisa diedit / mode lihat selalu `view`. */
 export function effectiveAccess(params: {
   format: string;

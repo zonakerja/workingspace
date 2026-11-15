@@ -6,6 +6,7 @@ import {
   outgoingSignature,
   attachmentError,
   classificationChoices,
+  senderUnitChoices,
   cleanAttachmentName,
   emptyOutgoing,
   finalLetterCandidates,
@@ -179,5 +180,18 @@ describe("canSendDraft", () => {
     expect(canSendDraft({ ...pushed, status: "draft" })).toBe(false);
     // Sudah dikirim → tidak lagi ditandai "perlu diperbarui"
     expect(changedSinceRegister({ ...pushed, subject: "lain", draftSentAt: "2026-11-15" })).toBe(false);
+  });
+});
+
+describe("senderUnitChoices", () => {
+  it("referensi Instansi Pengirim urut SRIKANDI, unit yang pernah dipakai didahulukan", () => {
+    const refs = [
+      { id: "a", category: "sender_unit", label: "Biro Umum", order: 2 },
+      { id: "b", category: "sender_unit", label: "Bagian Keuangan", order: 1 },
+      { id: "c", category: "signer", label: "Arif", order: 1 },
+    ] as SrikandiReference[];
+    expect(senderUnitChoices(refs)).toEqual(["Bagian Keuangan", "Biro Umum"]);
+    expect(senderUnitChoices(refs, ["Biro Umum", "Unit Lama"])).toEqual(["Biro Umum", "Unit Lama", "Bagian Keuangan"]);
+    expect(senderUnitChoices([refs[2]], ["Unit Lama"])).toEqual([]);
   });
 });

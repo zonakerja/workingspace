@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { SearchInput } from "@/components/common/search-input";
 import { SectionCard } from "@/components/common/section-card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -108,10 +109,16 @@ export function OfficeAiCard() {
 }
 
 /**
- * Templat dokumen milik user (keputusan user: diunggah di sini, bukan lewat Resource). Dipakai "Buat Dokumen
- * (ONLYOFFICE)" → "Dari templat": isinya disalin ke dokumen baru, templat tetap utuh.
+ * Modal Templat dokumen (Tools → ONLYOFFICE → Dokumen, tombol "Templat dokumen"): unggah, lihat, sunting, hapus templat.
+ * Templat dipakai "Dari templat" saat membuat dokumen (ruang kerja maupun form Working Space).
  */
-export function OfficeTemplatesCard() {
+export function OfficeTemplatesDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { data: templates = [], isLoading } = useOfficeTemplates();
   const client = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -150,73 +157,92 @@ export function OfficeTemplatesCard() {
     }
   };
 
+  // Editor ONLYOFFICE dibuka di atas halaman: modal templat ditutup dulu, lalu dibuka lagi setelah editor ditutup
+  const edit = (template: OfficeTemplate) => {
+    onOpenChange(false);
+    openOfficeEditor({
+      uploadId: template.id,
+      name: template.originalName,
+      onClosed: () => {
+        void refresh();
+        onOpenChange(true);
+      },
+    });
+  };
+
   return (
-    <SectionCard
-      icon={FileStack}
-      title="Templat dokumen"
-      description="Kop surat, nota dinas, notulen, format laporan — dipakai saat Buat Dokumen."
-      action={
-        <Button variant="outline" size="sm" disabled={uploading} onClick={() => inputRef.current?.click()}>
-          {uploading ? <Spinner /> : <Upload />} Unggah templat
-        </Button>
-      }
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept={DOCUMENT_ACCEPT}
-        className="hidden"
-        onChange={(event) => {
-          const files = Array.from(event.target.files ?? []);
-          event.target.value = "";
-          void upload(files);
-        }}
-      />
-      <div className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground">
-          Unggah DOCX/DOTX/ODT, XLSX/XLTX, PPTX/POTX, atau PDF. Di form lampiran atau Resource, pilih Tipe{" "}
-          <b>Buat Dokumen (ONLYOFFICE)</b> → bagian <b>Dari templat</b>: isinya disalin ke dokumen baru (DOTX/ODT/…
-          menjadi DOCX/XLSX/PPTX), templat tetap utuh. <b>Sunting</b> mengubah templat itu sendiri.
-        </p>
-        {isLoading ? (
-          <Skeleton className="h-10 w-full" />
-        ) : (
-          <TemplateBrowser
-            templates={templates}
-            actions={(template) => (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Sunting templat di ONLYOFFICE"
-                  onClick={() =>
-                    openOfficeEditor({ uploadId: template.id, name: template.originalName, onClosed: refresh })
-                  }
-                >
-                  <FilePen />
-                </Button>
-                <Button variant="ghost" size="icon-sm" title="Hapus templat" onClick={() => setRemoving(template)}>
-                  <Trash2 />
-                </Button>
-              </>
-            )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90svh] grid-cols-1 flex-col sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileStack className="size-4 text-module" /> Templat dokumen
+          </DialogTitle>
+          <DialogDescription>
+            Kop surat, nota dinas, notulen, format laporan — dipakai saat membuat dokumen.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept={DOCUMENT_ACCEPT}
+            className="hidden"
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              event.target.value = "";
+              void upload(files);
+            }}
           />
-        )}
-      </div>
-      <ConfirmDialog
-        open={!!removing}
-        onOpenChange={(open) => !open && setRemoving(null)}
-        title="Hapus templat?"
-        itemName={removing?.name}
-        description="Dokumen yang sudah dibuat dari templat ini tidak terpengaruh."
-        confirmLabel="Hapus templat"
-        onConfirm={() => {
-          if (removing) void remove(removing);
-          setRemoving(null);
-        }}
-      />
-    </SectionCard>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                Unggah DOCX/DOTX/ODT, XLSX/XLTX, PPTX/POTX, atau PDF. Saat membuat dokumen pilih <b>Dari templat</b>:
+                isinya disalin ke dokumen baru (DOTX/ODT/… menjadi DOCX/XLSX/PPTX), templat tetap utuh. <b>Sunting</b>{" "}
+                mengubah templat itu sendiri.
+              </p>
+              <Button variant="outline" size="sm" disabled={uploading} onClick={() => inputRef.current?.click()}>
+                {uploading ? <Spinner /> : <Upload />} Unggah templat
+              </Button>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <TemplateBrowser
+                templates={templates}
+                actions={(template) => (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Sunting templat di ONLYOFFICE"
+                      onClick={() => edit(template)}
+                    >
+                      <FilePen />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" title="Hapus templat" onClick={() => setRemoving(template)}>
+                      <Trash2 />
+                    </Button>
+                  </>
+                )}
+              />
+            )}
+          </div>
+          <ConfirmDialog
+            open={!!removing}
+            onOpenChange={(open) => !open && setRemoving(null)}
+            title="Hapus templat?"
+            itemName={removing?.name}
+            description="Dokumen yang sudah dibuat dari templat ini tidak terpengaruh."
+            confirmLabel="Hapus templat"
+            onConfirm={() => {
+              if (removing) void remove(removing);
+              setRemoving(null);
+            }}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

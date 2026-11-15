@@ -481,7 +481,15 @@ export interface SrikandiLetter extends Owned {
 }
 
 export type SrikandiReferenceCategory =
-  "signer" | "recipient" | "recipient_group" | "verifier" | "cc" | "cc_group" | "disposition_group" | "classification";
+  | "signer"
+  | "recipient"
+  | "recipient_group"
+  | "verifier"
+  | "cc"
+  | "cc_group"
+  | "disposition_group"
+  | "classification"
+  | "sender_unit";
 
 /** Referensi SRIKANDI (menu Pengguna) — pilihan formulir Register Naskah Keluar. */
 export interface SrikandiReference extends Owned {

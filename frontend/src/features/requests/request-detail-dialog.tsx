@@ -279,8 +279,8 @@ function RequestDetailBody({ request: r, onDeleted }: { request: RequestDetail; 
       >
         {r.documents.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Isi templat DOCX instansi (Tools → ONLYOFFICE → Templat) dengan data pengajuan. Penanda SRIKANDI (nomor,
-            tanggal, tanda tangan) dibiarkan untuk diisi SRIKANDI.
+            Isi templat DOCX instansi (Tools → ONLYOFFICE → Dokumen → Templat dokumen) dengan data pengajuan. Penanda
+            SRIKANDI (nomor, tanggal, tanda tangan) dibiarkan untuk diisi SRIKANDI.
           </p>
         ) : (
           <ul className="grid grid-cols-1 gap-1">

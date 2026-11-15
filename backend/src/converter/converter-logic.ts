@@ -102,6 +102,30 @@ export function converterExtension(mimeType: string, fileName: string): string {
 export const converterHandles = (mimeType: string, fileName: string) =>
   CONVERTER_EXTENSIONS.has(converterExtension(mimeType, fileName));
 
+/**
+ * Format teks yang juga diterima service converter (MarkItDown) tetapi di worker ekstraksi dibaca pembaca bawaan. Pustaka
+ * Dokumen menerimanya (unggah .md/.txt/.csv untuk dirapikan) — sama dengan `CONVERTER_ACCEPT` frontend.
+ */
+const LIBRARY_TEXT_EXTENSIONS = new Set([
+  "csv",
+  "tsv",
+  "json",
+  "jsonl",
+  "xml",
+  "txt",
+  "md",
+  "markdown",
+  "rst",
+  "yaml",
+  "yml",
+]);
+
+/** Berkas ini bisa diunggah ke pustaka Dokumen Markdown Converter? */
+export const libraryAccepts = (mimeType: string, fileName: string) => {
+  const ext = converterExtension(mimeType, fileName);
+  return CONVERTER_EXTENSIONS.has(ext) || LIBRARY_TEXT_EXTENSIONS.has(ext);
+};
+
 /** Gambar / PDF = isi bisa berupa scan → boleh dibaca AI bila converter tidak menemukan teks. */
 export const isOcrCandidate = (mimeType: string, fileName: string) => {
   const ext = converterExtension(mimeType, fileName);

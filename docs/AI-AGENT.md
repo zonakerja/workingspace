@@ -1452,6 +1452,32 @@ memuat kata "atasan" → kini wajib kata kirim/ajukan), dialog konfirmasi dummy 
 agen, tanpa sesi, periode salah); UI dengan akun uji `user@lifeos.com` + data dummy (tombol aktif, tanpa PIN → Atur PIN, PIN uji → server menolak
 sebelum robot, PIN dikosongkan; data & PIN uji dihapus). **Belum**: klik → dialog konfirmasi e-Kinerja sungguhan → hasil belum pernah dijalankan (TODO-USER A39).
 
+### 21.17 Instansi Pengirim, Register dari ONLYOFFICE, Tautkan final (2026-11-15)
+
+**Permintaan user**: (1) referensi isian **Dikirimkan melalui** bernama **Instansi Pengirim** — SRIKANDI tidak punya tabel referensinya; satu-satunya
+cara melihat daftarnya = buka formulir Registrasi lalu gulir daftar pilihan sampai habis; (2) dari editor ONLYOFFICE saat menyusun konsep, langsung
+memanggil modal Register Naskah Keluar; (3) penjelasan tombol **Tautkan final** pada draf yang belum dikirim.
+
+**Instansi Pengirim** (dipetakan dengan Playwright, tanpa mengisi/menyimpan formulir): kolom "Dikirimkan melalui" = react-select yang menampilkan
+daftar saat diklik tanpa mengetik dan **memuat lanjutan saat digulir** (± 10 per muat). Robot (`readSenderUnits`, kategori referensi `sender_unit`
+di `REFERENCE_PAGES` dengan path formulir Registrasi): buka formulir → tandai combobox lewat label → klik → gulir wadah daftar ke bawah berulang
+sampai 4 putaran tanpa pilihan baru (maks. 400) → Esc. Tidak ada pilihan yang diklik, Enter tidak pernah ditekan. Logika murni `parseSenderUnits`
+(buang "Loading…"/"Data tidak ditemukan", ganda). Tidak termasuk "Ambil referensi" bawaan (seperti klasifikasi): tombol **Ambil instansi pengirim**
+di tab Referensi → `POST /robot/srikandi/sender-units/sync` (tugas robot `srikandi_references`). **Uji ke SRIKANDI sungguhan 2026-11-15**: 1.472
+instansi, 154 kali gulir, ± 2 menit; berisi "Bagian Keuangan Setditjen Hubud". Formulir Register: **Dikirimkan melalui** = pilihan bercari dari
+referensi itu (`senderUnitChoices`: yang pernah dipakai didahulukan, nilai lama tetap ditawarkan); belum diambil = ketik bebas seperti dulu.
+
+**Register dari ONLYOFFICE**: header editor punya tombol **Register naskah** (`features/srikandi/register-from-office.tsx`, dimuat malas dari
+`office-editor-host.tsx`) untuk berkas DOCX/PDF: simpan paksa dokumen → modal Register Naskah Keluar di atas editor dengan file naskah = dokumen
+ini, hal = nama berkas, asal "berkas LifeOS" (tidak ikut terhapus bersama entri). Dokumen yang sudah punya entri (`registerEntryForFile`) membuka
+entri itu ("Register naskah (sudah ada)"). Setelah disimpan: notifikasi + **Buka Register** (menutup editor, membuka entri di tab Register).
+`RegisterDialog` mendapat prop `onSaved`.
+
+**Tautkan final**: menautkan **naskah final** (PDF ber-TTE dari Daftar Naskah Keluar, diambil "Ambil dari SRIKANDI") ke entri register, sehingga
+entri berstatus "Naskah final tertaut" dan konsep DOCX ↔ PDF final tertaut (`assets.draft_id`). Naskah final baru ada setelah konsep dikirim,
+disetujui, dan ditandatangani, jadi tombolnya kini tampil di baris hanya setelah **Kirim Konsep** lewat LifeOS (`draftSentAt`); sebelum itu tersedia di
+menu ⋯ ("Tautkan naskah final (setelah ditandatangani)") untuk konsep yang dikirim langsung di SRIKANDI.
+
 ## 22. Revisi 2026-10-31 — Dokumen bertemplat ditangani agen (Hermes: skill & workflow), Approval kembali ke Workspace
 
 **Keputusan user (2026-10-31)**:

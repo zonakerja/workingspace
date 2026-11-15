@@ -68,6 +68,7 @@ import {
   documentTypeOf,
   effectiveAccess,
   fileFormat,
+  renamedDocumentName,
   newDocumentName,
   newOfficeKey,
   planVersionSave,
@@ -84,6 +85,12 @@ const TEMPLATE_DIR = join(__dirname, "..", "..", "templates", "office");
 export const ONLYOFFICE_JWT_HEADER = "authorizationjwt";
 /** Konteks berkas templat dokumen yang diunggah user di Tools → ONLYOFFICE. */
 export const OFFICE_TEMPLATE_CONTEXT = "office-template";
+/**
+ * Konteks dokumen yang dibuat di Tools → ONLYOFFICE → Dokumen (ruang kerja dokumen): tidak masuk Resource; dipakai di
+ * Working Space hanya bila dipanggil dari form (disalin sebagai dokumen baru, lihat `createDocument({ templateId })`).
+ */
+export { OFFICE_WORKSPACE_CONTEXT } from "../uploads/office-rescue";
+import { OFFICE_WORKSPACE_CONTEXT } from "../uploads/office-rescue";
 /** Berkas internal yang tidak ditawarkan sebagai konsep/final (templat, sumber & lampiran chat notebook). */
 const LINK_EXCLUDED_CONTEXTS = [OFFICE_TEMPLATE_CONTEXT, "notebook", "notebook_chat"];
 const LINK_SUMMARY = {
@@ -227,6 +234,48 @@ export class OfficeService {
       dto.context || "office",
       dto.ownerId,
     );
+  }
+
+  /** Dokumen ruang kerja milik user (Tools → ONLYOFFICE → Dokumen), terbaru disimpan dulu. */
+  async workspaceDocuments(user: AuthUser) {
+    const assets = await this.prisma.asset.findMany({
+      where: { userId: user.id, context: OFFICE_WORKSPACE_CONTEXT },
+      select: {
+        id: true,
+        originalName: true,
+        mimeType: true,
+        size: true,
+        version: true,
+        createdAt: true,
+        updatedAt: true,
+        versionedAt: true,
+        _count: { select: { finals: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+    });
+    return assets.map(({ _count, versionedAt, ...asset }) => ({
+      ...asset,
+      name: asset.originalName.replace(/\.[^.]+$/, ""),
+      format: fileFormat(asset.originalName),
+      // Jenis dokumen salinan saat dipanggil dari Working Space (null = format yang tidak bisa disalin)
+      target: templateTarget(fileFormat(asset.originalName)),
+      savedAt: versionedAt ?? asset.createdAt,
+      finals: _count.finals,
+    }));
+  }
+
+  /** Ganti judul dokumen ruang kerja (ekstensi tetap). Hanya dokumen ruang kerja milik sendiri. */
+  async renameWorkspaceDocument(user: AuthUser, id: string, title: string) {
+    const asset = await this.prisma.asset.findFirst({
+      where: { id, userId: user.id, context: OFFICE_WORKSPACE_CONTEXT },
+      select: { id: true, originalName: true },
+    });
+    if (!asset) throw new NotFoundException("Dokumen tidak ditemukan.");
+    const originalName = renamedDocumentName(title, asset.originalName);
+    if (!originalName) throw new BadRequestException("Judul tidak boleh kosong.");
+    await this.prisma.asset.update({ where: { id }, data: { originalName } });
+    return { id, originalName, name: originalName.replace(/\.[^.]+$/, "") };
   }
 
   /**

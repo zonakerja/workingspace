@@ -15,7 +15,7 @@ import {
   type ConverterPdfMode,
   LIBRARY_MAX_DOCUMENTS,
   LIBRARY_MAX_PENDING,
-  converterHandles,
+  libraryAccepts,
   libraryTitle,
   librarySummary,
 } from "./converter-logic";
@@ -102,7 +102,7 @@ export class ConverterLibraryService implements OnModuleInit {
       throw new BadRequestException(`Berkas maksimal ${this.client.maxBytes / 1024 / 1024} MB.`);
     }
     const name = Buffer.from(file.originalname, "latin1").toString("utf8");
-    if (!converterHandles(file.mimetype, name)) {
+    if (!libraryAccepts(file.mimetype, name)) {
       throw new BadRequestException("Format berkas ini tidak bisa dikonversi ke Markdown.");
     }
     const [pending, total] = await Promise.all([
