@@ -23,6 +23,12 @@ const REUSE_GRACE_MS = 30_000;
 
 export type Session = Awaited<ReturnType<AuthService["login"]>>;
 
+/** Sesi token lama (baris sebelum migrasi: id token = id sesi). */
+const sessionOf = (record: { id: string; sessionId: string | null; pinUnlocked: boolean }) => ({
+  sid: record.sessionId ?? record.id,
+  pinUnlocked: record.pinUnlocked,
+});
+
 @Injectable()
 export class AuthService {
   private readonly refreshSecret: string;
@@ -64,7 +70,8 @@ export class AuthService {
       throw new UnauthorizedException("Sesi sudah berakhir. Silakan login kembali.");
     }
     if (record.revokedAt) {
-      if (Date.now() - record.revokedAt.getTime() <= REUSE_GRACE_MS) return this.createSession(record.user);
+      if (Date.now() - record.revokedAt.getTime() <= REUSE_GRACE_MS)
+        return this.createSession(record.user, sessionOf(record));
       // Token lama dipakai ulang → kemungkinan dicuri: cabut semua sesi user
       await this.revokeAllSessions(record.userId);
       throw new UnauthorizedException("Sesi sudah berakhir. Silakan login kembali.");
@@ -74,13 +81,19 @@ export class AuthService {
       where: { id: record.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
-    return this.createSession(record.user);
+    return this.createSession(record.user, sessionOf(record));
   }
 
   async logout(refreshToken: string) {
     try {
       const payload = await this.verifyRefreshToken(refreshToken);
-      await this.prisma.refreshToken.deleteMany({ where: { id: payload.jti } });
+      const record = await this.prisma.refreshToken.findUnique({
+        where: { id: payload.jti },
+        select: { sessionId: true },
+      });
+      await this.prisma.refreshToken.deleteMany({
+        where: record?.sessionId ? { OR: [{ id: payload.jti }, { sessionId: record.sessionId }] } : { id: payload.jti },
+      });
     } catch {
       // Logout bersifat idempotent: token tidak valid tetap dianggap berhasil.
     }
@@ -143,15 +156,18 @@ export class AuthService {
     }
   }
 
-  private async createSession(user: User) {
+  /** Login = sesi baru (PIN tertutup); rotasi = sesi yang sama, status PIN terbuka ikut terbawa. */
+  private async createSession(user: User, session?: { sid: string; pinUnlocked: boolean }) {
+    const sid = session?.sid ?? randomUUID();
     const accessPayload: AccessTokenPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
+      sid,
     };
     const jti = randomUUID();
     const accessToken = await this.jwt.signAsync(accessPayload);
-    const refreshToken = await this.jwt.signAsync({ sub: user.id, jti } satisfies RefreshTokenPayload, {
+    const refreshToken = await this.jwt.signAsync({ sub: user.id, jti, sid } satisfies RefreshTokenPayload, {
       secret: this.refreshSecret,
       expiresIn: this.refreshTtlSeconds,
     });
@@ -164,6 +180,8 @@ export class AuthService {
         userId: user.id,
         tokenHash: sha256(refreshToken),
         expiresAt: new Date(Date.now() + this.refreshTtlSeconds * 1000),
+        sessionId: sid,
+        pinUnlocked: session?.pinUnlocked ?? false,
       },
     });
 

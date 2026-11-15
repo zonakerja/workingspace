@@ -382,7 +382,7 @@ export function CandidatesSection({
         open={!!unchecking}
         onOpenChange={(open) => !open && setUnchecking(null)}
         title="Keluarkan dari e-Kinerja?"
-        description="Sebagian butir kegiatan ini sudah terkirim ke e-Kinerja: ditandai Akan dihapus, lalu dihapus dari e-Kinerja saat Kirim perubahan. Kegiatan asal di Productivity tidak berubah."
+        description="Sebagian butir kegiatan ini sudah terkirim ke e-Kinerja: ditandai Akan dihapus, lalu dihapus dari e-Kinerja saat Kirim perubahan. Kegiatan asal di Working Space tidak berubah."
         confirmLabel="Keluarkan"
         onConfirm={() => {
           if (unchecking) release(unchecking);

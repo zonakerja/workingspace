@@ -53,13 +53,13 @@ const INSTRUCTIONS = [
   "Fitur native LifeOS (Workspace, Sistem, Tools) tidak boleh diubah, ditambah, atau dihapus.",
   "e-Kinerja = fitur terbuka: Anda boleh menambah workflow di dalamnya (propose_agent_menu placement ekinerja) dan",
   "menjalankan robotnya (ekinerja_*). Pengisian ke e-Kinerja hanya lewat ekinerja_request_fill yang menunggu persetujuan",
-  "pemilik; robot tidak pernah mengirim penilaian ke atasan. Pemetaan kegiatan Productivity ke RHK dan narasi Renaksi/Realisasi",
+  "pemilik; robot tidak pernah mengirim penilaian ke atasan. Pemetaan kegiatan Working Space (dulu Productivity) ke RHK dan narasi Renaksi/Realisasi",
   "disusun sebagai usulan (ekinerja_renaksi_context → ekinerja_propose_renaksi); pemilik yang memutuskan.",
   "SRIKANDI = fitur terbuka: Anda boleh menambah workflow di dalamnya (propose_agent_menu placement srikandi), menyiapkan",
   "entri Register Naskah Keluar (create_record/update_record jenis srikandi_outgoing), dan menjalankan robotnya (srikandi_*).",
   "Pendaftaran ke SRIKANDI hanya lewat srikandi_request_register yang menunggu persetujuan pemilik (entri yang sudah terdaftar",
   "lalu diubah = permintaan memperbarui konsep lewat Edit di Log Naskah Keluar); robot berhenti di Simpan / Perbarui",
-  "konsep — Kirim Konsep, Kirim Naskah, dan tanda tangan tidak pernah dilakukan robot.",
+  "konsep — Kirim Konsep hanya bisa dilakukan pemilik sendiri dengan PIN (tidak ada alat agen untuk itu); Kirim Naskah dan tanda tangan tidak pernah dilakukan robot.",
   "SIMAN = fitur terbuka: Anda boleh menambah workflow di dalamnya (propose_agent_menu placement siman) dan menjalankan",
   "robot bacanya (siman_*: jaga sesi, baca halaman tanpa klik). Proses tiket & surat keputusan diajarkan pemilik dan dibangun",
   "sebagai skill + workflow SIMAN; robot belum menulis apa pun ke SIMAN.",
@@ -908,7 +908,7 @@ export class LifeosMcpService {
         {
           title: "Bahan renaksi e-Kinerja satu bulan",
           description:
-            "Kegiatan satu bulan dari Productivity (Action/Task selesai atau jatuh tempo, Agenda, Kegiatan bertenggat) beserta lampirannya, " +
+            "Kegiatan satu bulan dari Working Space (Action/Task selesai atau jatuh tempo, Agenda, Kegiatan bertenggat) beserta lampirannya, " +
             "SKP & RHK (dengan indikator) yang berlaku bulan itu, dan entri renaksi yang sudah ada. Bahan untuk ekinerja_propose_renaksi.",
           inputSchema: {
             period: z
@@ -1270,7 +1270,7 @@ export class LifeosMcpService {
             const saved = await this.actions.saveAppFile(principal.user, input);
             return text({
               ...saved,
-              message: "Berkas tersimpan di LifeOS (Productivity → Resources, tag Hasil Agen).",
+              message: "Berkas tersimpan di LifeOS (Working Space → Resources, tag Hasil Agen).",
             });
           },
         ),

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ActionPlanEntry, ActionPlanMonth, Resource, Skp, SkpTarget } from "@/types/entities";
 import {
+  assessmentCounts,
+  assessmentMonths,
+  hasFeedback,
+  submitBlocker,
   defaultDescription,
   defaultPeriod,
   documentOptions,
@@ -231,5 +235,37 @@ describe("pemantauan e-Kinerja & pengenal perubahan", () => {
     expect(isLockedMonth(month("rated")) && !isLockedMonth(month("draft")) && !isLockedMonth(null)).toBe(true);
     expect(monthOf([month("draft")], "2026-10", "s1")?.status).toBe("draft");
     expect(monthOf([month("draft")], "2026-11")).toBeNull();
+  });
+});
+
+describe("submitBlocker", () => {
+  it("hanya bulan draf dengan semua isian terisi", () => {
+    expect(submitBlocker({ status: "draft" }, ["filled", "filled"])).toBeNull();
+    expect(submitBlocker({ status: "submitted" }, ["locked"])).toMatch(/sudah dikirim/);
+    expect(submitBlocker({ status: "draft" }, [])).toMatch(/Belum ada isian/);
+    expect(submitBlocker({ status: "empty" }, ["filled"])).toMatch(/belum tercatat/);
+    expect(submitBlocker(null, ["filled"])).toMatch(/belum tercatat/);
+    expect(submitBlocker({ status: "draft" }, ["filled", "changed", "ready"])).toMatch(/2 isian/);
+  });
+});
+
+describe("tab Penilaian", () => {
+  const m = (period: string, status: ActionPlanMonth["status"], skpId = "s1") =>
+    ({ id: `${skpId}-${period}`, period, status, skpId }) as ActionPlanMonth;
+  it("hanya draf/diajukan/dinilai tahun itu, terbaru dulu", () => {
+    const list = [
+      m("2026-01", "rated"),
+      m("2026-10", "draft"),
+      m("2026-11", "empty"),
+      m("2025-12", "rated"),
+      m("2026-09", "submitted"),
+    ];
+    expect(assessmentMonths(list, 2026).map((x) => x.period)).toEqual(["2026-10", "2026-09", "2026-01"]);
+    expect(assessmentCounts(assessmentMonths(list, 2026))).toEqual({ draft: 1, submitted: 1, rated: 1 });
+  });
+  it("feedback", () => {
+    expect(hasFeedback("👍")).toBe(true);
+    expect(hasFeedback("Belum ada feedback")).toBe(false);
+    expect(hasFeedback("")).toBe(false);
   });
 });

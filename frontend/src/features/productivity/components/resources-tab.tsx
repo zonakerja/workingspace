@@ -2,12 +2,14 @@ import { formatLocalYMD } from "@/lib/dates";
 import {
   Archive,
   BookOpen,
-  Bot,
-  Database,
   FilePen,
   FileText,
   Globe,
-  PencilLine,
+  Layers,
+  LayoutGrid,
+  List,
+  type LucideIcon,
+  NotebookPen,
   Plus,
   Trash2,
   Upload,
@@ -24,7 +26,6 @@ import { TagInput } from "@/components/common/tag-input";
 import { SearchInput } from "@/components/common/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -32,7 +33,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Textarea } from "@/components/ui/textarea";
 import { useAiNotes, useFreeNotes, useLists, useResources } from "@/data/collections";
 import {
@@ -54,7 +56,6 @@ import {
   collectFreeTags,
   hasTag,
   nextRemovedTags,
-  isContextTag,
   MAX_TAG_LENGTH,
   resourceTags,
   splitTags,
@@ -76,31 +77,53 @@ import { errorMessage } from "@/lib/api/client";
 import { uploadsApi } from "@/lib/api/endpoints";
 import { DEFAULT_DATE_FILTER, matchesDateFilter } from "@/lib/date-filter";
 import { trackPendingUpload, untrackPendingUpload } from "@/lib/pending-uploads";
-import { formatNumericDate } from "@/lib/dates";
 import { generateId } from "@/lib/ids";
 import { cn } from "@/lib/utils";
 import type { Resource } from "@/types/entities";
 import { AccessScope } from "@/components/common/access-scope";
-import { CommentsButton } from "@/features/sharing/comments-panel";
-import { ShareButton } from "@/features/sharing/share-dialog";
-import { SharedBadge } from "@/features/sharing/shared-badge";
-import { itemAccess } from "@/lib/sharing";
 import { links } from "@/lib/deep-links";
 import { PARA_INFO, replacedUploadId, resourceFileAttachment } from "../lib/para";
 import { DiscardScope, useDiscardOnClose, useDiscardScope } from "../use-attachment-edits";
 import { useParaActions } from "../use-para-actions";
 import { ParaInfo } from "./para-info";
+import { ResourceGrid, ResourceTable } from "./resource-views";
+import { ensureUnlocked, isSealed, withUnlocked } from "@/features/security/lock-controls";
+import { countResourceTypes, resourceTypeGroup, type ResourceTypeFilter } from "../lib/resource-view";
 import { ResourceTagsDialog } from "./resource-tags-dialog";
 import { useOpenSession, useRetained } from "@/hooks/use-retained";
 import { useOfficeLinkBadges } from "@/data/use-office";
 import { useNotebookUsage } from "@/data/use-notebooks";
-import { DocumentLinkBadge } from "@/features/tools/onlyoffice/document-links";
 
 /** Waktu sekarang (helper modul agar tidak dianggap pemanggilan tidak murni saat render) */
 const nowIso = () => new Date().toISOString();
 /** Tanggal lokal hari ini (YMD) — bukan potongan ISO yang bertanggal UTC */
 const todayYmd = () => formatLocalYMD(new Date());
 const ALL_TAGS = "__all__";
+
+type ResourceViewMode = "grid" | "table";
+const VIEW_KEY = "lifeos.resources.view";
+const readViewPreference = (): ResourceViewMode => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "table" ? "table" : "grid";
+  } catch {
+    return "grid";
+  }
+};
+const writeViewPreference = (view: ResourceViewMode) => {
+  try {
+    localStorage.setItem(VIEW_KEY, view);
+  } catch {
+    // penyimpanan browser tidak tersedia: pilihan hanya berlaku di sesi ini
+  }
+};
+
+/** Kartu ringkasan yang sekaligus menjadi filter jenis. */
+const TYPE_CHIPS: { value: ResourceTypeFilter; label: string; icon: LucideIcon; tone: string }[] = [
+  { value: "all", label: "Semua resource", icon: Layers, tone: "bg-module-gradient text-white" },
+  { value: "file", label: "Berkas", icon: FileText, tone: "bg-info/12 text-info" },
+  { value: "link", label: "Web link", icon: Globe, tone: "bg-mod-planner/15 text-mod-planner" },
+  { value: "note", label: "Catatan / List", icon: NotebookPen, tone: "bg-mod-knowledge/15 text-mod-knowledge" },
+];
 
 export function ResourcesTab() {
   const today = useToday();
@@ -119,6 +142,13 @@ export function ResourcesTab() {
   // Filter per tag bebas (kategori isi) + dialog Kelola Tag
   const [tagFilter, setTagFilter] = useState(ALL_TAGS);
   const [managingTags, setManagingTags] = useState(false);
+  // Filter jenis (kartu ringkasan) + tampilan grid/tabel (diingat per browser)
+  const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>("all");
+  const [view, setView] = useState<ResourceViewMode>(readViewPreference);
+  const changeView = (next: ResourceViewMode) => {
+    setView(next);
+    writeViewPreference(next);
+  };
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [editing, setEditing] = useState<Resource | "new" | null>(null);
@@ -165,19 +195,90 @@ export function ResourcesTab() {
     })
     .filter((r) => matchesDateFilter(r.date, dateFilter, today))
     .filter((r) => tagFilter === ALL_TAGS || hasTag(r, tagFilter))
+    .filter((r) => typeFilter === "all" || resourceTypeGroup(r) === typeFilter)
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const pageItems = paginate(filtered, page, pageSize);
   const tagOptions = collectFreeTags(resources);
   // Penanda konsep ↔ dokumen final untuk berkas di halaman ini
   const linkBadges = useOfficeLinkBadges(pageItems.map((res) => res.uploadId));
 
+  const typeCounts = countResourceTypes(resources);
+  const fileControlCount = resources.filter(isInFileControl).length;
+  const hasFilter = !!search.trim() || tagFilter !== ALL_TAGS || typeFilter !== "all" || dateFilter.mode !== "all";
+  const resetFilters = () => {
+    setSearch("");
+    setTagFilter(ALL_TAGS);
+    setTypeFilter("all");
+    setDateFilter(DEFAULT_DATE_FILTER);
+    setPage(1);
+  };
+  const viewProps = {
+    items: pageItems,
+    highlightId,
+    linkBadges,
+    canEdit,
+    // Item terkunci PIN: minta PIN dulu (data dimuat ulang utuh), lalu klik lagi untuk membuka
+    onOpen: (res: Resource) => (isSealed(res) ? void ensureUnlocked(res) : openResource(res)),
+    onAi: (res: Resource) => (isSealed(res) ? void ensureUnlocked(res) : setAiTarget(res)),
+    onEdit: (res: Resource) => (isSealed(res) ? void ensureUnlocked(res) : setEditing(res)),
+    onSaveLock: (next: Resource) => setResources((prev) => prev.map((r) => (r.id === next.id ? next : r))),
+    onArchive: (res: Resource) => withUnlocked(res, () => setArchiving(res)),
+    onDelete: (res: Resource) => withUnlocked(res, () => requestDelete(res)),
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <ParaInfo icon={BookOpen} {...PARA_INFO.resources} />
-      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-        <h3 className="text-base font-bold">Resources & Assets</h3>
-        <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          <SearchInput value={search} onChange={setSearch} />
+
+      {/* Ringkasan per jenis sekaligus filter cepat */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {TYPE_CHIPS.map((chip) => {
+          const Icon = chip.icon;
+          const active = typeFilter === chip.value;
+          return (
+            <button
+              key={chip.value}
+              type="button"
+              onClick={() => {
+                setTypeFilter(chip.value);
+                setPage(1);
+              }}
+              className={cn(
+                "flex items-center gap-3 rounded-2xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm",
+                active && "border-module ring-1 ring-module",
+              )}
+            >
+              <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", chip.tone)}>
+                <Icon className="size-4.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xl leading-none font-bold tabular-nums">{typeCounts[chip.value]}</span>
+                <span className="block truncate text-xs text-muted-foreground">{chip.label}</span>
+              </span>
+            </button>
+          );
+        })}
+        <div className="flex items-center gap-3 rounded-2xl border border-dashed bg-card p-3 max-lg:hidden">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-mod-files/15 text-mod-files">
+            <Archive className="size-4.5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xl leading-none font-bold tabular-nums">{fileControlCount}</span>
+            <span className="block truncate text-xs text-muted-foreground">Di File Control</span>
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
+          <SearchInput
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
+            placeholder="Cari nama atau tag..."
+          />
           <DateRangeFilter
             value={dateFilter}
             onChange={(v) => {
@@ -207,143 +308,69 @@ export function ResourcesTab() {
               </SelectContent>
             </Select>
           )}
+        </div>
+        <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={view}
+            onValueChange={(v) => v && changeView(v as ResourceViewMode)}
+            aria-label="Tampilan"
+          >
+            <ToggleGroupItem value="grid" title="Tampilan grid">
+              <LayoutGrid />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" title="Tampilan tabel">
+              <List />
+            </ToggleGroupItem>
+          </ToggleGroup>
           {canEdit && (
             <Button variant="outline" onClick={() => setManagingTags(true)}>
-              <Tags /> Kelola Tag
+              <Tags /> <span className="max-sm:hidden">Kelola Tag</span>
             </Button>
           )}
           {canEdit && (
-            <Button onClick={() => setEditing("new")}>
+            <Button className="ml-auto lg:ml-0" onClick={() => setEditing("new")}>
               <Plus /> Tambah
             </Button>
           )}
         </div>
       </div>
 
-      <Card className="gap-0 overflow-hidden py-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>No Resource</TableHead>
-              <TableHead>Nama Resource</TableHead>
-              <TableHead>Deskripsi</TableHead>
-              <TableHead>Tanggal</TableHead>
-              <TableHead>Tipe</TableHead>
-              <TableHead>Tags</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground italic">
-                  Tidak ada resource ditemukan.
-                </TableCell>
-              </TableRow>
+      {filtered.length === 0 ? (
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <BookOpen />
+            </EmptyMedia>
+            <EmptyTitle>{hasFilter ? "Tidak ada resource yang cocok" : "Belum ada resource"}</EmptyTitle>
+            <EmptyDescription>
+              {hasFilter
+                ? "Ubah kata kunci atau filter untuk melihat resource lain."
+                : "Simpan dokumen, tautan, dan catatan rujukan di sini agar mudah ditemukan kembali."}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            {hasFilter ? (
+              <Button variant="outline" size="sm" onClick={resetFilters}>
+                Hapus filter
+              </Button>
+            ) : (
+              canEdit && (
+                <Button size="sm" onClick={() => setEditing("new")}>
+                  <Plus /> Tambah Resource
+                </Button>
+              )
             )}
-            {pageItems.map((res) => (
-              <TableRow key={res.id} className={cn(highlightId === res.id && "bg-module-soft")}>
-                <TableCell className="font-mono text-xs">{res.number || "-"}</TableCell>
-                <TableCell>
-                  <button
-                    type="button"
-                    onClick={() => openResource(res)}
-                    className="flex max-w-72 items-center gap-2 text-left font-semibold text-module hover:underline"
-                  >
-                    {res.type === "file" ? (
-                      <FileText className="size-3.5 shrink-0" />
-                    ) : res.type === "link" ? (
-                      <Globe className="size-3.5 shrink-0" />
-                    ) : (
-                      <Database className="size-3.5 shrink-0" />
-                    )}
-                    <span className="truncate">{res.title || "Untitled"}</span>
-                  </button>
-                  <SharedBadge item={res} recordType="para_resource" className="mt-1" />
-                </TableCell>
-                <TableCell className="max-w-56 truncate text-muted-foreground">{res.content || "-"}</TableCell>
-                <TableCell className="text-xs">{res.date ? formatNumericDate(res.date) : "-"}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="secondary" className="uppercase">
-                      {res.type}
-                    </Badge>
-                    {res.uploadId && <DocumentLinkBadge link={linkBadges?.[res.uploadId]} />}
-                    {isInFileControl(res) && (
-                      <Badge className="bg-mod-files/15 text-mod-files" title="Dikelola di File Control">
-                        <Archive /> File Control
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex max-w-56 flex-wrap gap-1">
-                    {resourceTags(res).map((tag) =>
-                      isContextTag(tag) ? (
-                        <Badge
-                          key={tag}
-                          variant="outline"
-                          className="text-muted-foreground"
-                          title="Tag otomatis (asal)"
-                        >
-                          {tag}
-                        </Badge>
-                      ) : (
-                        <Badge key={tag} className="bg-module-soft text-module" title="Tag">
-                          {tag}
-                        </Badge>
-                      ),
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-0.5">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      title="AI Knowledge Summary"
-                      className={cn(res.aiSummary && "bg-module-soft text-module")}
-                      onClick={() => setAiTarget(res)}
-                    >
-                      <Bot />
-                    </Button>
-                    <CommentsButton recordType="para_resource" item={res} title={res.title} />
-                    {canEdit && itemAccess(res).canEdit && (
-                      <Button variant="ghost" size="icon-sm" title="Ubah" onClick={() => setEditing(res)}>
-                        <PencilLine />
-                      </Button>
-                    )}
-                    {/* Bagikan, arsipkan, hapus hanya oleh pemilik */}
-                    {canEdit && !res.share && (
-                      <>
-                        <ShareButton item={res} recordType="para_resource" title={res.title} iconOnly />
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title="Arsipkan"
-                          className="hover:text-warning"
-                          onClick={() => setArchiving(res)}
-                        >
-                          <Archive />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title="Hapus"
-                          className="hover:text-destructive"
-                          onClick={() => requestDelete(res)}
-                        >
-                          <Trash2 />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+          </EmptyContent>
+        </Empty>
+      ) : view === "grid" ? (
+        <ResourceGrid {...viewProps} />
+      ) : (
+        <ResourceTable {...viewProps} />
+      )}
 
       <PaginationControl
         totalItems={filtered.length}

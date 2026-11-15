@@ -55,6 +55,7 @@ export const changedSincePush = (entry: OutgoingEntry) =>
  */
 export function registerRequestMode(entry: OutgoingEntry): { mode: RegisterMode } | { error: string } {
   if (entry.status === "done") return { error: "Naskah final sudah tertaut — konsep tidak bisa diubah lagi." };
+  if (entry.draftSentAt) return { error: "Konsep sudah dikirim ke verifikator — tidak bisa diubah lewat Edit." };
   const blockers = registerBlockers(entry);
   if (blockers.length) return { error: `Isian Register belum lengkap: ${blockers.join(", ")}.` };
   if (!isRegistered(entry)) return { mode: "register" };

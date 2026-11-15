@@ -5,8 +5,9 @@ import type {
   ConverterMode,
   ConverterPrefs,
   ConverterReconvertScope,
-  ConverterResult,
   ConverterStats,
+  ConvertedDocument,
+  ConvertedDocumentSummary,
   ConverterStatus,
   AgentPolicy,
   AgentPolicyInput,
@@ -106,6 +107,7 @@ import type {
   AppSettingsInput,
   AssetMetadata,
   AuthSession,
+  PinStatus,
   PublicUser,
   RecordComment,
   RecordType,
@@ -151,6 +153,16 @@ export const authApi = {
       method: "POST",
       body: { currentPassword, newPassword },
     }),
+};
+
+/** PIN keamanan: membuka item terkunci selama sesi login (sampai logout / Kunci sekarang). */
+export const securityApi = {
+  status: () => request<PinStatus>("/security/pin"),
+  setPin: (password: string, pin: string) =>
+    request<PinStatus>("/security/pin", { method: "PUT", body: { password, pin } }),
+  unlock: (pin: string) => request<PinStatus>("/security/pin/unlock", { method: "POST", body: { pin } }),
+  lock: () => request<PinStatus>("/security/pin/lock", { method: "POST" }),
+  removePin: (password: string) => request<PinStatus>("/security/pin", { method: "DELETE", body: { password } }),
 };
 
 export const settingsApi = {
@@ -264,19 +276,21 @@ export const converterApi = {
   updatePreferences: (input: Partial<ConverterPrefs>) =>
     request<ConverterPrefs>("/converter/preferences", { method: "PUT", body: input }),
   stats: () => request<ConverterStats>("/converter/stats"),
-  /** Coba konversi satu berkas (hasil tidak disimpan). */
-  convert: (
-    file: File,
-    options: { mode?: ConverterMode; pdfMode?: ConverterMode; enhance?: boolean; compareTokens?: boolean } = {},
-  ) => {
+  documents: () => request<ConvertedDocumentSummary[]>("/converter/documents"),
+  document: (id: string) => request<ConvertedDocument>(`/converter/documents/${id}`),
+  /** Unggah ke pustaka: dikonversi di latar belakang, hasil disimpan (berkas asal tidak). */
+  createDocument: (file: File, options: { mode?: ConverterMode; enhance?: boolean; compareTokens?: boolean } = {}) => {
     const form = new FormData();
     form.append("file", file);
     if (options.mode) form.append("mode", options.mode);
-    if (options.pdfMode) form.append("pdfMode", options.pdfMode);
     if (options.enhance) form.append("enhance", "true");
     if (options.compareTokens) form.append("compareTokens", "true");
-    return request<ConverterResult>("/converter/convert", { method: "POST", body: form });
+    return request<ConvertedDocumentSummary>("/converter/documents", { method: "POST", body: form });
   },
+  renameDocument: (id: string, title: string) =>
+    request<{ id: string; title: string }>(`/converter/documents/${id}`, { method: "PATCH", body: { title } }),
+  /** Hapus permanen (bukan ke Sampah). */
+  removeDocument: (id: string) => request<{ deleted: boolean }>(`/converter/documents/${id}`, { method: "DELETE" }),
   reconvert: (scope: ConverterReconvertScope) =>
     request<{ queued: number }>("/converter/reconvert", { method: "POST", body: { scope } }),
 };
@@ -588,8 +602,10 @@ export const notebooksApi = {
   create: (input: { title: string; description?: string; icon?: string }) =>
     request<NotebookDetail>("/notebooks", { method: "POST", body: input }),
   get: (id: string) => request<NotebookDetail>(`/notebooks/${id}`),
-  update: (id: string, input: { title?: string; description?: string | null; icon?: string | null }) =>
-    request<NotebookDetail>(`/notebooks/${id}`, { method: "PATCH", body: input }),
+  update: (
+    id: string,
+    input: { title?: string; description?: string | null; icon?: string | null; locked?: boolean },
+  ) => request<NotebookDetail>(`/notebooks/${id}`, { method: "PATCH", body: input }),
   remove: (id: string) =>
     withTrashToast(request<{ success: boolean; batchId?: string }>(`/notebooks/${id}`, { method: "DELETE" })),
   addSource: (id: string, input: AddNotebookSourceInput) =>
@@ -887,6 +903,15 @@ export const robotApi = {
    * Perbarui konsep entri yang sudah terdaftar lewat Edit di Log Naskah Keluar (hanya isian yang berubah; Kirim Konsep
    * tetap oleh user). `dryRun` = rencana perubahan tanpa klik.
    */
+  /**
+   * Kirim Konsep entri terdaftar ke verifikator. `dryRun` (bawaan) = robot hanya memeriksa konsep & tombol tanpa
+   * mengklik; mengirim wajib PIN keamanan setiap kali.
+   */
+  sendOutgoing: (id: string, options: { dryRun: boolean; pin?: string }) =>
+    request<{ status: "ready" | "sent"; message: string; runId: string }>(
+      `/robot/srikandi/register/${encodeURIComponent(id)}/send`,
+      { method: "POST", body: options },
+    ),
   updateOutgoing: (id: string, dryRun = false) =>
     request<{
       status: "updated" | "unchanged" | "preview";
@@ -917,6 +942,15 @@ export const robotApi = {
   renaksiScope: () => request<{ excluded: string[] }>("/robot/ekinerja/renaksi/scope"),
   setRenaksiScope: (excluded: string[]) =>
     request<{ excluded: string[] }>("/robot/ekinerja/renaksi/scope", { method: "PUT", body: { excluded } }),
+  /**
+   * Kirim Penilaian Ke Atasan bulan itu. `dryRun` (bawaan) = robot hanya memeriksa bulan & tombol tanpa mengklik;
+   * mengirim wajib PIN keamanan setiap kali.
+   */
+  submitRenaksi: (period: string, options: { dryRun: boolean; pin?: string }) =>
+    request<{ status: "ready" | "sent"; message: string; runId: string }>("/robot/ekinerja/renaksi/submit", {
+      method: "POST",
+      body: { period, ...options },
+    }),
   fillRenaksi: (period: string, dryRun = false) =>
     request<{
       period: string;

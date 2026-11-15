@@ -13,6 +13,7 @@ import {
   importCandidates,
   isChanged,
   rowKey,
+  submitBlockers,
 } from "./ekinerja-renaksi";
 
 const target = {
@@ -159,5 +160,22 @@ describe("usulan yang sudah ada di e-Kinerja", () => {
       [{ period: "2026-10", targetId: "r1", description: "menyusun laporan bmn" }],
     );
     expect(ids).toEqual(["p1"]);
+  });
+});
+
+describe("Kirim Penilaian Ke Atasan", () => {
+  const filled = (over = {}) => {
+    const e = entry({ status: "filled", ...over });
+    return { ...e, pushedSignature: entrySignature(e) };
+  };
+  it("hanya bulan draf yang semua isiannya sudah sama dengan e-Kinerja", () => {
+    expect(submitBlockers([filled()], { status: "draft" })).toEqual([]);
+    expect(submitBlockers([filled()], { status: "submitted" })[0]).toMatch(/sudah dikirim/);
+    expect(submitBlockers([filled()], { status: "rated" })[0]).toMatch(/sudah dikirim/);
+    expect(submitBlockers([], { status: "draft" })[0]).toMatch(/Belum ada isian/);
+    expect(submitBlockers([filled()], null)[0]).toMatch(/belum tercatat sebagai draf/);
+    expect(submitBlockers([filled(), entry()], { status: "draft" })[0]).toMatch(/1 isian/);
+    expect(submitBlockers([{ ...filled(), description: "Diubah" }], { status: "draft" })[0]).toMatch(/1 isian/);
+    expect(submitBlockers([{ ...filled(), deleted: true }], { status: "draft" })[0]).toMatch(/1 isian/);
   });
 });

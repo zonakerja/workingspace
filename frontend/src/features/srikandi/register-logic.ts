@@ -280,4 +280,14 @@ export function outgoingSignature(entry: Partial<SrikandiOutgoing>) {
  * Entri yang ditandai terdaftar manual / didaftarkan sebelum fitur ini tidak punya pengenal → tidak ditandai.
  */
 export const changedSinceRegister = (entry: SrikandiOutgoing) =>
-  entry.status === "submitted" && !!entry.pushedSignature && entry.pushedSignature !== outgoingSignature(entry);
+  entry.status === "submitted" &&
+  !entry.draftSentAt &&
+  !!entry.pushedSignature &&
+  entry.pushedSignature !== outgoingSignature(entry);
+
+/**
+ * Kirim Konsep dari LifeOS (dengan PIN): konsep terdaftar, belum dikirim, belum punya naskah final, dan tidak ada perubahan
+ * yang belum diperbarui ke SRIKANDI (salinan aturan backend `sendBlockers`).
+ */
+export const canSendDraft = (entry: SrikandiOutgoing) =>
+  entry.status === "submitted" && !entry.letterId && !entry.draftSentAt && !changedSinceRegister(entry);

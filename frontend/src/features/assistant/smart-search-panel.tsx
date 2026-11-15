@@ -21,6 +21,8 @@ import { errorMessage } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import type { SmartModule, SmartSearchMode, SmartSearchResult } from "@/types/api";
 import { highlightParts, kindLabel, MODULE_INFO, moduleCounts, smartTarget } from "./smart-search-utils";
+import { Lock } from "lucide-react";
+import { requestUnlock } from "@/features/security/pin-prompt";
 
 const MODULE_ICON: Record<SmartModule, LucideIcon> = {
   planner: CalendarDays,
@@ -64,9 +66,11 @@ export function SmartSearchPanel({
   const shown = filter === "all" ? results : results.filter((r) => r.module === filter);
   const waitingEnter = mode === "meaning" && query.trim().length >= 2 && query.trim() !== submitted.trim();
 
-  const open = (result: SmartSearchResult) => {
+  const open = async (result: SmartSearchResult) => {
     const target = smartTarget(result);
     if (target.kind === "none") return;
+    // Item terkunci: minta PIN dulu, lalu buka (data dimuat ulang utuh)
+    if (result.locked && !(await requestUnlock(`"${result.title}" terkunci.`))) return;
     onClose();
     if (target.kind === "knowledge") openKnowledgeNote(target.noteId);
     else if (target.kind === "file")
@@ -134,7 +138,7 @@ export function SmartSearchPanel({
         <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
           <ScanSearch className="size-10 opacity-40" />
           <p>
-            Cari item <b>dan isi berkas</b> di Planner, Notes, Productivity, File Control, dan Knowledge.
+            Cari item <b>dan isi berkas</b> di Planner, Notes, Working Space, File Control, dan Knowledge.
             <br />
             {mode === "meaning"
               ? "Mode Makna: tulis maksud Anda, lalu tekan Enter."
@@ -163,7 +167,7 @@ export function SmartSearchPanel({
               key={`${result.sourceType}:${result.sourceId}`}
               result={result}
               query={active}
-              onOpen={() => open(result)}
+              onOpen={() => void open(result)}
             />
           ))}
         </ul>
@@ -244,6 +248,11 @@ function ResultRow({ result, query, onOpen }: { result: SmartSearchResult; query
               {kindLabel(result)}
             </span>
           </span>
+          {result.locked && (
+            <span className="mt-0.5 flex items-center gap-1 text-xs text-warning">
+              <Lock className="size-3" /> Terkunci — masukkan PIN untuk melihat isinya
+            </span>
+          )}
           {result.snippet && (
             <span className="mt-0.5 line-clamp-2 text-xs break-words text-muted-foreground">
               <Highlighted text={result.snippet} query={query} />

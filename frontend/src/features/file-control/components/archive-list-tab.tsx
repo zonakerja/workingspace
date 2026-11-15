@@ -293,7 +293,7 @@ export function ArchiveListTab({ tab }: { tab: ArchiveListTabId }) {
             <EmptyTitle>Tidak ada dokumen di kategori ini.</EmptyTitle>
             <EmptyDescription>
               {tab === "pending"
-                ? "Unggah resource bertipe file di Productivity → Resources untuk mulai memberkaskan."
+                ? "Unggah resource bertipe file di Working Space → Resources untuk mulai memberkaskan."
                 : "Coba ubah filter atau kata kunci pencarian."}
             </EmptyDescription>
           </EmptyHeader>

@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ModuleRef } from "@nestjs/core";
 import { AuthUser } from "../common/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
+import { LockService } from "../security/lock.service";
 import { domainDelegate } from "../records/record-delegate";
 import { RECORD_TABLES, type RecordType } from "../records/record-schema";
 import { CommentTargetQueryDto, CreateCommentDto, UpdateCommentDto } from "./dto/sharing.dto";
@@ -18,6 +20,8 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ShareAccessService,
+    // LockService (modul Security bergantung pada Sharing) diambil saat dipakai agar tidak melingkar
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   async list(user: AuthUser, query: CommentTargetQueryDto) {
@@ -79,6 +83,7 @@ export class CommentsService {
         where: { userId_clientId: { userId: ownerId, clientId: recordId } },
       });
       if (!row || row.deletedAt) throw new NotFoundException("Item tidak ditemukan.");
+      await this.assertOpen(user, ownerId, type, recordId);
       return;
     }
     const entry = (await this.access.forUser(user.id)).get(ownerId)?.records.get(accessKey(type, recordId));
@@ -86,5 +91,11 @@ export class CommentsService {
     if (!atLeast(entry.permission, need)) {
       throw new ForbiddenException("Izin Anda atas item ini tidak mencakup menulis komentar.");
     }
+    await this.assertOpen(user, ownerId, type, recordId);
+  }
+
+  /** Komentar item terkunci ikut terkunci (bisa memuat isi item). */
+  private assertOpen(user: AuthUser, ownerId: string, type: string, recordId: string) {
+    return this.moduleRef.get(LockService, { strict: false }).assertRecordOpen(user, ownerId, type, recordId);
   }
 }

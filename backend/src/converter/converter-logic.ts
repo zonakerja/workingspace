@@ -150,3 +150,35 @@ export function needsReconvert(
 
 /** Perkiraan kasar token (± 4 karakter per token), sama dengan service converter. */
 export const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+
+/** Pustaka Markdown Converter: batas antrean & jumlah dokumen tersimpan per user. */
+export const LIBRARY_MAX_PENDING = 10;
+export const LIBRARY_MAX_DOCUMENTS = 500;
+
+/** Judul dokumen pustaka dari nama berkas: tanpa ekstensi, maks. 200 karakter. */
+export function libraryTitle(fileName: string) {
+  const base = fileName
+    .replace(/\.[^.]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (base || "Hasil konversi").slice(0, 200);
+}
+
+/** Ringkasan hasil konversi untuk daftar pustaka (tanpa isi Markdown). */
+export function librarySummary(result: unknown) {
+  const r = (result ?? {}) as {
+    pages?: unknown;
+    tokens?: unknown;
+    durationMs?: unknown;
+    enhanced?: { rejected?: unknown; parts?: unknown } | null;
+    enhanceError?: unknown;
+  };
+  const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
+  return {
+    pages: num(r.pages),
+    tokens: num(r.tokens),
+    durationMs: num(r.durationMs),
+    enhanced: !!r.enhanced,
+    enhanceError: typeof r.enhanceError === "string" ? r.enhanceError : null,
+  };
+}

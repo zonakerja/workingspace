@@ -9,6 +9,8 @@ export interface PublicUser {
   address: string | null;
   /** Provider AI yang sedang dipakai (null = AI belum diatur). */
   aiProvider: AiProviderId | null;
+  /** PIN keamanan sudah diatur (membuka item terkunci) */
+  hasPin?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -315,6 +317,8 @@ export interface SmartSearchResult {
   fileName?: string | null;
   notebookId?: string | null;
   path?: string | null;
+  /** Item terkunci PIN: judul saja, cuplikan disembunyikan sampai PIN dibuka */
+  locked?: boolean;
 }
 
 export interface SmartSearchResponse {
@@ -546,6 +550,20 @@ export interface ApiRecord<T = Record<string, unknown>> {
   share?: ShareMeta;
   /** Daftar ringan: key payload yang tidak utuh (isi lengkap lewat `recordsApi.get`) */
   partial?: string[];
+  /** Item terkunci PIN di sesi yang belum memasukkan PIN: hanya kerangka (judul, waktu, status, relasi) */
+  locked?: boolean;
+}
+
+/** Status PIN keamanan akun & sesi ini. */
+export interface PinStatus {
+  hasPin: boolean;
+  /** Sesi ini sudah memasukkan PIN (sampai logout / Kunci sekarang) */
+  unlocked: boolean;
+  /** Diblokir sementara karena PIN salah berulang */
+  blockedUntil: string | null;
+  /** Jumlah item yang dikunci langsung */
+  lockedItems: number;
+  sessionCapable: boolean;
 }
 
 // ============================================================================
@@ -664,6 +682,10 @@ export interface NotebookListItem {
   description: string | null;
   icon: string | null;
   hasSummary: boolean;
+  /** Dikunci PIN keamanan */
+  locked?: boolean;
+  /** Terkunci dan sesi belum memasukkan PIN (deskripsi disembunyikan) */
+  sealed?: boolean;
   createdAt: string;
   updatedAt: string;
   _count: { sources: number; notes: number; messages: number };
@@ -700,6 +722,8 @@ export interface NotebookSummary {
 export interface NotebookDetail {
   id: string;
   title: string;
+  /** Dikunci PIN keamanan */
+  locked?: boolean;
   description: string | null;
   icon: string | null;
   summary: NotebookSummary | null;
@@ -1555,6 +1579,42 @@ export interface ConverterResult {
   enhanced: ConverterEnhanced | null;
   enhanceError: string | null;
   tokenComparison: ConverterTokenComparison | null;
+}
+
+/** Pustaka Markdown Converter: hasil konversi yang disimpan (berkas asal tidak disimpan). */
+export type ConvertedDocumentStatus = "queued" | "processing" | "done" | "failed";
+
+export interface ConvertedDocumentSummary {
+  id: string;
+  title: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  options: { mode?: ConverterMode; enhance?: boolean; compareTokens?: boolean };
+  status: ConvertedDocumentStatus;
+  error: string | null;
+  engine: ConverterEngine | null;
+  createdAt: string;
+  updatedAt: string;
+  finishedAt: string | null;
+  summary: {
+    pages: number | null;
+    tokens: number | null;
+    durationMs: number | null;
+    enhanced: boolean;
+    enhanceError: string | null;
+  };
+}
+
+export interface ConvertedDocument extends ConvertedDocumentSummary {
+  markdown: string | null;
+  enhancedMarkdown: string | null;
+  /** Hasil konversi tanpa isi Markdown (enhanced tanpa `markdown`). */
+  result:
+    | (Omit<ConverterResult, "markdown" | "engine" | "enhanced"> & {
+        enhanced: Omit<ConverterEnhanced, "markdown"> | null;
+      })
+    | null;
 }
 
 export interface ConverterStats {

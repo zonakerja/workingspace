@@ -355,6 +355,24 @@ try {
   r = await j("POST", "/robot/srikandi/register/smoke-reg-2/update", { dryRun: true }, at);
   ok("srikandi update draft entry rejected", r.s === 400 && /terdaftar|sesi|login/i.test(r.d?.message ?? ""), r);
   await j("DELETE", "/records/srikandi_outgoing/smoke-reg-2", null, at);
+  // Kirim Konsep: tanpa PIN / sudah dikirim / entri terhapus ditolak SEBELUM robot dipanggil (tidak pernah dryRun di smoke)
+  r = await j("POST", "/robot/srikandi/register/smoke-reg-1/send", { dryRun: false }, at);
+  ok("srikandi send deleted entry rejected", r.s === 404 || r.s === 400, r);
+  const sendEntry = { ...register, id: "smoke-reg-3", subject: "Smoke kirim konsep" };
+  await j("PUT", "/records/srikandi_outgoing/smoke-reg-3", { payload: sendEntry }, at);
+  r = await j("POST", "/robot/srikandi/register/smoke-reg-3/send", { dryRun: false }, at);
+  ok("srikandi send without PIN rejected", r.s === 400 && /PIN|sesi|login/i.test(r.d?.message ?? ""), r);
+  await j(
+    "PUT",
+    "/records/srikandi_outgoing/smoke-reg-3",
+    { payload: { ...sendEntry, draftSentAt: "2026-11-15T01:00:00.000Z" } },
+    at,
+  );
+  r = await j("POST", "/robot/srikandi/register/smoke-reg-3/send", { dryRun: false, pin: "123456" }, at);
+  ok("srikandi send already sent rejected", r.s === 400 && /sudah dikirim|sesi|login/i.test(r.d?.message ?? ""), r);
+  r = await j("POST", "/robot/srikandi/register/smoke-reg-3/update", { dryRun: false }, at);
+  ok("srikandi update after send rejected", r.s === 400 && /dikirim|sesi|login|lengkap/i.test(r.d?.message ?? ""), r);
+  await j("DELETE", "/records/srikandi_outgoing/smoke-reg-3", null, at);
   r = await j(
     "PUT",
     "/records/todo/numeric-5",
@@ -559,6 +577,8 @@ try {
   ok("other sessions revoked after password change", r.s === 401, r);
   r = await j("POST", "/auth/refresh", null, null, sessionA.rt);
   ok("current session kept after password change", r.s === 200, r);
+  // Sesi ini dipakai uji PIN keamanan (status terbuka per sesi login)
+  let pinRt = r.rt;
 
   // ------------------------------------------------------------ isolasi data & berbagi
   at = (await j("POST", "/auth/login", { email, password: "rahasia2" })).d.accessToken;
@@ -2252,6 +2272,16 @@ try {
     ok("ekinerja fill reject", r.s === 200 && r.d.status === "rejected", r);
     r = await j("POST", `/agent/actions/${fillId}/approve`, null, at);
     ok("ekinerja fill decided cannot be approved", r.s === 409, r);
+    // Kirim Penilaian Ke Atasan: tidak ada jalur agen; tanpa sesi / periode salah ditolak sebelum robot (tidak pernah dikirim)
+    ok(
+      "ekinerja submit never exposed to agent",
+      !ekTools.some((n) => /submit|kirim|penilaian|ajukan/i.test(n)),
+      ekTools,
+    );
+    r = await j("POST", "/robot/ekinerja/renaksi/submit", { period: "2026-10", dryRun: false, pin: "123456" }, at);
+    ok("ekinerja submit without session rejected", r.s === 400 && /sesi|login|alamat/i.test(r.d?.message ?? ""), r);
+    r = await j("POST", "/robot/ekinerja/renaksi/submit", { period: "2026-13", dryRun: true }, at);
+    ok("ekinerja submit invalid period rejected", r.s === 400, r);
     // Usulan renaksi (Hermes): kegiatan Productivity → RHK, usulan tidak pernah ikut diisikan
     const sfx = Date.now();
     await j(
@@ -3532,49 +3562,66 @@ try {
     );
     r = await j("POST", "/converter/reconvert", { scope: "semua" }, at);
     ok("converter reconvert invalid scope 400", r.s === 400, r);
-    r = await j("POST", "/converter/convert", new FormData(), at);
-    ok("converter convert without file 400", r.s === 400 || r.s === 422, r);
+    r = await j("POST", "/converter/documents", new FormData(), at);
+    ok("converter library without file 400", r.s === 400 || r.s === 422, r);
     r = await j("GET", "/converter/status", null, at);
     ok("converter status", r.s === 200 && typeof r.d.reachable === "boolean", r);
     if (!r.d?.reachable) {
       console.log("SKIP converter (service tidak aktif: docker compose --profile converter up -d --wait converter)");
     } else {
+      // Unggah ke pustaka → tunggu selesai → dokumen lengkap (lalu dihapus permanen agar tidak tersisa)
+      const convertDoc = async (form) => {
+        const created = await j("POST", "/converter/documents", form, at);
+        if (created.s !== 202) return created;
+        let doc = created;
+        for (let i = 0; i < 40; i++) {
+          await new Promise((res) => setTimeout(res, 1000));
+          doc = await j("GET", `/converter/documents/${created.d.id}`, null, at);
+          if (doc.d?.status === "done" || doc.d?.status === "failed") break;
+        }
+        await j("DELETE", `/converter/documents/${created.d.id}`, null, at);
+        return doc;
+      };
       const docx = new FormData();
       docx.append("file", new Blob([await makeDocx("Nota dinas uji konverter LifeOS")]), "nota-uji.docx");
-      r = await j("POST", "/converter/convert", docx, at);
+      r = await convertDoc(docx);
       ok(
         "converter convert docx via markitdown",
-        r.s === 200 &&
+        r.d?.status === "done" &&
           r.d.engine === "markitdown" &&
           r.d.markdown.includes("Nota dinas uji konverter") &&
-          r.d.tokens > 0,
+          r.d.summary.tokens > 0,
         r,
       );
       const pdf = new FormData();
       pdf.append("file", new Blob([makePdf("Laporan uji konverter")], { type: "application/pdf" }), "laporan.pdf");
       pdf.append("mode", "markitdown");
-      r = await j("POST", "/converter/convert", pdf, at);
-      ok("converter convert pdf", r.s === 200 && r.d.markdown.includes("Laporan uji konverter") && r.d.pages === 1, r);
-      // User smoke tanpa key AI: Rapikan gagal dengan pesan (Markdown converter tetap dikembalikan), token tidak bisa dihitung
+      r = await convertDoc(pdf);
+      ok(
+        "converter convert pdf",
+        r.d?.status === "done" && r.d.markdown.includes("Laporan uji konverter") && r.d.result?.pages === 1,
+        r,
+      );
+      // User smoke tanpa key AI: Rapikan gagal dengan pesan (Markdown converter tetap disimpan), token tidak bisa dihitung
       const pdf2 = new FormData();
       pdf2.append("file", new Blob([makePdf("Laporan uji rapikan")], { type: "application/pdf" }), "rapikan.pdf");
       pdf2.append("mode", "markitdown");
       pdf2.append("enhance", "true");
       pdf2.append("compareTokens", "true");
-      r = await j("POST", "/converter/convert", pdf2, at);
+      r = await convertDoc(pdf2);
       ok(
         "converter enhance without AI key keeps converter markdown",
-        r.s === 200 &&
+        r.d?.status === "done" &&
           r.d.markdown.includes("Laporan uji rapikan") &&
-          r.d.enhanced === null &&
-          typeof r.d.enhanceError === "string" &&
-          r.d.tokenComparison?.available === false,
+          r.d.enhancedMarkdown === null &&
+          typeof r.d.result?.enhanceError === "string" &&
+          r.d.result?.tokenComparison?.available === false,
         r,
       );
       const bad = new FormData();
       bad.append("file", new Blob(["MZ"]), "program.exe");
-      r = await j("POST", "/converter/convert", bad, at);
-      ok("converter rejects unsupported format 422", r.s === 422, r);
+      r = await j("POST", "/converter/documents", bad, at);
+      ok("converter rejects unsupported format 400", r.s === 400, r);
       // Upload → worker ekstraksi memakai converter (metadata.method = markitdown, format markdown)
       const up = new FormData();
       up.append("file", new Blob([await makeDocx("Isi berkas konverter ekstraksi")]), "ekstraksi.docx");
@@ -3597,6 +3644,37 @@ try {
         meta,
       );
       r = await j("DELETE", `/uploads/${convertedId}?discard=1`, null, at);
+      // Pustaka: hasil konversi disimpan & bisa dibuka lagi, hapus = permanen
+      const lib = new FormData();
+      lib.append("file", new Blob([await makeDocx("Isi dokumen pustaka konverter")]), "pustaka-uji.docx");
+      r = await j("POST", "/converter/documents", lib, at);
+      ok("converter library queued", r.s === 202 && r.d.status === "queued" && r.d.title === "pustaka-uji", r);
+      const docId = r.d?.id;
+      let doc;
+      for (let i = 0; i < 30; i++) {
+        await new Promise((res) => setTimeout(res, 1000));
+        doc = await j("GET", `/converter/documents/${docId}`, null, at);
+        if (doc.d?.status === "done" || doc.d?.status === "failed") break;
+      }
+      ok(
+        "converter library stores markdown",
+        doc.d?.status === "done" && doc.d.markdown.includes("Isi dokumen pustaka") && doc.d.engine === "markitdown",
+        doc,
+      );
+      r = await j("GET", "/converter/documents", null, at);
+      ok(
+        "converter library list without markdown",
+        r.s === 200 && r.d.some((d) => d.id === docId && d.markdown === undefined && d.summary.tokens > 0),
+        r,
+      );
+      r = await j("PATCH", `/converter/documents/${docId}`, { title: "  Judul   baru " }, at);
+      ok("converter library rename", r.s === 200 && r.d.title === "Judul baru", r);
+      r = await j("GET", `/converter/documents/${docId}`, null, pt);
+      ok("converter library isolated per user (404)", r.s === 404, r);
+      r = await j("DELETE", `/converter/documents/${docId}`, null, at);
+      ok("converter library delete", r.s === 200, r);
+      r = await j("GET", `/converter/documents/${docId}`, null, at);
+      ok("converter library deleted permanently", r.s === 404, r);
     }
   }
 
@@ -3760,6 +3838,232 @@ try {
   ok("automation alerts cleared when no job active", r.s === 200 && !r.d.some((a) => a.system === "srikandi"), r);
   r = await j("GET", "/automation/alerts", null, pt);
   ok("automation alerts per user", r.s === 200 && Array.isArray(r.d) && r.d.length === 0, r);
+
+  // ------------------------------------------------------------ PIN keamanan & item terkunci
+  r = await j("POST", "/auth/refresh", null, null, pinRt);
+  let pinAt = r.d.accessToken;
+  pinRt = r.rt;
+  r = await j("GET", "/security/pin", null, pinAt);
+  ok("pin status: belum diatur", r.s === 200 && r.d.hasPin === false && r.d.sessionCapable === true, r);
+  r = await j("PUT", "/records/para_area/area-lock", { payload: { title: "Area Privat", locked: true } }, pinAt);
+  ok("lock item without PIN → 400", r.s === 400, r);
+  r = await j("PUT", "/security/pin", { password: "rahasia2", pin: "123456" }, pinAt);
+  ok("weak PIN rejected", r.s === 400, r);
+  r = await j("PUT", "/security/pin", { password: "salah", pin: "482915" }, pinAt);
+  ok("set PIN wrong password → 400", r.s === 400, r);
+  r = await j("PUT", "/security/pin", { password: "rahasia2", pin: "482915" }, pinAt);
+  ok("set PIN → session unlocked", r.s === 200 && r.d.hasPin && r.d.unlocked, r);
+  r = await j("GET", "/auth/me", null, pinAt);
+  ok("profile exposes hasPin, no pinHash", r.d.hasPin === true && !("pinHash" in r.d), r.d);
+
+  const lockForm = new FormData();
+  lockForm.append("file", new Blob(["Rahasia area privat"], { type: "text/plain" }), "rahasia.txt");
+  lockForm.append("context", "resource");
+  const lockedFile = (await j("POST", "/uploads", lockForm, pinAt)).d;
+  await j(
+    "PUT",
+    "/records/para_area/area-lock",
+    { payload: { title: "Area Privat", description: "isi rahasia area", locked: true } },
+    pinAt,
+  );
+  await j(
+    "PUT",
+    "/records/para_activity/act-lock",
+    { payload: { title: "Kegiatan Privat", areaId: "area-lock" } },
+    pinAt,
+  );
+  await j(
+    "PUT",
+    "/records/para_task/task-lock",
+    {
+      payload: {
+        title: "Tugas Privat",
+        projectId: "act-lock",
+        description: "rincian rahasia",
+        dueDate: "2026-11-20",
+        resources: [{ id: "att1", type: "file", uploadId: lockedFile.id }],
+      },
+    },
+    pinAt,
+  );
+  r = await j("GET", "/security/pin", null, pinAt);
+  ok("pin status counts locked items", r.d.lockedItems === 1, r.d);
+
+  // Sesi lain (login berbeda) tetap terkunci
+  r = await j("GET", "/records/para_task", null, at);
+  let lockedTask = r.d.find((x) => x.clientId === "task-lock");
+  ok(
+    "other session: descendant redacted (title & date kept)",
+    lockedTask?.locked === true &&
+      lockedTask.payload.title === "Tugas Privat" &&
+      lockedTask.payload.dueDate === "2026-11-20" &&
+      lockedTask.payload.description === "" &&
+      Array.isArray(lockedTask.payload.resources) &&
+      lockedTask.payload.resources.length === 0 &&
+      lockedTask.partial?.includes("description"),
+    lockedTask,
+  );
+  r = await j("PUT", "/records/para_task/task-lock", { payload: { title: "ubah" } }, at);
+  ok("write locked item without PIN → 403 PIN_REQUIRED", r.s === 403 && r.d.code === "PIN_REQUIRED", r);
+  r = await j("PUT", "/records/para_task/task-new", { payload: { title: "baru", projectId: "act-lock" } }, at);
+  ok("create child under locked item → 403", r.s === 403 && r.d.code === "PIN_REQUIRED", r);
+  r = await j("DELETE", "/records/para_area/area-lock", null, at);
+  ok("delete locked item without PIN → 403", r.s === 403, r);
+  r = await j("GET", `/uploads/${lockedFile.id}`, null, at);
+  ok("file of locked item → 403 PIN_REQUIRED", r.s === 403 && r.d.code === "PIN_REQUIRED", r);
+  r = await j("GET", "/records/para_area/area-lock", null, at);
+  ok("findOne redacted", r.d.locked === true && r.d.payload.description === "", r.d);
+
+  // Kunci sekarang → PIN salah → PIN benar
+  r = await j("POST", "/security/pin/lock", null, pinAt);
+  ok("lock now", r.s === 200 && r.d.unlocked === false, r);
+  r = await j("POST", "/security/pin/unlock", { pin: "000000" }, pinAt);
+  ok("wrong PIN → 400 + sisa percobaan", r.s === 400 && /Sisa 4/.test(r.d.message), r);
+  r = await j("POST", "/security/pin/unlock", { pin: "482915" }, pinAt);
+  ok("unlock", r.s === 200 && r.d.unlocked === true, r);
+  r = await j("GET", "/records/para_task", null, pinAt);
+  lockedTask = r.d.find((x) => x.clientId === "task-lock");
+  ok(
+    "unlocked session sees full item",
+    !lockedTask?.locked && lockedTask?.payload.description === "rincian rahasia",
+    lockedTask,
+  );
+  r = await j("GET", `/uploads/${lockedFile.id}`, null, pinAt);
+  ok("unlocked session opens file", r.s === 200, r);
+  // Kerangka yang disimpan setelah PIN dibuka (mis. centang di Planner) tidak menghapus isi yang tersembunyi
+  r = await j(
+    "PUT",
+    "/records/para_task/task-lock",
+    {
+      payload: {
+        title: "Tugas Privat",
+        projectId: "act-lock",
+        dueDate: "2026-11-20",
+        description: "",
+        resources: [],
+        completed: true,
+      },
+      preserve: ["description", "resources"],
+    },
+    pinAt,
+  );
+  r = await j("GET", "/records/para_task/task-lock", null, pinAt);
+  ok(
+    "saving skeleton keeps hidden content (preserve)",
+    r.d.payload.completed === true &&
+      r.d.payload.description === "rincian rahasia" &&
+      r.d.payload.resources?.length === 1,
+    r.d,
+  );
+
+  // Rotasi token membawa status terbuka; logout menutupnya
+  r = await j("POST", "/auth/refresh", null, null, pinRt);
+  pinAt = r.d.accessToken;
+  pinRt = r.rt;
+  r = await j("GET", "/security/pin", null, pinAt);
+  ok("unlock survives token rotation", r.d.unlocked === true, r.d);
+  r = await j("DELETE", "/security/pin", { password: "rahasia2" }, pinAt);
+  ok("remove PIN while items locked → 409", r.s === 409, r);
+
+  // Arsip File Control tidak bisa dikunci; arsip PARA dari item terkunci ikut terkunci
+  r = await j(
+    "PUT",
+    "/records/para_resource/res-fc-lock",
+    { payload: { title: "Arsip", type: "file", archivalStatus: "pending", locked: true } },
+    pinAt,
+  );
+  ok("lock File Control resource → 400", r.s === 400, r);
+  const lockArchive = {
+    payload: {
+      originalType: "activity",
+      originalId: "act-lock",
+      archivedAt: new Date().toISOString(),
+      data: { title: "Kegiatan Privat", areaId: "area-lock", description: "isi arsip" },
+      related: { tasks: [{ id: "task-lock", title: "Tugas Privat" }] },
+    },
+  };
+  r = await j("PUT", "/records/para_archive/arch-lock", lockArchive, at);
+  ok("archive locked item from sealed session → 403 (no auto retry)", r.s === 403 && r.d.code !== "PIN_REQUIRED", r);
+  r = await j("PUT", "/records/para_archive/arch-lock", lockArchive, pinAt);
+  ok("archive locked item → snapshot marked locked", r.s === 200 && r.d.payload.data?.locked === true, r.d);
+  r = await j("GET", "/records/para_archive", null, at);
+  const sealedArchive = r.d.find((x) => x.clientId === "arch-lock");
+  ok(
+    "sealed archive: title kept, content hidden",
+    sealedArchive?.locked === true &&
+      sealedArchive.payload.originalType === "activity" &&
+      sealedArchive.payload.data?.title === "Kegiatan Privat" &&
+      sealedArchive.payload.data?.description === "" &&
+      sealedArchive.payload.related === null,
+    sealedArchive,
+  );
+  // Audit arsip hanya dicatat untuk resource berkas → arsip resource berkas yang terkunci
+  await j(
+    "PUT",
+    "/records/para_resource/res-lock",
+    { payload: { title: "Berkas Privat", type: "file", archivalStatus: "none", locked: true } },
+    pinAt,
+  );
+  await j(
+    "PUT",
+    "/records/para_archive/arch-res",
+    {
+      payload: {
+        originalType: "resource",
+        originalId: "res-lock",
+        archivedAt: new Date().toISOString(),
+        data: { id: "res-lock", title: "Berkas Privat", type: "file", description: "rahasia" },
+      },
+    },
+    pinAt,
+  );
+  r = await j("GET", "/archive-audit?entityType=para_archive&entityId=arch-res", null, at);
+  ok(
+    "audit of locked archive: changes hidden",
+    r.s === 200 && r.d.length > 0 && r.d.every((x) => x.locked === true && Object.keys(x.changes).length === 0),
+    r.d,
+  );
+  r = await j("GET", "/archive-audit?entityType=para_archive&entityId=arch-res", null, pinAt);
+  ok("audit of locked archive: unlocked session sees changes", r.d?.[0] && !r.d[0].locked, r.d);
+  r = await j("GET", "/comments?recordType=para_area&recordId=area-lock", null, at);
+  ok("comments of locked item → 403 PIN_REQUIRED", r.s === 403 && r.d.code === "PIN_REQUIRED", r);
+  r = await j("GET", "/comments?recordType=para_area&recordId=area-lock", null, pinAt);
+  ok("comments of locked item: unlocked session", r.s === 200, r);
+  await j("DELETE", "/records/para_archive/arch-lock", null, pinAt);
+  await j("DELETE", "/records/para_archive/arch-res", null, pinAt);
+  await j("PUT", "/records/para_resource/res-lock", { payload: { title: "Berkas Privat", locked: false } }, pinAt);
+  await j("DELETE", "/records/para_resource/res-lock", null, pinAt);
+
+  // Notebook terkunci
+  const nbLock = (await j("POST", "/notebooks", { title: "Notebook Privat", description: "rahasia" }, pinAt)).d;
+  r = await j("PATCH", `/notebooks/${nbLock.id}`, { locked: true }, pinAt);
+  ok("lock notebook", r.s === 200 && r.d.locked === true, r);
+  r = await j("GET", `/notebooks/${nbLock.id}`, null, at);
+  ok("locked notebook → 403 PIN_REQUIRED", r.s === 403 && r.d.code === "PIN_REQUIRED", r);
+  r = await j("GET", "/notebooks", null, at);
+  const sealed = r.d.find((n) => n.id === nbLock.id);
+  ok(
+    "notebook list: title only",
+    sealed?.sealed === true && sealed.title === "Notebook Privat" && !sealed.description,
+    sealed,
+  );
+  r = await j("GET", `/notebooks/${nbLock.id}`, null, pinAt);
+  ok("unlocked session opens notebook", r.s === 200, r);
+
+  // Lepas kunci & bersihkan
+  await j("DELETE", `/notebooks/${nbLock.id}`, null, pinAt);
+  await j("PUT", "/records/para_area/area-lock", { payload: { title: "Area Privat", locked: false } }, pinAt);
+  r = await j("GET", "/records/para_task", null, at);
+  ok("unlocking item opens it for every session", !r.d.find((x) => x.clientId === "task-lock")?.locked, r.d);
+  for (const [type, id] of [
+    ["para_task", "task-lock"],
+    ["para_activity", "act-lock"],
+    ["para_area", "area-lock"],
+  ])
+    await j("DELETE", `/records/${type}/${id}`, null, pinAt);
+  r = await j("DELETE", "/security/pin", { password: "rahasia2" }, pinAt);
+  ok("remove PIN", r.s === 200 && r.d.hasPin === false, r);
+  await j("POST", "/auth/logout", null, null, pinRt);
 
   r = await j("POST", "/auth/change-password", { currentPassword: "salah", newPassword: "1234" }, pt);
   ok("change pw wrong 400", r.s === 400, r);

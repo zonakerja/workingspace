@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { providerLabel, formatDuration, inboxTitle, markdownFileName, methodRows, tokenRows } from "./converter-utils";
+import {
+  documentResult,
+  filterDocuments,
+  formatSize,
+  providerLabel,
+  formatDuration,
+  inboxTitle,
+  markdownFileName,
+  methodRows,
+  tokenRows,
+} from "./converter-utils";
 
 describe("converter-utils", () => {
   it("names the downloaded file", () => {
@@ -58,5 +68,71 @@ describe("converter-utils", () => {
       { method: "pdf", label: "Pembaca PDF bawaan", count: 2, free: true },
       { method: "ocr", label: "OCR AI (memakai token)", count: 1, free: false },
     ]);
+  });
+
+  it("maps a stored document to a conversion result", () => {
+    const base = {
+      id: "d1",
+      title: "SK",
+      fileName: "sk.docx",
+      mimeType: "x",
+      size: 10,
+      options: {},
+      error: null,
+      createdAt: "",
+      updatedAt: "",
+      finishedAt: null,
+      summary: { pages: null, tokens: 5, durationMs: 1, enhanced: true, enhanceError: null },
+    };
+    const result = {
+      reason: "r",
+      fallbackFrom: null,
+      pages: null,
+      chars: 3,
+      rawChars: 3,
+      tokens: 5,
+      warnings: [],
+      durationMs: 1,
+      fileName: "sk.docx",
+      size: 10,
+      enhanceError: null,
+      tokenComparison: null,
+      enhanced: {
+        parts: 1,
+        rejected: 0,
+        failed: 0,
+        inputTokens: 1,
+        outputTokens: 1,
+        provider: "anthropic",
+        model: null,
+        durationMs: 1,
+        notes: [],
+      },
+    };
+    const doc = {
+      ...base,
+      status: "done" as const,
+      engine: "markitdown" as const,
+      markdown: "a",
+      enhancedMarkdown: "b",
+      result,
+    };
+    expect(documentResult(doc)?.markdown).toBe("a");
+    expect(documentResult(doc)?.enhanced?.markdown).toBe("b");
+    expect(documentResult({ ...doc, enhancedMarkdown: null })?.enhanced).toBeNull();
+    expect(documentResult({ ...doc, status: "processing" })).toBeNull();
+  });
+
+  it("filters documents by every word and formats sizes", () => {
+    const docs = [
+      { title: "SK Panitia", fileName: "a.docx" },
+      { title: "Risalah", fileName: "rapat-ksp.pdf" },
+    ];
+    expect(filterDocuments(docs, "panitia sk")).toHaveLength(1);
+    expect(filterDocuments(docs, "KSP")[0].title).toBe("Risalah");
+    expect(filterDocuments(docs, " ")).toHaveLength(2);
+    expect(formatSize(900)).toBe("900 B");
+    expect(formatSize(1536)).toBe("1,5 KB");
+    expect(formatSize(5 * 1024 * 1024)).toBe("5 MB");
   });
 });

@@ -19,6 +19,7 @@ import type { AttachedResource, Project } from "@/types/entities";
 import { useOpenSession, useRetained } from "@/hooks/use-retained";
 import { DiscardScope, useAttachmentEdits, useDiscardScope } from "../use-attachment-edits";
 import { TaskManager } from "./task-manager";
+import { LockedNotice } from "@/features/security/lock-controls";
 
 const NO_AREA = "__none__";
 
@@ -268,12 +269,18 @@ export function ProjectDetailDialog({
     >
       <DialogContent className="flex h-[92svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
         <DialogTitle className="sr-only">{project?.title ?? "Detail Project"}</DialogTitle>
-        {project && (
-          <AccessScope item={project}>
-            <DiscardScope register={register}>
-              <TaskManager key={`${project.id}-${session}`} owner={project} ownerType="Project" />
-            </DiscardScope>
-          </AccessScope>
+        {project?._locked ? (
+          <div className="m-auto w-full max-w-md p-6">
+            <LockedNotice title={project.title} />
+          </div>
+        ) : (
+          project && (
+            <AccessScope item={project}>
+              <DiscardScope register={register}>
+                <TaskManager key={`${project.id}-${session}`} owner={project} ownerType="Project" />
+              </DiscardScope>
+            </AccessScope>
+          )
         )}
       </DialogContent>
     </Dialog>

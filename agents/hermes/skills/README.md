@@ -33,7 +33,7 @@ Entri Register Naskah Keluar disiapkan dengan `create_record` / `update_record` 
 penandatangan, klasifikasi dari `list_records` jenis `srikandi_reference`). Dengan izin `srikandi:robot` agen boleh menjalankan robot yang
 **membaca** SRIKANDI: `srikandi_sync_letters` (Daftar Naskah Keluar + PDF ber-TTD), `srikandi_sync_references` (referensi / klasifikasi),
 `srikandi_check_register` (isi formulir tanpa Simpan). Hasilnya dibaca dengan `srikandi_status`, satu tugas sekaligus. Mendaftarkan
-**hanya** lewat `srikandi_request_register` (entri yang sudah terdaftar lalu diubah = permintaan memperbarui konsep lewat Edit di Log Naskah Keluar), yang menunggu persetujuan pemilik; robot berhenti di Simpan / Perbarui konsep — Kirim Konsep, Kirim
+**hanya** lewat `srikandi_request_register` (entri yang sudah terdaftar lalu diubah = permintaan memperbarui konsep lewat Edit di Log Naskah Keluar), yang menunggu persetujuan pemilik; robot berhenti di Simpan / Perbarui konsep — Kirim Konsep (hanya pemilik dengan PIN, tidak ada alat agen), Kirim
 Naskah, dan tanda tangan selalu oleh pemilik di SRIKANDI.
 
 **SIMAN = fitur terbuka** (keputusan pemilik 2026-11-13): workflow boleh ditempatkan di menu SIMAN (`placement: "siman"`). Dengan izin

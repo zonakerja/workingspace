@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRegisterFields,
+  sendBlockers,
   cleanAttachmentName,
   outgoingSignature,
   registerBlockers,
@@ -70,5 +71,17 @@ describe("pengenal perubahan entri Register", () => {
     expect(outgoingSignature({ ...entry, attachments: [{ uploadId: "x", name: "x.pdf" }] })).not.toBe(base);
     // Salinan frontend (register-logic.ts) harus menghasilkan nilai yang sama
     expect(outgoingSignature({ id: "a", subject: "Hal", autoNumber: true })).toBe("0af767ed");
+  });
+});
+
+describe("sendBlockers", () => {
+  it("hanya konsep terdaftar, belum dikirim, tanpa perubahan tertunda", () => {
+    expect(sendBlockers({ ...entry, status: "ready" })[0]).toMatch(/belum terdaftar/);
+    expect(sendBlockers({ ...entry, status: "submitted", draftSentAt: "2026-11-15" })[0]).toMatch(/sudah dikirim/);
+    const pushed = { ...entry, status: "submitted", pushedSignature: outgoingSignature(entry) };
+    expect(sendBlockers(pushed)).toEqual([]);
+    expect(sendBlockers({ ...pushed, subject: "Hal lain" })[0]).toMatch(/Perbarui di SRIKANDI/);
+    // Tandai terdaftar manual (tanpa pengenal) tetap boleh
+    expect(sendBlockers({ ...entry, status: "submitted" })).toEqual([]);
   });
 });

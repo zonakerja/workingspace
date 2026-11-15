@@ -5,6 +5,8 @@ import { validRows } from "./ekinerja-renaksi.js";
 import { validAnswer, validCredentials } from "./login-form.js";
 import { parseRegisterForm } from "./srikandi-register.js";
 import { parseUpdateForm } from "./srikandi-register-edit.js";
+import { parseSendRequest } from "./srikandi-send.js";
+import { parseSubmitRequest } from "./ekinerja-submit.js";
 import { inboxRequestedKinds } from "./srikandi-inbox.js";
 import { requestedCategories } from "./srikandi-reference.js";
 
@@ -163,6 +165,13 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     if (!skpExternalId || !/^\d+$/.test(skpExternalId)) throw new HttpError(400, "Nomor SKP tidak valid.");
     return json(res, 200, await pool.ekinerjaRenaksiRead({ ...target(body), skpExternalId }));
   }
+  if (req.method === "POST" && url.pathname === "/jobs/ekinerja/renaksi/submit") {
+    // Kirim Penilaian Ke Atasan: tanpa `confirm: "KIRIM_PENILAIAN"` selalu hanya memeriksa (dryRun), apa pun isi `dryRun`
+    const body = await readJson(req);
+    const parsed = parseSubmitRequest({ ...body, dryRun: body.confirm === "KIRIM_PENILAIAN" ? body.dryRun : true });
+    if ("error" in parsed) throw new HttpError(400, parsed.error);
+    return json(res, 200, await pool.ekinerjaSubmit({ ...target(body), request: parsed.request }));
+  }
   if (req.method === "POST" && url.pathname === "/jobs/srikandi/outgoing") {
     const body = await readJson(req);
     const maxFetch = typeof body.maxFetch === "number" ? Math.min(Math.max(body.maxFetch, 0), 10) : undefined;
@@ -196,6 +205,13 @@ async function route(req: IncomingMessage, res: ServerResponse) {
       200,
       await pool.srikandiRegisterUpdate({ ...target(body), form: parsed.form, dryRun: body.dryRun === true }),
     );
+  }
+  if (req.method === "POST" && url.pathname === "/jobs/srikandi/register/send") {
+    // Kirim Konsep: tanpa `confirm: "KIRIM_KONSEP"` selalu hanya memeriksa (dryRun), apa pun isi `dryRun`
+    const body = await readJson(req);
+    const parsed = parseSendRequest({ ...body, dryRun: body.confirm === "KIRIM_KONSEP" ? body.dryRun : true });
+    if ("error" in parsed) throw new HttpError(400, parsed.error);
+    return json(res, 200, await pool.srikandiSendDraft({ ...target(body), request: parsed.request }));
   }
   if (req.method === "POST" && url.pathname === "/jobs/srikandi/inbox") {
     const body = await readJson(req);

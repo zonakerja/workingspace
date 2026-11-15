@@ -3,6 +3,7 @@ import type { RecordType } from "@/types/api";
 export const queryKeys = {
   appSettings: ["app-settings"] as const,
   profile: ["profile"] as const,
+  pinStatus: ["security-pin"] as const,
   users: ["users"] as const,
   records: (type: RecordType) => ["records", type] as const,
   uploads: ["uploads"] as const,
@@ -50,6 +51,8 @@ export const queryKeys = {
   converterStatus: ["converter", "status"] as const,
   converterPrefs: ["converter", "preferences"] as const,
   converterStats: ["converter", "stats"] as const,
+  convertedDocuments: ["converter", "documents"] as const,
+  convertedDocument: (id: string) => ["converter", "documents", id] as const,
   knowledgeFolders: ["knowledge", "folders"] as const,
   knowledgeExport: ["knowledge", "export"] as const,
   knowledgeNotes: ["knowledge", "notes"] as const,

@@ -26,10 +26,17 @@ import { useParaActions } from "../use-para-actions";
 import { CARD_ACTION_CLASS, MiniProgress } from "./overview-tab";
 import { ParaInfo } from "./para-info";
 import { ProjectFormDialog } from "./project-dialogs";
+import {
+  LockToggleButton,
+  LockedBadge,
+  ensureUnlocked,
+  isSealed,
+  withUnlocked,
+} from "@/features/security/lock-controls";
 
 export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => void }) {
   const today = useToday();
-  const { items: projects } = useProjects();
+  const { items: projects, setItems: setProjects } = useProjects();
   const { items: areas } = useAreas();
   const { items: tasks } = useProjectTasks();
   const { canEdit } = usePermissions();
@@ -105,6 +112,7 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
                       </Badge>
                     )}
                     <SharedBadge item={p} recordType="para_project" />
+                    <LockedBadge item={p} />
                   </div>
                   {canEdit && access.canEdit && (
                     <div className="-my-1 -mr-1.5 flex shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -113,13 +121,18 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
                         size="icon-sm"
                         title="Ubah"
                         className={CARD_ACTION_CLASS}
-                        onClick={() => setEditing(p)}
+                        onClick={() => (isSealed(p) ? void ensureUnlocked(p) : setEditing(p))}
                       >
                         <PencilLine />
                       </Button>
                       {/* Hapus, arsipkan, dan bagikan hanya oleh pemilik */}
                       {access.isOwner && (
                         <>
+                          <LockToggleButton
+                            item={p}
+                            className={CARD_ACTION_CLASS}
+                            onSave={(next) => setProjects((prev) => prev.map((x) => (x.id === next.id ? next : x)))}
+                          />
                           <ShareButton
                             item={p}
                             recordType="para_project"
@@ -132,7 +145,7 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
                             size="icon-sm"
                             title="Arsipkan"
                             className={cn(CARD_ACTION_CLASS, "hover:text-warning")}
-                            onClick={() => setArchiving(p)}
+                            onClick={() => withUnlocked(p, () => setArchiving(p))}
                           >
                             <Archive />
                           </Button>
@@ -141,7 +154,7 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
                             size="icon-sm"
                             title="Hapus"
                             className={cn(CARD_ACTION_CLASS, "hover:text-destructive")}
-                            onClick={() => setDeleting(p)}
+                            onClick={() => withUnlocked(p, () => setDeleting(p))}
                           >
                             <Trash2 />
                           </Button>

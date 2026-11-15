@@ -9,6 +9,7 @@ import { domainDelegate } from "../records/record-delegate";
 import { rowToPayload } from "../records/record-mapper";
 import { RECORD_TABLES, type RecordType } from "../records/record-schema";
 import { KnowledgeVaultService } from "./knowledge-vault.service";
+import { LockService } from "../security/lock.service";
 import {
   buildExport,
   EXPORT_DIR,
@@ -63,6 +64,7 @@ export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
     config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly vault: KnowledgeVaultService,
+    private readonly locks: LockService,
   ) {
     this.appUrl = (config.get<string>("CORS_ORIGIN") ?? "").split(",")[0].trim();
   }
@@ -256,16 +258,20 @@ export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
 
   private async load(userId: string): Promise<ExportInput> {
     const input = { appUrl: this.appUrl } as ExportInput;
+    // Item terkunci PIN (beserta turunannya) tidak pernah ditulis ke vault: berkas vault ada di luar penjagaan PIN
+    const locked = await this.locks.lockSet(userId);
     for (const [key, type] of Object.entries(SOURCES) as [keyof typeof SOURCES, RecordType][]) {
       const rows = await domainDelegate(this.prisma, type).findMany({
         where: { userId, deletedAt: null },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       });
-      input[key] = rows.map((row) => ({
-        ...rowToPayload(RECORD_TABLES[type], row),
-        id: String(row.clientId),
-        updatedAt: row.updatedAt,
-      }));
+      input[key] = rows
+        .filter((row) => !locked.records.has(`${type}:${row.clientId}`))
+        .map((row) => ({
+          ...rowToPayload(RECORD_TABLES[type], row),
+          id: String(row.clientId),
+          updatedAt: row.updatedAt,
+        }));
     }
     const notebooks = await this.prisma.notebook.findMany({
       where: { userId },
@@ -275,10 +281,12 @@ export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
         messages: { select: { role: true, content: true, citations: true, createdAt: true } },
       },
     });
-    input.notebooks = notebooks.map((nb) => ({
-      ...nb,
-      sources: nb.sources.map((s) => ({ ...s, kind: String(s.kind) })),
-    }));
+    input.notebooks = notebooks
+      .filter((nb) => !nb.locked)
+      .map((nb) => ({
+        ...nb,
+        sources: nb.sources.map((s) => ({ ...s, kind: String(s.kind) })),
+      }));
     return input;
   }
 

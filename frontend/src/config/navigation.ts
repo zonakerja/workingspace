@@ -14,6 +14,7 @@ import {
   CalendarRange,
   CheckCheck,
   ClipboardList,
+  ClipboardCheck,
   Contact,
   Workflow,
   Database,
@@ -141,7 +142,7 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: "productivity",
-    label: "Productivity",
+    label: "Working Space",
     description: "Metode PARA: Projects, Areas, Resources, dan Archives.",
     path: "/productivity",
     icon: Layers,
@@ -225,12 +226,13 @@ export const MODULES: ModuleDef[] = [
     key: "kinerja",
     label: "e-Kinerja",
     description:
-      "Rencana aksi bulanan e-Kinerja yang Anda pilih dari Productivity, dipetakan ke RHK SKP yang diambil robot — robot hanya mengisikan draf.",
+      "Rencana aksi bulanan e-Kinerja yang Anda pilih dari Working Space, dipetakan ke RHK SKP yang diambil robot — robot hanya mengisikan draf.",
     path: "/kinerja",
     icon: ClipboardList,
     sidebarGroup: "connection",
     tabs: [
       { id: "plan", label: "Rencana Aksi", icon: ClipboardList },
+      { id: "assessment", label: "Penilaian", icon: ClipboardCheck },
       { id: "workflow", label: "Workflow", icon: Workflow },
       { id: "connector", label: "Connector", icon: Bot },
     ],

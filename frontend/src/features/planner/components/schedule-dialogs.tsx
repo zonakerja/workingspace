@@ -70,6 +70,7 @@ import { CommentsPanel } from "@/features/sharing/comments-panel";
 import { ShareButton } from "@/features/sharing/share-dialog";
 import { SharedBadge } from "@/features/sharing/shared-badge";
 import { itemAccess } from "@/lib/sharing";
+import { LockedNotice } from "@/features/security/lock-controls";
 
 /** Tag konteks saat lampiran agenda disimpan ke Resource global. */
 const GLOBAL_TAG = "Agenda";
@@ -242,10 +243,14 @@ function ScheduleDetailDialog({ schedule: scheduleProp, ...props }: ScheduleDeta
   return (
     <Dialog open={!!scheduleProp} onOpenChange={props.onOpenChange}>
       <DialogContent className="flex max-h-[90svh] flex-col sm:max-w-3xl">
-        {schedule && (
-          <AccessScope item={schedule}>
-            <ScheduleDetail key={schedule.id} schedule={schedule} {...props} />
-          </AccessScope>
+        {schedule?._locked ? (
+          <LockedNotice title={schedule.title} />
+        ) : (
+          schedule && (
+            <AccessScope item={schedule}>
+              <ScheduleDetail key={schedule.id} schedule={schedule} {...props} />
+            </AccessScope>
+          )
         )}
       </DialogContent>
     </Dialog>

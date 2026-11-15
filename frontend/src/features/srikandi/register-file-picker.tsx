@@ -158,7 +158,7 @@ function LifeosFiles({ extensions, exclude, onPick }: ListProps) {
     <div className="flex min-w-0 flex-col gap-2">
       <SearchInput value={search} onChange={setSearch} placeholder="Cari nama berkas…" />
       <p className="text-xs text-muted-foreground">
-        100 berkas terbaru milik Anda (lampiran Productivity, dokumen ONLYOFFICE, …).
+        100 berkas terbaru milik Anda (lampiran Working Space, dokumen ONLYOFFICE, …).
       </p>
       {isLoading ? (
         <Loader2 className="mx-auto my-6 animate-spin text-muted-foreground" />

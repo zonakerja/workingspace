@@ -6,6 +6,7 @@ import { isRecordingActive } from "@/lib/recording-guard";
 import { flushPendingWrites } from "@/data/use-collection";
 import { queryKeys } from "@/data/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
+import { markLoginPinPrompt } from "@/features/security/pin-prompt";
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -14,6 +15,8 @@ export function useLogin() {
     mutationFn: ({ email, password }: { email: string; password: string }) => authApi.login(email.trim(), password),
     onSuccess: (session) => {
       client.clear();
+      // Akun ber-PIN: setelah masuk ditawarkan membuka item terkunci dengan PIN atau lanjut tanpa PIN
+      if (session.user.hasPin) markLoginPinPrompt();
       setSession(session);
     },
   });

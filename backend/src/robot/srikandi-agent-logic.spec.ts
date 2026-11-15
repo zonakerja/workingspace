@@ -37,6 +37,9 @@ describe("robot SRIKANDI untuk agen", () => {
   it("entri terdaftar yang berubah = perbarui konsep; tanpa perubahan / final tertaut / belum lengkap = ditolak", () => {
     expect(registerRequestMode(complete)).toEqual({ mode: "register" });
     expect(registerRequestMode({ ...complete, status: "submitted" })).toEqual({ mode: "update" });
+    expect(registerRequestMode({ ...complete, status: "submitted", draftSentAt: "2026-11-15" })).toEqual({
+      error: "Konsep sudah dikirim ke verifikator — tidak bisa diubah lewat Edit.",
+    });
     const pushed = { ...complete, status: "submitted", pushedSignature: outgoingSignature(complete) };
     expect(registerRequestError(pushed)).toMatch(/Tidak ada perubahan/);
     expect(registerRequestMode({ ...pushed, summary: "Isi baru" })).toEqual({ mode: "update" });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  libraryTitle,
+  librarySummary,
   converterExtension,
   converterHandles,
   DEFAULT_CONVERTER_PREFS,
@@ -53,5 +55,31 @@ describe("converter-logic", () => {
   it("estimates tokens", () => {
     expect(estimateTokens("")).toBe(0);
     expect(estimateTokens("abcde")).toBe(2);
+  });
+
+  it("titles library documents from the file name", () => {
+    expect(libraryTitle("SK  Panitia Penghapusan.docx")).toBe("SK Panitia Penghapusan");
+    expect(libraryTitle(".pdf")).toBe("Hasil konversi");
+    expect(libraryTitle("x".repeat(300) + ".pdf")).toHaveLength(200);
+  });
+
+  it("summarizes stored results without markdown", () => {
+    expect(librarySummary(null)).toEqual({
+      pages: null,
+      tokens: null,
+      durationMs: null,
+      enhanced: false,
+      enhanceError: null,
+    });
+    expect(
+      librarySummary({
+        pages: 3,
+        tokens: 900,
+        durationMs: 1200,
+        enhanced: { parts: 1 },
+        enhanceError: null,
+        markdown: "x",
+      }),
+    ).toEqual({ pages: 3, tokens: 900, durationMs: 1200, enhanced: true, enhanceError: null });
   });
 });

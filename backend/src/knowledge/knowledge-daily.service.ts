@@ -16,6 +16,7 @@ import {
   type DailyTodo,
 } from "./vault-daily";
 import { EXPORT_DIR } from "./vault-parser";
+import { LockService } from "../security/lock.service";
 import {
   buildPeriodicNote,
   buildPeriodicSection,
@@ -36,6 +37,7 @@ export class KnowledgeDailyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly vault: KnowledgeVaultService,
+    private readonly locks: LockService,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>("CORS_ORIGIN") ?? "").split(",")[0].trim();
@@ -105,7 +107,11 @@ export class KnowledgeDailyService {
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       ...(take ? { take } : {}),
     });
-    return rows.map((row) => ({ ...rowToPayload(RECORD_TABLES[type], row), id: String(row.clientId) }) as Row);
+    // Item terkunci PIN tidak ditulis ke catatan harian di vault (di luar penjagaan PIN)
+    const locked = (await this.locks.lockSet(userId)).records;
+    return rows
+      .filter((row) => !locked.has(`${type}:${row.clientId}`))
+      .map((row) => ({ ...rowToPayload(RECORD_TABLES[type], row), id: String(row.clientId) }) as Row);
   }
 
   private async section(userId: string, date: string) {

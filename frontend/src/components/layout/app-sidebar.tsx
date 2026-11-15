@@ -198,8 +198,48 @@ export function AppSidebar() {
 function SubmenuModuleItem({ module }: { module: ModuleDef }) {
   const { pathname } = useLocation();
   const role = useAuthStore((s) => s.user?.role);
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, state, isMobile } = useSidebar();
+  const navigate = useNavigate();
   const active = isModuleActive(module, pathname);
+  const tabs = visibleTabs(module, role);
+
+  // Sidebar diciutkan: sub menu bawaan disembunyikan, jadi tab dibuka lewat menu melayang di samping ikon.
+  if (state === "collapsed" && !isMobile) {
+    return (
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton isActive={active} tooltip={module.label} className={COLLAPSIBLE_ITEM_CLASS}>
+              <ModuleIcon module={module} active={active} />
+              <span>{module.label}</span>
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" sideOffset={8} className="min-w-52">
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <ModuleIcon module={module} active />
+              {module.label}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const path = `${module.path}/${tab.id}`;
+              return (
+                <DropdownMenuItem
+                  key={tab.id}
+                  onSelect={() => void navigate(path)}
+                  className={cn(pathname === path && "bg-accent font-semibold")}
+                >
+                  <Icon />
+                  {tab.label}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <Collapsible asChild defaultOpen={active} className="group/collapsible">
       <SidebarMenuItem>

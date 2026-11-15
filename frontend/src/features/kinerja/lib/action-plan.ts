@@ -317,3 +317,37 @@ export const MONTH_STATUS_LABELS: Record<ActionPlanMonth["status"], string> = {
   submitted: "Sudah dikirim ke atasan — menunggu penilaian",
   rated: "Sudah dinilai atasan",
 };
+
+/**
+ * Alasan Kirim Penilaian Ke Atasan belum bisa dipakai (null = bisa): bulan draf di e-Kinerja dan semua isian LifeOS
+ * bulan itu sudah terisi sama dengan e-Kinerja. Salinan aturan backend `submitBlockers` (`ekinerja-renaksi.ts`).
+ */
+export function submitBlocker(month: Pick<ActionPlanMonth, "status"> | null | undefined, statuses: DisplayStatus[]) {
+  if (isLockedMonth(month)) return "Bulan ini sudah dikirim ke atasan.";
+  if (!statuses.length) return "Belum ada isian renaksi di bulan ini.";
+  if (month?.status !== "draft") return "Bulan ini belum tercatat sebagai draf di e-Kinerja — Kirim lalu Pantau dulu.";
+  const pending = statuses.filter((s) => s !== "filled").length;
+  if (pending) return `Masih ada ${pending} isian yang belum sama dengan e-Kinerja — Kirim perubahan dulu.`;
+  return null;
+}
+
+/** Keadaan bulan yang tampil di tab Penilaian: renaksi yang sudah ada di e-Kinerja. */
+export const ASSESSMENT_STATUSES = ["draft", "submitted", "rated"] as const;
+export type AssessmentStatus = (typeof ASSESSMENT_STATUSES)[number];
+
+/** Potret bulan tahun itu yang sudah berupa draf / diajukan / dinilai di e-Kinerja, terbaru dulu. */
+export function assessmentMonths(months: ActionPlanMonth[], year: number) {
+  return months
+    .filter((m) => periodYear(m.period) === year && (ASSESSMENT_STATUSES as readonly string[]).includes(m.status))
+    .sort((a, b) => b.period.localeCompare(a.period) || a.skpId.localeCompare(b.skpId));
+}
+
+/** Jumlah bulan per keadaan Penilaian. */
+export function assessmentCounts(months: Pick<ActionPlanMonth, "status">[]) {
+  const counts: Record<AssessmentStatus, number> = { draft: 0, submitted: 0, rated: 0 };
+  for (const m of months) if (m.status in counts) counts[m.status as AssessmentStatus] += 1;
+  return counts;
+}
+
+/** Feedback atasan per baris: "👍" / teks = sudah ada; kosong / "Belum ada feedback" = belum. */
+export const hasFeedback = (feedback?: string) => !!feedback?.trim() && !/belum ada feedback/i.test(feedback);

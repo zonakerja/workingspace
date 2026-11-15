@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsIn, IsOptional } from "class-validator";
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from "class-validator";
 import type { EnhanceScope } from "./markdown-enhance";
 import {
   ENHANCE_SCOPES,
@@ -57,4 +57,10 @@ export class ConvertFileDto {
 export class ReconvertDto {
   @IsIn(RECONVERT_SCOPES)
   scope!: ReconvertScope;
+}
+
+export class RenameConvertedDocumentDto {
+  @IsString()
+  @MaxLength(200)
+  title!: string;
 }

@@ -21,6 +21,7 @@ import { mergeIntoGlobalResources } from "@/features/resources/resource-utils";
 import { useOpenSession, useRetained } from "@/hooks/use-retained";
 import type { AttachedResource, Priority, ProjectTask } from "@/types/entities";
 import { DiscardScope, useAttachmentEdits, useDiscardScope } from "../use-attachment-edits";
+import { useSealedGuard } from "@/features/security/lock-controls";
 
 export interface CompletionValues {
   dueDate: string;
@@ -53,12 +54,15 @@ export function CompleteTaskDialog({
   const task = useRetained(taskProp);
   const retainedDefaults = useRetained(defaults);
   const session = useOpenSession(!!taskProp);
+  // Task milik Area/Project terkunci: minta PIN dulu (lampiran hasil tidak boleh menimpa lampiran tersembunyi)
+  const sealed = useSealedGuard(taskProp, () => onOpenChange(false));
   const { register, discardAll } = useDiscardScope();
   // Batal / X / Esc: buang berkas yang diunggah di dialog ini tetapi tidak jadi disimpan
   const close = () => {
     discardAll();
     onOpenChange(false);
   };
+  if (sealed) return null;
   return (
     <Dialog open={!!taskProp} onOpenChange={(open) => (open ? onOpenChange(true) : close())}>
       <DialogContent className="flex max-h-[90svh] flex-col sm:max-w-2xl">

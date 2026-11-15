@@ -7,6 +7,7 @@ import { AuthUser } from "../../common/types/auth-user";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AiChatDto, AiMessagesQueryDto, AiProfileDto } from "./ai-chat.dto";
 import { AiChatService } from "./ai-chat.service";
+import { LockService } from "../../security/lock.service";
 
 /** Chatbot LifeOS (RAG atas basis pengetahuan + data kerja) dan profil kerja yang selalu ikut di chat AI. */
 @ApiTags("ai")
@@ -17,13 +18,14 @@ export class AiChatController {
   constructor(
     private readonly chat: AiChatService,
     private readonly prisma: PrismaService,
+    private readonly locks: LockService,
   ) {}
 
   @Throttle({ default: { ttl: 60_000, limit: 20 } })
   @HttpCode(200)
   @Post("chat")
-  send(@CurrentUser() user: AuthUser, @Body() dto: AiChatDto) {
-    return this.chat.chat(user.id, dto);
+  async send(@CurrentUser() user: AuthUser, @Body() dto: AiChatDto) {
+    return this.chat.chat(user.id, dto, await this.locks.isUnlocked(user));
   }
 
   @Get("chat/conversations")
@@ -32,8 +34,8 @@ export class AiChatController {
   }
 
   @Get("chat/conversations/:id/messages")
-  messages(@CurrentUser() user: AuthUser, @Param("id") id: string, @Query() query: AiMessagesQueryDto) {
-    return this.chat.messages(user.id, id, query.take);
+  async messages(@CurrentUser() user: AuthUser, @Param("id") id: string, @Query() query: AiMessagesQueryDto) {
+    return this.chat.messages(user.id, id, query.take, await this.locks.isUnlocked(user));
   }
 
   @Delete("chat/conversations/:id")

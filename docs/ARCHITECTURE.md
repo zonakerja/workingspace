@@ -184,6 +184,25 @@ unduhan disensor; health check tidak dicatat.
   tidak terjangkau → 422 dengan pesan Indonesia yang menyebut tindakan (mis. "Ganti model di Pengaturan → Model AI").
   Sengaja tidak memakai 401 (memicu refresh sesi di frontend) maupun ≥ 502 (disamarkan frontend sebagai "server tidak
   dapat dihubungi"). Log mencatat provider, model, durasi, jenis error — tidak pernah key maupun isi prompt.
+- **Router yang dipakai pemilik: Classai Router** (`https://router.classai.id/v1`; dikaji 2026-11-13 dari halaman publik `/model`,
+  `/kredit`, `/paket`, `/docs`, tanpa perubahan kode). Akun memegang dua jenis saldo pada **semua API key akun yang sama**:
+  - **Paket token**: dibeli per model (pemilik: **Claude Opus 5.5**, mis. 23 jt token Rp119 rb), 30 hari, beli lagi = token bertambah &
+    masa aktif diperpanjang. **Dipakai lebih dulu.** Token cache dipotong setengah (terbukti di dasbor Usage → "tokens from packages",
+    §12 CLAUDE.md 2026-11-07).
+  - **Kredit**: satu saldo untuk **semua model** (± 55: Claude, GPT, Gemini, DeepSeek, Kimi, GLM, …), 30 hari, dipotong per token
+    sesuai tarif model (contoh per 1 jt token input/output dalam juta kredit: Opus 5.5 53/264, Sonnet 5.5 26/132, Haiku 5.5 11/33,
+    `gemini-3.8-flash` 14/56, `gpt-6-sol` 34/110, `deepseek-v4-flash` 7,7/31, `kimi-k3` 20/99, `glm-5.3` 13/62; 1 jt kredit ≈ Rp150–240
+    tergantung paket kredit). Cache ditagih 50 %. Request gagal tidak ditagih.
+  - Opus 5.5 setelah token paket habis **tetap jalan memakai kredit** (tarif kredit ± 2–3× harga paket) tanpa galat — LifeOS tidak
+    bisa melihat sisa paket (router membuang angka usage/cache); pantau di dasbor Classai.
+  - Format: OpenAI Chat Completions, Anthropic Messages, `/v1/embeddings`, `GET /v1/models`; ID model huruf kecil bertitik
+    (`claude-opus-5.5`, `gemini-3.8-flash`, `deepseek-v4-flash`, `kimi-k3`). Batas 60 permintaan/menit per key, 180 per akun (429 +
+    `Retry-After` → LifeOS menganggapnya kuota → cadangan otomatis). Router = pihak ketiga yang melihat isi permintaan.
+  - **Memakai kredit di LifeOS tanpa kode baru**: key Classai yang sama boleh dipasang di kartu Gemini dan/atau OpenAI Pengaturan →
+    Model AI → **Lewat router** (format OpenAI, ID model diisi bebas). Slot OpenAI lewat router bisa memuat model mana pun yang
+    berformat OpenAI (mis. `deepseek-v4-flash`, `kimi-k3`) — labelnya tetap "OpenAI". Batasan jalur router (bukan Classai): transkrip
+    audio Notes AI wajib key Gemini langsung; jalur OpenAI-compatible tanpa audio; embedding lewat router butuh ID model embedding yang
+    mendukung 768 dimensi (katalog embedding Classai belum dicek).
 
 ### 3.2 Ekstraksi dokumen & indeks pengetahuan (RAG tahap 1)
 
@@ -565,11 +584,13 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   |---|---|---|---|
   | e-Kinerja | `/jobs/ekinerja/skp` | `POST /robot/ekinerja/skp/sync` | baca SKP & RHK → record `skp`, `skp_target` |
   | e-Kinerja | `/jobs/ekinerja/renaksi` (`mode: add \| sync`) | `POST /robot/ekinerja/renaksi/fill` | samakan Rencana Aksi bulanan dengan LifeOS: baca & impor dulu, tambah butir, tulis ulang baris yang berubah (`dryRun` = Periksa); tidak pernah Kirim Penilaian |
+  | e-Kinerja | `/jobs/ekinerja/renaksi/submit` (tanpa `confirm: "KIRIM_PENILAIAN"` selalu dryRun) | `POST /robot/ekinerja/renaksi/submit` | Kirim Penilaian Ke Atasan satu bulan: isi e-Kinerja wajib sama dengan LifeOS & lengkap; `dryRun` (bawaan) = tandai tombol tanpa klik; kirim wajib PIN setiap kali, hanya sesi login (bukan agen/jadwal) — `docs/AI-AGENT.md` §21.16 |
   | e-Kinerja | `/jobs/ekinerja/renaksi/read` | `POST /robot/ekinerja/renaksi/sync` | baca semua bulan (status draf/diajukan/dinilai, tanggal pengajuan, rating, isi, feedback) → `action_plan_month` + impor |
   | SRIKANDI | `/jobs/srikandi/outgoing` | `POST /robot/srikandi/letters/sync` | Daftar Naskah Keluar + PDF ber-TTD & lampiran → `srikandi_letter`, Resource Global |
   | SRIKANDI | `/jobs/srikandi/inbox` | `POST /robot/srikandi/inbox/sync` | daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya halaman daftar; detail tidak dibuka agar status baca tetap) → `srikandi_inbox` ([AI-AGENT.md](AI-AGENT.md) §21.14) |
   | SRIKANDI | `/jobs/srikandi/references` (`categories?`) | `POST /robot/srikandi/references/sync`, `…/classifications/sync` | tabel menu Pengguna (7 kategori) / Klasifikasi Arsip (1.048 baris) → `srikandi_reference` |
   | SRIKANDI | `/jobs/srikandi/register` (body ≤ 40 MB, berkas base64) | `POST /robot/srikandi/register/:id { dryRun? }` | isi formulir Registrasi Naskah Keluar dari `srikandi_outgoing` → **Simpan** = konsep di Log Naskah Keluar (tidak ganda); tidak pernah Kirim Konsep |
+  | SRIKANDI | `/jobs/srikandi/register/send` (tanpa `confirm: "KIRIM_KONSEP"` selalu dryRun) | `POST /robot/srikandi/register/:id/send { dryRun?, pin? }` | **Kirim Konsep** konsep terdaftar ke verifikator dari halaman Detail Log; bawaan dryRun (tandai tombol, tanpa klik); kirim wajib PIN setiap kali (`PinService.confirmAction`, hanya sesi login) → `draftSentAt` ([AI-AGENT.md](AI-AGENT.md) §21.15) |
   | SRIKANDI | `/jobs/srikandi/register/update` (body ≤ 40 MB) | `POST /robot/srikandi/register/:id/update { dryRun? }` | **Edit** konsep di Log Naskah Keluar: hanya isian yang berbeda (Perbarui Naskah, Tambah/hapus baris lampiran, tujuan, verifikator, penandatangan); konsep terkirim = `locked`; pengenal perubahan `pushedSignature` ([AI-AGENT.md](AI-AGENT.md) §21.13) |
 
   Pengaman bersama: `safeClick` menolak tombol berteks kirim/ajukan/submit/hapus; pilihan react-select diklik (tidak
@@ -729,7 +750,7 @@ Logika murni + pytest `converter/app/logic.py` (`tests/test_logic.py`, dijalanka
 `ConverterUnavailableError`, 4xx lain = `ConverterRejectedError`, batas waktu 15 menit), `ConverterService` + controller
 `GET /converter/status`, `GET|PUT /converter/preferences` (`users.converter_prefs` jsonb: `enabled` (bawaan menyala), `pdfMode`,
 `aiOcrFallback` (bawaan menyala)), `GET /converter/stats` (jumlah berkas per `metadata.method` + kandidat baca ulang),
-`POST /converter/convert` (coba konversi, tidak disimpan, maks. `CONVERTER_MAX_MB`), `POST /converter/reconvert { scope: ai_ocr |
+`POST /converter/reconvert { scope: ai_ocr |
 missing | legacy }` (antrekan ulang ekstraksi berkas milik sendiri, maks. 2.000; teks lama tetap dipakai sampai hasil baru; indeks
 RAG ikut diperbarui). Logika murni + test `converter-logic.ts` (`converterHandles` = format yang dikirim — teks polos tidak,
 `needsReconvert`, `normalizeConverterPrefs`). **Worker ekstraksi** (`extraction-worker.service.ts`): prefs user menyala + service
@@ -747,7 +768,7 @@ terpenggal, dan salah baca OCR yang jelas; dilarang meringkas, menambah, menyusu
 `[tidak terbaca]`. **Penjaga** `checkEnhanced`: huruf+angka hasil 85–115 % asli dan ≥ 95 % angka ≥ 3 digit tetap ada — gagal = bagian
 asli dipakai (catatan menyebut angka yang hilang). Angka dibandingkan per **deret digit** (merapikan spasi/pemisah nomor surat diterima, mengganti digit ditolak); kepala/kaki halaman berulang (`boilerplateLines`), nomor halaman, dan gambar berkas lokal tidak dihitung karena boleh dibuang. Semua bagian gagal dipanggil = galat (worker memakai Markdown converter apa adanya,
 `metadata.converter.enhanceError`); berhasil = `metadata.converter.enhance` (provider, bagian, ditolak, perkiraan token). Cakupan baca
-ulang `unenhanced` = sudah dibaca converter tetapi belum dirapikan. **Bandingkan token** (`POST /converter/convert` `compareTokens`):
+ulang `unenhanced` = sudah dibaca converter tetapi belum dirapikan. **Bandingkan token** (`POST /converter/documents` `compareTokens`):
 `AiService.countTokens` = `countTokens` Gemini (key Gemini langsung, tanpa menjalankan model): berkas mentah (PDF/gambar seperti dikirim ke
 AI), Markdown, hasil rapikan, biaya rapikan (overhead prompt × bagian + Markdown masuk, hasil keluar). Gemini di sini hanya **alat hitung** (perapi tetap provider tugas Rapikan dokumen); centang bawaan mati karena isi berkas ikut dikirim ke Google; `countTokens` tidak ditagih.
 
@@ -774,12 +795,81 @@ mentah. Penghematan nyata datang dari pemakaian ulang: Markdown dibuat sekali, l
 kepala halaman berulang — diperbaiki dengan membuang kepala halaman di converter dan mengabaikannya di penjaga.
 
 **Frontend**: Tools → **Markdown Converter** (`features/tools/converter/`, hook `data/use-converter.ts`, logika + test
-`converter-utils.ts`): status service, sakelar & cara baca PDF & cadangan OCR AI, **Coba konversi** (pilih/seret berkas → pratinjau /
-Markdown mentah, salin, unduh `.md`, simpan ke Inbox vault ≤ 100 rb karakter), **Berkas tersimpan** (per cara baca + Baca ulang per
+`converter-utils.ts`): status service, sakelar & cara baca PDF & cadangan OCR AI (sub-tab **Pengaturan**), pustaka **Dokumen** (pilih/seret berkas →
+pratinjau / Markdown mentah, salin, unduh `.md`, simpan ke Inbox vault ≤ 100 rb karakter; lihat di bawah), **Berkas tersimpan** (per cara baca + Baca ulang per
 cakupan), cara kerja. Fitur yang dulu mengirim berkas mentah ke AI kini memakai teks server lebih dulu: `useFileSummarizer.summarize(file,
 uploadId)` (lampiran & form Resource; berkas mentah hanya bila server tidak menghasilkan teks), `ResourceAiDialog` (teks tersimpan),
 Notes AI `readFileText` (batas tunggu 5 menit, `ocr_off` tidak dikirim ke AI). Gambar yang dilampirkan di chat My Notebook tetap
 dikirim ke AI (pertanyaan visual).
+
+**Pustaka hasil konversi** (2026-11-14, sub-tab **Dokumen**, bawaan): tabel `converted_documents` (milik user, cascade; `title`, `file_name`,
+`mime_type`, `size`, `options` mode/enhance/compareTokens, `status` queued → processing → done | failed, `error`, `engine`, `markdown`,
+`enhanced_markdown`, `result` = metadata konversi tanpa isi). `POST /converter/documents` (202) → antrean di memori `ConverterLibraryService`
+(2 paralel; maks. 10 antre & 500 dokumen per user) → `ConverterService.convert` (termasuk Rapikan & Bandingkan token; format tak didukung ditolak 400 saat unggah). Berkas asal **tidak** disimpan di storage — hanya di memori selama diproses — jadi tidak ada sampah; backend restart = dokumen yang belum
+selesai ditandai gagal (unggah ulang). `GET /converter/documents` (tanpa Markdown + ringkasan `librarySummary`), `GET /converter/documents/:id`,
+`PATCH` (judul), `DELETE` (permanen, bukan Sampah). Pustaka tidak diindeks RAG dan tidak dibaca agen.
+
+**Sejauh mana converter dipakai** (audit 2026-11-14): semua fitur yang membaca isi berkas memakai teks hasil ekstraksi (Markdown converter bila
+service menyala) — indeks RAG (chatbot, Pencarian Pintar, MCP `search_*`), sumber & lampiran dokumen My Notebook, Analisis/Telaah Approval & alat
+agen `read_request_files`, PDF di vault Obsidian, dokumen Notes AI, Ringkas dengan AI (lampiran, Resource, dialog AI Resource), ONLYOFFICE,
+naskah SRIKANDI, berkas pengajuan WhatsApp. Yang tetap dikirim mentah ke AI: gambar di chat My Notebook (pertanyaan visual), tulisan tangan
+(Catatan Bebas), audio (transkrip Gemini), cadangan ringkasan saat server tidak menghasilkan teks, dan OCR AI bila Docling gagal & Cadangan OCR
+AI menyala.
+
+### 3.15 PIN keamanan & item terkunci (`src/security/`, Profil Saya → PIN Keamanan)
+
+Keputusan user 2026-11-14: item pribadi dikunci PIN 6 angka; **judul** tetap tampil & bisa dicari, **isi** baru terbuka setelah PIN;
+satu kali PIN membuka semua item terkunci **sampai logout** (+ tombol **Kunci sekarang**); AI memakai isi terkunci **hanya saat sesi
+sudah memasukkan PIN**; agen Hermes / MCP, bot WhatsApp, dan cermin Obsidian **tidak pernah**. PIN = kunci akses aplikasi, **bukan
+enkripsi**: data tetap tersimpan polos di database & indeks RAG (syarat agar bisa dicari) dan ikut backup.
+
+- **PIN per akun**: `users.pin_hash` (argon2), `pin_failed`, `pin_blocked_until` (salah 5× → blokir 15 menit, berlipat tiap 5 kesalahan,
+  maks. 24 jam — `pinBlockMs`). Atur/ganti/hapus wajib kata sandi akun (lupa PIN = atur ulang dengan kata sandi). PIN lemah (sama
+  semua / berurutan) ditolak. Hapus PIN ditolak 409 bila masih ada item terkunci. `toPublicUser` → `hasPin` (hash tidak pernah keluar).
+- **Sesi login berpengenal tetap**: `refresh_tokens.session_id` (claim `sid` di token akses & refresh; rotasi token mempertahankan sid)
+  + `pin_unlocked` (disalin saat rotasi). `LockService.isUnlocked(user)` = ada token sesi itu yang belum dicabut/kedaluwarsa dan
+  `pin_unlocked` (cache 5 dtk). Logout menghapus semua token sesi itu → tertutup. Atur/ganti/hapus PIN mengunci semua sesi (sesi yang
+  mengatur PIN dibiarkan terbuka). Token agen / MCP / pekerjaan latar belakang tidak punya `sid` → selalu terkunci.
+- **Item terkunci**: key payload `locked: true` (kolom `extra`) pada `LOCKABLE_TYPES` = para_area, para_project, para_resource, free_note,
+  ai_note, list + kolom `notebooks.locked`. `LockService.lockSet(owner)` (cache 30 dtk, dibuang setiap tulis record) = item induk +
+  **turunannya** lewat `expandDescendants` Berbagi (Area → Sub Area, Kegiatan, Project, Action/Task, Agenda, Notes AI tertaut) + **berkas**
+  yang dirujuk (`collectUploadIds`) + sumber & lampiran chat notebook terkunci.
+- **Penegakan** (sesi belum memasukkan PIN): `RecordsService.findMany/findOne` → `sealLocked`: payload = kerangka (`SKELETON_KEYS`:
+  judul, tanggal, jam, status, selesai, prioritas, bobot, relasi, warna, ikon, sematan) dan key lain diganti nilai kosong (`""`, `[]`,
+  `false`, `0`, `null`) agar kode lama tidak error, ditandai `locked: true` + `partial` = key tersembunyi. Tulis/hapus item terkunci atau
+  membuat turunan di dalamnya → **403 `{ code: "PIN_REQUIRED" }`**. Setelah PIN dibuka, tulisan kerangka membawa `preserve` → isi asli
+  dipertahankan untuk **semua** key (`preserveFields(..., anyKey)`), bukan hanya field daftar ringan. Mengunci/melepas kunci hanya pemilik;
+  mengunci butuh PIN sudah diatur. Berkas: `UploadsService.findAccessible/findWithPermission` (unduh, pratinjau, metadata, ONLYOFFICE)
+  → PIN_REQUIRED. Notebook: `NotebookLockGuard` di semua rute `/notebooks/:id`, daftar = judul saja (`sealed`), sumber yang merujuk item/
+  berkas terkunci tidak dibaca chat/ringkasan saat terkunci.
+- **RAG**: isi tetap terindeks. `AiIndexService.search` membuang sumber terkunci secara bawaan (`includeLocked` = status sesi; dipakai
+  chatbot, uji indeks, Notebook) — MCP, agen, bot WhatsApp, Approval tidak pernah. Pencarian Pintar menyertakan item terkunci dengan
+  cuplikan kosong + `locked: true`. Cermin 80-LifeOS & catatan harian/berkala vault melewati item terkunci sama sekali. Riwayat chatbot
+  (`GET /ai/chat/conversations/:id/messages`) mengganti jawaban yang bersitasi sumber terkunci dengan keterangan, dan jawaban itu tidak
+  ikut riwayat yang dikirim ke model, selama sesi terkunci.
+- **Arsip PARA**: snapshot menyimpan salinan isi, jadi `RecordsService` menandai `data.locked = true` pada `para_archive` yang item asalnya
+  (atau turunan di `related`) terkunci; `lockSet` memuat arsip itu + berkasnya, kerangkanya mempertahankan `originalType/originalId/archivedAt`
+  dan judul di `data`. Mengarsipkan atau memulihkan (`archivedOrigins`) dari sesi terkunci → 403 biasa (bukan `PIN_REQUIRED`, agar body kerangka
+  tidak diulang otomatis). Arsip terkunci ikut menghalangi Hapus PIN (pulihkan lalu lepas kunci).
+- **File Control**: Resource berkas yang masuk File Control (`archivalStatus` selain kosong/`none`) tidak bisa dikunci (400) — prosedur
+  kearsipan (retensi, penyusutan, berita acara) membutuhkan isinya.
+- **Komentar & audit**: `GET/POST /comments` item terkunci → `PIN_REQUIRED`; `GET /archive-audit` mengosongkan `changes` (+ `locked`) untuk item
+  terkunci saat sesi belum memasukkan PIN.
+- **Tawaran setelah login**: login berhasil + akun ber-PIN + ada item terkunci + sesi belum terbuka → dialog "Masuk dengan PIN?" (Masuk dengan
+  PIN / Lanjut tanpa PIN). Tidak muncul saat sesi dipulihkan dari cookie (muat ulang halaman).
+- **Berbagi**: penerima item bersama yang terkunci memakai PIN **miliknya sendiri** untuk membukanya (status sesi penerima); tanpa PIN penerima
+  diminta mengatur PIN. Komentar item bersama tidak ikut disembunyikan.
+- **Batas yang diketahui**: hasil AI yang dibuat saat PIN terbuka di luar chatbot (catatan & chat notebook yang tidak dikunci, salinan ke
+  Catatan Bebas / Inbox) dan tautan publik / brankas berkas yang dibuat sebelum item dikunci (sengaja, dibuat untuk dibuka orang lain) tidak
+  ikut terkunci.
+- **Endpoint** `/security/pin`: `GET` status (`hasPin`, `unlocked`, `blockedUntil`, `lockedItems`, `sessionCapable`), `PUT { password, pin }`,
+  `POST unlock { pin }` (throttle 10/menit), `POST lock`, `DELETE { password }`. Logika murni + test `lock-logic.ts`.
+- **Frontend**: `lib/api/client.ts` — 403 `PIN_REQUIRED` memanggil penangan `PinUnlockHost` (dialog PIN) lalu mengulang permintaan sekali.
+  Item kerangka bertanda `_locked` (`useCollection`, `fetchCompleteItem`). Komponen `features/security/`: `PinLockButton` (gembok header),
+  `PinSettingsCard` (Profil Saya `#pin`), `LockToggleButton`, `LockedBadge`, `LockedNotice`, `useSealedGuard` (dialog form task/agenda
+  ditutup & minta PIN), `ensureUnlocked`, `withUnlocked` (Arsipkan / Hapus / Pulihkan arsip atas item terkunci meminta PIN dulu — permintaan
+  yang diulang otomatis memakai body yang sama, jadi aksi yang menyusun data dari kerangka tidak boleh dijalankan sebelum PIN dibuka). PIN
+  dibuka/dikunci → semua query dimuat ulang.
 
 ## 4. Database
 

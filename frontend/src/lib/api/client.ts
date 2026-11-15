@@ -54,6 +54,19 @@ const parseError = async (response: Response) => {
   return new ApiError(response.status, message, details);
 };
 
+/** Galat dari item terkunci PIN (403 `PIN_REQUIRED`). */
+export const isPinRequired = (error: unknown) =>
+  error instanceof ApiError && (error.details as { code?: unknown } | undefined)?.code === "PIN_REQUIRED";
+
+/**
+ * Penangan item terkunci: dipasang `PinUnlockHost` (membuka dialog PIN). true = PIN sudah dibuka → permintaan diulang
+ * sekali; false = user membatalkan → galat diteruskan.
+ */
+let pinRequiredHandler: (() => Promise<boolean>) | null = null;
+export const setPinRequiredHandler = (handler: (() => Promise<boolean>) | null) => {
+  pinRequiredHandler = handler;
+};
+
 // Satu proses refresh untuk semua request paralel yang terkena 401
 let refreshPromise: Promise<boolean> | null = null;
 
@@ -115,6 +128,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (response.status === 401 && auth && useAuthStore.getState().status === "authenticated") {
     if (await refreshSession()) response = await send();
+  }
+
+  if (response.status === 403 && auth && pinRequiredHandler) {
+    const details = (await response
+      .clone()
+      .json()
+      .catch(() => null)) as { code?: unknown } | null;
+    if (details?.code === "PIN_REQUIRED" && (await pinRequiredHandler())) response = await send();
   }
 
   if (!response.ok) throw await parseError(response);

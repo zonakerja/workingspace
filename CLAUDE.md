@@ -447,7 +447,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   Naskah Masuk/Tembusan/Disposisi/Koordinasi/Arahan, detail **tidak pernah dibuka** agar Status Baca tetap; record `srikandi_inbox` ID `si-<hash>`,
   kolom LifeOS `todoId` dipertahankan, butir hilang tidak dihapus; `docs/AI-AGENT.md` §21.14), **Edit register** `POST /robot/srikandi/register/:id/update { dryRun? }` → `updateSrikandiOutgoing` (robot
   `srikandi-register-edit.ts`: baca halaman Edit konsep di Log → `planEdit` → hanya yang berbeda; pengenal `pushedSignature` =
-  `outgoingSignature` backend = frontend `register-logic.ts`, ubah keduanya bersamaan; `docs/AI-AGENT.md` §21.13), **Register** `POST /robot/srikandi/register/:id { dryRun? }` → `registerSrikandiOutgoing` (berkas dari object
+  `outgoingSignature` backend = frontend `register-logic.ts`, ubah keduanya bersamaan; `docs/AI-AGENT.md` §21.13), **Kirim Konsep** `POST /robot/srikandi/register/:id/send { dryRun?, pin? }` → `sendSrikandiOutgoing` (bawaan dryRun tanpa PIN = robot `srikandi-send.ts` menandai tombol di halaman Detail Log tanpa klik; kirim = `sendBlockers` + **PIN setiap kali** `PinService.confirmAction` (hanya sesi login, token agen 403) → robot `/jobs/srikandi/register/send` yang tanpa `confirm: "KIRIM_KONSEP"` selalu dryRun → `draftSentAt`; tidak ada jalur agen/kebijakan/jadwal; `docs/AI-AGENT.md` §21.15), **Register** `POST /robot/srikandi/register/:id { dryRun? }` → `registerSrikandiOutgoing` (berkas dari object
   storage → robot `/jobs/srikandi/register`, body ≤ 40 MB) → konsep di Log Naskah Keluar, entri `submitted`. **Tautan publik berkas** `src/uploads/public-links.ts` (`public_links`, token hash, `/api/v1/public/files/:token`).
   **Brankas digital** `src/uploads/public-vaults.ts` (+ `vault-logic.ts` + test; `public_vaults`, `public_vault_files`,
   `public_vault_accesses`): satu tautan publik `/brankas/bv_<token>` per poin renaksi berisi beberapa berkas terisolasi; `/vaults*`
@@ -463,6 +463,10 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   dan dibaca lewat `ekinerja_status` (sesi konektor + 10 tugas terakhir di memori satu proses). Mengisi = `ekinerja_request_fill { period, reason }`
   → `agent_actions` kind `ekinerja_fill` (pending, satu per bulan, `after` = potret entri) → `POST /agent/actions/:id/approve` menjalankan
   `RobotService.fillEkinerjaRenaksi` dengan isi terkini (approved + ringkasan / failed + galat), `reject` = ditolak. `pending-count` ikut menghitungnya.
+  **Kirim Penilaian Ke Atasan** (keputusan user 2026-11-15, `docs/AI-AGENT.md` §21.16): `POST /robot/ekinerja/renaksi/submit { period, dryRun?, pin? }` →
+  `submitEkinerjaRenaksi` (`submitBlockers`: bulan draf + semua isian terisi sama; > 1 SKP ditolak; kirim = **PIN setiap kali** `PinService.confirmAction`, hanya
+  sesi login) → robot `/jobs/ekinerja/renaksi/submit` (`ekinerja-submit.ts`: tanpa `confirm: "KIRIM_PENILAIAN"` selalu dryRun; isi e-Kinerja wajib sama dengan
+  LifeOS & lengkap; dialog hanya disetujui bila memuat kirim/ajukan + penilaian/atasan) → potret bulan `submitted`. Tidak ada jalur agen/kebijakan/jadwal.
 - **Robot SRIKANDI untuk agen** (`src/robot/srikandi-agent.service.ts`, logika murni + test `srikandi-agent-logic.ts`, keputusan user 2026-11-13,
   detail `docs/AI-AGENT.md` §26.4): MCP cakupan `srikandi:robot` — `srikandi_sync_letters`, `srikandi_sync_references { classifications? }`,
   `srikandi_sync_inbox`, `srikandi_check_register { entryId }` (`dryRun`) di latar belakang (satu tugas per user, pemicu robot `agent`), dibaca lewat `srikandi_status`.
@@ -520,7 +524,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (record type `action_plan_month` — potret bulan Rencana Aksi e-Kinerja) + `20261031140000_public_vaults` (brankas digital + log
   akses) + `20261101120000_automation_jobs` (jadwal & riwayat otomasi) + `20261106130000_ai_router_endpoints` (jalur router per kredensial AI) + `20261106140000_knowledge_prefs` (preferensi menu Knowledge) + `20261106120000_agent_policies` (Kebijakan Otomatis,
   `agent_runs`, sakelar darurat, `requests.asset_check`/`auto_decision`) + `20261107120000_knowledge_note_versions` (riwayat versi
-  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI) + `20261113130000_mcp_oauth_client` (OAuth client & scope milik pemilik di `mcp_connections`) + `20261113140000_mcp_agent_tools` (`mcp_connections.agent_tools`: alat bertanda Hapus yang diizinkan untuk agen). Migrasi baru → lihat docs/SETUP.md §10
+  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI) + `20261113130000_mcp_oauth_client` (OAuth client & scope milik pemilik di `mcp_connections`) + `20261113140000_mcp_agent_tools` (`mcp_connections.agent_tools`: alat bertanda Hapus yang diizinkan untuk agen) + `20261113150000_converter_prefs` + `20261113160000_security_pin` (PIN keamanan, sesi login, `notebooks.locked`) + `20261114120000_converted_documents` (pustaka Markdown Converter). Migrasi baru → lihat docs/SETUP.md §10
     (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`, lalu cek
     drift dengan `--exit-code`; shadow DB dari `SHADOW_DATABASE_URL`).
 - **Records API**: `GET /records/:type?from&to` (milik sendiri + item bersama bertanda `share`), `PUT
@@ -538,13 +542,18 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   PDF scan/bergambar; OCR Tesseract `ind,eng`) → Markdown di `extracted_text`, `metadata.method = markitdown|docling`, `format: markdown`,
   `converter{…}`. Mati/menolak → pembaca bawaan; `aiOcrFallback` mati = OCR AI tidak pernah dipakai (`reason: ocr_off`). Pembagian mesin &
   pembersih Markdown di Python (`converter/app/logic.py` + pytest), pilihan format & cakupan baca ulang di `converter-logic.ts` (+ test).
-  Endpoint `/converter/status|preferences|stats|convert|reconvert`. `ConverterClient` disediakan `ExtractionModule` (hindari impor melingkar).
+  Endpoint `/converter/status|preferences|stats|reconvert|documents` (`POST /converter/convert` "Coba konversi" dihapus 2026-11-14). `ConverterClient` disediakan `ExtractionModule` (hindari impor melingkar).
   **Fitur baru yang membaca isi berkas untuk AI wajib memakai teks hasil ekstraksi** (`extractedText`), bukan mengirim berkas mentah.
   **Rapikan dengan AI** (opsional, `aiEnhance` + `aiEnhanceScope` ocr|all; `MarkdownEnhancerService` + logika & test `markdown-enhance.ts`):
   per bagian ± 12 rb karakter ke tugas AI **`document`** (Pembagian tugas "Rapikan dokumen", kosong = ikuti Umum; `taskProvider`), prompt
   struktur & salah baca saja, penjaga `checkEnhanced` (isi 85–115 %, angka ≥ 95 % tetap) → gagal = bagian asli. `AiService.countTokens` =
-  countTokens Gemini (Bandingkan token di Coba konversi). Python: tabel palsu PDF rata kiri-kanan diratakan (`_flatten_fake_tables`), kepala/kaki & nomor
+  countTokens Gemini (Bandingkan token di pustaka Dokumen). Python: tabel palsu PDF rata kiri-kanan diratakan (`_flatten_fake_tables`), kepala/kaki & nomor
   halaman berulang dibuang (`_drop_page_furniture`), gambar berkas lokal PPTX/DOCX dibuang (alt bermakna → `[Gambar: …]`), `[Slide n]`.
+  **Pustaka hasil konversi** (keputusan user 2026-11-14, `ConverterLibraryService`, tabel `converted_documents`): `POST /converter/documents`
+  (202, multipart sama dengan `convert`) → antrean **di memori** satu proses (2 paralel, maks. 10 antre & 500 dokumen per user) memanggil
+  `ConverterService.convert` → Markdown + Markdown dirapikan + metadata (`result` tanpa isi) disimpan. **Berkas asal tidak disimpan** (hanya di
+  memori selama diproses) → tidak ada sampah di storage; backend restart = antre/diproses ditandai `failed` (`onModuleInit`). `GET /documents`
+  (tanpa Markdown + `summary` dari `librarySummary`), `GET|PATCH|DELETE /documents/:id` (hapus = **permanen**, bukan Sampah). Tidak masuk RAG.
 - **Uploads** (`ownerId` opsional = unggah ke item bersama berizin edit → berkas milik pemilik, `uploaded_by_id` =
   pengunggah; baca: pemilik/pengunggah/penerima item yang merujuk berkas; hapus: pemilik/pengunggah): multer diskStorage (tmp) → SHA-256 streaming → S3 `<userId>/<yyyy>/<mm>/<ts>-<uuid><ext>` → `assets` +
   `asset_extractions` → job BullMQ `asset-extraction` (≤ 20 MB: teks, PDF, DOCX, XLSX; format kantor lain → konversi
@@ -626,6 +635,17 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   turunannya (`ShareAccessService.descendantsOf`, tanpa Notes AI tertaut) ke Sampah bertanda agen, beserta berkas milik item itu
   yang tidak lagi dirujuk record hidup lain (`RecordsService.liveUploadIds`; sumber Notebook / bukti brankas ditolak UploadsService). `GET /agent/actions?status=`,
   `GET /agent/actions/pending-count`. Agen tetap tidak punya jalur hapus langsung.
+- **PIN keamanan & item terkunci** (`src/security/` `@Global`, detail `docs/ARCHITECTURE.md` §3.15, keputusan user 2026-11-14): PIN 6 angka per akun
+  (`users.pin_hash`, blokir bertahap), status terbuka per **sesi login** (`refresh_tokens.session_id` + `pin_unlocked`, claim `sid`; sampai logout /
+  Kunci sekarang; token agen tanpa `sid` = selalu terkunci). Item induk `locked: true` (Area, Project, Resource, Catatan Bebas, Notes AI, List) +
+  `notebooks.locked`; turunan & berkas ikut (`LockService.lockSet`). Sesi terkunci: records = kerangka + nilai kosong (`sealLocked`, `locked`,
+  `partial`), tulis/hapus/berkas/notebook → **403 `PIN_REQUIRED`**; `preserve` item terkunci berlaku untuk semua key. RAG: `search` membuang item
+  terkunci kecuali `includeLocked` (chatbot & Notebook = status sesi; MCP/agen/WA tidak pernah), Pencarian Pintar = judul + `locked`. Cermin
+  80-LifeOS & catatan harian melewati item terkunci. Arsip PARA dari item terkunci (atau berisi turunan terkunci) ditandai `data.locked` saat
+  dibuat dan ikut terkunci; mengarsipkan / memulihkannya dari sesi terkunci = 403 **tanpa** `PIN_REQUIRED` (`archivedOrigins`). Resource di
+  File Control tidak bisa dikunci (`isFileControlResource`). Riwayat chatbot: jawaban bersitasi item terkunci diganti keterangan & tidak dikirim
+  ulang ke model selama terkunci. Komentar item terkunci (`CommentsService`, `LockService` lewat `ModuleRef`) & isi `GET /archive-audit`
+  item terkunci (`changes: {}`, `locked`) ikut tertutup. PIN bukan enkripsi. Jenis baru yang bisa dikunci → resep §14.
 - **Health**: `/health` (readiness, 503 bila dependensi down), `/health/live` (liveness).
 - **Seed**: `src/database/seed.ts` (dev: akun demo via `prisma db seed` → `tsx`; production: super admin dari env,
   `node dist/database/seed.js`).
@@ -1004,7 +1024,8 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     dengan hati-hati.
   - Celah yang diketahui: form agenda membuang upload sesi saat dialog ditutup (`discardUploads`) tetapi belum mencatatnya
     dengan `trackPendingUpload`, jadi berkas bisa tertinggal bila tab di-reload sebelum agenda disimpan.
-- **Peta modul Productivity** (`features/productivity/`, `/productivity/:tab`, `productivity-page.tsx` = hero jumlah
+- **Peta modul Productivity** (label menu **Working Space** sejak 2026-11-13; key modul `productivity`, path, kode, record type, warna
+  `--mod-productivity`, dan folder cermin `80-LifeOS/Productivity` tetap) (`features/productivity/`, `/productivity/:tab`, `productivity-page.tsx` = hero jumlah
   projects/areas/resources + 5 tab; `ParaDetailDialogs` & `ScheduleDialogs` dipasang di halaman):
   - **Overview** (`overview-tab.tsx`): 4 kartu statistik, `ParaCalendar` (`para-calendar.tsx`: rentang project berjalan
     `isProjectRunningOn` + titik action/task per tanggal → `DayDetailDialog`), daftar project belum selesai (maks. 5, dua
@@ -1021,7 +1042,12 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     (`agenda-item.tsx`) urut tanggal, tampilan List | Timeline, cari, filter tanggal & jenis, sakelar Gabung seri; centang
     → `CompleteTaskDialog`, "Ubah" cepat → `TaskQuickDialog`, form action/task dengan lampiran (`useAttachmentEdits`).
     **Tanpa tombol e-Kinerja** (keputusan user 2026-11-12: Productivity terisolasi; menu e-Kinerja yang menarik kegiatannya).
-  - **Resources** (`resources-tab.tsx`): cari nama/tag, filter tanggal & tag, Kelola Tag, paginasi 25, `?resource=<id>`
+  - **Resources** (`resources-tab.tsx`, tampilan di `resource-views.tsx`, logika murni + test `lib/resource-view.ts`; keputusan user
+    2026-11-13): kartu ringkasan per jenis (Semua / Berkas / Web link / Catatan / di File Control) yang sekaligus **filter jenis**,
+    tampilan **Grid** (bawaan; kartu ikon & warna per jenis berkas `KIND_STYLE`: PDF, dokumen, spreadsheet, presentasi, gambar,
+    audio/video, zip, link, catatan; deskripsi atau ringkasan AI, tag bebas lebih dulu, aksi di kaki kartu) | **Tabel** (ikon + judul +
+    deskripsi satu kolom), pilihan diingat per browser (`lifeos.resources.view`); keadaan kosong `Empty` + Hapus filter. Jenis berkas
+    dari ekstensi lalu MIME (`resourceKind`); format baru → `EXTENSION_KIND`. Cari nama/tag, filter tanggal & tag, Kelola Tag, paginasi 25, `?resource=<id>`
     menyorot; ringkasan AI per resource, arsipkan, hapus (aturan berkas & arsip terkunci: lihat Lampiran). Form Resource
     (tipe link / file / Buat Dokumen ONLYOFFICE / catatan) di berkas yang sama.
   - **Archives** (`archives-tab.tsx`): tampilan Arsip (filter jenis project/area/resource, cari, tanggal, paginasi 25,
@@ -1099,13 +1125,15 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   - Form agenda: mengubah Tanggal Mulai menggeser Tanggal Selesai (durasi tetap); konten form di-`key` per sesi buka &
     per agenda (`useOpenSession`).
 - **Bidang aktif** (`features/knowledge/workspace/active-field-button.tsx`, tombol di banner Knowledge; logika murni + test `fieldCounts`/`sameField` di `knowledge-logic.ts`): pilih / tambah bidang, tandai catatan tanpa bidang; disimpan lewat `useKnowledgePrefs`. Pemanggil `save` wajib menyebar `...prefs` agar `activeField` tidak hilang.
-- **Layout & Pengaturan** (keputusan user 2026-10-15): sidebar = Workspace **Overview, Planner, Notes Space, Productivity, File Control** + grup **AI Agent** (**Knowledge, AI Agent, Approval**, `sidebarGroup: "ai"`, keputusan user 2026-11-10) + grup **Connection & MCP** (e-Kinerja, SRIKANDI, SIMAN, lalu koneksi buatan agen yang disetujui, lalu **Aplikasi MCP** — aplikasi MCP tersambung tidak lagi punya menu sendiri, keputusan user 2026-11-13 — `sidebarGroup: "connection"` + `useAgentMenus`, `placement: connection`) + grup Sistem berisi **Tools** dan **Pengaturan**
+- **Layout & Pengaturan** (keputusan user 2026-10-15): sidebar = Workspace **Overview, Planner, Notes Space, Working Space (key `productivity`), File Control** + grup **AI Agent** (**Knowledge, AI Agent, Approval**, `sidebarGroup: "ai"`, keputusan user 2026-11-10) + grup **Connection & MCP** (e-Kinerja, SRIKANDI, SIMAN, lalu koneksi buatan agen yang disetujui, lalu **Aplikasi MCP** — aplikasi MCP tersambung tidak lagi punya menu sendiri, keputusan user 2026-11-13 — `sidebarGroup: "connection"` + `useAgentMenus`, `placement: connection`) + grup Sistem berisi **Tools** dan **Pengaturan**
   (`ModuleDef.sidebarGroup: "system"`, keduanya menu ber-sub-menu `SubmenuModuleItem`); Pengaturan
   (sub menu berurutan **Aplikasi, Manajemen User, Berbagi, Model AI, Integrasi** — urutan tab di `navigation.ts` sama dengan sub menu).
   **Profil Saya bukan bagian Pengaturan**: halaman sendiri `/profile` (`features/profile/`, modul `profile` dengan
   `hiddenInSidebar`, warna = Pengaturan) dibuka dari menu user kiri bawah. **Tema** hanya diatur dari tombol tema di header
   (dropdown Terang / Gelap / Ikuti sistem). Tombol sidebar saat diciutkan = 32 px: logo ikut 32 px, ikon modul memakai
-  `COLLAPSIBLE_ITEM_CLASS` (tanpa padding) agar tepat di tengah. Logo aplikasi dibaca lewat `appLogoUrl(settings)`
+  `COLLAPSIBLE_ITEM_CLASS` (tanpa padding) agar tepat di tengah. Menu ber-sub-menu (Tools, Pengaturan) saat sidebar diciutkan
+  (desktop) dibuka sebagai **menu melayang** di samping ikon (`SubmenuModuleItem` → `DropdownMenu` side right), karena sub menu
+  bawaan disembunyikan di mode ikon. Logo aplikasi dibaca lewat `appLogoUrl(settings)`
   (`use-app-settings.ts`). Dialog yang punya kontrol di pojok kanan atas (mis. pencarian global) memakai
   `showCloseButton={false}` + `DialogClose` sendiri di baris kontrolnya agar tidak bertumpuk. **Popover/panel berisi daftar
   panjang**: batasi tinggi `max-h-[min(…,var(--radix-popover-content-available-height))]` + `flex flex-col`, daftar di
@@ -1125,12 +1153,15 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   notifikasi browser opsional saat tab tidak dilihat (tombol **Aktifkan notifikasi browser** di kartu Cara kerja otomasi);
   notifikasi tugas gagal membuka tab Connector sistemnya (tombol "Lihat riwayat").
 - **Tools → Markdown Converter** (`features/tools/converter/`, hook `data/use-converter.ts`, logika + test `converter-utils.ts`; tab kedua
-  Tools): status service, sakelar + cara baca PDF + Cadangan OCR AI, Coba konversi (pratinjau/Markdown, salin, unduh `.md`, simpan ke Inbox
-  vault), Berkas tersimpan (per cara baca + Baca ulang `ai_ocr|missing|legacy`). Ringkasan AI lampiran & Resource memakai teks server lebih
+  Tools): status service, sakelar + cara baca PDF + Cadangan OCR AI, Berkas tersimpan (per cara baca + Baca ulang `ai_ocr|missing|legacy`). Ringkasan AI lampiran & Resource memakai teks server lebih
   dulu: `useFileSummarizer().summarize(file, uploadId)` (berkas mentah ke AI hanya bila server tanpa teks), `ResourceAiDialog` (`storedText`),
   Notes AI `readFileText` (tunggu 5 menit). Label `metadata.method` → `METHOD_LABELS`. Kartu pengaturan juga sakelar **Rapikan dengan AI**
-  + cakupan; Coba konversi punya centang Rapikan & **Bandingkan token** (bawaan **mati**: mengirim isi berkas ke Google untuk `countTokens`; `TokenComparison` menyebut Gemini hanya alat hitung, bukan perapi; `tokenRows` + test), badge "Dirapikan oleh <provider> (model)" (`providerLabel`), tab Dirapikan AI / Hasil
-  converter; Pengaturan → Model AI punya baris tugas **Rapikan dokumen** (`ai-routing-card.tsx`).
+  + cakupan; unggahan pustaka Dokumen punya centang Rapikan & **Bandingkan token** (bawaan **mati**: mengirim isi berkas ke Google untuk `countTokens`; `TokenComparison` menyebut Gemini hanya alat hitung, bukan perapi; `tokenRows` + test), badge "Dirapikan oleh <provider> (model)" (`providerLabel`), tab Dirapikan AI / Hasil
+  converter; Pengaturan → Model AI punya baris tugas **Rapikan dokumen** (`ai-routing-card.tsx`). Halaman dibagi dua sub-tab `?sub=`: **Dokumen**
+  (bawaan, `converter-documents.tsx`: Konversi & simpan — banyak berkas sekaligus, boleh ditinggal — + daftar Dokumen tersimpan dengan cari,
+  paginasi, ganti judul, hapus permanen; `?doc=<id>` = modal hasil, dipantau 2 dtk selama diproses) dan **Pengaturan** (`settings`: status,
+  sakelar, Berkas tersimpan, cara kerja). Penampil hasil `ConversionResultView` (`conversion-result.tsx`; pasang dengan `key` per hasil);
+  dokumen → hasil lewat `documentResult` (+ test).
 - **Tools → ONLYOFFICE** (`features/tools/`, detail: `docs/ONLYOFFICE.md` §3.3): modul `tools` ber-sub-menu di sidebar
   (`ModuleDef.sidebarSubmenu` → `SubmenuModuleItem`, juga dipakai Pengaturan; sub menu baru = tab baru di `navigation.ts`).
   Editor dibuka dari mana saja lewat `openOfficeEditor({ uploadId, name?, mode? })` (`OfficeEditorHost` di AppShell, editor
@@ -1237,7 +1268,12 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   belum menjadi baris (tidak pernah melepas centang), tambah butir yang belum ada (**idempoten** — butir e-Kinerja tidak bisa
   diubah/dihapus satu per satu), `safeClick` menolak tombol kirim/ajukan/hapus, bulan tanpa tombol Isi/Edit = sudah
   diajukan → berhenti. `dryRun` = baca isi bulan + rencana langkah tanpa klik (dipakai untuk memeriksa).
-  Robot e-Kinerja **tidak pernah** menekan "Kirim Penilaian Ke Atasan". **Pemantauan & sinkron dua arah** (2026-10-31,
+  Isi/Kirim perubahan **tidak pernah** menekan "Kirim Penilaian Ke Atasan". **Tab Penilaian** (`/kinerja/assessment`, `assessment-tab.tsx`, keputusan user
+  2026-11-15: bulan yang sudah ada di e-Kinerja dipisah dari Rencana Aksi agar rapi): per tahun, bulan draf / diajukan / dinilai dari potret `action_plan_month`
+  (`assessmentMonths`, `assessmentCounts`, `hasFeedback` + test), terbaru dulu; per bulan: keadaan, tanggal pengajuan, predikat/rating/tunkin, feedback n/m, isi
+  per indikator (dibuka), **Rencana Aksi** (`/kinerja/plan?period=YYYY-MM` = bulan awal papan), dan untuk draf tombol **Kirim Penilaian** (nonaktif + alasan
+  `submitBlocker`) → `submit-assessment-dialog.tsx` (Periksa dulu tanpa kirim + PIN); tombol Pantau. Warna keadaan bulan bersama `month-styles.ts`. Tab Rencana
+  Aksi tidak lagi punya tombol Kirim Penilaian. **Pemantauan & sinkron dua arah** (2026-10-31,
   `docs/AI-AGENT.md` §21.10a): **Pantau e-Kinerja** (`POST /robot/ekinerja/renaksi/sync { year }` → robot `/jobs/ekinerja/renaksi/read`)
   → record `action_plan_month` per bulan (status draft/submitted/rated, tanggal pengajuan, rating, isi + feedback) + impor butir
   yang hanya ada di e-Kinerja (`importCandidates`); entri menyimpan pengenal perubahan `pushedSignature` + `pushed` (`entrySignature`
@@ -1272,7 +1308,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   yang juga tampil di atas tab Register dan di Approval → Usulan Agen): tab **Naskah Masuk** (id `inbox`, tab pertama; `inbox-board.tsx`, logika
   murni + test `inbox-logic.ts`, record `srikandi_inbox`, `?inbox=<id>` = `links.srikandiInbox`: chip jenis/belum dibaca, cari, Jadikan to-do
   (`todoId`), Buat balasan → `links.srikandiRegisterReply` = Register baru dengan Nomor Referensi + `replyTo`, balasan dikenali dari
-  `SrikandiOutgoing.replyTo`; lonceng = bagian Naskah Masuk Belum Dibaca), tab **Register Naskah Keluar** (id `register`, tab pertama; `register-board.tsx` + `register-dialog.tsx` + `register-file-picker.tsx`, logika murni + test `register-logic.ts`; record `srikandi_outgoing`, `?register=<id>|new` + `&request=&doc=` dari Approval = `links.srikandiRegister*`; detail `docs/AI-AGENT.md` §21.11–§21.12; **Daftarkan ke SRIKANDI** = `robotApi.registerOutgoing` → `POST /robot/srikandi/register/:id` (backend `registerSrikandiOutgoing` + logika murni `srikandi-register.ts`) → robot `POST /jobs/srikandi/register` (`robot/src/srikandi-register.ts` + test): isi formulir → **Simpan** = konsep di Log Naskah Keluar, draf berhal sama tidak dibuat ulang, `dryRun` = **Periksa di SRIKANDI** (dialog `RunDialog` dari `robot-settings.tsx`); robot tidak pernah Kirim Konsep), tab **Daftar Naskah Keluar** (id `outgoing`; record
+  `SrikandiOutgoing.replyTo`; lonceng = bagian Naskah Masuk Belum Dibaca), tab **Register Naskah Keluar** (id `register`, tab pertama; `register-board.tsx` + `register-dialog.tsx` + `register-file-picker.tsx`, logika murni + test `register-logic.ts`; record `srikandi_outgoing`, `?register=<id>|new` + `&request=&doc=` dari Approval = `links.srikandiRegister*`; detail `docs/AI-AGENT.md` §21.11–§21.12; **Daftarkan ke SRIKANDI** = `robotApi.registerOutgoing` → `POST /robot/srikandi/register/:id` (backend `registerSrikandiOutgoing` + logika murni `srikandi-register.ts`) → robot `POST /jobs/srikandi/register` (`robot/src/srikandi-register.ts` + test): isi formulir → **Simpan** = konsep di Log Naskah Keluar, draf berhal sama tidak dibuat ulang, `dryRun` = **Periksa di SRIKANDI** (dialog `RunDialog` dari `robot-settings.tsx`); **Kirim Konsep** = tombol pada entri terdaftar `canSendDraft` → `send-draft-dialog.tsx` (Periksa dulu tanpa kirim + PIN), §21.15), tab **Daftar Naskah Keluar** (id `outgoing`; record
   `srikandi_letter`, cari + paginasi, Lihat PDF lewat `previewFile`, tombol **Ambil dari SRIKANDI** → `POST
   /robot/srikandi/letters/sync`) & **Connector** (`<RobotSettings systems={["srikandi"]} />`). Sinkron: robot `POST
   /jobs/srikandi/outgoing` (`robot/src/srikandi.ts` + test) membaca Daftar Naskah Keluar, untuk naskah ber-TTD (`isSigned`)
@@ -1313,6 +1349,17 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   `POST /trash/restore` lalu memuat ulang cache. Fungsi hapus baru yang masuk Sampah → bungkus juga. Teks konfirmasi hapus: "dipindah ke
   Sampah dan bisa dipulihkan selama 30 hari", bukan "dihapus permanen" (kecuali yang memang permanen: unggahan belum tersimpan, catatan di
   dalam notebook, isian di dalam item).
+- **PIN keamanan** (`features/security/`): klien API membuka dialog PIN global (`PinUnlockHost`, `requestUnlock()`) saat server menjawab 403
+  `PIN_REQUIRED` lalu mengulang permintaan; item kerangka bertanda `_locked` (`isLockedItem`). Komponen: `PinLockButton` (gembok header),
+  `PinSettingsCard` (Profil Saya `#pin`), `LockToggleButton` + `LockedBadge` (kartu Area/Project, baris Resource, kartu Catatan/Notes AI/List,
+  menu Notebook), `LockedNotice` (dialog/editor yang dibuka langsung), `useSealedGuard` (form task/agenda: tutup & minta PIN — form tidak boleh
+  mengisi dari kerangka), `ensureUnlocked` (klik buka/ubah: minta PIN dulu, klik lagi setelah data dimuat ulang), `withUnlocked(item, aksi)`
+  (Arsipkan / Hapus / Pulihkan arsip: item terkunci → minta PIN, aksi tidak dijalankan dari kerangka; `useParaActions` juga menolak mengarsipkan
+  bila turunannya masih kerangka). Gembok kunci tidak tampil untuk Resource di File Control. **Tawaran PIN setelah login** (keputusan user
+  2026-11-15): `useLogin` menandai `markLoginPinPrompt()` bila `user.hasPin`; `LoginPinPrompt` (di `PinUnlockHost`) membaca penanda sekali setelah
+  status PIN termuat dan, bila ada item terkunci & sesi belum terbuka, membuka dialog mode `login` ("Masuk dengan PIN?" — **Masuk dengan PIN** /
+  **Lanjut tanpa PIN**). Tidak muncul saat halaman dimuat ulang (sesi dipulihkan dari cookie) atau bila akun tanpa PIN / tanpa item terkunci. Hook `data/use-pin.ts` (setelah
+  buka/kunci/atur, semua query dimuat ulang). Logika murni + test `pin-logic.ts` (salinan aturan PIN lemah backend).
 - **Komponen umum**: `ConfirmDialog`, `SectionCard`, `RenameDialog`, `SearchableSelect`, `PaginationControl`+`paginate()`,
   `Markdown`, `PriorityBadge`, `PageLoader`, `DateRangeFilter`, `SearchInput`.
 - **Paginasi daftar**: `usePagination(items, ukuranAwal)` (`hooks/use-pagination.ts`) → `{ pageItems, setPage,
@@ -1460,8 +1507,15 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | SIMAN fitur terbuka untuk agen: tab SIMAN → Workflow (workflow agen `placement: siman`), alat MCP robot baca `siman:robot` (Jaga sesi, Baca halaman tanpa klik; alamat keluar/hapus/kirim/unggah ditolak) | ✅ 2026-11-13 — unit backend +6 (468), frontend 322, smoke +7 (user tanpa sesi SIMAN; total 612 lulus), lint, typecheck, format; UI tab Workflow & Cara Kerja. **Belum**: Hermes sungguhan memakai alat SIMAN (izin token agen, TODO-USER A33), login SIMAN sungguhan (A28), alur tiket & unggah SK (menunggu A25) |
 | SRIKANDI fitur terbuka untuk agen: workflow agen di tab SRIKANDI → Workflow, alat MCP robot (ambil naskah, referensi, klasifikasi, periksa Register) di latar belakang, permintaan daftarkan naskah yang menunggu persetujuan pemilik | ✅ 2026-11-13 — unit backend +5 & frontend tetap lulus, smoke +15 (user tanpa sesi SRIKANDI), lint, typecheck, format. **Belum**: Hermes sungguhan memakai alat baru (izin token agen, TODO-USER A32), pendaftaran ke SRIKANDI sungguhan setelah disetujui (uji robot ditunda, data dummy) |
 | Tampilan ringkas seluruh aplikasi (header, banner modul satu baris, tab, kartu, dialog, kartu statistik, kartu arsip, penjelasan PARA dapat dibuka) | ✅ 2026-11-12 — lint, typecheck, unit (313), format, build; UI diuji 1366×768 & 375 px di semua modul (tanpa luberan horizontal; konten mulai ± 215 px, dulu ± 330 px; revisi banner/tab/kartu ringkasan sesuai arahan user); hanya kelas tampilan, logika/alur tidak berubah; modal utama (Project, Area, Agenda lihat & form, Proses Arsip, Approval, Notes AI) diperiksa di browser. **Belum**: modal yang jarang dipakai (robot, brankas, register SRIKANDI) hanya lewat aturan umum, belum dilihat satu per satu |
-| **Markdown Converter** (Tools; MarkItDown + Docling dipakai worker ekstraksi untuk semua fitur AI; Coba konversi, Baca ulang berkas lama, Cadangan OCR AI) | ✅ 2026-11-13 — pytest 9, unit backend +5 (498) & frontend +4 (337), smoke +11, migrasi tanpa drift, lint, typecheck, format; ujung-ke-ujung: DOCX/XLSX → MarkItDown (tabel), PNG & PDF scan → Docling OCR sempurna, risalah rapat sungguhan 6 halaman (4 scan) 21 dtk ± 2.900 token, service mati → pembaca bawaan; UI desktop & 375 px; compose produksi divalidasi (belum dijalankan). **Belum**: berkas lama admin dev belum dibaca ulang (71 berkas, tombol Baca ulang), OCR tulisan tangan/teks miring (judul terbalik di risalah terbaca acak), PPTX/EPUB/MSG sungguhan |
+| **Markdown Converter** (Tools; MarkItDown + Docling dipakai worker ekstraksi untuk semua fitur AI; Coba konversi (dihapus 2026-11-14, diganti pustaka Dokumen), Baca ulang berkas lama, Cadangan OCR AI) | ✅ 2026-11-13 — pytest 9, unit backend +5 (498) & frontend +4 (337), smoke +11, migrasi tanpa drift, lint, typecheck, format; ujung-ke-ujung: DOCX/XLSX → MarkItDown (tabel), PNG & PDF scan → Docling OCR sempurna, risalah rapat sungguhan 6 halaman (4 scan) 21 dtk ± 2.900 token, service mati → pembaca bawaan; UI desktop & 375 px; compose produksi divalidasi (belum dijalankan). **Belum**: berkas lama admin dev belum dibaca ulang (71 berkas, tombol Baca ulang), OCR tulisan tangan/teks miring (judul terbalik di risalah terbaca acak), PPTX/EPUB/MSG sungguhan |
+| Markdown Converter: **pustaka Dokumen** (hasil konversi disimpan & bisa dibuka lagi, banyak berkas sekaligus di latar belakang, ganti judul, hapus permanen; berkas asal tidak disimpan; Coba konversi dihapus) | ✅ 2026-11-14 — unit backend +2 (508) & frontend +2 (343), smoke +7, migrasi tanpa drift, lint, format, build; browser (unggah 2 berkas → pindah menu → kembali → buka hasil, ganti judul, hapus permanen → tabel kosong; 375 px tanpa luberan). Database diperiksa: tidak ada sisa data uji converter. **Belum**: konversi ulang dengan mesin lain (berkas asal tidak disimpan → unggah ulang), simpan langsung ke Catatan Bebas |
 | Markdown Converter: **Rapikan dengan AI** (sakelar + cakupan OCR/semua, tugas AI baru "Rapikan dokumen", penjaga isi & angka) + **Bandingkan token** (countTokens Gemini) + pembersihan converter (tabel palsu PDF, kepala/kaki & nomor halaman, gambar lokal PPTX) | ✅ 2026-11-13 — pytest 13, unit backend 504 & frontend 334, smoke +3, lint, typecheck, format; **uji token 8 dokumen sungguhan dari Downloads** (hasil di `docs/ARCHITECTURE.md` §3.14: PDF −32…−78 %, rapikan diterima 7/8, Surat Bupati hasil OCR ditata ulang benar tanpa mengubah nomor); UI tabel token. Tugas "Rapikan dokumen" akun admin dev diarahkan ke **Gemini** (bawaan = ikuti Umum = Claude Opus). **Belum**: isi gambar/diagram tidak terbaca (Docling tanpa deskripsi gambar), uji dengan Claude/OpenAI sebagai perapi |
+| Tab Resources Productivity: tampilan Grid & Tabel, kartu ringkasan/filter jenis, ikon & warna per jenis berkas; menu Tools/Pengaturan bisa dibuka saat sidebar diciutkan | ✅ 2026-11-13 — unit frontend +4 (339), lint, typecheck, format, build; browser 1366×768 (grid, tabel, filter Web link, menu melayang Tools → Sampah) & 375 px tanpa luberan |
+| Menu Productivity berganti nama **Working Space** (label saja; path `/productivity`, API, data tetap) + kajian kredit & paket Classai Router (`docs/ARCHITECTURE.md` §3.1) | ✅ 2026-11-13 — typecheck, lint, format, unit frontend 339 & backend (agent-menus, knowledge, integrations) lulus; sidebar, banner, breadcrumb tampil "Working Space" di browser |
+| **PIN keamanan & item terkunci** (Area, Project + turunannya, Resource, Catatan Bebas, Notes AI, List, Notebook; judul tetap tampil & dicari, isi + berkas + AI hanya saat PIN terbuka sampai logout; agen/MCP/WA/cermin Obsidian tidak pernah) | ✅ 2026-11-14 — **pemeriksaan ulang** (hari yang sama): arsip PARA ikut terkunci, arsipkan/hapus/pulihkan dari kerangka dicegah, kunci Sampah & notebook diperbarui segera, riwayat chatbot disaring, File Control tidak bisa dikunci, hitungan PIN salah atomik — unit backend 511 & frontend 343, smoke +4, lint, typecheck, format. Sebelumnya: unit backend 506 & frontend 341, smoke +27 (semua lulus, termasuk rotasi token, preserve isi, notebook, berkas), migrasi tanpa drift, lint, typecheck, format, build; browser dengan akun uji `user@lifeos.com` (atur PIN, kunci Area dari kartu, Kunci sekarang, isi hilang, modal terkunci, PIN salah/benar, Planner judul saja, form tugas meminta PIN; data uji & PIN uji dihapus). **Belum**: kunci per item turunan (Kegiatan/Task sendiri), audit kearsipan `GET /archive-audit` masih menampilkan diff resource terkunci, PIN untuk tindakan (bukan hanya buka item), hasil AI yang dibuat saat PIN terbuka di **luar** chatbot (catatan & chat My Notebook yang tidak dikunci, salinan ke Catatan Bebas/Inbox) tidak ikut terkunci, tautan publik berkas & brankas yang dibuat sebelum dikunci tetap berlaku (dibagikan sengaja oleh pemilik). **2026-11-15**: komentar & audit kearsipan item terkunci ikut tertutup, modal **Masuk dengan PIN / Lanjut tanpa PIN** setelah login — unit backend 511 & frontend 343, smoke penuh 680 lulus (+6 skenario baru; setelah WSL di-restart, lihat §15), browser (akun uji ber-PIN: modal muncul, Lanjut tanpa PIN = tetap terkunci & tidak muncul lagi saat dimuat ulang, Masuk dengan PIN = terbuka; admin tanpa PIN tanpa modal; data & PIN uji dihapus) |
+| **Kirim Konsep SRIKANDI dengan PIN** (tombol di tab Register, Periksa dulu tanpa kirim, PIN wajib setiap kali, hanya sesi login; agen/jadwal tidak pernah) | ✅ 2026-11-15 — unit robot +6 (65), backend 512, frontend 344, smoke penuh lulus (+4), lint, typecheck, format; halaman Log & Detail direkam Playwright **tanpa klik**, dryRun dari API & dialog = tombol KIRIM KONSEP ditemukan pada konsep uji. **Tidak pernah dikirim** (perintah user): klik → dialog konfirmasi → hasil belum pernah dijalankan (TODO-USER A38) |
+| **Tab Penilaian e-Kinerja** (bulan draf/diajukan/dinilai dipisah dari Rencana Aksi; rating, feedback, isi, Kirim Penilaian pindah ke sini) | ✅ 2026-11-15 — unit frontend +2 (347), lint, typecheck, format, build; browser dengan potret sungguhan akun admin (Okt draf + Jan–Sep dinilai, hanya dibaca), tautan Rencana Aksi membuka Oktober, Rencana Aksi tanpa tombol Kirim Penilaian, 375 px tanpa luberan |
+| **Kirim Penilaian Ke Atasan dengan PIN** (tombol di tab Penilaian, Periksa dulu tanpa kirim, PIN setiap kali, isi e-Kinerja wajib sama dengan LifeOS & lengkap; agen/jadwal tidak pernah) | ✅ 2026-11-15 — unit robot +6 (71), backend 513, frontend 345, smoke penuh 700 lulus (+3), lint, typecheck, format; halaman Rencana Aksi direkam Playwright **tanpa klik**; alur kirim diuji pada **halaman e-Kinerja tiruan** di container robot (ready, mismatch, incomplete, sudah diajukan, dialog asing dibatalkan, konfirmasi dummy → sent); UI akun uji + data dummy (dihapus). **Tidak pernah dikirim ke e-Kinerja**: dialog konfirmasi sungguhan belum diketahui (TODO-USER A39) |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -1485,6 +1539,8 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
    Rapikan dengan AI ikut commit itu; sakelarnya **mati** bawaan (akun admin dev: mati); tugas "Rapikan dokumen" admin dev kini diatur user ke **Anthropic** (cadangan Gemini).
 6f. **Aplikasi MCP fitur terbuka + Google Workspace + izin per alat & `save_app_file` (2026-11-13)** sudah di-commit bersama 6g (commit gabungan), belum di-push. Hermes perlu izin `mcp:apps` (TODO-USER A34); Google butuh OAuth client milik user + Developer Preview Program (A35); kegagalan GitHub user belum terdiagnosis pasti (minta pesan galatnya bila masih gagal).
 6e. **SIMAN fitur terbuka (2026-11-13)** ikut di-commit di 6d sebagai kerja berjalan (dikerjakan bersamaan dengan chat SRIKANDI di working tree yang sama — berkas bersama: `lifeos-mcp.service.ts`, `robot.module.ts`, `robot-logic.ts`, `robot.service.ts`, `smoke.mjs`, CLAUDE.md). Hermes perlu izin `siman:robot` (TODO-USER A33). Langkah berikutnya SIMAN = pemilik mengajarkan proses tiket (A25), lalu Hermes membaca halaman tiket lewat `siman_read_page` dan menyusun skill + workflow SIMAN; jalur tulis (unggah SK) dibangun sebagai permintaan yang disetujui pemilik, dengan data dummy dulu.
+6h. **Kirim Konsep dengan PIN (2026-11-15)** ikut commit gabungan 6i, belum di-push. Pengiriman pertama oleh user (A38); bila robot melapor dialog tak dikenal, petakan teks dialognya lalu sesuaikan `pickSendConfirm`. Konsep uji jangan dikirim.
+6i. **Kirim Penilaian dengan PIN + tab Penilaian (2026-11-15)** sudah di-commit dalam **commit gabungan** atas perintah user (`feat(security,ekinerja,srikandi,converter): …`) bersama pekerjaan sesi lain yang berbagi berkas (PIN keamanan, pustaka Markdown Converter, Kirim Konsep, tampilan Resources), belum di-push. Sebelum commit: unit backend 513, frontend 347, robot 71, smoke penuh 700 lulus. Pengiriman pertama oleh user (A39); bila robot melapor dialog tak dikenal, petakan teksnya lalu sesuaikan `pickSubmitConfirm`. Uji ulang alur tanpa e-Kinerja: `dummy-ekinerja.mjs` (pola di `docs/AI-AGENT.md` §21.16) dijalankan di container robot.
 6b. **Edit register SRIKANDI (2026-11-13)** sudah di-commit (6d); konsep uji `[UJI LifeOS] Uji edit register v2 - abaikan` masih di Log Naskah
    Keluar SRIKANDI dan entri ujinya di tab Register (menunggu izin user untuk dihapus — hapus konsep di SRIKANDI butuh izin eksplisit).
 6a. **SRIKANDI fitur terbuka (2026-11-13)** sudah di-commit (`feat(srikandi): open SRIKANDI to the agent…`), belum di-push; Hermes perlu izin `srikandi:robot` (TODO-USER A32).
@@ -2459,6 +2515,69 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   sebagai tabel palsu → diratakan di converter (−19 % token tanpa AI). Kepala/kaki halaman & gambar lokal PPTX dibuang di converter karena
   justru itulah yang dibuang AI dan membuat penjaga menolak.
 
+- 2026-11-13 — Thread **Workspace & Sistem** dimulai (permintaan user: upgrade fitur grup menu Workspace & Sistem, dokumentasi diperbarui
+  setiap perubahan). (1) Tab Resources Productivity dibuat lebih menarik dengan pilihan **Grid** (bawaan) dan **Tabel**: warna per jenis
+  berkas memakai token yang ada (status + warna modul), bukan warna baru; tanpa perubahan backend/data. Tanggal resource kini dibaca lokal
+  (`parseLocalYMD`; sebelumnya YMD dibaca UTC). (2) Bug: saat sidebar diciutkan Tools & Pengaturan tidak bisa dibuka (Collapsible sub menu
+  disembunyikan di mode ikon) → menu melayang berisi sub menu.
+
+- 2026-11-13 — **Productivity → Working Space** (permintaan user; alamat API diserahkan ke Claude). Hanya **label** yang diganti (menu,
+  banner, breadcrumb, Pencarian Pintar, teks UI, kartu cermin, pesan MCP & catatan harian). Tidak ada alamat API khusus Productivity —
+  datanya lewat `/records/:type` umum — jadi tidak ada yang perlu diubah di API. Path `/productivity`, key modul, kode, record type, dan
+  folder cermin `80-LifeOS/Productivity` sengaja tetap: mengganti path memutus tautan lama (deep link, berbagi, chatbot, agen), mengganti
+  folder cermin memindah/menulis ulang berkas di vault Obsidian. `NATIVE_FEATURES` memuat kedua nama (agen tidak bisa memakai keduanya).
+  Kajian **Classai Router** (tanpa kode): paket Opus 5.5 dipakai lebih dulu, lalu kredit untuk semua model pada key yang sama; ringkasan
+  di `docs/ARCHITECTURE.md` §3.1.
+
+- 2026-11-14 — **PIN keamanan untuk item privat** (permintaan user: area Private dikunci PIN, data tetap masuk RAG & bisa dicari; keputusan
+  lewat pertanyaan: judul saja yang terlihat, AI memakai isi hanya saat PIN terbuka, terbuka **sampai logout** + bisa dikunci lagi, cakupan
+  Area & Project, Resource, Catatan & List, My Notebook). Dirancang sebagai **kunci akses di server**, bukan enkripsi — enkripsi dengan PIN
+  membuat server tidak bisa mengindeks/mencari isi, bertentangan dengan syarat RAG. Status terbuka ditempelkan ke sesi login (pengenal sesi
+  baru yang bertahan saat token dirotasi) sehingga logout otomatis mengunci dan token agen tidak pernah terbuka. Turunan Area/Project dihitung
+  dengan graf yang sama dengan Berbagi. Item terkunci dikirim sebagai kerangka berisi nilai kosong (bukan key hilang) agar layar lama tidak
+  error. Ditemukan saat membangun: `preserve` server hanya berlaku untuk field daftar ringan → menyimpan kerangka setelah PIN dibuka akan
+  mengosongkan isi; kini item terkunci mempertahankan semua key tersembunyi (smoke menguji). Form task/agenda yang dibuka dengan item
+  terkunci ditutup dan meminta PIN agar isian tidak memakai kerangka. Lupa PIN = atur ulang dengan kata sandi akun.
+  Pemeriksaan ulang (permintaan user "cek kembali bug/potensi masalah PIN"): (1) arsip PARA menyimpan salinan isi → arsip item terkunci
+  terbuka di Archives & bagi agen → snapshot ditandai `data.locked` oleh server dan ikut terkunci; (2) mengarsipkan / menghapus / memulihkan
+  dari kerangka menulis isi kosong lalu permintaan diulang otomatis setelah PIN → frontend meminta PIN **sebelum** aksi, server menolak
+  arsip/pemulihan dari sesi terkunci tanpa kode `PIN_REQUIRED` (agar tidak diulang); (3) pulih dari Sampah & sumber notebook tidak membuang
+  cache kunci (item pulihan terbuka ± 30 dtk); (4) riwayat chatbot menampilkan jawaban lama berisi isi terkunci; (5) tebakan PIN paralel bisa
+  membaca hitungan salah yang sama → `increment` atomik; (6) Resource File Control yang dikunci membuat prosedur kearsipan bekerja atas
+  kerangka → ditolak. Penerima item bersama membuka item terkunci pemilik dengan **PIN-nya sendiri** (disengaja).
+- 2026-11-15 — **Kirim Konsep dengan PIN** (permintaan user: fitur PIN dipakai untuk Kirim Konsep; jangan pernah kirim konsep saat membangun, data dummy,
+  Playwright hanya untuk identifikasi elemen). Merevisi AG-27/§21.11 "Kirim Konsep hanya user" menjadi "hanya atas klik pemilik + PIN". PIN diminta
+  **setiap kali** (bukan status PIN sesi) karena ini tindakan resmi atas nama pejabat; hanya dari sesi login (token agen 403) dan tidak ada jalur
+  agen/kebijakan/jadwal. Pengaman berlapis: backend memeriksa PIN sebelum robot dipanggil, server robot memaksa dryRun tanpa `confirm`, robot
+  memastikan hal di halaman Detail sama dan masih "belum dikirim", dialog konfirmasi hanya disetujui bila jelas tentang pengiriman. Konsep
+  dengan perubahan LifeOS yang belum diperbarui ditolak agar yang sampai ke verifikator sama dengan yang dilihat pemilik. Dialog konfirmasi
+  SRIKANDI belum diketahui karena tombol tidak pernah diklik.
+- 2026-11-15 — **Tawaran PIN setelah login** (permintaan user: saat login muncul modal untuk masuk dengan PIN atau lanjut tanpa PIN) +
+  sisa celah ditutup (komentar & audit kearsipan item terkunci). Modal hanya setelah login sungguhan, bukan saat sesi dipulihkan dari cookie
+  (status terbuka sudah tersimpan per sesi di server), dan hanya bila ada item terkunci — tanpa item terkunci PIN tidak ada gunanya ditanyakan.
+  Penanda login disimpan di modul (bukan state komponen) agar tidak hilang oleh render/efek ganda StrictMode. Tautan publik/brankas berkas
+  item terkunci sengaja tetap berlaku: tautan itu dibuat pemilik untuk dibuka orang lain (mis. penilai e-Kinerja).
+
+- 2026-11-15 — **Tab Penilaian e-Kinerja** (permintaan user: renaksi yang sudah draf atau sudah dinilai diletakkan di tab tersendiri agar rapi). Tab
+  Rencana Aksi tetap tempat menyiapkan isian (kegiatan, usulan, butir per RHK, kirim ke e-Kinerja); tab **Penilaian** menampilkan bulan yang sudah ada di
+  e-Kinerja (draf, menunggu penilaian, dinilai) per tahun dengan rating & feedback, dan menjadi satu-satunya tempat **Kirim Penilaian** (dipindah dari
+  toolbar Rencana Aksi). Tanpa perubahan backend: data dari potret `action_plan_month` yang dibaca Pantau.
+- 2026-11-15 — **Kirim Penilaian Ke Atasan dengan PIN** (permintaan user: pola PIN dipakai untuk Kirim Penilaian; jangan pernah kirim, data dummy,
+  Playwright hanya untuk identifikasi elemen). Merevisi "robot tidak pernah menekan Kirim Penilaian" menjadi "hanya atas klik pemilik + PIN"; pengisian,
+  agen, kebijakan, dan jadwal tetap tidak pernah mengirim. Pola Kirim Konsep dipakai apa adanya, ditambah syarat yang khas penilaian: isi bulan di
+  e-Kinerja wajib **sama persis** dengan LifeOS dan **lengkap** (yang dinilai atasan = yang dilihat pemilik; bulan berbaris kosong tidak bisa terkirim),
+  diperiksa backend (dari potret) **dan** robot (dari halaman langsung). Bulan ber-SKP ganda ditolak (jarang; kirim dari e-Kinerja). Alur klik diuji pada
+  halaman e-Kinerja tiruan di dalam container robot, bukan e-Kinerja sungguhan; ditemukan saat uji: dialog asing yang menyebut "atasan" ikut disetujui
+  → wajib kata kirim/ajukan.
+- 2026-11-14 — **Pustaka Markdown Converter** (permintaan user: hasil Coba konversi hilang saat pindah halaman; sisa data di database dibersihkan
+  bila ada). Database diperiksa: Coba konversi tidak pernah menyimpan berkas, data uji sebelumnya sudah dibuang (`discard`) — tidak ada sampah.
+  Rancangan: tabel sendiri berisi **hasil saja** (Markdown + dirapikan + metadata), berkas asal hanya di memori selama diproses, sehingga tidak
+  ada objek storage yang perlu dibersihkan dan hapus cukup satu baris (permanen, tidak lewat Sampah, karena tidak ada yang bisa hilang selain
+  teks yang bisa dibuat ulang dari berkasnya). Antrean di memori (bukan BullMQ) karena berkas tidak disimpan; restart = ditandai gagal. Pustaka
+  tidak masuk RAG agar tidak menggandakan berkas yang juga diunggah di fitur lain. Lanjutan (permintaan user, hari yang sama): **Coba konversi
+  dihapus** (kartu, `POST /converter/convert`, `useConvertFile`, `converterApi.convert`) karena pustaka sudah mencakupnya; smoke converter
+  dipindah ke `/converter/documents`; format tak didukung kini ditolak 400 saat unggah (sebelum antre).
+
 ## 13. Konvensi Kode
 
 - Indentasi 2 spasi, LF, UTF-8 (`.editorconfig`, `.gitattributes`). Prettier tunggal di root.
@@ -2573,6 +2692,19 @@ mengosongkan `deleted_at`; entitas tanpa `deleted_at` → salin baris (+ anak) s
 dengan hapusnya, handler `restore` membuat ulang dengan ID sama (`restorableRow` untuk kolom JSON) dan `purge` menghapus sisa di luar
 database (objek storage, berkas). Berkas milik entitas → `uploads.remove(id, user, { trash: true })` agar masuk kelompok yang sama.
 Label jenis baru → `KIND_LABELS`/`RECORD_LABELS` (`trash-utils.ts`).
+
+**Tindakan resmi atas nama user ke sistem luar** (kirim, ajukan; contoh Kirim Konsep & Kirim Penilaian): endpoint terpisah dengan `dryRun` bawaan true, `PinService.confirmAction(user, pin)`
+sebelum robot dipanggil, server robot memaksa dryRun tanpa token konfirmasi eksplisit, robot memeriksa ulang identitas item di halaman sebelum
+klik, dan tidak pernah lewat MCP/agen/jadwal (pola Kirim Konsep, `docs/AI-AGENT.md` §21.15). Uji alur klik pada **halaman tiruan** yang
+menyerupai sistem (HTML dummy di localhost dalam container robot, robot dipanggil langsung), bukan sistem sungguhan (§21.16).
+
+**Membuat jenis item baru bisa dikunci PIN**: record type induk → `LOCKABLE_TYPES` (`security/lock-logic.ts`) — turunannya ikut bila relasinya
+sudah ada di `expandDescendants` (Berbagi); key yang boleh tetap terlihat saat terkunci → `SKELETON_KEYS`. Entitas tabel sendiri (bukan record)
+→ kolom `locked` + tambahkan ke `LockService.compute` & penjaga rute (pola `NotebookLockGuard`), sumber indeksnya ke `lockedSources`. Frontend:
+`LockToggleButton` + `LockedBadge` di kartu, `LockedNotice` / `useSealedGuard` di dialog yang membuka isinya. Fitur baru yang membaca record
+**langsung dari Prisma** untuk ditulis keluar LifeOS (vault, ekspor) wajib menyaring `lockSet(owner).records`.
+Fitur baru yang **menyalin isi** item ke tempat lain (snapshot, salinan, hasil AI) wajib membawa kuncinya (pola `data.locked` arsip PARA) dan
+aksi pemicunya dibungkus `withUnlocked`.
 
 **Menambah aplikasi ke katalog MCP**: entri di `MCP_PRESETS` (`mcp-connection-logic.ts`: key, nama, deskripsi, alamat resmi dari dokumentasi
 penyedia, `authType`, ikon dari registry ikon frontend; server OAuth tanpa pendaftaran klien dinamis → `needsClient: true` + `scope` bawaan;
@@ -2941,6 +3073,16 @@ utama tetap < 500 kB (cek output `npm run build`).
   provider; Claude/OpenAI menagih teks + gambar per halaman. Router Classai membuang angka token & cache dari `usage` → ukur dengan
   `AiService.countTokens` (key Gemini langsung). Docling tidak membaca isi gambar/diagram (hanya teks OCR) — dokumen bermakna gambar
   (soal fisika, grafik) kehilangan informasi di Markdown.
+- Klien mengulang permintaan yang ditolak `PIN_REQUIRED` **dengan body yang sama** setelah PIN dibuka. Body yang disusun dari kerangka item
+  terkunci (snapshot arsip, pemulihan, daftar berkas) tetap kosong saat diulang → aksi semacam itu wajib `withUnlocked`/`ensureUnlocked` lebih
+  dulu, dan server menolaknya dengan 403 biasa (tanpa `PIN_REQUIRED`). Hanya tulisan record itu sendiri yang aman diulang (`preserve`).
+- WSL tidak sehat (2026-11-15: `uptime` beban ± 25 tanpa proses D, jam WSL melenceng dari Windows, `docker exec` menggantung): Redis/DB/S3
+  menjawab dari proses baru, tetapi klien ioredis **di dalam backend** bisa menggantung selamanya (`maxRetriesPerRequest: null`) → `/health`,
+  `GET /ai/index`, simpan key AI (antrian indeks) tidak pernah menjawab, smoke berhenti "Headers Timeout" di "ai save key"; restart backend saja
+  tidak cukup. Pulihkan dengan izin user: `wsl --shutdown` (boleh timeout; cek `wsl --list --running` kosong) → `sleep infinity` (latar) →
+  `docker compose --profile office --profile robot --profile converter up -d --wait` → `infra/hermes/up.sh` (alamat gateway WSL bisa
+  berubah) → restart backend (ubah isi satu berkas `src`) sampai `/health` = ok (storage sempat "down" sebelum backend di-restart).
+  Terbukti 2026-11-15: setelah itu smoke penuh lulus.
 - Mengubah kode backend saat uji panjang berjalan (uji token, transkrip) me-restart `nest --watch` dan memutus uji (ECONNRESET) → tulis
   perubahan setelah uji selesai.
 

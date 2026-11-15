@@ -26,7 +26,7 @@ import type { RecordType, ShareMeta } from "@/types/api";
  * ============================================================================
  */
 
-type EntityBase = { id?: string | number; userId?: string; share?: ShareMeta; _partial?: string[] };
+type EntityBase = { id?: string | number; userId?: string; share?: ShareMeta; _partial?: string[]; _locked?: boolean };
 
 /** Record yang dimuat sebagai daftar ringan (dokumen/coretan/teks dokumen tidak ikut, lihat backend `record-light.ts`). */
 export const LIGHT_TYPES: ReadonlySet<RecordType> = new Set<RecordType>(["free_note", "ai_note"]);
@@ -34,11 +34,15 @@ export const LIGHT_TYPES: ReadonlySet<RecordType> = new Set<RecordType>(["free_n
 /** Item dari daftar ringan yang belum memuat isi lengkapnya. */
 export const isPartialItem = (item: { _partial?: string[] } | null | undefined) => !!item?._partial?.length;
 
-/** Payload yang dikirim/dibandingkan: tanpa metadata client (`share`, `_partial`). */
+/** Item terkunci PIN yang isinya belum terbuka di sesi ini (hanya judul, waktu, status, relasi). */
+export const isLockedItem = (item: { _locked?: boolean } | null | undefined) => !!item?._locked;
+
+/** Payload yang dikirim/dibandingkan: tanpa metadata client (`share`, `_partial`, `_locked`). */
 export const stripMeta = <T extends EntityBase>(item: T) => {
-  const { share, _partial, ...payload } = item;
+  const { share, _partial, _locked, ...payload } = item;
   void share;
   void _partial;
+  void _locked;
   return payload;
 };
 
@@ -115,6 +119,7 @@ export function useCollection<T extends EntityBase>(type: RecordType, options: C
             userId: record.userId,
             ...(record.share ? { share: record.share } : {}),
             ...(record.partial?.length ? { _partial: record.partial } : {}),
+            ...(record.locked ? { _locked: true } : {}),
           }) as T,
       );
     },

@@ -40,6 +40,11 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
         label: "Daftarkan naskah dari tab Register: isi formulir Registrasi Naskah Keluar lalu Simpan konsep",
         scheduled: false,
       },
+      {
+        label:
+          "Kirim Konsep ke verifikator dari tab Register — hanya atas klik Anda dengan PIN (Periksa dulu = tanpa kirim)",
+        scheduled: false,
+      },
       { label: "Ambil naskah ber-TTD & lampirannya dari Daftar Naskah Keluar", scheduled: true },
       {
         label:
@@ -51,7 +56,7 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
       { label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true },
     ],
     limits:
-      "Berhenti di Simpan konsep. Robot tidak pernah menekan Kirim Konsep / Kirim Naskah dan tidak pernah menandatangani (TTE).",
+      "Daftar & Perbarui berhenti di Simpan konsep. Kirim Konsep hanya lewat tombol Anda + PIN (tidak pernah oleh agen atau jadwal). Robot tidak pernah menekan Kirim Naskah dan tidak pernah menandatangani (TTE).",
   },
   ekinerja: {
     label: "e-Kinerja",
@@ -61,12 +66,17 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
     defaultHosts: [],
     flows: [
       { label: "Isi / kirim perubahan Rencana Aksi bulanan dari menu e-Kinerja", scheduled: false },
+      {
+        label:
+          "Kirim Penilaian Ke Atasan dari tab Rencana Aksi — hanya atas klik Anda dengan PIN (Periksa dulu = tanpa kirim)",
+        scheduled: false,
+      },
       { label: "Ambil SKP & RHK", scheduled: true },
       { label: "Pantau Rencana Aksi (status bulan, isi, feedback penilai)", scheduled: true },
       { label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true },
     ],
     limits:
-      "Hanya mengisi bulan yang belum diajukan. Robot tidak pernah menekan Kirim Penilaian Ke Atasan dan tidak menyetujui penilaian.",
+      "Hanya mengisi bulan yang belum diajukan. Kirim Penilaian Ke Atasan hanya lewat tombol Anda + PIN, pada bulan yang isinya sama dengan LifeOS & lengkap (tidak pernah oleh agen atau jadwal). Robot tidak menyetujui penilaian.",
   },
   siman: {
     label: "SIMAN",

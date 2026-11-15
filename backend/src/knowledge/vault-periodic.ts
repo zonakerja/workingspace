@@ -176,7 +176,7 @@ export function buildPeriodicSection(input: PeriodicInput) {
   lines.push(
     "",
     `> [!info] Ringkasan LifeOS saat catatan dibuat${app ? ` · [buka Planner](${app}/planner/schedule)` : ""}`,
-    "> Centang di catatan ini tidak mengubah LifeOS — selesaikan item di Planner / Productivity.",
+    "> Centang di catatan ini tidak mengubah LifeOS — selesaikan item di Planner / Working Space.",
   );
   return lines.join("\n");
 }

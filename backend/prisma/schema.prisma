@@ -76,36 +76,41 @@ enum AiProvider {
 // ---------------------------------------------------------------- Identitas
 
 model User {
-  id             String      @id @default(cuid())
-  name           String
-  email          String      @unique
-  passwordHash   String      @map("password_hash")
-  role           UserRole    @default(member)
-  phone          String?
-  address        String?
+  id              String      @id @default(cuid())
+  name            String
+  email           String      @unique
+  passwordHash    String      @map("password_hash")
+  role            UserRole    @default(member)
+  phone           String?
+  address         String?
   // Provider AI yang dipakai user (kredensialnya di ai_credentials)
-  aiProvider     AiProvider? @map("ai_provider")
+  aiProvider      AiProvider? @map("ai_provider")
   // Cadangan otomatis: provider lain (yang punya key) dipakai bila provider aktif kehabisan kuota, tidak terjangkau,
   // atau tidak mendukung lampiran
-  aiFallback     Boolean     @default(true) @map("ai_fallback")
+  aiFallback      Boolean     @default(true) @map("ai_fallback")
   // Indeks pengetahuan (RAG): data user di-embed dengan Gemini; dimatikan = indeks dihapus & tidak ada data dikirim
-  aiIndexEnabled Boolean     @default(true) @map("ai_index_enabled")
+  aiIndexEnabled  Boolean     @default(true) @map("ai_index_enabled")
   // AI di editor ONLYOFFICE (tab AI memakai provider & key LifeOS); default mati agar isi dokumen tidak terkirim tanpa disadari
-  officeAi       Boolean     @default(false) @map("office_ai")
+  officeAi        Boolean     @default(false) @map("office_ai")
   // Pembagian tugas AI: { chat, general, ocr: provider; embedding: gemini|openai } — kosong = ikuti provider aktif
-  aiRouting      Json?       @map("ai_routing")
+  aiRouting       Json?       @map("ai_routing")
   // Profil kerja & instruksi tetap yang selalu ikut di chat AI (jabatan, unit, istilah, gaya, aturan menjawab)
-  aiProfile      String?     @map("ai_profile")
+  aiProfile       String?     @map("ai_profile")
   // Nama folder vault Obsidian milik user di dalam KNOWLEDGE_VAULTS_DIR (basis pengetahuan)
-  knowledgeVault String?     @map("knowledge_vault")
+  knowledgeVault  String?     @map("knowledge_vault")
   /// Preferensi menu Pengetahuan: penanda (path) & grup warna graf
-  knowledgePrefs Json?       @map("knowledge_prefs")
+  knowledgePrefs  Json?       @map("knowledge_prefs")
   /// Preferensi e-Kinerja: { renaksiExcluded: ["area:<id>" | "project:<id>" | "loose"] } = cakupan kegiatan yang tidak ditarik
-  ekinerjaPrefs  Json?       @map("ekinerja_prefs")
+  ekinerjaPrefs   Json?       @map("ekinerja_prefs")
   /// Preferensi Markdown Converter: { enabled, pdfMode: auto|markitdown|docling, aiOcrFallback } (Tools → Markdown Converter)
-  converterPrefs Json?       @map("converter_prefs")
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  converterPrefs  Json?       @map("converter_prefs")
+  /// PIN keamanan (6 angka, hash argon2) untuk membuka item terkunci; null = belum diatur
+  pinHash         String?     @map("pin_hash")
+  /// Salah PIN berturut-turut (direset saat benar) & waktu blokir sementara
+  pinFailed       Int         @default(0) @map("pin_failed")
+  pinBlockedUntil DateTime?   @map("pin_blocked_until") @db.Timestamptz(3)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   refreshTokens             RefreshToken[]
   assets                    Asset[]
@@ -171,6 +176,7 @@ model User {
   trashItems            TrashItem[]
   agentActions          AgentAction[]
   mcpConnections        McpConnection[]
+  convertedDocuments    ConvertedDocument[]
   agentRuns             AgentRun[]
   /// Sakelar darurat Kebijakan Otomatis: true = tidak ada tugas/keputusan/kiriman otomatis baru
   agentAutoPaused       Boolean                @default(false) @map("agent_auto_paused")
@@ -180,17 +186,21 @@ model User {
 
 model RefreshToken {
   // id dipakai sebagai claim `jti` pada refresh token JWT
-  id        String    @id @default(cuid())
-  userId    String    @map("user_id")
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
   // SHA-256 (hex) dari refresh token
-  tokenHash String    @map("token_hash")
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
-  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @map("token_hash")
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  // Sesi login (tetap sama saat token dirotasi) — dipakai status "PIN terbuka" sampai logout
+  sessionId   String?   @map("session_id")
+  pinUnlocked Boolean   @default(false) @map("pin_unlocked")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([sessionId])
   @@map("refresh_tokens")
 }
 
@@ -262,6 +272,8 @@ model Notebook {
   /// Sidik jari sumber saat ringkasan dibuat (beda ⇒ ringkasan usang)
   summaryHash String?           @map("summary_hash")
   summaryAt   DateTime?         @map("summary_at") @db.Timestamptz(3)
+  /// Dikunci PIN: isi hanya terbuka di sesi yang sudah memasukkan PIN
+  locked      Boolean           @default(false)
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1886,4 +1898,31 @@ model McpConnection {
 
   @@unique([userId, slug])
   @@map("mcp_connections")
+}
+
+/// Pustaka Markdown Converter: hasil konversi yang disimpan (berkas asal tidak disimpan). Hapus = permanen.
+model ConvertedDocument {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  title            String
+  fileName         String    @map("file_name")
+  mimeType         String    @map("mime_type")
+  size             Int
+  /// mode, enhance, compareTokens
+  options          Json
+  /// queued | processing | done | failed
+  status           String
+  error            String?
+  engine           String?
+  markdown         String?
+  enhancedMarkdown String?   @map("enhanced_markdown")
+  /// pages, tokens, warnings, durationMs, enhanced (tanpa isi), enhanceError, tokenComparison
+  result           Json?
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  finishedAt       DateTime? @map("finished_at") @db.Timestamptz(3)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("converted_documents")
 }

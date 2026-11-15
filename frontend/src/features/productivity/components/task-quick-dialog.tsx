@@ -19,6 +19,7 @@ import type { AttachedResource, Priority, ProjectTask } from "@/types/entities";
 import { useAttachmentEdits } from "../use-attachment-edits";
 import { AccessScope } from "@/components/common/access-scope";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useSealedGuard } from "@/features/security/lock-controls";
 
 export type TaskKind = "action" | "task";
 
@@ -38,6 +39,9 @@ export function TaskQuickDialog(props: TaskQuickDialogProps) {
   // Konten dipertahankan saat menutup; remount per task → state form langsung dari props
   const task = useRetained(props.task);
   const session = useOpenSession(!!props.task);
+  // Task milik Area/Project terkunci: minta PIN dulu
+  const sealed = useSealedGuard(props.task, () => props.onOpenChange(false));
+  if (sealed) return null;
   return (
     <AccessScope item={task}>
       <TaskQuickDialogInner key={`${task?.id ?? "none"}-${session}`} {...props} task={task} open={!!props.task} />

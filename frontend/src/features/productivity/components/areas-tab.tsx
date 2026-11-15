@@ -16,6 +16,13 @@ import { PARA_INFO } from "../lib/para";
 import { AreaFormDialog } from "./area-dialogs";
 import { CARD_ACTION_CLASS } from "./overview-tab";
 import { ParaInfo } from "./para-info";
+import {
+  LockToggleButton,
+  LockedBadge,
+  ensureUnlocked,
+  isSealed,
+  withUnlocked,
+} from "@/features/security/lock-controls";
 
 export function AreasTab({
   onOpenArea,
@@ -87,6 +94,7 @@ export function AreasTab({
                       <Grid2x2 className="size-3.5" />
                     </span>
                     <SharedBadge item={area} recordType="para_area" className="min-w-0 shrink truncate" />
+                    <LockedBadge item={area} />
                   </div>
                   {canEdit && itemAccess(area).canEdit && (
                     <div className="-my-1 -mr-1.5 flex shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -95,13 +103,18 @@ export function AreasTab({
                         size="icon-sm"
                         title="Ubah"
                         className={CARD_ACTION_CLASS}
-                        onClick={() => setEditing(area)}
+                        onClick={() => (isSealed(area) ? void ensureUnlocked(area) : setEditing(area))}
                       >
                         <PencilLine />
                       </Button>
                       {/* Bagikan, arsipkan, hapus hanya oleh pemilik */}
                       {!area.share && (
                         <>
+                          <LockToggleButton
+                            item={area}
+                            className={CARD_ACTION_CLASS}
+                            onSave={(next) => setAreas((prev) => prev.map((a) => (a.id === next.id ? next : a)))}
+                          />
                           <ShareButton
                             item={area}
                             recordType="para_area"
@@ -114,7 +127,7 @@ export function AreasTab({
                             size="icon-sm"
                             title="Arsipkan"
                             className={cn(CARD_ACTION_CLASS, "hover:text-warning")}
-                            onClick={() => onArchiveArea(area)}
+                            onClick={() => withUnlocked(area, () => onArchiveArea(area))}
                           >
                             <Archive />
                           </Button>
@@ -123,7 +136,7 @@ export function AreasTab({
                             size="icon-sm"
                             title="Hapus"
                             className={cn(CARD_ACTION_CLASS, "hover:text-destructive")}
-                            onClick={() => requestDelete(area)}
+                            onClick={() => withUnlocked(area, () => requestDelete(area))}
                           >
                             <Trash2 />
                           </Button>

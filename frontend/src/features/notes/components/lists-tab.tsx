@@ -34,6 +34,7 @@ import { useSearchParam } from "@/hooks/use-search-param";
 import { itemAccess } from "@/lib/sharing";
 import { NoteDeleteDialog } from "@/features/resources/note-delete-dialog";
 import { noteKey } from "@/features/resources/note-references";
+import { LockToggleButton, LockedBadge, LockedNotice } from "@/features/security/lock-controls";
 
 type ItemRef = { listId: FreeList["id"]; itemId: ListItem["id"] };
 
@@ -257,6 +258,10 @@ export function ListsTab() {
                       {/* Bagikan, arsipkan, hapus hanya oleh pemilik list */}
                       {canEdit && access.isOwner && (
                         <>
+                          <LockToggleButton
+                            item={list}
+                            onSave={(next) => setItems((prev) => prev.map((l) => (l.id === next.id ? next : l)))}
+                          />
                           <ShareButton item={list} recordType="list" title={list.title} iconOnly />
                           <Button
                             variant="ghost"
@@ -283,6 +288,7 @@ export function ListsTab() {
                     </div>
                   </div>
                   <SharedBadge item={list} recordType="list" />
+                  <LockedBadge item={list} />
                   {progress.total > 0 && (
                     <div className="flex w-full items-center gap-2">
                       <Progress
@@ -298,6 +304,7 @@ export function ListsTab() {
                   )}
                 </CardHeader>
                 <CardContent className="flex min-h-36 flex-col gap-2 py-4">
+                  {list._locked && <LockedNotice title={list.title} />}
                   {list.items.map((item, index) => {
                     const isEditing = editingItem?.listId === list.id && editingItem.itemId === item.id;
                     return (

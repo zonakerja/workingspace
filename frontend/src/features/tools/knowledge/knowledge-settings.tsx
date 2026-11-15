@@ -243,7 +243,7 @@ const EXPORT_KIND_INFO: { kind: KnowledgeExportKind; label: string; detail: stri
   { kind: "notebooks", label: "My Notebook", detail: "Ringkasan, sumber, catatan Studio, riwayat chat" },
   {
     kind: "productivity",
-    label: "Productivity",
+    label: "Working Space",
     detail: "Project + Action, Area + strukturnya, Agenda yang punya hasil, Resource Global",
   },
 ];
@@ -259,7 +259,7 @@ function MirrorCard() {
     <SectionCard
       icon={FolderSync}
       title="Cermin hasil kerja ke Obsidian"
-      description="Salinan otomatis satu arah (LifeOS → vault) di folder 80-LifeOS: catatan, My Notebook, dan hasil Productivity tampil di Obsidian & graf, saling bertaut."
+      description="Salinan otomatis satu arah (LifeOS → vault) di folder 80-LifeOS: catatan, My Notebook, dan hasil Working Space tampil di Obsidian & graf, saling bertaut."
       action={
         data && (
           <Switch

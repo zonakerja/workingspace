@@ -28,6 +28,14 @@ import {
   syncPlan,
 } from "./ekinerja-renaksi.js";
 import {
+  incompleteRows,
+  isSubmitButton,
+  pickSubmitConfirm,
+  rowDifference,
+  type SubmitRequest,
+  submitOutcome,
+} from "./ekinerja-submit.js";
+import {
   classifyFields,
   infoDialogButton,
   isRememberCheckbox,
@@ -57,6 +65,16 @@ import {
   sameSite,
   validFileBody,
 } from "./srikandi.js";
+import {
+  DETAIL_PATH_MARK,
+  detailMatches,
+  findSendRow,
+  pickSendConfirm,
+  SEND_BUTTON,
+  sendOutcome,
+  type SendRequest,
+  UNSENT_MARK,
+} from "./srikandi-send.js";
 import {
   findDraft,
   LOG_PATH,
@@ -580,6 +598,137 @@ export class BrowserPool {
     });
   }
 
+  /**
+   * e-Kinerja: **Kirim Penilaian Ke Atasan** satu bulan draf. Tanpa konfirmasi (dryRun, bawaan server) robot hanya membaca
+   * blok bulan, memeriksa isinya sama dengan LifeOS & lengkap, lalu menandai tombol (garis merah di tangkapan layar) tanpa
+   * mengklik. Kirim sungguhan hanya setelah backend memeriksa PIN pemilik.
+   */
+  async ekinerjaSubmit(target: Target & { request: SubmitRequest }) {
+    return this.withPage(target, async (page, hosts, markers) => {
+      const req = target.request;
+      const month = monthName(req.period)!;
+      const base = target.baseUrl.replace(/\/+$/, "");
+      const url = `${base}/skp/renaksi/${encodeURIComponent(req.skpExternalId)}`;
+      await this.open(page, url, hosts);
+      await this.dismissInfoDialog(page);
+      await page
+        .waitForFunction(() => /januari/i.test(document.body.innerText), undefined, { timeout: 20_000 })
+        .catch(() => undefined);
+      const info = await this.describe(page, markers);
+      const none = { month, rows: [] as unknown[], incomplete: [] as unknown[], difference: null, message: "" };
+      if (!info.loggedIn) return { ...info, ...none, status: "logged_out" as const, screenshot: null };
+
+      const block = await this.renaksiBlock(page, month);
+      if (!block.found) return { ...info, ...none, status: "not_found" as const, screenshot: await this.jpeg(page) };
+      const rows = block.rows.map(({ key, renaksi, realisasi, bukti }) => ({ key, renaksi, realisasi, bukti }));
+      const summary = monthSummary(block.text, block.canFill, block.canEdit, block.rows.length);
+      if (summary.status === "submitted" || summary.status === "rated") {
+        return {
+          ...info,
+          ...none,
+          rows,
+          status: "already_submitted" as const,
+          message: summary.submittedAt ?? "",
+          screenshot: await this.jpeg(page),
+        };
+      }
+      if (!block.canSubmit) {
+        return {
+          ...info,
+          ...none,
+          rows,
+          status: "not_ready" as const,
+          message: "Tombol Kirim Penilaian tidak ada di bulan ini.",
+          screenshot: await this.jpeg(page),
+        };
+      }
+      // Isi e-Kinerja harus sama dengan LifeOS & lengkap: yang sampai ke atasan = yang dilihat pemilik di LifeOS
+      const difference = rowDifference(rows, req.expectedKeys);
+      if (difference.onlyEkinerja.length || difference.onlyLifeos.length) {
+        return { ...info, ...none, rows, difference, status: "mismatch" as const, screenshot: await this.jpeg(page) };
+      }
+      const incomplete = incompleteRows(rows);
+      if (incomplete.length) {
+        return { ...info, ...none, rows, incomplete, status: "incomplete" as const, screenshot: await this.jpeg(page) };
+      }
+      const button = page.locator("[data-lifeos-renaksi=submit]").first();
+      const label = (await button.textContent({ timeout: 10_000 }).catch(() => "")) ?? "";
+      if (!isSubmitButton(label) || !(await button.isEnabled().catch(() => false))) {
+        return {
+          ...info,
+          ...none,
+          rows,
+          status: "not_ready" as const,
+          message: "Tombol Kirim Penilaian tidak aktif.",
+          screenshot: await this.jpeg(page),
+        };
+      }
+      await button.scrollIntoViewIfNeeded().catch(() => undefined);
+      if (req.dryRun) {
+        await button.evaluate((el) => ((el as HTMLElement).style.outline = "3px solid #e11d48")).catch(() => undefined);
+        return { ...info, ...none, rows, status: "ready" as const, url: page.url(), screenshot: await this.jpeg(page) };
+      }
+
+      // —— Kirim sungguhan (hanya atas permintaan pemilik ber-PIN) ——
+      if (!page.url().includes(`/skp/renaksi/${req.skpExternalId}`))
+        throw new Error("Robot tidak berada di halaman Rencana Aksi SKP yang diminta.");
+      const before = new Set((await this.visibleDialogs(page)).map((d) => d.text));
+      await button.click({ timeout: 10_000 });
+      let message = "";
+      for (let i = 0; i < 40; i++) {
+        await page.waitForTimeout(500);
+        const dialogs = (await this.visibleDialogs(page)).filter((d) => !before.has(d.text));
+        const result = dialogs.find((d) => submitOutcome(d.text) !== "unknown");
+        if (result) {
+          message = result.text;
+          break;
+        }
+        const confirm = dialogs
+          .map((d) => ({
+            d,
+            label: pickSubmitConfirm(
+              d.text,
+              d.buttons.map((b) => b.text),
+            ),
+          }))
+          .find((x) => x.label);
+        if (confirm) {
+          const b = confirm.d.buttons.find((x) => x.text === confirm.label)!;
+          await page.locator(`[data-lifeos-send-button="${b.id}"]`).click({ timeout: 10_000 });
+          before.add(confirm.d.text);
+          continue;
+        }
+        if (dialogs.length && i >= 6) {
+          // Dialog tak dikenal: jangan menebak — batalkan dan laporkan
+          message = dialogs[0].text;
+          await page.keyboard.press("Escape").catch(() => undefined);
+          return { ...info, ...none, rows, status: "unconfirmed" as const, message, screenshot: await this.jpeg(page) };
+        }
+      }
+      const shot = await this.jpeg(page);
+      if (submitOutcome(message) === "failed") {
+        return { ...info, ...none, rows, status: "failed" as const, message, screenshot: shot };
+      }
+      // Periksa ulang: bulan terkirim = tombol Edit/Kirim hilang / ada tanggal pengajuan
+      await this.dismissInfoDialog(page);
+      await this.open(page, url, hosts).catch(() => undefined);
+      await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+      const after = await this.renaksiBlock(page, month).catch(() => null);
+      const afterStatus = after ? monthSummary(after.text, after.canFill, after.canEdit, after.rows.length) : null;
+      const sent = afterStatus
+        ? afterStatus.status === "submitted" || afterStatus.status === "rated"
+        : submitOutcome(message) === "sent";
+      return {
+        ...info,
+        ...none,
+        rows,
+        status: sent ? ("sent" as const) : ("unknown" as const),
+        message: afterStatus?.submittedAt ? `${message} ${afterStatus.submittedAt}`.trim() : message,
+        screenshot: (await this.jpeg(page)) ?? shot,
+      };
+    });
+  }
+
   /** Buka modal "Pilih Indikator Kinerja" (tombol Isi … Bulan / Edit Rencana Aksi Kerja) dan baca pilihannya. */
   private async openIndicatorModal(page: Page, block: { canFill: boolean; canEdit: boolean }) {
     const opener = block.canFill ? "[data-lifeos-renaksi=fill]" : block.canEdit ? "[data-lifeos-renaksi=edit]" : null;
@@ -709,6 +858,7 @@ export class BrowserPool {
         }
         let canFill = false;
         let canEdit = false;
+        let canSubmit = false;
         for (const b of buttons) {
           const label = clean(b.textContent);
           if (/^Isi Rencana Aksi Kerja Bulan/i.test(label) && label.toLowerCase().endsWith(month)) {
@@ -717,6 +867,10 @@ export class BrowserPool {
           } else if (/^Edit Rencana Aksi Kerja/i.test(label)) {
             b.setAttribute("data-lifeos-renaksi", "edit");
             canEdit = true;
+          } else if (/kirim penilaia+n ke atasan/i.test(label)) {
+            // Hanya ditandai; diklik semata oleh ekinerjaSubmit atas permintaan pemilik ber-PIN
+            b.setAttribute("data-lifeos-renaksi", "submit");
+            canSubmit = true;
           }
         }
         // Sel "Rencana Aksi dan Realisasi": judul bagian (Renaksi / Realisasi / Bukti Data Dukung) lalu butir <li>;
@@ -758,7 +912,7 @@ export class BrowserPool {
             index++;
           }
         }
-        return { found, text: clean(text), canFill, canEdit, rows };
+        return { found, text: clean(text), canFill, canEdit, canSubmit, rows };
       },
       { month, months: MONTH_NAMES },
     );
@@ -769,6 +923,7 @@ export class BrowserPool {
         /Rating Hasil Kerja\s*:\s*[A-Z]/.test(raw.text) || (!raw.canFill && !raw.canEdit && raw.rows.length > 0),
       canFill: raw.canFill,
       canEdit: raw.canEdit,
+      canSubmit: raw.canSubmit,
       text: raw.text,
       rows: raw.rows.map((r) => ({
         index: r.index,
@@ -1578,6 +1733,196 @@ export class BrowserPool {
       .first()
       .click({ timeout: 10_000 });
     await this.expectSuccess(page);
+  }
+
+  /**
+   * SRIKANDI: **Kirim Konsep** satu konsep di Log Naskah Keluar (naskah sampai ke verifikator). Hanya dipanggil backend
+   * setelah pemilik memasukkan PIN. Konsep dicari dari hal (+ nomor) → halaman Detail → dipastikan masih "Naskah ini belum
+   * dikirim" dan halnya sama → `dryRun` (bawaan) berhenti di sini dengan tangkapan layar dan menandai tombol yang akan
+   * diklik. Tanpa `dryRun`: klik tombol "Kirim Konsep" (satu-satunya tombol kirim yang boleh diklik robot, hanya di halaman
+   * Detail Log), setujui dialog hanya bila jelas tentang pengiriman (`pickSendConfirm`), lalu periksa ulang halaman detail.
+   */
+  async srikandiSendDraft(target: Target & { request: SendRequest }) {
+    return this.withPage(target, async (page, hosts, markers) => {
+      const req = target.request;
+      const base = target.baseUrl.replace(/\/+$/, "");
+      await this.open(page, base + LOG_PATH, hosts);
+      await this.dismissInfoDialog(page);
+      const info = await this.describe(page, markers);
+      const none = { draft: null as LogRow | null, detail: null as { subject: string; number: string } | null };
+      if (!info.loggedIn) return { ...info, ...none, status: "logged_out" as const, message: "", screenshot: null };
+
+      const row = findSendRow(await this.readLog(page), req);
+      if (!row)
+        return { ...info, ...none, status: "not_found" as const, message: "", screenshot: await this.jpeg(page) };
+      if (!row.editHref || /terkirim/i.test(row.sendStatus) || !row.detailId) {
+        return {
+          ...info,
+          ...none,
+          draft: row,
+          status: "already_sent" as const,
+          message: "",
+          screenshot: await this.jpeg(page),
+        };
+      }
+
+      const detailUrl = `${base}${LOG_PATH}/detail?id=${encodeURIComponent(row.detailId)}`;
+      await this.open(page, detailUrl, hosts);
+      await this.dismissInfoDialog(page);
+      await page.getByText("Detail Log Naskah Keluar").first().waitFor({ timeout: 20_000 });
+      await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+      const detail = await this.readSendDetail(page);
+      const button = page.getByRole("button", { name: SEND_BUTTON }).first();
+      const visible = await button.isVisible().catch(() => false);
+      const enabled = visible && (await button.isEnabled().catch(() => false));
+      if (!detailMatches(detail, req)) {
+        return {
+          ...info,
+          draft: row,
+          detail,
+          status: "mismatch" as const,
+          message: "",
+          screenshot: await this.fullJpeg(page),
+        };
+      }
+      if (!detail.unsent || !visible) {
+        return {
+          ...info,
+          draft: row,
+          detail,
+          status: "already_sent" as const,
+          message: "",
+          screenshot: await this.fullJpeg(page),
+        };
+      }
+      if (!enabled) {
+        return {
+          ...info,
+          draft: row,
+          detail,
+          status: "not_ready" as const,
+          message: "Tombol Kirim Konsep tidak aktif.",
+          screenshot: await this.fullJpeg(page),
+        };
+      }
+      if (req.dryRun) {
+        // Tandai tombol yang akan diklik (garis merah di tangkapan layar) tanpa mengkliknya
+        await button.evaluate((el) => ((el as HTMLElement).style.outline = "3px solid #e11d48")).catch(() => undefined);
+        return {
+          ...info,
+          draft: row,
+          detail,
+          status: "ready" as const,
+          message: "",
+          url: page.url(),
+          screenshot: await this.fullJpeg(page),
+        };
+      }
+
+      // —— Kirim sungguhan (hanya atas permintaan pemilik ber-PIN) ——
+      if (!page.url().includes(DETAIL_PATH_MARK))
+        throw new Error("Robot tidak berada di halaman Detail Log Naskah Keluar.");
+      const before = new Set((await this.visibleDialogs(page)).map((d) => d.text));
+      await button.click({ timeout: 10_000 });
+      let message = "";
+      for (let i = 0; i < 40; i++) {
+        await page.waitForTimeout(500);
+        const dialogs = (await this.visibleDialogs(page)).filter((d) => !before.has(d.text));
+        const result = dialogs.find((d) => sendOutcome(d.text) !== "unknown");
+        if (result) {
+          message = result.text;
+          break;
+        }
+        const confirm = dialogs
+          .map((d) => ({
+            d,
+            label: pickSendConfirm(
+              d.text,
+              d.buttons.map((b) => b.text),
+            ),
+          }))
+          .find((x) => x.label);
+        if (confirm) {
+          const b = confirm.d.buttons.find((x) => x.text === confirm.label)!;
+          await page.locator(`[data-lifeos-send-button="${b.id}"]`).click({ timeout: 10_000 });
+          before.add(confirm.d.text);
+          continue;
+        }
+        if (dialogs.length && i >= 6) {
+          // Dialog tak dikenal: jangan menebak — batalkan dan laporkan
+          message = dialogs[0].text;
+          await page.keyboard.press("Escape").catch(() => undefined);
+          return {
+            ...info,
+            draft: row,
+            detail,
+            status: "unconfirmed" as const,
+            message,
+            screenshot: await this.fullJpeg(page),
+          };
+        }
+      }
+      const shot = await this.fullJpeg(page);
+      if (sendOutcome(message) === "failed") {
+        return { ...info, draft: row, detail, status: "failed" as const, message, screenshot: shot };
+      }
+      // Periksa ulang: konsep terkirim = halaman detail tidak lagi "belum dikirim"
+      await this.dismissInfoDialog(page);
+      await this.open(page, detailUrl, hosts).catch(() => undefined);
+      await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+      const after = await this.readSendDetail(page).catch(() => null);
+      const sent = after ? !after.unsent : sendOutcome(message) === "sent";
+      return {
+        ...info,
+        draft: row,
+        detail,
+        status: sent ? ("sent" as const) : ("unknown" as const),
+        message,
+        screenshot: (await this.fullJpeg(page)) ?? shot,
+      };
+    });
+  }
+
+  /** Isi ringkas halaman Detail Log Naskah Keluar: hal, nomor, dan apakah masih "Naskah ini belum dikirim". */
+  private async readSendDetail(page: Page) {
+    const text = await page.evaluate(() => document.body.innerText.replace(/\r/g, ""));
+    const after = (label: string) => {
+      const lines = text.split("\n").map((l) => l.trim());
+      const i = lines.findIndex((l) => l.toLowerCase() === label.toLowerCase());
+      return i >= 0 ? (lines.slice(i + 1).find((l) => l) ?? "") : "";
+    };
+    return { subject: after("Hal"), number: after("Nomor Naskah"), unsent: UNSENT_MARK.test(text) };
+  }
+
+  /** Dialog yang terlihat + tombolnya (ditandai `data-lifeos-send-button` agar bisa diklik tepat). */
+  private async visibleDialogs(page: Page) {
+    return page
+      .evaluate(() => {
+        const visible = (el: Element) => {
+          const r = (el as HTMLElement).getBoundingClientRect();
+          const st = getComputedStyle(el);
+          return r.width > 0 && r.height > 0 && st.visibility !== "hidden" && st.display !== "none";
+        };
+        const clean = (t: string | null | undefined) => (t ?? "").replace(/\s+/g, " ").trim();
+        return Array.from(
+          document.querySelectorAll(
+            ".swal2-popup, .swal-modal, [role=dialog], [role=alertdialog], .modal.show, .modal.in, .bootbox, .Toastify__toast",
+          ),
+        )
+          .filter(visible)
+          .map((box, d) => ({
+            text: clean(box.textContent).slice(0, 400),
+            buttons: Array.from(box.querySelectorAll("button, a.btn, input[type=button], input[type=submit]"))
+              .filter(visible)
+              .map((el, index) => {
+                const id = `${d}-${index}`;
+                el.setAttribute("data-lifeos-send-button", id);
+                return { id, text: clean((el as HTMLInputElement).value || el.textContent) };
+              }),
+          }))
+          .filter((d) => d.text);
+      })
+      .catch(() => [] as { text: string; buttons: { id: string; text: string }[] }[]);
   }
 
   /** Baca baris halaman pertama Log Naskah Keluar (kolom dikenali dari judulnya). */

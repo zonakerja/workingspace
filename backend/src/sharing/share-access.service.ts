@@ -136,7 +136,7 @@ export class ShareAccessService {
   }
 
   /** Kolom relasi pemilik yang diperlukan untuk menurunkan turunan root. */
-  private async loadStructure(ownerId: string, roots: ShareRoot[]): Promise<ShareStructure> {
+  async loadStructure(ownerId: string, roots: ShareRoot[]): Promise<ShareStructure> {
     const types = new Set(roots.map((r) => r.type));
     const needPara = types.has("para_project") || types.has("para_area");
     const where = { userId: ownerId, deletedAt: null };

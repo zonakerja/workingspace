@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SrikandiLetter, SrikandiOutgoing, SrikandiReference } from "@/types/entities";
 import {
+  canSendDraft,
   changedSinceRegister,
   outgoingSignature,
   attachmentError,
@@ -163,5 +164,20 @@ describe("perubahan sejak didaftarkan", () => {
     // Ditandai terdaftar manual (tanpa pengenal) atau belum terdaftar → tidak ditandai
     expect(changedSinceRegister({ ...entry, summary: "baru" })).toBe(false);
     expect(changedSinceRegister({ ...pushed, status: "draft", summary: "baru" })).toBe(false);
+  });
+});
+
+describe("canSendDraft", () => {
+  it("terdaftar, belum dikirim, tanpa final & tanpa perubahan tertunda", () => {
+    const entry = { status: "submitted", subject: "Hal" } as SrikandiOutgoing;
+    const pushed = { ...entry, pushedSignature: outgoingSignature(entry) };
+    expect(canSendDraft(pushed)).toBe(true);
+    expect(canSendDraft(entry)).toBe(true);
+    expect(canSendDraft({ ...pushed, subject: "lain" })).toBe(false);
+    expect(canSendDraft({ ...pushed, draftSentAt: "2026-11-15" })).toBe(false);
+    expect(canSendDraft({ ...pushed, letterId: "l1" })).toBe(false);
+    expect(canSendDraft({ ...pushed, status: "draft" })).toBe(false);
+    // Sudah dikirim → tidak lagi ditandai "perlu diperbarui"
+    expect(changedSinceRegister({ ...pushed, subject: "lain", draftSentAt: "2026-11-15" })).toBe(false);
   });
 });

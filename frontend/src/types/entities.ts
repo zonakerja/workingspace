@@ -11,6 +11,13 @@ interface Owned {
   userId?: string;
   /** Diisi saat dimuat bila item milik user lain yang dibagikan (tidak disimpan) */
   share?: ShareMeta;
+  /**
+   * Dikunci PIN (item induk: Area, Project, Resource, Catatan Bebas, Notes AI, List). Turunan Area/Project ikut terkunci
+   * di server tanpa key ini.
+   */
+  locked?: boolean;
+  /** Dimuat saat sesi belum memasukkan PIN: hanya kerangka (judul, waktu, status, relasi) — tidak disimpan */
+  _locked?: boolean;
 }
 
 // ============================================================================
@@ -566,6 +573,10 @@ export interface SrikandiOutgoing extends Owned {
   pushedSignature?: string;
   /** File naskah yang terakhir dikirim robot */
   pushedFileId?: string;
+  /** Nomor konsep di Log Naskah Keluar saat didaftarkan robot (mis. penanda Ambil Nomor) */
+  srikandiNumber?: string;
+  /** Waktu Kirim Konsep ke verifikator lewat LifeOS (dengan PIN) */
+  draftSentAt?: string;
   /** Waktu terakhir konsep diperbarui robot lewat Edit di Log Naskah Keluar (ISO) */
   updatedInSrikandiAt?: string;
   /** Naskah final (`srikandi_letter.id`) dari Daftar Naskah Keluar */

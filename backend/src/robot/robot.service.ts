@@ -48,8 +48,11 @@ import {
   type PlanEntry,
   type PlanTarget,
   proposalsCoveredBy,
+  rowKey,
   type SignedEntry,
+  submitBlockers,
 } from "./ekinerja-renaksi";
+import { todayYmd } from "../integrations/api-token-logic";
 import {
   cleanLetter,
   decodeAttachment,
@@ -80,7 +83,9 @@ import {
   outgoingSignature,
   registerBlockers,
   registerSizeError,
+  sendBlockers,
 } from "./srikandi-register";
+import { PinService } from "../security/pin.service";
 import {
   cleanInboxItem,
   INBOX_KINDS,
@@ -145,6 +150,7 @@ export class RobotService {
     private readonly uploads: UploadsService,
     private readonly storage: ObjectStorageService,
     private readonly vaults: PublicVaultsService,
+    private readonly pins: PinService,
   ) {
     this.crypto = new AiCrypto(robotSessionKey(config.getOrThrow<string>("AI_ENCRYPTION_KEY")));
     const credentialKey = config.get<string>("CREDENTIAL_ENCRYPTION_KEY");
@@ -806,6 +812,94 @@ export class RobotService {
   }
 
   /**
+   * e-Kinerja: **Kirim Penilaian Ke Atasan** satu bulan. Hanya pemilik dari aplikasi LifeOS yang bisa mengirim, dan setiap
+   * kali wajib PIN keamanan (`PinService.confirmAction`; token agen / MCP selalu ditolak). `dryRun` (bawaan) = robot
+   * membuka Rencana Aksi, memeriksa isi bulan sama dengan LifeOS & lengkap, dan menandai tombol tanpa mengklik — tanpa PIN.
+   * Tidak ada jalur agen, kebijakan otomatis, atau jadwal yang memanggil ini.
+   */
+  submitEkinerjaRenaksi(user: AuthUser, period: string, options: { dryRun?: boolean; pin?: string }) {
+    return this.exclusive(user.id, "ekinerja", "Kirim Penilaian", () =>
+      this.submitEkinerjaMonth(user, period, options.dryRun !== false, options.pin),
+    );
+  }
+
+  private async submitEkinerjaMonth(user: AuthUser, period: string, dryRun: boolean, pin: string | undefined) {
+    const connector = await this.connector(user.id, "ekinerja");
+    this.requireSession(connector);
+    const { entries, targets, skps } = await this.renaksiData(user);
+    const skpOf = (e: SignedEntry & { skpId?: string }) => e.skpId ?? targets.find((t) => t.id === e.targetId)?.skpId;
+    const own = entries.filter((e) => e.period === period);
+    const skpIds = [...new Set(own.map(skpOf).filter((id): id is string => !!id))];
+    if (skpIds.length > 1) {
+      throw new BadRequestException("Bulan ini memakai lebih dari satu SKP — kirim penilaian langsung dari e-Kinerja.");
+    }
+    const skp = skps.find((s) => s.id === skpIds[0]);
+    if (skpIds.length && !skp?.externalId) {
+      throw new BadRequestException("SKP entri tidak ditemukan — Ambil dari e-Kinerja dulu.");
+    }
+    const month = skp
+      ? await this.records
+          .findOne("action_plan_month", `apm-${skp.externalId}-${period}`, {}, user)
+          .then((r) => r.payload as { status?: string })
+          .catch(() => null)
+      : null;
+    const blockers = submitBlockers(own, month);
+    if (blockers.length || !skp?.externalId) throw new BadRequestException(blockers.join(" "));
+    const plan = buildSyncPlan(own, targets, period).bySkp.get(skp.id);
+    const expectedKeys = [...new Set((plan?.rows ?? []).map((r) => rowKey(r.rhk, r.indicator)))];
+    if (!expectedKeys.length) throw new BadRequestException("Isian LifeOS bulan ini tidak lengkap.");
+    // PIN diperiksa sebelum robot dipanggil: salah PIN tidak pernah sampai ke e-Kinerja
+    if (!dryRun) await this.pins.confirmAction(user, pin);
+
+    let result: Awaited<ReturnType<RobotClient["ekinerjaSubmit"]>>;
+    try {
+      result = await this.robot.ekinerjaSubmit({
+        ...this.target(connector),
+        skpExternalId: skp.externalId,
+        period,
+        expectedKeys,
+        dryRun,
+        ...(dryRun ? {} : { confirm: "KIRIM_PENILAIAN" as const }),
+      });
+    } catch (error) {
+      await this.fail(user.id, connector, "fill", error);
+      throw error;
+    }
+    await this.saveState(connector.id, result, false);
+    const label = `Rencana Aksi ${period}`;
+    const diff = result.difference;
+    const messages: Record<typeof result.status, string> = {
+      logged_out: "Sesi e-Kinerja kedaluwarsa. Login ulang di e-Kinerja → Connector.",
+      not_found: `Blok bulan ${result.month} tidak ditemukan di halaman Rencana Aksi e-Kinerja.`,
+      already_submitted: `${label} sudah dikirim ke atasan di e-Kinerja${result.message ? ` (${result.message})` : ""} — jalankan Pantau e-Kinerja.`,
+      not_ready: `Tombol Kirim Penilaian Ke Atasan tidak tersedia: ${result.message}`,
+      mismatch: `Isi e-Kinerja berbeda dengan LifeOS (${diff?.onlyEkinerja.length ?? 0} baris hanya di e-Kinerja, ${diff?.onlyLifeos.length ?? 0} hanya di LifeOS) — Pantau lalu Kirim perubahan dulu. Robot berhenti tanpa mengirim.`,
+      incomplete: `${result.incomplete.length} baris indikator di e-Kinerja belum lengkap (renaksi/realisasi/bukti kosong) — robot berhenti tanpa mengirim.`,
+      ready: `Kirim Penilaian (periksa, tidak dikirim): ${label} sama dengan LifeOS & lengkap, tombol Kirim Penilaian Ke Atasan ditemukan`,
+      unconfirmed: `e-Kinerja menampilkan dialog yang tidak dikenali robot, jadi dibatalkan tanpa mengirim: ${result.message}`,
+      failed: `e-Kinerja menolak Kirim Penilaian: ${result.message}`,
+      unknown: `Kirim Penilaian diklik tetapi hasilnya belum pasti — jalankan Pantau e-Kinerja. ${result.message}`,
+      sent: `Kirim Penilaian: ${label} dikirim ke atasan`,
+    };
+    const run = await this.log(user.id, connector.id, "fill", result, {
+      note: messages[result.status].slice(0, 1_000),
+    });
+    await this.saveRunScreenshot(user.id, run.id, result.screenshot);
+    if (result.status !== "ready" && result.status !== "sent") {
+      throw new BadRequestException(messages[result.status]);
+    }
+    if (result.status === "sent") {
+      // Bulan terkunci di LifeOS sampai Pantau berikutnya membaca tanggal pengajuan resmi dari e-Kinerja
+      await this.saveMonth(user, skp, Number(period.slice(5, 7)), {
+        status: "submitted",
+        submittedAt: todayYmd(new Date()),
+        submittedFromLifeos: true,
+      });
+    }
+    return { status: result.status, message: messages[result.status], runId: run.id };
+  }
+
+  /**
    * e-Kinerja: baca semua bulan Rencana Aksi SKP tahun itu → potret `action_plan_month` (status draf/diajukan/dinilai,
    * tanggal pengajuan, rating, isi, feedback), impor butir yang hanya ada di e-Kinerja pada bulan draf, dan tandai entri
    * yang isinya sudah ada di e-Kinerja. Hanya membaca e-Kinerja.
@@ -1329,6 +1423,9 @@ export class RobotService {
     if (entry.status !== "submitted") {
       throw new BadRequestException("Hanya entri yang sudah terdaftar (konsep di SRIKANDI) yang bisa diperbarui.");
     }
+    if (entry.draftSentAt) {
+      throw new BadRequestException("Konsep ini sudah dikirim ke verifikator sehingga tidak bisa diubah lewat Edit.");
+    }
     const blockers = registerBlockers(entry);
     if (blockers.length) throw new BadRequestException(`Isian belum lengkap: ${blockers.join(", ")}.`);
     const replaceFile = !!entry.pushedFileId && entry.file?.uploadId !== entry.pushedFileId;
@@ -1384,6 +1481,77 @@ export class RobotService {
       remaining: result.remaining ?? [],
       runId: run.id,
     };
+  }
+
+  /**
+   * SRIKANDI: **Kirim Konsep** entri Register yang sudah terdaftar (konsep di Log Naskah Keluar → verifikator). Hanya pemilik
+   * dari aplikasi LifeOS yang bisa mengirim, dan setiap kali wajib PIN keamanan (`PinService.confirmAction`; token agen /
+   * MCP selalu ditolak). `dryRun` (bawaan) = robot membuka halaman detail konsep dan menandai tombol Kirim Konsep tanpa
+   * mengklik — tanpa PIN. Tidak ada jalur agen, kebijakan otomatis, atau jadwal yang memanggil ini.
+   */
+  sendSrikandiOutgoing(user: AuthUser, entryId: string, options: { dryRun?: boolean; pin?: string }) {
+    return this.exclusive(user.id, "srikandi", "Kirim Konsep", () =>
+      this.sendSrikandiDraft(user, entryId, options.dryRun !== false, options.pin),
+    );
+  }
+
+  private async sendSrikandiDraft(user: AuthUser, entryId: string, dryRun: boolean, pin: string | undefined) {
+    const connector = await this.connector(user.id, "srikandi");
+    this.requireSession(connector);
+    const record = await this.records.findOne("srikandi_outgoing", entryId, {}, user);
+    if (record.share) throw new ForbiddenException("Hanya pemilik entri yang bisa Kirim Konsep.");
+    const entry = record.payload as unknown as OutgoingEntry & Record<string, unknown>;
+    const blockers = sendBlockers(entry);
+    if (blockers.length) throw new BadRequestException(blockers.join(" "));
+    // PIN diperiksa sebelum robot dipanggil: salah PIN tidak pernah sampai ke SRIKANDI
+    if (!dryRun) await this.pins.confirmAction(user, pin);
+
+    const subject = entry.subject?.trim() ?? "";
+    let result: Awaited<ReturnType<RobotClient["srikandiSendDraft"]>>;
+    try {
+      result = await this.robot.srikandiSendDraft({
+        ...this.target(connector),
+        subject,
+        findSubject: (entry.pushedSubject || subject).trim(),
+        number: typeof entry.srikandiNumber === "string" ? entry.srikandiNumber : "",
+        dryRun,
+        ...(dryRun ? {} : { confirm: "KIRIM_KONSEP" as const }),
+      });
+    } catch (error) {
+      await this.fail(user.id, connector, "register", error);
+      throw error;
+    }
+    await this.saveState(connector.id, result, false);
+    const messages: Record<typeof result.status, string> = {
+      logged_out: "Sesi SRIKANDI kedaluwarsa. Login ulang di SRIKANDI → Connector.",
+      not_found: `Konsep "${subject}" tidak ditemukan di Log Naskah Keluar.`,
+      already_sent:
+        "Konsep ini sudah tidak berstatus belum dikirim di SRIKANDI (mungkin sudah dikirim langsung di SRIKANDI).",
+      mismatch:
+        "Halaman detail SRIKANDI tidak cocok dengan entri ini (hal / nomor berbeda) — robot berhenti tanpa mengirim.",
+      not_ready: "Tombol Kirim Konsep di SRIKANDI belum aktif (periksa isian konsep di SRIKANDI).",
+      ready: `Kirim Konsep (periksa, tidak dikirim): tombol Kirim Konsep ditemukan — ${subject}`,
+      unconfirmed: `SRIKANDI menampilkan dialog yang tidak dikenali robot, jadi dibatalkan tanpa mengirim: ${result.message}`,
+      failed: `SRIKANDI menolak Kirim Konsep: ${result.message}`,
+      unknown: `Kirim Konsep diklik tetapi hasilnya belum pasti — periksa Log Naskah Keluar di SRIKANDI. ${result.message}`,
+      sent: `Kirim Konsep: konsep dikirim ke verifikator — ${subject}`,
+    };
+    const run = await this.log(user.id, connector.id, "register", result, {
+      note: messages[result.status].slice(0, 1_000),
+    });
+    await this.saveRunScreenshot(user.id, run.id, result.screenshot);
+    if (result.status !== "ready" && result.status !== "sent") {
+      throw new BadRequestException(messages[result.status]);
+    }
+    if (result.status === "sent") {
+      await this.records.upsert(
+        "srikandi_outgoing",
+        entryId,
+        { payload: { ...entry, draftSentAt: new Date().toISOString() } },
+        user,
+      );
+    }
+    return { status: result.status, message: messages[result.status], runId: run.id };
   }
 
   /**

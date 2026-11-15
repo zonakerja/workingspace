@@ -61,6 +61,12 @@ export class UpdateNotebookDto {
   @IsString()
   @MaxLength(60)
   icon?: string | null;
+
+  /** Kunci notebook dengan PIN keamanan (butuh PIN yang sudah diatur) */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  locked?: boolean;
 }
 
 export class AddNotebookSourceDto {

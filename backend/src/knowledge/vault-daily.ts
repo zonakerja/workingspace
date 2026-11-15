@@ -132,7 +132,7 @@ export function buildDailySection(input: DailyInput) {
   lines.push(
     "",
     `> [!info] Ringkasan LifeOS saat catatan dibuat${open(`/planner/daily?date=${input.date}`)}`,
-    "> Centang di catatan ini tidak mengubah LifeOS — selesaikan item di Planner / Productivity.",
+    "> Centang di catatan ini tidak mengubah LifeOS — selesaikan item di Planner / Working Space.",
   );
   return lines.join("\n");
 }

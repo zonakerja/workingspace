@@ -64,6 +64,8 @@ import {
 import { ActionPlanDialog } from "./action-plan-dialog";
 import { CandidatesSection } from "./candidates-section";
 import { CopyMonthDialog } from "./copy-month-dialog";
+import { MONTH_STYLE } from "./month-styles";
+import { useSearchParam } from "@/hooks/use-search-param";
 
 const DISPLAY_STYLE: Record<DisplayStatus, string> = {
   draft: "bg-warning/15 text-warning",
@@ -73,13 +75,6 @@ const DISPLAY_STYLE: Record<DisplayStatus, string> = {
   deleted: "bg-destructive/10 text-destructive",
   missing: "bg-destructive/10 text-destructive",
   locked: "bg-muted text-muted-foreground",
-};
-const MONTH_STYLE: Record<ActionPlanMonth["status"], string> = {
-  empty: "bg-muted text-muted-foreground",
-  unavailable: "bg-muted text-muted-foreground",
-  draft: "bg-info/15 text-info",
-  submitted: "bg-warning/15 text-warning",
-  rated: "bg-success/15 text-success",
 };
 const COUNT_ORDER: DisplayStatus[] = ["ready", "changed", "deleted", "missing", "draft", "filled", "locked"];
 
@@ -94,7 +89,11 @@ const SOURCE_LABELS = { task: "Action/Task", activity: "Kegiatan", schedule: "Ag
  */
 export function ActionPlanBoard() {
   const today = useToday();
-  const [period, setPeriod] = useState(() => formatLocalYMD(today).slice(0, 7));
+  // ?period=YYYY-MM (dari tab Penilaian → "Buka di Rencana Aksi") hanya menentukan bulan awal
+  const [initialPeriod] = useSearchParam("period");
+  const [period, setPeriod] = useState(() =>
+    initialPeriod && isPeriod(initialPeriod) ? initialPeriod : formatLocalYMD(today).slice(0, 7),
+  );
   const { items: entries, remove, upsert } = useActionPlanEntries();
   const { items: months } = useActionPlanMonths();
   const { items: targets } = useSkpTargets();
@@ -160,7 +159,8 @@ export function ActionPlanBoard() {
           `Robot selesai: ${r.added} butir ditambahkan, ${rewritten} baris ditulis ulang, ${r.filled} entri terisi (draf).`,
           {
             description:
-              notes.join(" ") || "Periksa di e-Kinerja lalu tekan Kirim Penilaian sendiri bila sudah sesuai.",
+              notes.join(" ") ||
+              "Periksa isinya, lalu Kirim Penilaian (dengan PIN) di tab Penilaian bila sudah sesuai.",
           },
         );
       }
@@ -348,7 +348,7 @@ export function ActionPlanBoard() {
         description={
           sent
             ? `Robot membaca e-Kinerja dulu (isian yang hanya ada di sana dimasukkan ke LifeOS), lalu menyamakan bulan ini dengan LifeOS: ${counts.ready} entri baru ditambahkan, ${counts.changed} entri berubah dan ${counts.deleted} entri dihapus ditulis ulang (e-Kinerja tidak punya ubah per butir: baris indikatornya dilepas, dicentang lagi, lalu diisi ulang dari LifeOS). Robot TIDAK menekan Kirim Penilaian Ke Atasan.`
-            : `Robot mengisikan ${counts.ready} entri ke Rencana Aksi ${periodLabel(period)} di e-Kinerja sebagai draf: indikator RHK dicentang, lalu rencana aksi, realisasi, dan bukti data dukung diisi. Robot TIDAK menekan Kirim Penilaian Ke Atasan — periksa di e-Kinerja lalu kirim sendiri bila sudah sesuai.`
+            : `Robot mengisikan ${counts.ready} entri ke Rencana Aksi ${periodLabel(period)} di e-Kinerja sebagai draf: indikator RHK dicentang, lalu rencana aksi, realisasi, dan bukti data dukung diisi. Robot TIDAK menekan Kirim Penilaian Ke Atasan — periksa lalu Kirim Penilaian (dengan PIN) di tab Penilaian bila sudah sesuai.`
         }
         confirmLabel={sendLabel}
         destructive={false}
@@ -361,8 +361,8 @@ export function ActionPlanBoard() {
         itemName={deleting?.description}
         description={
           deleting?.pushedSignature
-            ? "Entri ini sudah terkirim ke e-Kinerja: ditandai Akan dihapus, lalu butirnya dihapus dari e-Kinerja saat Kirim perubahan. Item asal di Productivity tidak ikut terhapus."
-            : "Item asal di Productivity tidak ikut terhapus."
+            ? "Entri ini sudah terkirim ke e-Kinerja: ditandai Akan dihapus, lalu butirnya dihapus dari e-Kinerja saat Kirim perubahan. Item asal di Working Space tidak ikut terhapus."
+            : "Item asal di Working Space tidak ikut terhapus."
         }
         confirmLabel="Hapus"
         onConfirm={() => {

@@ -1082,7 +1082,7 @@ yang sama dua kali** (idempoten), serta berhenti bila bulan sudah diajukan.
      Aksi Kerja) → **hanya mencentang**, tidak pernah melepas → Simpan;
   4. tiap baris: tambahkan butir Renaksi / Realisasi / Bukti yang **belum ada** (pembanding longgar: spasi, huruf, titik akhir);
   5. baca ulang → entri yang semua butirnya ada = **Terisi di e-Kinerja**; tangkapan layar disimpan di riwayat run Connector.
-- Pengaman: `safeClick` menolak tombol berteks kirim/ajukan/hapus; "Kirim Penilaian Ke Atasan" tidak pernah diklik; tombol
+- Pengaman: `safeClick` menolak tombol berteks kirim/ajukan/hapus; "Kirim Penilaian Ke Atasan" tidak pernah diklik oleh pengisian (sejak 2026-11-15 hanya lewat tombol Kirim Penilaian + PIN, §21.16); tombol
   Isi harus menyebut nama bulan itu. `dryRun: true` = baca + rencana langkah tanpa klik.
 - Uji 2026-10-30 (Oktober 2026, data dummy `[UJI LifeOS]`, izin user): 2 entri (indikator 9 = baris yang sudah ada, indikator 8
   = dicentang robot) → 1 indikator dicentang, 6 butir ditambah, isi di e-Kinerja sesuai; jalankan ulang → 0 butir, 2 entri
@@ -1375,6 +1375,82 @@ melihatnya), sehingga robot sebaiknya hanya membaca daftar, atau hanya mengambil
 - **Belum**: isi baris & detail sungguhan belum terlihat (akun kosong); PDF/lampiran naskah masuk (butuh keputusan status baca); Log
   Disposisi/Koordinasi/Arahan (yang dikirim user, berisi Batas Waktu) & Agenda; robot Register belum mengisi kolom Nomor Referensi (isian
   balasan baru tersimpan di LifeOS); menindaklanjuti / mendisposisikan di SRIKANDI (tahap 2, menulis).
+
+### 21.15 Kirim Konsep dengan PIN (2026-11-15)
+
+**Permintaan user**: fitur PIN dipakai untuk **Kirim Konsep** — pemilik bisa mengirim konsep ke verifikator dari LifeOS, wajib memasukkan PIN.
+Saat membangun: **jangan pernah mengirim konsep**, pakai data dummy, dan Playwright hanya untuk mengidentifikasi elemen. Ini merevisi titik aman
+§21.11 / AG-27 ("Kirim Konsep hanya user") menjadi "Kirim Konsep hanya atas klik pemilik + PIN" — agen, Kebijakan Otomatis, dan jadwal tetap tidak
+pernah mengirim.
+
+**Peta halaman** (direkam 2026-11-15 lewat `POST /robot/connectors/srikandi/capture` = buka alamat + ariaSnapshot, **tanpa klik**, pada konsep uji
+`[UJI LifeOS] Uji edit register v2 - abaikan`):
+- **Log Naskah Keluar**: hanya konsep yang belum dikirim punya **kotak centang** (untuk "Kirim Banyak Konsep", tidak dipakai robot) dan aksi
+  Edit · Lihat · Status · Hapus; naskah yang sudah disetujui/dikirim hanya Lihat · Status. Tautan Lihat = `…/log-naskah-keluar/detail?id=<acak>`.
+- **Detail Log Naskah Keluar**: judul "Detail Log Naskah Keluar", tombol **KIRIM KONSEP** (`button` "Kirim Konsep", ikon pesawat) + **KEMBALI**,
+  kotak **"Naskah ini belum dikirim — Pastikan Naskah sudah lengkap dan sesuai. Naskah akan dikirimkan kepada Verifikator."**, lalu Nomor Naskah,
+  Tanggal, Hal, Isi Ringkas, File, Detail Naskah Dinas, Tujuan, lampiran, Daftar Verifikator / Penandatangan, Riwayat, Linimasa. Pesan SRIKANDI
+  muncul sebagai **toast** (`.Toastify__toast`, mis. "Data naskah berhasil didapatkan", "Error: Gagal dapat koordinat QR untuk urutan #1").
+- **Belum diketahui**: dialog konfirmasi & pesan hasil setelah Kirim Konsep diklik (tidak pernah diklik).
+
+**Dibangun**:
+- Robot `POST /jobs/srikandi/register/send` (`robot/src/srikandi-send.ts` logika murni + test, `BrowserPool.srikandiSendDraft`): cari baris Log
+  dari hal (+ nomor) → buka Detail → wajib "Naskah ini belum dikirim" & hal sama (`detailMatches`) → tombol aktif. **Tanpa `confirm: "KIRIM_KONSEP"`
+  server robot selalu dryRun** (apa pun isi `dryRun`): tombol diberi garis merah, tangkapan layar, berhenti (`ready`). Kirim: klik tombol →
+  dialog baru disetujui **hanya** bila teksnya tentang pengiriman dan tombolnya persetujuan (`pickSendConfirm`); dialog lain → Esc + `unconfirmed`;
+  toast/dialog hasil dibaca `sendOutcome`; lalu detail dibuka ulang — terkirim = tidak lagi "belum dikirim" (`sent`, selain itu `unknown`).
+- Backend `POST /robot/srikandi/register/:id/send { dryRun?, pin? }` (`RobotService.sendSrikandiOutgoing`, kunci sistem "Kirim Konsep"):
+  `dryRun` bawaan true, tanpa PIN. Kirim: `sendBlockers` (terdaftar, belum dikirim, tanpa perubahan yang belum diperbarui) → **`PinService.confirmAction`**
+  (PIN wajib setiap kali walau sesi terbuka; hanya sesi login ber-`sid` → token agen/MCP 403; salah PIN dihitung & diblokir bertahap sama dengan
+  membuka item) → robot. Berhasil → `draftSentAt`; sesudahnya Perbarui / permintaan agen ditolak. Throttle 4/menit. Tidak ada alat MCP, aksi agen,
+  aturan kebijakan, atau jadwal yang memanggilnya.
+- UI tab Register: tombol **Kirim Konsep** pada entri terdaftar yang belum dikirim & tanpa perubahan tertunda (`canSendDraft`) → dialog
+  `send-draft-dialog.tsx`: ringkasan (hal, nomor, verifikator, penandatangan), **Periksa dulu (tanpa kirim)** + Lihat hasil periksa, kotak PIN,
+  Kirim Konsep (aktif setelah 6 angka). Akun tanpa PIN → arahan Atur PIN. Penanda "Konsep dikirim ke verifikator <tgl>".
+
+**Diuji 2026-11-15** (konsep uji, **tidak pernah dikirim**): rekam Log & Detail tanpa klik; dryRun lewat API & dari dialog = `ready`, tangkapan
+layar menunjukkan tombol KIRIM KONSEP; unit robot +6, backend +2, frontend +1; smoke +4 (entri terhapus, tanpa PIN, sudah dikirim, Perbarui
+setelah dikirim — semuanya ditolak sebelum robot). **Belum**: langkah klik → dialog konfirmasi → hasil belum pernah dijalankan; pengiriman
+sungguhan pertama sebaiknya pada naskah yang memang akan dikirim, lalu periksa Log di SRIKANDI dan Riwayat Connector (TODO-USER A38).
+
+### 21.16 Kirim Penilaian Ke Atasan dengan PIN (2026-11-15)
+
+**Permintaan user**: fitur PIN dipakai untuk **Kirim Penilaian ke Atasan** (e-Kinerja) — wajib memasukkan PIN. Saat membangun: **jangan pernah
+mengirim**, pakai data dummy, Playwright hanya untuk mengidentifikasi elemen. Ini merevisi aturan §21.10 "Kirim Penilaian Ke Atasan tidak pernah
+diklik robot" menjadi "hanya atas klik pemilik + PIN"; pengisian (Isi / Kirim perubahan), agen, Kebijakan Otomatis, dan jadwal tetap tidak pernah
+mengirim.
+
+**Peta halaman** (direkam 2026-11-15 lewat `POST /robot/connectors/ekinerja/capture` = buka `/skp/renaksi/545406` + ariaSnapshot, **tanpa klik**):
+bulan draf (Oktober 2026 akun pemilik) = tabel indikator (kolom ke-4 "Aksi") lalu `group` berisi tombol **" Edit Rencana Aksi Kerja"** dan
+**" Kirim Penilaiaan Ke Atasan"** (ejaan e-Kinerja "Penilaiaan", diawali ikon). Bulan yang sudah diajukan menampilkan "Tanggal Pengajuan Penilaiaan :
+dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu. **Belum diketahui**: dialog konfirmasi & pesan hasil setelah tombol diklik.
+
+**Dibangun**:
+- Robot `POST /jobs/ekinerja/renaksi/submit` (`robot/src/ekinerja-submit.ts` logika murni + test, `BrowserPool.ekinerjaSubmit`; `renaksiBlock` kini
+  menandai tombol `data-lifeos-renaksi=submit` / `canSubmit`). Urutan: buka Rencana Aksi SKP → blok bulan → sudah diajukan/dinilai = `already_submitted`
+  → tanpa tombol = `not_ready` → baris e-Kinerja **sama persis** dengan kunci baris dari LifeOS (`expectedKeys`, `rowDifference`) atau `mismatch` →
+  setiap baris punya renaksi, realisasi, bukti (`incompleteRows`) atau `incomplete` → teks tombol dicek ulang (`isSubmitButton`). **Tanpa
+  `confirm: "KIRIM_PENILAIAN"` server robot selalu dryRun** (apa pun isi `dryRun`): tombol diberi garis merah, tangkapan layar, berhenti (`ready`).
+  Kirim: klik → dialog baru disetujui **hanya** bila teksnya memuat kirim/ajukan **dan** penilaian/atasan/renaksi, tombolnya persetujuan
+  (`pickSubmitConfirm`); dialog lain → Esc + `unconfirmed`; hasil dibaca `submitOutcome`, lalu halaman dibuka ulang — terkirim = bulan berstatus diajukan
+  (`sent`, selain itu `unknown`).
+- Backend `POST /robot/ekinerja/renaksi/submit { period, dryRun?, pin? }` (`RobotService.submitEkinerjaRenaksi`, kunci sistem "Kirim Penilaian", throttle
+  4/menit): `dryRun` bawaan true, tanpa PIN. Penjaga `submitBlockers` (`ekinerja-renaksi.ts` + test; salinan frontend `submitBlocker`): potret bulan draf,
+  ada isian, semua isian terisi sama dengan e-Kinerja (tidak ada siap/berubah/akan dihapus); bulan dengan > 1 SKP ditolak. Lalu **`PinService.confirmAction`**
+  (PIN setiap kali; hanya sesi login ber-`sid` → token agen/MCP 403) → robot. Terkirim → potret bulan `submitted` (+ `submittedAt` hari ini,
+  `submittedFromLifeos`) sampai Pantau membaca tanggal resmi. Tidak ada alat MCP, aksi agen, aturan kebijakan, atau jadwal yang memanggilnya.
+- UI (revisi hari yang sama, permintaan user): tab baru **Penilaian** (`/kinerja/assessment`) berisi bulan draf / diajukan / dinilai per tahun (rating,
+  feedback, isi, tautan ke Rencana Aksi bulan itu); tombol **Kirim Penilaian** pada bulan draf (nonaktif + alasan di tooltip bila `submitBlocker`) — tidak lagi
+  di toolbar Rencana Aksi. Dialog `submit-assessment-dialog.tsx`:
+  ringkasan bulan, **Periksa dulu (tanpa kirim)** + Lihat hasil periksa (`RunDialog`), kotak PIN, Kirim Penilaian (aktif setelah 6 angka); akun tanpa PIN →
+  Atur PIN. Konektor e-Kinerja `SYSTEM_INFO.flows`/`limits` diperbarui.
+
+**Diuji 2026-11-15** (**tidak pernah dikirim ke e-Kinerja**): rekam halaman tanpa klik; **halaman e-Kinerja tiruan** (HTML dummy di localhost dalam
+container robot, `scratchpad/dummy-ekinerja.mjs`) → tanpa confirm = `ready` & tidak terkirim, isi beda = `mismatch`, baris kosong = `incomplete`, bulan
+diajukan = `already_submitted`, dialog asing ("Pilih atasan penilai … OK") = `unconfirmed` tanpa klik (ditemukan saat uji: aturan awal menyetujuinya karena
+memuat kata "atasan" → kini wajib kata kirim/ajukan), dialog konfirmasi dummy → `sent`. Unit robot +6, backend +1, frontend +1; smoke +3 (tidak ada alat
+agen, tanpa sesi, periode salah); UI dengan akun uji `user@lifeos.com` + data dummy (tombol aktif, tanpa PIN → Atur PIN, PIN uji → server menolak
+sebelum robot, PIN dikosongkan; data & PIN uji dihapus). **Belum**: klik → dialog konfirmasi e-Kinerja sungguhan → hasil belum pernah dijalankan (TODO-USER A39).
 
 ## 22. Revisi 2026-10-31 — Dokumen bertemplat ditangani agen (Hermes: skill & workflow), Approval kembali ke Workspace
 

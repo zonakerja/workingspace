@@ -25,6 +25,7 @@ import { AuthUser } from "../common/types/auth-user";
 import { AI_MAX_ATTACHMENT_BYTES, AI_MAX_ATTACHMENTS, AiService } from "./ai.service";
 import { GenerateAiDto, SaveAiProviderDto, SearchAiIndexDto, SmartSearchDto, UpdateAiSettingsDto } from "./dto/ai.dto";
 import { AiIndexQueueService } from "./index/ai-index-queue.service";
+import { LockService } from "../security/lock.service";
 import { AiIndexService } from "./index/ai-index.service";
 
 const providerPipe = new ParseEnumPipe(AiProvider);
@@ -42,6 +43,7 @@ export class AiController {
     private readonly ai: AiService,
     private readonly index: AiIndexService,
     private readonly indexQueue: AiIndexQueueService,
+    private readonly locks: LockService,
   ) {}
 
   @Get("settings")
@@ -122,14 +124,15 @@ export class AiController {
   /** Uji pencarian indeks (gabungan makna + kata persis) — dasar chatbot RAG. */
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Get("index/search")
-  searchIndex(@CurrentUser() user: AuthUser, @Query() query: SearchAiIndexDto) {
-    return this.index.search(user.id, query.q, query.limit);
+  async searchIndex(@CurrentUser() user: AuthUser, @Query() query: SearchAiIndexDto) {
+    return this.index.search(user.id, query.q, query.limit, { includeLocked: await this.locks.isUnlocked(user) });
   }
 
   /** Pencarian Pintar (Ctrl+K): item & berkas semua modul. Mode `text` tanpa AI, `meaning` = satu embedding. */
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
   @Get("search")
-  smartSearch(@CurrentUser() user: AuthUser, @Query() query: SmartSearchDto) {
-    return this.index.smartSearch(user.id, query.q.trim(), query.mode ?? "text");
+  async smartSearch(@CurrentUser() user: AuthUser, @Query() query: SmartSearchDto) {
+    const unlocked = await this.locks.isUnlocked(user);
+    return this.index.smartSearch(user.id, query.q.trim(), query.mode ?? "text", 40, unlocked);
   }
 }

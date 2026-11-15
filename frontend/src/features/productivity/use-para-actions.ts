@@ -9,6 +9,7 @@ import {
   useSchedules,
 } from "@/data/collections";
 import { ownedFiles } from "@/features/resources/attachment-cleanup";
+import { requestUnlock } from "@/features/security/pin-prompt";
 import { useAttachmentCleanup } from "@/features/resources/use-attachment-cleanup";
 import { generateId } from "@/lib/ids";
 import { useAuthStore } from "@/stores/auth-store";
@@ -61,6 +62,12 @@ export function useParaActions() {
   };
 
   const apply = ({ archive, removal }: { archive: ParaArchive; removal: ParaRemoval }) => {
+    // Ada item terkunci (kerangka tanpa isi) di dalamnya → snapshot akan kosong. Minta PIN dulu, lalu arsipkan ulang.
+    const related = Object.values(archive.related ?? {}).flat() as { _locked?: boolean }[];
+    if ((archive.data as { _locked?: boolean })._locked || related.some((item) => item?._locked)) {
+      void requestUnlock("Ada item terkunci di dalamnya. Masukkan PIN, lalu arsipkan ulang.");
+      return;
+    }
     archives.setItems((prev) => [...prev, archive]);
     log("archived", archive);
     if (removal.taskIds.length) tasks.setItems(without(removal.taskIds));

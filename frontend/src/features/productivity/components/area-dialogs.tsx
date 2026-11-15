@@ -71,6 +71,7 @@ import { DiscardScope, useAttachmentEdits, useDiscardScope } from "../use-attach
 import { useParaActions } from "../use-para-actions";
 import { ProjectFormDialog } from "./project-dialogs";
 import { TaskManager } from "./task-manager";
+import { LockedNotice } from "@/features/security/lock-controls";
 
 // ============================================================================
 // Form Area
@@ -506,17 +507,23 @@ export function AreaDetailDialog({
     >
       <DialogContent className="flex h-[90svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl md:h-[92svh] md:flex-row">
         <DialogTitle className="sr-only">{area?.title ?? "Detail Area"}</DialogTitle>
-        {area && (
-          <AccessScope item={area}>
-            <DiscardScope register={register}>
-              <AreaDetail
-                key={`${area.id}-${session}`}
-                area={area}
-                initialSelection={initialSelection}
-                onArchive={onArchive}
-              />
-            </DiscardScope>
-          </AccessScope>
+        {area?._locked ? (
+          <div className="m-auto w-full max-w-md p-6">
+            <LockedNotice title={area.title} />
+          </div>
+        ) : (
+          area && (
+            <AccessScope item={area}>
+              <DiscardScope register={register}>
+                <AreaDetail
+                  key={`${area.id}-${session}`}
+                  area={area}
+                  initialSelection={initialSelection}
+                  onArchive={onArchive}
+                />
+              </DiscardScope>
+            </AccessScope>
+          )
         )}
       </DialogContent>
     </Dialog>

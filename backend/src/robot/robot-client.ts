@@ -206,6 +206,75 @@ export class RobotClient {
    * SRIKANDI: perbarui konsep di Log Naskah Keluar lewat Edit (hanya yang berbeda); `dryRun` = rencana tanpa klik.
    * Status: updated | unchanged | preview | locked (sudah dikirim) | not_found | logged_out.
    */
+  /**
+   * Kirim Konsep satu konsep di Log Naskah Keluar. Robot hanya mengirim bila `confirm` = "KIRIM_KONSEP" dan
+   * `dryRun` = false; selain itu hanya memeriksa (tombol ditandai di tangkapan layar).
+   */
+  srikandiSendDraft(
+    target: RobotTarget & {
+      subject: string;
+      findSubject: string;
+      number: string;
+      dryRun: boolean;
+      confirm?: "KIRIM_KONSEP";
+    },
+  ) {
+    return this.json<
+      PageInfo & {
+        storageState: StorageState;
+        status:
+          | "ready"
+          | "sent"
+          | "unknown"
+          | "failed"
+          | "unconfirmed"
+          | "not_ready"
+          | "mismatch"
+          | "already_sent"
+          | "not_found"
+          | "logged_out";
+        message: string;
+        draft: { number: string; subject: string; sendStatus: string; detailId: string | null } | null;
+        detail: { subject: string; number: string; unsent?: boolean } | null;
+        screenshot: string | null;
+      }
+    >("/jobs/srikandi/register/send", target, "POST", 300_000);
+  }
+
+  /** e-Kinerja: Kirim Penilaian Ke Atasan satu bulan. Tanpa `confirm` robot selalu hanya memeriksa (dryRun). */
+  ekinerjaSubmit(
+    target: RobotTarget & {
+      skpExternalId: string;
+      period: string;
+      expectedKeys: string[];
+      dryRun: boolean;
+      confirm?: "KIRIM_PENILAIAN";
+    },
+  ) {
+    return this.json<
+      PageInfo & {
+        storageState: StorageState;
+        status:
+          | "ready"
+          | "sent"
+          | "unknown"
+          | "failed"
+          | "unconfirmed"
+          | "not_ready"
+          | "mismatch"
+          | "incomplete"
+          | "already_submitted"
+          | "not_found"
+          | "logged_out";
+        message: string;
+        month: string;
+        incomplete: { key: string; missing: string[] }[];
+        difference: { onlyEkinerja: string[]; onlyLifeos: string[] } | null;
+        screenshot: string | null;
+      }
+    >("/jobs/ekinerja/renaksi/submit", target, "POST", 300_000);
+  }
+
   srikandiRegisterUpdate(target: RobotTarget & { form: Record<string, unknown>; dryRun?: boolean }) {
     return this.json<
       PageInfo & {

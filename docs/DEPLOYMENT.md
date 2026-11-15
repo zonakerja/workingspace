@@ -550,4 +550,4 @@ memanggil `http://converter:4200`. Tanpa service ini LifeOS tetap berjalan (pemb
    ONLYOFFICE + robot + Hermes + converter sekaligus gunakan VPS **8 GB**; di VPS 4 GB nyalakan converter hanya bila ONLYOFFICE mati.
 5. **Pembaruan**: naikkan `docling`/`markitdown` di `converter/requirements.txt` dan tanggal `--exclude-newer` di
    `converter/Dockerfile` (rilis ≥ 2 minggu), lalu build ulang; jalankan `python -m pytest tests` di image dan coba beberapa berkas di
-   Tools → Markdown Converter → Coba konversi.
+   Tools → Markdown Converter → Dokumen.

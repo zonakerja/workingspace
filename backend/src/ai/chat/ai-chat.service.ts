@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "../../generated/prisma/client";
 import { fieldAllowed } from "../../knowledge/vault-parser";
 import { PrismaService } from "../../prisma/prisma.service";
+import { LockService } from "../../security/lock.service";
 import { AiService } from "../ai.service";
 import { AiIndexService } from "../index/ai-index.service";
 import { KNOWLEDGE_COLLECTION, OBSIDIAN_SOURCE, WORKSPACE_COLLECTION } from "../index/index-text";
@@ -35,7 +36,14 @@ export class AiChatService {
     private readonly prisma: PrismaService,
     private readonly ai: AiService,
     private readonly index: AiIndexService,
+    private readonly locks: LockService,
   ) {}
+
+  /** `sourceType:sourceId` item terkunci milik user (kosong bila sesi sudah memasukkan PIN). */
+  private async lockedKeys(userId: string, unlocked: boolean) {
+    if (unlocked) return new Set<string>();
+    return new Set((await this.locks.lockedSources(userId)).map((ref) => `${ref.sourceType}:${ref.sourceId}`));
+  }
 
   conversations(userId: string) {
     return this.prisma.aiConversation.findMany({
@@ -46,14 +54,27 @@ export class AiChatService {
     });
   }
 
-  async messages(userId: string, conversationId: string, take = AI_MESSAGES_PAGE) {
+  /**
+   * Riwayat percakapan. Sesi yang belum memasukkan PIN: jawaban yang bersitasi item terkunci (dibuat saat PIN terbuka)
+   * diganti keterangan agar isi item itu tidak terbaca lewat riwayat chat.
+   */
+  async messages(userId: string, conversationId: string, take = AI_MESSAGES_PAGE, unlocked = false) {
     await this.own(userId, conversationId);
     const rows = await this.prisma.aiMessage.findMany({
       where: { conversationId },
       orderBy: { createdAt: "desc" },
       take: take + 1,
     });
-    return { messages: rows.slice(0, take).reverse(), hasMore: rows.length > take };
+    const locked = await this.lockedKeys(userId, unlocked);
+    const messages = rows
+      .slice(0, take)
+      .reverse()
+      .map((m) =>
+        citesLocked(m.citations, locked)
+          ? { ...m, content: LOCKED_ANSWER, citations: [] as unknown as Prisma.JsonValue, locked: true }
+          : m,
+      );
+    return { messages, hasMore: rows.length > take };
   }
 
   async remove(userId: string, conversationId: string) {
@@ -62,22 +83,28 @@ export class AiChatService {
     return { success: true };
   }
 
-  async chat(userId: string, dto: AiChatDto) {
+  /** `unlocked` = sesi sudah memasukkan PIN → isi item terkunci boleh dipakai menjawab. */
+  async chat(userId: string, dto: AiChatDto, unlocked = false) {
     const message = dto.message.trim();
     const [user, existing] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, aiProfile: true } }),
       dto.conversationId ? this.own(userId, dto.conversationId) : null,
     ]);
-    const history = existing
+    const rawHistory = existing
       ? (
           await this.prisma.aiMessage.findMany({
             where: { conversationId: existing.id },
             orderBy: { createdAt: "desc" },
             take: HISTORY_LIMIT,
-            select: { role: true, content: true },
+            select: { role: true, content: true, citations: true },
           })
         ).reverse()
       : [];
+    // Jawaban lama yang memakai item terkunci tidak ikut dikirim ke model selama PIN belum dibuka
+    const locked = await this.lockedKeys(userId, unlocked);
+    const history = rawHistory
+      .filter((m) => !citesLocked(m.citations, locked))
+      .map(({ role, content }) => ({ role, content }));
 
     const query = searchQuery(message, history);
     const [knowledge, workspace] = await Promise.all([
@@ -85,8 +112,12 @@ export class AiChatService {
         collections: [KNOWLEDGE_COLLECTION],
         excludeStatuses: EXCLUDED_STATUSES,
         useActiveField: true,
+        includeLocked: unlocked,
       }),
-      this.index.search(userId, query, WORKSPACE_LIMIT, { collections: [WORKSPACE_COLLECTION] }),
+      this.index.search(userId, query, WORKSPACE_LIMIT, {
+        collections: [WORKSPACE_COLLECTION],
+        includeLocked: unlocked,
+      }),
     ]);
     const linked = await this.linkedNotes(userId, knowledge);
     const sources = numberSources([knowledge, linked, workspace]);
@@ -183,4 +214,15 @@ export class AiChatService {
     if (!conversation) throw new NotFoundException("Percakapan tidak ditemukan.");
     return conversation;
   }
+}
+
+const LOCKED_ANSWER = "🔒 Jawaban ini memakai item terkunci. Masukkan PIN untuk melihatnya.";
+
+/** Jawaban bersitasi sumber milik item terkunci. */
+function citesLocked(citations: unknown, locked: Set<string>) {
+  if (!locked.size || !Array.isArray(citations)) return false;
+  return citations.some((c) => {
+    const ref = c as { sourceType?: unknown; sourceId?: unknown } | null;
+    return !!ref && locked.has(`${String(ref.sourceType)}:${String(ref.sourceId)}`);
+  });
 }

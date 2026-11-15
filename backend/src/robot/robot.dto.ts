@@ -131,6 +131,35 @@ export class RegisterOutgoingDto {
   dryRun?: boolean;
 }
 
+export class SendOutgoingDto {
+  /** true (bawaan) = hanya memeriksa konsep & tombol Kirim Konsep tanpa mengklik */
+  @IsOptional()
+  @IsBoolean()
+  dryRun?: boolean;
+
+  /** PIN keamanan pemilik — wajib bila dryRun = false */
+  @IsOptional()
+  @IsString()
+  @MaxLength(6)
+  pin?: string;
+}
+
+export class SubmitRenaksiDto {
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: "Periode harus YYYY-MM." })
+  period!: string;
+
+  /** true (bawaan) = hanya memeriksa bulan & tombol Kirim Penilaian tanpa mengklik */
+  @IsOptional()
+  @IsBoolean()
+  dryRun?: boolean;
+
+  /** PIN keamanan pemilik — wajib bila dryRun = false */
+  @IsOptional()
+  @IsString()
+  @MaxLength(6)
+  pin?: string;
+}
+
 export class SyncSkpDto {
   @IsInt()
   @Min(2000)

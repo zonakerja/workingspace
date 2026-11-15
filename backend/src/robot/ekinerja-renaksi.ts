@@ -270,3 +270,19 @@ export function proposalsCoveredBy(
     )
     .map((p) => p.id);
 }
+
+/**
+ * Alasan bulan belum boleh **Kirim Penilaian Ke Atasan**: harus draf di e-Kinerja (potret Pantau), punya isian LifeOS, dan
+ * semua isian sudah sama dengan e-Kinerja (tidak ada yang siap/berubah/akan dihapus) — agar yang dinilai atasan sama
+ * dengan yang dilihat pemilik di LifeOS. Robot memeriksa ulang halaman e-Kinerja sebelum mengklik.
+ */
+export function submitBlockers(entries: SignedEntry[], month: { status?: string } | null | undefined) {
+  if (month?.status === "submitted" || month?.status === "rated") return ["Bulan ini sudah dikirim ke atasan."];
+  if (!entries.length) return ["Belum ada isian renaksi LifeOS di bulan ini."];
+  if (month?.status !== "draft") {
+    return ["Bulan ini belum tercatat sebagai draf di e-Kinerja — Kirim ke e-Kinerja lalu Pantau e-Kinerja dulu."];
+  }
+  const pending = entries.filter((e) => e.deleted || e.status !== "filled" || isChanged(e)).length;
+  if (pending) return [`Masih ada ${pending} isian yang belum sama dengan e-Kinerja — Kirim perubahan dulu.`];
+  return [];
+}

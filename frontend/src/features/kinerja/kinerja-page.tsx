@@ -4,6 +4,7 @@ import { useActionPlanEntries, useSkpTargets } from "@/data/collections";
 import { entryStatus } from "./lib/action-plan";
 import { RobotSettings } from "@/features/tools/robot/robot-settings";
 import { ActionPlanBoard } from "./action-plan-board";
+import { AssessmentTab } from "./assessment-tab";
 import { EkinerjaFillRequestsCard } from "./fill-requests-card";
 import { KinerjaWorkflowTab } from "./kinerja-workflow-tab";
 
@@ -35,6 +36,8 @@ export function Component() {
       {(tab) =>
         tab === "connector" ? (
           <RobotSettings systems={["ekinerja"]} />
+        ) : tab === "assessment" ? (
+          <AssessmentTab />
         ) : tab === "workflow" ? (
           <KinerjaWorkflowTab />
         ) : (

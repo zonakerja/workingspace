@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { converterApi } from "@/lib/api/endpoints";
-import type { ConverterMode, ConverterPrefs, ConverterReconvertScope } from "@/types/api";
+import type { ConvertedDocumentSummary, ConverterMode, ConverterPrefs, ConverterReconvertScope } from "@/types/api";
 import { queryKeys } from "./query-keys";
 
 /** Status service converter; dipantau tiap 5 dtk selama model Docling belum siap. */
@@ -38,7 +38,37 @@ export function useConverterStats(enabled = true) {
   return useQuery({ queryKey: queryKeys.converterStats, queryFn: converterApi.stats, enabled });
 }
 
-export function useConvertFile() {
+export function useReconvert() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (scope: ConverterReconvertScope) => converterApi.reconvert(scope),
+    onSuccess: () => void client.invalidateQueries({ queryKey: queryKeys.converterStats }),
+  });
+}
+
+const isPending = (status: string) => status === "queued" || status === "processing";
+
+/** Pustaka hasil konversi; dipantau tiap 2 dtk selama ada dokumen yang masih diproses. */
+export function useConvertedDocuments() {
+  return useQuery({
+    queryKey: queryKeys.convertedDocuments,
+    queryFn: converterApi.documents,
+    refetchInterval: (query) => (query.state.data?.some((doc) => isPending(doc.status)) ? 2_000 : false),
+  });
+}
+
+/** Satu dokumen lengkap (dengan Markdown); dipantau selama belum selesai. */
+export function useConvertedDocument(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.convertedDocument(id ?? ""),
+    queryFn: () => converterApi.document(id!),
+    enabled: !!id,
+    refetchInterval: (query) => (query.state.data && isPending(query.state.data.status) ? 2_000 : false),
+  });
+}
+
+export function useCreateConvertedDocument() {
+  const client = useQueryClient();
   return useMutation({
     mutationFn: ({
       file,
@@ -46,17 +76,33 @@ export function useConvertFile() {
     }: {
       file: File;
       mode?: ConverterMode;
-      pdfMode?: ConverterMode;
       enhance?: boolean;
       compareTokens?: boolean;
-    }) => converterApi.convert(file, options),
+    }) => converterApi.createDocument(file, options),
+    onSuccess: (doc) => {
+      client.setQueryData<ConvertedDocumentSummary[]>(queryKeys.convertedDocuments, (prev) => [doc, ...(prev ?? [])]);
+      void client.invalidateQueries({ queryKey: queryKeys.convertedDocuments });
+    },
   });
 }
 
-export function useReconvert() {
+export function useRenameConvertedDocument() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (scope: ConverterReconvertScope) => converterApi.reconvert(scope),
-    onSuccess: () => void client.invalidateQueries({ queryKey: queryKeys.converterStats }),
+    mutationFn: ({ id, title }: { id: string; title: string }) => converterApi.renameDocument(id, title),
+    onSuccess: () => void client.invalidateQueries({ queryKey: queryKeys.convertedDocuments }),
+  });
+}
+
+export function useRemoveConvertedDocument() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => converterApi.removeDocument(id),
+    onSuccess: (_data, id) => {
+      client.setQueryData<ConvertedDocumentSummary[]>(queryKeys.convertedDocuments, (prev) =>
+        prev?.filter((doc) => doc.id !== id),
+      );
+      client.removeQueries({ queryKey: queryKeys.convertedDocument(id) });
+    },
   });
 }

@@ -7,7 +7,7 @@ import type { SmartModule, SmartSearchResult } from "@/types/api";
 export const MODULE_INFO: Record<SmartModule, { label: string; tone: string }> = {
   planner: { label: "Planner", tone: "text-mod-planner" },
   notes: { label: "Notes", tone: "text-mod-notes" },
-  productivity: { label: "Productivity", tone: "text-mod-productivity" },
+  productivity: { label: "Working Space", tone: "text-mod-productivity" },
   file_control: { label: "File Control", tone: "text-mod-files" },
   files: { label: "Berkas", tone: "text-info" },
   knowledge: { label: "Knowledge", tone: "text-mod-knowledge" },

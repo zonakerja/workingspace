@@ -60,6 +60,8 @@ import {
   totalChars,
 } from "./notebook-context";
 import { fetchWebSource, WebSourceError } from "./web-source";
+import { LockService } from "../security/lock.service";
+import { PinService } from "../security/pin.service";
 
 export type SourceStatus = "ready" | "processing" | "failed" | "missing";
 
@@ -102,6 +104,8 @@ export class NotebooksService implements OnModuleInit {
     private readonly uploads: UploadsService,
     private readonly storage: ObjectStorageService,
     private readonly trash: TrashService,
+    private readonly locks: LockService,
+    private readonly pins: PinService,
   ) {}
 
   /** Notebook yang dihapus disalin utuh ke Sampah (sumber, catatan, chat); berkas unggahannya masuk Sampah bersama. */
@@ -139,7 +143,8 @@ export class NotebooksService implements OnModuleInit {
 
   // ---------------------------------------------------------------- Notebook
 
-  async list(userId: string) {
+  /** Notebook terkunci di sesi yang belum memasukkan PIN: judul saja (deskripsi & ringkasan disembunyikan). */
+  async list(userId: string, unlocked = true) {
     const notebooks = await this.prisma.notebook.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
@@ -147,6 +152,7 @@ export class NotebooksService implements OnModuleInit {
     });
     return notebooks.map(({ summary, summaryHash, ...n }) => {
       void summaryHash;
+      if (n.locked && !unlocked) return { ...n, description: null, hasSummary: false, sealed: true };
       return { ...n, hasSummary: !!summary };
     });
   }
@@ -157,9 +163,9 @@ export class NotebooksService implements OnModuleInit {
     });
   }
 
-  async get(userId: string, id: string) {
+  async get(userId: string, id: string, unlocked = true) {
     const notebook = await this.own(userId, id);
-    const loaded = await this.loadSources(userId, id);
+    const loaded = await this.loadSources(userId, id, unlocked);
     const fingerprint = this.fingerprint(loaded);
     return {
       ...notebook,
@@ -169,15 +175,19 @@ export class NotebooksService implements OnModuleInit {
   }
 
   async update(userId: string, id: string, dto: UpdateNotebookDto) {
-    await this.own(userId, id);
-    return this.prisma.notebook.update({
+    const current = await this.own(userId, id);
+    if (dto.locked === true && !current.locked) await this.pins.assertHasPin(userId);
+    const updated = await this.prisma.notebook.update({
       where: { id },
       data: {
         title: dto.title?.trim(),
         description: dto.description === undefined ? undefined : dto.description?.trim() || null,
         icon: dto.icon === undefined ? undefined : dto.icon || null,
+        locked: dto.locked,
       },
     });
+    if (dto.locked !== undefined) this.locks.invalidate(userId);
+    return updated;
   }
 
   /** Hapus = pindah ke Sampah (notebook, sumber, catatan, chat, dan berkas unggahannya; bisa dipulihkan 30 hari). */
@@ -261,6 +271,7 @@ export class NotebooksService implements OnModuleInit {
     }
 
     const source = await this.prisma.notebookSource.create({ data });
+    this.locks.invalidate(user.id);
     await this.touch(notebookId);
     if (source.content) await this.enqueueIndex(user.id, source.id);
     const [loaded] = await this.loadSourceList(user.id, [source]);
@@ -307,6 +318,7 @@ export class NotebooksService implements OnModuleInit {
     await this.own(user.id, notebookId);
     const source = await this.ownSource(notebookId, sourceId);
     await this.prisma.notebookSource.delete({ where: { id: source.id } });
+    this.locks.invalidate(user.id);
     await this.touch(notebookId);
     await this.cleanupSource(user, source);
     return { success: true };
@@ -351,12 +363,14 @@ export class NotebooksService implements OnModuleInit {
     return { success: true };
   }
 
-  async chat(userId: string, notebookId: string, message: string, fileIds: string[] = []) {
+  async chat(userId: string, notebookId: string, message: string, fileIds: string[] = [], unlocked = true) {
     const notebook = await this.own(userId, notebookId);
     const attachments = await this.loadChatAttachments(userId, fileIds);
     const question = message.trim() || "Jelaskan lampiran yang saya kirim.";
     if (!message.trim() && !attachments.length) throw new BadRequestException("Pertanyaan wajib diisi.");
-    const loaded = (await this.loadSources(userId, notebookId)).filter((l) => l.source.enabled && l.status === "ready");
+    const loaded = (await this.loadSources(userId, notebookId, unlocked)).filter(
+      (l) => l.source.enabled && l.status === "ready",
+    );
     const parts = loaded.flatMap((l) => l.parts);
     if (!parts.length && !attachments.length) {
       throw new BadRequestException("Belum ada sumber yang siap. Tambahkan atau aktifkan sumber notebook dulu.");
@@ -420,6 +434,8 @@ export class NotebooksService implements OnModuleInit {
       },
     });
     await this.touch(notebookId);
+    // Lampiran chat notebook terkunci ikut terkunci
+    this.locks.invalidate(userId);
     return { userMessage, assistantMessage, mode, fallback: result.fallback };
   }
 
@@ -511,7 +527,8 @@ export class NotebooksService implements OnModuleInit {
   private async vectorKeys(userId: string, question: string, parts: SourcePart[]) {
     const refs = [...new Map(parts.map((p) => [`${p.ref.sourceType}|${p.ref.sourceId}`, p.ref])).values()];
     try {
-      const hits = await this.index.search(userId, question, 30, { only: refs });
+      // Sumber terkunci sudah disaring `loadSources` sesuai status PIN sesi
+      const hits = await this.index.search(userId, question, 30, { only: refs, includeLocked: true });
       return hits.map((h) => chunkKey({ sourceType: h.sourceType, sourceId: h.sourceId }, h.chunkIndex));
     } catch (error) {
       this.logger.warn(`Pencarian indeks notebook gagal: ${error instanceof Error ? error.message : error}`);
@@ -521,9 +538,9 @@ export class NotebooksService implements OnModuleInit {
 
   // ---------------------------------------------------------------- Studio
 
-  async summarize(userId: string, notebookId: string) {
+  async summarize(userId: string, notebookId: string, unlocked = true) {
     const notebook = await this.own(userId, notebookId);
-    const all = await this.loadSources(userId, notebookId);
+    const all = await this.loadSources(userId, notebookId, unlocked);
     const parts = all.filter((l) => l.source.enabled && l.status === "ready").flatMap((l) => l.parts);
     if (!parts.length) throw new BadRequestException("Belum ada sumber yang siap untuk diringkas.");
 
@@ -643,9 +660,25 @@ export class NotebooksService implements OnModuleInit {
       .then((row) => (row && !row.deletedAt ? row : null));
   }
 
-  private async loadSources(userId: string, notebookId: string) {
+  /**
+   * `unlocked = false` (sesi belum memasukkan PIN): sumber yang merujuk item / berkas terkunci tidak dibaca (status
+   * gagal "terkunci") agar isinya tidak terbawa ke chat atau ringkasan.
+   */
+  private async loadSources(userId: string, notebookId: string, unlocked = true) {
     const sources = await this.prisma.notebookSource.findMany({ where: { notebookId }, orderBy: { createdAt: "asc" } });
-    return this.loadSourceList(userId, sources);
+    const loaded = await this.loadSourceList(userId, sources);
+    if (unlocked) return loaded;
+    const set = await this.locks.lockSet(userId);
+    return loaded.map((l): LoadedSource => {
+      const s = l.source;
+      const locked =
+        (s.recordType && s.recordId && set.records.has(`${s.recordType}:${s.recordId}`)) ||
+        (s.assetId && set.uploads.has(s.assetId)) ||
+        l.parts.some((p) => p.ref.sourceType === ASSET_SOURCE && set.uploads.has(p.ref.sourceId));
+      return locked
+        ? { ...l, status: "failed", error: "Item terkunci — masukkan PIN untuk memakainya.", parts: [] }
+        : l;
+    });
   }
 
   /** Status & isi teks tiap sumber (bagian-bagian yang dibaca AI). */

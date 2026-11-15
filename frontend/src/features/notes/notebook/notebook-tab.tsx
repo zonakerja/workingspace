@@ -54,6 +54,11 @@ import type { NotebookDetail, NotebookListItem } from "@/types/api";
 import { ChatPanel, useChatComposer, useNotebookAsker } from "./chat-panel";
 import { SourcesPanel } from "./sources-panel";
 import { NotesPanel, SummaryCard } from "./notebook-panels";
+import { LockedBadge, useLockToggle } from "@/features/security/lock-controls";
+import { Lock, LockOpen } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { notebooksApi } from "@/lib/api/endpoints";
+import { queryKeys } from "@/data/query-keys";
 
 const DEFAULT_ICON = "book-open";
 
@@ -148,6 +153,7 @@ function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
                       <DropdownMenuItem onSelect={() => setEditing(notebook)}>
                         <PencilLine /> Ubah
                       </DropdownMenuItem>
+                      <NotebookLockItem notebook={notebook} />
                       <DropdownMenuSeparator />
                       <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(notebook)}>
                         <Trash2 /> Hapus
@@ -157,6 +163,7 @@ function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
                 </div>
                 <div className="min-w-0">
                   <h4 className="line-clamp-2 text-base font-bold">{notebook.title}</h4>
+                  <LockedBadge item={{ locked: notebook.locked, _locked: notebook.sealed }} className="mt-1" />
                   {notebook.description && (
                     <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{notebook.description}</p>
                   )}
@@ -478,5 +485,25 @@ function NotebookView({ id, onBack }: { id: string; onBack: () => void }) {
         onClose={() => setEditing(false)}
       />
     </div>
+  );
+}
+
+/** Menu kartu notebook: kunci dengan PIN / lepas kunci (melepas kunci notebook yang belum terbuka meminta PIN). */
+function NotebookLockItem({ notebook }: { notebook: NotebookListItem }) {
+  const client = useQueryClient();
+  const toggle = useLockToggle();
+  return (
+    <DropdownMenuItem
+      onSelect={() =>
+        toggle({ title: notebook.title, locked: !!notebook.locked }, (next) => {
+          void notebooksApi
+            .update(notebook.id, { locked: !!next.locked })
+            .then(() => client.invalidateQueries({ queryKey: queryKeys.notebooks }))
+            .catch((error: unknown) => toast.error("Gagal mengubah kunci", { description: errorMessage(error) }));
+        })
+      }
+    >
+      {notebook.locked ? <LockOpen /> : <Lock />} {notebook.locked ? "Lepas kunci PIN" : "Kunci dengan PIN"}
+    </DropdownMenuItem>
   );
 }

@@ -33,6 +33,7 @@ import { SharedBadge } from "@/features/sharing/shared-badge";
 import { itemAccess } from "@/lib/sharing";
 import { NoteDeleteDialog } from "@/features/resources/note-delete-dialog";
 import { noteKey } from "@/features/resources/note-references";
+import { LockToggleButton, LockedBadge, LockedNotice } from "@/features/security/lock-controls";
 
 // Editor (Tiptap + kanvas stylus) dimuat saat catatan dibuka agar daftar catatan tetap ringan
 const FreeNoteEditor = lazy(() => import("./free-note-editor"));
@@ -107,6 +108,17 @@ export function FreeNotesTab() {
     );
   }
   if (target && complete.isLoading) return <PageLoader label="Membuka catatan..." />;
+
+  // Catatan terkunci PIN: isi baru dimuat setelah PIN dimasukkan (data dimuat ulang otomatis)
+  if (editing?._locked) {
+    return (
+      <LockedNotice title={editing.title}>
+        <Button variant="outline" size="sm" onClick={() => setNoteParam(null)}>
+          <ChevronLeft /> Kembali
+        </Button>
+      </LockedNotice>
+    );
+  }
 
   if (editing) {
     return (
@@ -192,7 +204,9 @@ export function FreeNotesTab() {
                 <span className="truncate">{note.title || "Tanpa Judul"}</span>
               </h4>
               <SharedBadge item={note} recordType="free_note" className="mb-2" />
-              {isHandwritingNote(note) ? (
+              {note._locked ? (
+                <LockedBadge item={note} className="self-start" />
+              ) : isHandwritingNote(note) ? (
                 <InkPreview note={note} />
               ) : (
                 <p className="line-clamp-5 flex-1 text-sm whitespace-pre-wrap text-foreground/85">{note.content}</p>
@@ -208,6 +222,7 @@ export function FreeNotesTab() {
               {/* Sematkan & hapus hanya untuk catatan milik sendiri */}
               {canEdit && !note.share && (
                 <div className={cn("absolute top-3 right-3 flex gap-0.5", HOVER_ACTIONS)}>
+                  <LockToggleButton item={note} onSave={upsert} className="bg-card/60" />
                   <Button
                     variant="ghost"
                     size="icon-sm"

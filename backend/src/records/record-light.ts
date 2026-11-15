@@ -52,11 +52,21 @@ export function toLightPayload(type: RecordType, payload: Payload): { payload: P
 }
 
 /** Pertahankan nilai key yang tidak utuh di client dari isi tersimpan (key di luar `LIGHT_FIELDS` diabaikan). */
-export function preserveFields(type: RecordType, incoming: Payload, current: Payload | undefined, preserve: string[]) {
+/**
+ * `anyKey` = item terkunci PIN: client memegang kerangka (isi diganti nilai kosong) sehingga semua key yang ditandai
+ * `preserve` dipertahankan dari isi tersimpan, bukan hanya field daftar ringan.
+ */
+export function preserveFields(
+  type: RecordType,
+  incoming: Payload,
+  current: Payload | undefined,
+  preserve: string[],
+  anyKey = false,
+) {
   const allowed = LIGHT_FIELDS[type] ?? [];
   const result: Payload = { ...incoming };
   for (const key of preserve) {
-    if (!allowed.includes(key)) continue;
+    if (!anyKey && !allowed.includes(key)) continue;
     if (current && current[key] !== undefined) result[key] = current[key];
     else delete result[key];
   }

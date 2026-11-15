@@ -39,6 +39,7 @@ import { useOrphanUploadsJanitor } from "../lib/use-orphan-uploads";
 import { AiNoteEditor } from "./ai-note-editor";
 import { NoteDeleteDialog } from "@/features/resources/note-delete-dialog";
 import { noteKey } from "@/features/resources/note-references";
+import { LockToggleButton, LockedBadge, LockedNotice } from "@/features/security/lock-controls";
 
 /** Tombol aksi kartu: muncul saat hover di perangkat ber-mouse, selalu terlihat di layar sentuh. */
 const HOVER_ACTIONS =
@@ -115,6 +116,17 @@ export function AiNotesTab() {
     );
   }
   if (target && complete.isLoading) return <PageLoader label="Membuka Notes AI..." />;
+
+  // Notes AI terkunci PIN (langsung atau ikut agenda di Area/Project terkunci)
+  if (editing?._locked) {
+    return (
+      <LockedNotice title={editing.title}>
+        <Button variant="outline" size="sm" onClick={() => setParams({ note: null, schedule: null })}>
+          <ChevronLeft /> Kembali
+        </Button>
+      </LockedNotice>
+    );
+  }
 
   if (editing) {
     return (
@@ -204,6 +216,7 @@ export function AiNotesTab() {
                 </div>
                 <div className="my-2 flex flex-wrap gap-2">
                   <SharedBadge item={n} recordType="ai_note" />
+                  <LockedBadge item={n} />
                   {n.hasAudio && (
                     <Badge variant="outline" className="border-destructive/30 text-destructive">
                       <Mic /> Audio
@@ -226,6 +239,7 @@ export function AiNotesTab() {
                 {/* Sematkan & hapus hanya untuk catatan milik sendiri */}
                 {canEdit && !n.share && (
                   <div className={cn("absolute right-4 bottom-4 flex gap-0.5", HOVER_ACTIONS)}>
+                    <LockToggleButton item={n} onSave={upsert} />
                     <Button
                       variant="ghost"
                       size="icon-sm"

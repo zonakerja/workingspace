@@ -2,8 +2,11 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
+  Param,
+  Patch,
   Post,
   Put,
   UploadedFile,
@@ -17,7 +20,8 @@ import { memoryStorage } from "multer";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
-import { ConvertFileDto, ReconvertDto, UpdateConverterPrefsDto } from "./converter.dto";
+import { ConvertFileDto, ReconvertDto, RenameConvertedDocumentDto, UpdateConverterPrefsDto } from "./converter.dto";
+import { ConverterLibraryService } from "./converter-library.service";
 import { ConverterService } from "./converter.service";
 
 /** Batas multer = batas tertinggi env (`CONVERTER_MAX_MB` ≤ 200); batas sebenarnya diperiksa service. */
@@ -29,7 +33,10 @@ const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 @UseGuards(JwtAuthGuard)
 @Controller("converter")
 export class ConverterController {
-  constructor(private readonly converter: ConverterService) {}
+  constructor(
+    private readonly converter: ConverterService,
+    private readonly library: ConverterLibraryService,
+  ) {}
 
   @Get("status")
   status() {
@@ -51,26 +58,47 @@ export class ConverterController {
     return this.converter.stats(user.id);
   }
 
-  @Post("convert")
-  @HttpCode(200)
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @ApiConsumes("multipart/form-data")
-  @UseInterceptors(
-    FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } }),
-  )
-  convert(
-    @CurrentUser() user: AuthUser,
-    @UploadedFile() file: Express.Multer.File | undefined,
-    @Body() dto: ConvertFileDto,
-  ) {
-    if (!file) throw new BadRequestException("Pilih berkas untuk dikonversi.");
-    return this.converter.convert(user.id, file, dto);
-  }
-
   @Post("reconvert")
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   reconvert(@CurrentUser() user: AuthUser, @Body() dto: ReconvertDto) {
     return this.converter.reconvert(user.id, dto.scope);
+  }
+
+  // Pustaka: hasil konversi yang disimpan (berkas asal tidak disimpan)
+  @Get("documents")
+  listDocuments(@CurrentUser() user: AuthUser) {
+    return this.library.list(user.id);
+  }
+
+  @Get("documents/:id")
+  getDocument(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.library.get(user.id, id);
+  }
+
+  @Post("documents")
+  @HttpCode(202)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } }),
+  )
+  createDocument(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() dto: ConvertFileDto,
+  ) {
+    if (!file) throw new BadRequestException("Pilih berkas untuk dikonversi.");
+    return this.library.create(user.id, file, dto);
+  }
+
+  @Patch("documents/:id")
+  renameDocument(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: RenameConvertedDocumentDto) {
+    return this.library.rename(user.id, id, dto.title);
+  }
+
+  @Delete("documents/:id")
+  removeDocument(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.library.remove(user.id, id);
   }
 }

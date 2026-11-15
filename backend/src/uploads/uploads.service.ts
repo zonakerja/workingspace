@@ -34,6 +34,7 @@ import { ExtractionQueueService } from "../extraction/extraction-queue.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { type SharePermission } from "../sharing/share-graph";
 import { ShareAccessService } from "../sharing/share-access.service";
+import { LockService } from "../security/lock.service";
 import { ObjectStorageService } from "../storage/object-storage.service";
 
 const DOWNLOAD_TOKEN_TTL_SECONDS = 10 * 60;
@@ -86,6 +87,8 @@ export class UploadsService implements OnModuleInit {
     private readonly shareAccess: ShareAccessService,
     private readonly trash: TrashService,
     private readonly moduleRef: ModuleRef,
+    // Berkas milik item terkunci PIN hanya terbuka di sesi yang sudah memasukkan PIN
+    private readonly locks: LockService,
   ) {}
 
   onModuleInit() {
@@ -414,9 +417,11 @@ export class UploadsService implements OnModuleInit {
       include: withExtraction ? { extraction: true } : undefined,
     });
     if (!asset) throw new NotFoundException("File tidak ditemukan.");
-    if (asset.userId === user.id || asset.uploadedById === user.id) return asset;
-    const shared = (await this.shareAccess.forUser(user.id)).get(asset.userId)?.uploads.has(asset.id);
-    if (!shared) throw new ForbiddenException("Anda tidak memiliki akses ke file ini.");
+    if (asset.userId !== user.id && asset.uploadedById !== user.id) {
+      const shared = (await this.shareAccess.forUser(user.id)).get(asset.userId)?.uploads.has(asset.id);
+      if (!shared) throw new ForbiddenException("Anda tidak memiliki akses ke file ini.");
+    }
+    await this.locks.assertAssetOpen(user, asset.userId, asset.id);
     return asset;
   }
 
@@ -427,6 +432,7 @@ export class UploadsService implements OnModuleInit {
   async findWithPermission(id: string, user: AuthUser, fresh = false) {
     const asset = await this.prisma.asset.findUnique({ where: { id } });
     if (!asset) throw new NotFoundException("File tidak ditemukan.");
+    await this.locks.assertAssetOpen(user, asset.userId, asset.id);
     if (asset.userId === user.id || asset.uploadedById === user.id) {
       return { asset, permission: "edit" as SharePermission };
     }

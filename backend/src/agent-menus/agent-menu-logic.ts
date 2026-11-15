@@ -23,6 +23,7 @@ export const NATIVE_FEATURES = [
   "Overview",
   "Planner",
   "Notes Space",
+  "Working Space",
   "Productivity",
   "File Control",
   "Knowledge",

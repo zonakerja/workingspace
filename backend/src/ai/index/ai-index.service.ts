@@ -33,6 +33,7 @@ import {
   TEMPLATE_DIR,
   normalizeField,
 } from "../../knowledge/vault-parser";
+import { LockService } from "../../security/lock.service";
 import {
   ASSET_SOURCE,
   chunkSource,
@@ -109,6 +110,11 @@ export interface SearchOptions {
   prefix?: boolean | "any";
   /** Maks. potongan per sumber di antara kandidat (hasil beragam; dokumen besar tidak mendominasi) */
   perSource?: number;
+  /**
+   * Sertakan item terkunci PIN. Bawaan tidak: isinya tetap terindeks tetapi hanya dipakai saat sesi pemilik sudah
+   * memasukkan PIN (chatbot / Notebook meneruskan status sesi); agen, MCP, bot WhatsApp tidak pernah.
+   */
+  includeLocked?: boolean;
 }
 
 export interface SmartSearchResult {
@@ -127,6 +133,8 @@ export interface SmartSearchResult {
   notebookId?: string | null;
   /** Catatan / canvas vault: path */
   path?: string | null;
+  /** Item terkunci PIN (cuplikan disembunyikan) */
+  locked?: boolean;
 }
 
 /** Status pengindeksan per user di Redis (bukan data penting → TTL 30 hari). */
@@ -152,6 +160,7 @@ export class AiIndexService {
     private readonly queue: AiIndexQueueService,
     @Inject(forwardRef(() => ExtractionQueueService)) private readonly extraction: ExtractionQueueService,
     @Inject(REDIS_CLIENT) private readonly redis: IORedis,
+    private readonly locks: LockService,
   ) {}
 
   private readonly loaders = new Map<string, ExternalSourceLoader>();
@@ -501,8 +510,10 @@ export class AiIndexService {
       audienceGroup,
       useActiveField,
       semantic: useVector = true,
+      includeLocked = false,
     } = options;
     if (only && only.length === 0) return [];
+    const locked = includeLocked ? [] : await this.locks.lockedSources(userId);
     if (collections && collections.length === 0) return [];
     const candidates = Math.max(limit * 3, 20);
     const activeField = useActiveField ? await this.activeField(userId) : null;
@@ -514,6 +525,11 @@ export class AiIndexService {
           )})`
         : Prisma.empty,
       collections ? Prisma.sql`AND collection IN (${Prisma.join(collections)})` : Prisma.empty,
+      locked.length
+        ? Prisma.sql`AND (source_type, source_id) NOT IN (${Prisma.join(
+            locked.map((ref) => Prisma.sql`(${ref.sourceType}, ${ref.sourceId})`),
+          )})`
+        : Prisma.empty,
       excludeStatuses?.length
         ? Prisma.sql`AND coalesce(metadata->>'status', '') NOT IN (${Prisma.join(excludeStatuses)})`
         : Prisma.empty,
@@ -605,11 +621,18 @@ export class AiIndexService {
    * `meaning` menambah kemiripan makna (satu embedding pertanyaan). Hanya data milik sendiri yang terindeks; tidak
    * memakai bidang aktif karena tugasnya menemukan, bukan menjawab.
    */
-  async smartSearch(userId: string, query: string, mode: SmartSearchMode, limit = 40) {
+  /**
+   * Item terkunci PIN tetap ditemukan (judul), tetapi selama sesi belum memasukkan PIN cuplikan isinya dikosongkan dan
+   * hasil ditandai `locked` (frontend meminta PIN saat dibuka).
+   */
+  async smartSearch(userId: string, query: string, mode: SmartSearchMode, limit = 40, unlocked = false) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { aiIndexEnabled: true } });
     if (!user?.aiIndexEnabled) return { indexEnabled: false, semantic: false, results: [] as SmartSearchResult[] };
     const semantic = mode === "meaning" && !!(await this.ai.embeddingCredential(userId));
-    const options = { semantic: mode === "meaning", prefix: true, perSource: 2 } as const;
+    const options = { semantic: mode === "meaning", prefix: true, perSource: 2, includeLocked: true } as const;
+    const lockedKeys = unlocked
+      ? new Set<string>()
+      : new Set((await this.locks.lockedSources(userId)).map((ref) => `${ref.sourceType}:${ref.sourceId}`));
     let hits = await this.search(userId, query, limit * 3, options);
     // Semua kata tidak ditemukan bersama → cukup salah satu kata
     if (!hits.length && queryTerms(query).length > 1)
@@ -643,12 +666,16 @@ export class AiIndexService {
       const status = archival.get(hit.sourceId) ?? null;
       const file = files.get(hit.sourceId);
       const path = hit.metadata?.path;
+      const locked = lockedKeys.has(`${hit.sourceType}:${hit.sourceId}`);
       return {
+        ...(locked ? { locked: true } : {}),
         sourceType: hit.sourceType,
         sourceId: hit.sourceId,
         module: moduleOf(hit.sourceType, status),
         title: file?.originalName ?? displayTitle(hit.title),
-        snippet: searchSnippet(isIndexedType(hit.sourceType) ? readableRecordText(hit.content) : hit.content, query),
+        snippet: locked
+          ? ""
+          : searchSnippet(isIndexedType(hit.sourceType) ? readableRecordText(hit.content) : hit.content, query),
         matches,
         ...(hit.sourceType === "para_resource" ? { archivalStatus: status } : {}),
         ...(file ? { mimeType: file.mimeType, fileName: file.originalName } : {}),

@@ -20,7 +20,7 @@ import {
 /** Satu permintaan "konversi ulang" paling banyak mengantrekan berkas sebanyak ini. */
 const MAX_RECONVERT = 2000;
 
-/** Tools → Markdown Converter: status service, preferensi per user, coba konversi, konversi ulang berkas lama. */
+/** Tools → Markdown Converter: status service, preferensi per user, konversi untuk pustaka Dokumen, konversi ulang berkas lama. */
 @Injectable()
 export class ConverterService {
   constructor(
@@ -55,7 +55,7 @@ export class ConverterService {
     return prefs;
   }
 
-  /** Coba konversi satu berkas (tidak disimpan). */
+  /** Konversi satu berkas di memori (dipakai antrean pustaka Dokumen; berkas tidak disimpan). */
   async convert(
     userId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },

@@ -539,7 +539,7 @@ export function Component() {
             ) : (
               <Empty className="border border-dashed py-6">
                 <EmptyHeader>
-                  <EmptyDescription>Belum ada proyek aktif. Silakan tambah di menu Productivity.</EmptyDescription>
+                  <EmptyDescription>Belum ada proyek aktif. Silakan tambah di menu Working Space.</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             )}

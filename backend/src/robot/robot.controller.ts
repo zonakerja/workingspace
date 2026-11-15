@@ -24,7 +24,9 @@ import {
   CaptureDto,
   CredentialsDto,
   FillRenaksiDto,
+  SubmitRenaksiDto,
   RegisterOutgoingDto,
+  SendOutgoingDto,
   RenaksiScopeDto,
   RobotInputDto,
   SyncSkpDto,
@@ -140,6 +142,17 @@ export class RobotController {
     return this.robot.fillEkinerjaRenaksi(user, dto.period, dto.dryRun);
   }
 
+  /**
+   * e-Kinerja: Kirim Penilaian Ke Atasan satu bulan. `dryRun` (bawaan) = periksa bulan & tombol tanpa mengklik; mengirim
+   * wajib PIN keamanan setiap kali dan hanya dari sesi login aplikasi.
+   */
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
+  @HttpCode(200)
+  @Post("ekinerja/renaksi/submit")
+  submitRenaksi(@CurrentUser() user: AuthUser, @Body() dto: SubmitRenaksiDto) {
+    return this.robot.submitEkinerjaRenaksi(user, dto.period, { dryRun: dto.dryRun, pin: dto.pin });
+  }
+
   /** e-Kinerja: baca semua bulan Rencana Aksi SKP tahun itu (status, isi, feedback) → potret + impor. Hanya membaca. */
   @Throttle({ default: { ttl: 60_000, limit: 4 } })
   @HttpCode(200)
@@ -176,6 +189,17 @@ export class RobotController {
   @Post("srikandi/register/:id/update")
   updateOutgoing(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: RegisterOutgoingDto) {
     return this.robot.updateSrikandiOutgoing(user, id, dto.dryRun);
+  }
+
+  /**
+   * SRIKANDI: Kirim Konsep entri yang sudah terdaftar (konsep → verifikator). `dryRun` (bawaan) = periksa konsep & tombol
+   * tanpa mengklik; mengirim wajib PIN keamanan setiap kali dan hanya dari sesi login aplikasi.
+   */
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
+  @HttpCode(200)
+  @Post("srikandi/register/:id/send")
+  sendOutgoing(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: SendOutgoingDto) {
+    return this.robot.sendSrikandiOutgoing(user, id, { dryRun: dto.dryRun, pin: dto.pin });
   }
 
   /**

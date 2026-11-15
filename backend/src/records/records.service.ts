@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { AuditAction, Prisma } from "../generated/prisma/client";
 import { AiIndexQueueService } from "../ai/index/ai-index-queue.service";
 import { INDEXED_TYPES, isIndexedType } from "../ai/index/index-text";
@@ -6,6 +6,15 @@ import { NO_TRASH_RECORD_TYPES, recordTitle, type TrashSource } from "../trash/t
 import { TrashService } from "../trash/trash.service";
 import { AuthUser } from "../common/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
+import { LockService, PinRequiredException } from "../security/lock.service";
+import { PinService } from "../security/pin.service";
+import {
+  ARCHIVE_ORIGIN_TYPES,
+  archiveRelatedKeys,
+  isFileControlResource,
+  isLockableType,
+  redactPayload,
+} from "../security/lock-logic";
 import { ShareAccessService } from "../sharing/share-access.service";
 import { type SharePermission, accessKey, atLeast, collectUploadIds, parentRefsOf } from "../sharing/share-graph";
 import { ListRecordsQueryDto } from "./dto/list-records-query.dto";
@@ -20,7 +29,7 @@ import { RECORD_TABLES, type RecordType, type TableSpec, fieldName } from "./rec
 /** Penanda item milik user lain yang dibagikan (dikirim bersama record). */
 type SharedMeta = { ownerId: string; ownerName: string; permission: SharePermission; root: boolean };
 /** Record di respons daftar: `partial` = key payload yang tidak utuh (daftar ringan). */
-type ApiRecord = ReturnType<typeof toApiRecord> & { share?: SharedMeta; partial?: string[] };
+type ApiRecord = ReturnType<typeof toApiRecord> & { share?: SharedMeta; partial?: string[]; locked?: boolean };
 
 /** Metadata akses yang ditempelkan ke respons (bukan bagian data) — dibuang bila ikut terkirim saat menulis. */
 const META_KEYS = ["share"];
@@ -67,6 +76,9 @@ export class RecordsService implements OnModuleInit {
     private readonly indexQueue: AiIndexQueueService,
     private readonly shareAccess: ShareAccessService,
     private readonly trash: TrashService,
+    // Kunci PIN: isi item terkunci disembunyikan & ditolak ditulis selama sesi belum memasukkan PIN
+    private readonly locks: LockService,
+    private readonly pins: PinService,
   ) {}
 
   /** Record yang dihapus tetap di tabelnya (`deleted_at`); Sampah memulihkan atau menghapus barisnya permanen. */
@@ -95,6 +107,7 @@ export class RecordsService implements OnModuleInit {
       return saved;
     });
     this.shareAccess.invalidate();
+    this.locks.invalidate(ownerId);
     if (isIndexedType(type)) void this.indexQueue.enqueueSource(row.userId, type, clientId);
   }
 
@@ -142,7 +155,32 @@ export class RecordsService implements OnModuleInit {
         });
       }
     }
-    return query.light ? result.map((record) => this.lighten(type, record)) : result;
+    const listed = query.light ? result.map((record) => this.lighten(type, record)) : result;
+    return this.sealLocked(type, listed, user);
+  }
+
+  /**
+   * Item terkunci (milik sendiri atau pemilik item bersama) di sesi yang belum memasukkan PIN: hanya kerangka (judul, waktu,
+   * status, relasi) yang dikirim, ditandai `locked`; key lain masuk `partial` sehingga tulisan tidak menghapusnya.
+   */
+  private async sealLocked(type: RecordType, records: ApiRecord[], user: AuthUser): Promise<ApiRecord[]> {
+    if (records.length === 0 || (await this.locks.isUnlocked(user))) return records;
+    const sets = new Map<string, Set<string>>();
+    const lockedOf = async (ownerId: string) => {
+      if (!sets.has(ownerId)) sets.set(ownerId, (await this.locks.lockSet(ownerId)).records);
+      return sets.get(ownerId)!;
+    };
+    const out: ApiRecord[] = [];
+    for (const record of records) {
+      const owner = record.share?.ownerId ?? record.userId;
+      if (!(await lockedOf(owner)).has(accessKey(type, record.clientId))) {
+        out.push(record);
+        continue;
+      }
+      const { payload, hidden } = redactPayload(record.payload);
+      out.push({ ...record, payload, partial: [...new Set([...(record.partial ?? []), ...hidden])], locked: true });
+    }
+    return out;
   }
 
   /** Versi daftar: field berat dipotong, ditandai `partial`. */
@@ -166,7 +204,12 @@ export class RecordsService implements OnModuleInit {
       where: { userId_clientId: { userId: ownerId, clientId } },
     });
     if (!row || row.deletedAt) throw new NotFoundException("Record tidak ditemukan.");
-    return { ...toApiRecord(type, spec, row), ...(share ? { share } : {}) };
+    const [record] = await this.sealLocked(
+      type,
+      [{ ...toApiRecord(type, spec, row), ...(share ? { share } : {}) }],
+      user,
+    );
+    return record;
   }
 
   async upsert(type: RecordType, clientId: string, dto: UpsertRecordDto, user: AuthUser) {
@@ -176,6 +219,7 @@ export class RecordsService implements OnModuleInit {
     const userId = await this.resolveWriteOwner(type, clientId, dto.userId ?? payload.userId, payload, user);
     const mergeKeys = dto.base ? MERGE_ARRAY_KEYS[type] : undefined;
     const preserve = dto.preserve?.length ? dto.preserve : undefined;
+    const lockedRecord = await this.checkLockOnWrite(type, clientId, userId, payload, user);
 
     const row = await this.prisma.$transaction(async (tx) => {
       const table = domainDelegate(tx, type);
@@ -189,7 +233,7 @@ export class RecordsService implements OnModuleInit {
         for (const meta of META_KEYS) delete base[meta];
         next = { ...mergePayload(current, base, next, mergeKeys), id: next.id };
       }
-      if (preserve) next = preserveFields(type, next, current, preserve);
+      if (preserve) next = preserveFields(type, next, current, preserve, lockedRecord);
       const data = { ...payloadToRow(spec, next, clientId), deletedAt: null };
       const saved = await table.upsert({
         where: key,
@@ -200,10 +244,66 @@ export class RecordsService implements OnModuleInit {
       return saved;
     });
     if (userId !== user.id) this.shareAccess.invalidate();
+    this.locks.invalidate(userId);
     if (isIndexedType(type)) void this.indexQueue.enqueueSource(row.userId, type, clientId);
     // Record yang ditulis ulang (dibuat lagi dengan ID sama) tidak lagi berada di Sampah
     await this.trash.forget(row.userId, "record", clientId, type);
     return toApiRecord(type, spec, row);
+  }
+
+  /**
+   * Item terkunci / item baru di dalam item terkunci hanya boleh ditulis setelah PIN dibuka. Mengunci & melepas kunci hanya
+   * oleh pemilik; mengunci butuh PIN yang sudah diatur.
+   */
+  private async checkLockOnWrite(
+    type: RecordType,
+    clientId: string,
+    ownerId: string,
+    payload: Payload,
+    user: AuthUser,
+  ) {
+    const lockSet = await this.locks.lockSet(ownerId);
+    const lockedRecord = lockSet.records.has(accessKey(type, clientId));
+    // Mengarsipkan item terkunci (atau turunannya): snapshot ikut terkunci agar isinya tidak terbuka di Archives
+    const originType = type === "para_archive" ? ARCHIVE_ORIGIN_TYPES[String(payload.originalType)] : undefined;
+    const archivesLocked =
+      !!originType &&
+      (lockSet.records.has(accessKey(originType, String(payload.originalId ?? ""))) ||
+        archiveRelatedKeys(payload).some((key) => lockSet.records.has(key)));
+    if (archivesLocked) {
+      // Snapshot dari kerangka (PIN belum dibuka) = kosong. Ditolak tanpa PIN_REQUIRED agar tidak diulang otomatis.
+      if (!(await this.locks.isUnlocked(user))) {
+        throw new ForbiddenException("Ada item terkunci di dalamnya. Masukkan PIN, lalu arsipkan ulang.");
+      }
+      if (payload.data && typeof payload.data === "object" && !Array.isArray(payload.data)) {
+        payload.data = { ...(payload.data as Payload), locked: true };
+      }
+    }
+    const touchesLocked =
+      lockedRecord ||
+      parentRefsOf(type, payload).some(([refType, refId]) => lockSet.records.has(accessKey(refType, refId)));
+    if (touchesLocked && !(await this.locks.isUnlocked(user))) throw new PinRequiredException();
+    // Pemulihan dari arsip terkunci saat PIN belum dibuka: isi yang dikirim berasal dari kerangka (kosong). Ditolak tanpa
+    // kode PIN_REQUIRED agar client tidak mengulang permintaan yang sama setelah PIN dibuka — pulihkan ulang dari Archives.
+    if (lockSet.archivedOrigins.has(accessKey(type, clientId)) && !(await this.locks.isUnlocked(user))) {
+      throw new ForbiddenException("Arsip ini terkunci PIN. Masukkan PIN lalu ulangi pemulihan dari Archives.");
+    }
+    if (type === "para_resource" && payload.locked === true && isFileControlResource(payload)) {
+      throw new BadRequestException(
+        "Arsip yang masuk File Control tidak bisa dikunci PIN. Keluarkan dari File Control atau lepas kuncinya dulu.",
+      );
+    }
+    if (!isLockableType(type)) return lockedRecord;
+    const current = await domainDelegate(this.prisma, type).findUnique({
+      where: { userId_clientId: { userId: ownerId, clientId } },
+      select: { extra: true, deletedAt: true },
+    });
+    const was = !current?.deletedAt && (current?.extra as Payload | null)?.locked === true;
+    const will = payload.locked === true;
+    if (was === will) return lockedRecord;
+    if (ownerId !== user.id) throw new ForbiddenException("Hanya pemilik yang dapat mengunci atau melepas kunci item.");
+    if (will) await this.pins.assertHasPin(user.id);
+    return lockedRecord;
   }
 
   /** Hapus = pindah ke Sampah (bisa dipulihkan selama masa simpan). `source: "agent"` = dihapus atas persetujuan untuk agen. */
@@ -224,6 +324,8 @@ export class RecordsService implements OnModuleInit {
       if (!atLeast(entry.permission, "edit")) throw new ForbiddenException("Anda hanya memiliki akses lihat.");
       if (entry.root) throw new ForbiddenException("Hanya pemilik yang dapat menghapus item yang dibagikan.");
     }
+
+    await this.locks.assertRecordOpen(user, ownerId, type, clientId);
 
     const batchId = await this.prisma.$transaction(async (tx) => {
       const table = domainDelegate(tx, type);
@@ -250,6 +352,7 @@ export class RecordsService implements OnModuleInit {
       );
     });
     if (ownerId !== user.id) this.shareAccess.invalidate();
+    this.locks.invalidate(ownerId);
     if (isIndexedType(type)) void this.indexQueue.enqueueSource(ownerId, type, clientId);
     return { success: true, batchId };
   }
@@ -268,8 +371,9 @@ export class RecordsService implements OnModuleInit {
   }
 
   /** Riwayat audit kearsipan atas data milik user sendiri. */
-  auditLog(user: AuthUser, query: { entityType?: string; entityId?: string; take?: number }) {
-    return this.prisma.archiveAuditLog.findMany({
+  /** Jejak audit. Sesi yang belum memasukkan PIN: isi perubahan item terkunci (diff / snapshot) disembunyikan. */
+  async auditLog(user: AuthUser, query: { entityType?: string; entityId?: string; take?: number }) {
+    const rows = await this.prisma.archiveAuditLog.findMany({
       where: {
         userId: user.id,
         ...(query.entityType ? { entityType: query.entityType } : {}),
@@ -278,6 +382,11 @@ export class RecordsService implements OnModuleInit {
       orderBy: { createdAt: "desc" },
       take: Math.min(query.take ?? 100, 500),
     });
+    if (!rows.length || (await this.locks.isUnlocked(user))) return rows;
+    const locked = (await this.locks.lockSet(user.id)).records;
+    return rows.map((row) =>
+      locked.has(accessKey(row.entityType, row.entityId)) ? { ...row, changes: {}, locked: true } : row,
+    );
   }
 
   /**

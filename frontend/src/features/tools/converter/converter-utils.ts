@@ -1,4 +1,7 @@
 import type {
+  ConvertedDocument,
+  ConvertedDocumentStatus,
+  ConverterResult,
   ConverterEnhanceScope,
   ConverterMode,
   ConverterReconvertScope,
@@ -34,7 +37,7 @@ export const PDF_MODE_OPTIONS: { value: ConverterMode; label: string; hint: stri
   },
 ];
 
-export const TRY_MODE_OPTIONS: { value: ConverterMode; label: string }[] = [
+export const MODE_OPTIONS: { value: ConverterMode; label: string }[] = [
   { value: "auto", label: "Otomatis" },
   { value: "markitdown", label: "MarkItDown" },
   { value: "docling", label: "Docling" },
@@ -118,7 +121,7 @@ export function providerLabel(provider: string | null) {
   return provider ? (labels[provider] ?? provider) : "AI";
 }
 
-/** Format yang diterima kotak "Coba konversi" (sama dengan service converter). */
+/** Format yang diterima unggahan pustaka Dokumen (sama dengan service converter). */
 export const CONVERTER_ACCEPT =
   ".pdf,.docx,.xlsx,.xls,.pptx,.epub,.msg,.html,.htm,.csv,.json,.xml,.txt,.md,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff";
 
@@ -163,4 +166,48 @@ export function methodRows(byMethod: Record<string, number>) {
       free: isFreeMethod(method),
     }))
     .sort((a, b) => b.count - a.count);
+}
+
+export const DOCUMENT_STATUS_LABELS: Record<ConvertedDocumentStatus, string> = {
+  queued: "Antre",
+  processing: "Diproses",
+  done: "Selesai",
+  failed: "Gagal",
+};
+
+export const isDocumentPending = (status: ConvertedDocumentStatus) => status === "queued" || status === "processing";
+
+/** Dokumen pustaka yang sudah selesai → bentuk hasil konversi untuk penampil bersama (`ConversionResultView`). */
+export function documentResult(doc: ConvertedDocument): ConverterResult | null {
+  if (doc.status !== "done" || !doc.result || !doc.engine) return null;
+  const { enhanced, ...rest } = doc.result;
+  return {
+    ...rest,
+    engine: doc.engine,
+    markdown: doc.markdown ?? "",
+    enhanced: enhanced && doc.enhancedMarkdown ? { ...enhanced, markdown: doc.enhancedMarkdown } : null,
+  };
+}
+
+/** Saring pustaka per kata (judul & nama berkas, tanpa peka huruf besar/kecil). */
+export function filterDocuments<T extends { title: string; fileName: string }>(docs: T[], query: string) {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return docs;
+  return docs.filter((doc) => {
+    const text = `${doc.title} ${doc.fileName}`.toLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+}
+
+/** Ukuran berkas singkat: 900 → "900 B", 1536 → "1,5 KB". */
+export function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${value.toLocaleString("id-ID", { maximumFractionDigits: 1 })} ${units[unit]}`;
 }

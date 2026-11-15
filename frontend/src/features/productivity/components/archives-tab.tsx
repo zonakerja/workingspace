@@ -35,6 +35,7 @@ import { formatDateTime, formatRelative, formatShortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { Activity, Area, ParaArchive, ParaArchiveLog, Project, Resource } from "@/types/entities";
 import { activityDepth, AREA_LEVELS, PARA_INFO } from "../lib/para";
+import { withUnlocked } from "@/features/security/lock-controls";
 import { archiveTitle, relatedSummary } from "../lib/para-archive";
 import { useParaActions } from "../use-para-actions";
 import { ParaInfo } from "./para-info";
@@ -207,7 +208,11 @@ export function ArchivesTab() {
                 areas={areas}
                 archivedBy={archivedBy.get(item.id)?.actorName}
                 now={today}
-                onRestore={canEdit ? () => setRestoring(item) : undefined}
+                onRestore={
+                  canEdit
+                    ? () => withUnlocked({ ...item, title: archiveTitle(item) }, () => setRestoring(item))
+                    : undefined
+                }
               />
             ))}
           </ul>

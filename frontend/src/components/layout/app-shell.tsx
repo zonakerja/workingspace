@@ -14,6 +14,7 @@ import { GlobalSearchButton } from "@/features/assistant/global-search";
 import { FocusModeButton } from "@/features/focus/focus-mode";
 import { NotificationsPopover } from "@/features/overview/components/notifications-popover";
 import { useRobotAlertToasts } from "@/features/tools/automation/robot-alerts";
+import { PinLockButton, PinUnlockHost } from "@/features/security/pin-unlock-host";
 
 export function AppShell() {
   useProfileSync();
@@ -31,6 +32,7 @@ export function AppShell() {
             <>
               <GlobalSearchButton />
               <FocusModeButton />
+              <PinLockButton />
               <NotificationsPopover />
             </>
           }
@@ -47,6 +49,8 @@ export function AppShell() {
       <KnowledgeNoteHost />
       {/* Editor dokumen ONLYOFFICE (openOfficeEditor) */}
       <OfficeEditorHost />
+      {/* Dialog PIN keamanan (item terkunci) */}
+      <PinUnlockHost />
     </SidebarProvider>
   );
 }

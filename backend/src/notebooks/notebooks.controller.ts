@@ -28,18 +28,23 @@ import {
   UpdateNotebookSourceDto,
 } from "./dto/notebook.dto";
 import { NotebooksService } from "./notebooks.service";
+import { NotebookLockGuard } from "./notebook-lock.guard";
+import { LockService } from "../security/lock.service";
 
 /** My Notebook: sumber + chat RAG bersitasi + ringkasan Studio + catatan. Data hanya milik user sendiri. */
 @ApiTags("notebooks")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, NotebookLockGuard)
 @Controller("notebooks")
 export class NotebooksController {
-  constructor(private readonly notebooks: NotebooksService) {}
+  constructor(
+    private readonly notebooks: NotebooksService,
+    private readonly locks: LockService,
+  ) {}
 
   @Get()
-  list(@CurrentUser() user: AuthUser) {
-    return this.notebooks.list(user.id);
+  async list(@CurrentUser() user: AuthUser) {
+    return this.notebooks.list(user.id, await this.locks.isUnlocked(user));
   }
 
   @Post()
@@ -54,8 +59,8 @@ export class NotebooksController {
   }
 
   @Get(":id")
-  get(@CurrentUser() user: AuthUser, @Param("id") id: string) {
-    return this.notebooks.get(user.id, id);
+  async get(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.notebooks.get(user.id, id, await this.locks.isUnlocked(user));
   }
 
   @Patch(":id")
@@ -118,8 +123,8 @@ export class NotebooksController {
   @Throttle({ default: { ttl: 60_000, limit: 20 } })
   @HttpCode(200)
   @Post(":id/chat")
-  chat(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: NotebookChatDto) {
-    return this.notebooks.chat(user.id, id, dto.message, dto.fileIds);
+  async chat(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: NotebookChatDto) {
+    return this.notebooks.chat(user.id, id, dto.message, dto.fileIds, await this.locks.isUnlocked(user));
   }
 
   // ---------------------------------------------------------------- Studio
@@ -127,8 +132,8 @@ export class NotebooksController {
   @Throttle({ default: { ttl: 60_000, limit: 6 } })
   @HttpCode(200)
   @Post(":id/summary")
-  summarize(@CurrentUser() user: AuthUser, @Param("id") id: string) {
-    return this.notebooks.summarize(user.id, id);
+  async summarize(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.notebooks.summarize(user.id, id, await this.locks.isUnlocked(user));
   }
 
   // ---------------------------------------------------------------- Catatan

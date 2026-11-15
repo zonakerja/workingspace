@@ -45,6 +45,8 @@ export interface OutgoingEntry {
   pushedSignature?: string;
   /** Berkas naskah yang terakhir dikirim — beda = file naskah diganti saat Perbarui */
   pushedFileId?: string;
+  /** Waktu Kirim Konsep ke verifikator lewat LifeOS (dengan PIN) — sesudahnya konsep tidak bisa diubah lewat Edit */
+  draftSentAt?: string;
 }
 
 export interface ReferenceLite {
@@ -167,4 +169,18 @@ export function outgoingSignature(entry: OutgoingEntry) {
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash.toString(16).padStart(8, "0");
+}
+
+/**
+ * Alasan entri belum boleh di-Kirim Konsep: harus sudah terdaftar (konsep di Log), belum pernah dikirim, dan tidak ada
+ * perubahan LifeOS yang belum diperbarui ke SRIKANDI (agar yang sampai ke verifikator sama dengan yang dilihat pemilik).
+ */
+export function sendBlockers(entry: OutgoingEntry) {
+  if (entry.draftSentAt) return ["Konsep ini sudah dikirim ke verifikator."];
+  if (entry.status !== "submitted") return ["Entri belum terdaftar di SRIKANDI (daftarkan dulu sebagai konsep)."];
+  const issues: string[] = [];
+  if (entry.pushedSignature && entry.pushedSignature !== outgoingSignature(entry)) {
+    issues.push("Ada perubahan di LifeOS yang belum diperbarui ke SRIKANDI — jalankan Perbarui di SRIKANDI dulu.");
+  }
+  return issues;
 }

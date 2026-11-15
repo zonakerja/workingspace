@@ -29,6 +29,7 @@ import { SettingsModule } from "./settings/settings.module";
 import { SharingModule } from "./sharing/sharing.module";
 import { ObjectStorageModule } from "./storage/object-storage.module";
 import { TrashModule } from "./trash/trash.module";
+import { SecurityModule } from "./security/security.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { UsersModule } from "./users/users.module";
 
@@ -42,6 +43,7 @@ import { UsersModule } from "./users/users.module";
     RedisModule,
     ObjectStorageModule,
     TrashModule,
+    SecurityModule,
     HealthModule,
     AuthModule,
     UsersModule,

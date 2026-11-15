@@ -48,8 +48,10 @@ import { generateId } from "@/lib/ids";
 import type { SrikandiLetter, SrikandiOutgoing } from "@/types/entities";
 import { replyDraft } from "./inbox-logic";
 import { RegisterDialog } from "./register-dialog";
+import { SendDraftDialog } from "./send-draft-dialog";
 import {
   canLinkAsDraft,
+  canSendDraft,
   changedSinceRegister,
   emptyOutgoing,
   finalLetterCandidates,
@@ -110,6 +112,7 @@ export function RegisterBoard() {
   const [deleting, setDeleting] = useState<SrikandiOutgoing | null>(null);
   const [registering, setRegistering] = useState<SrikandiOutgoing | null>(null);
   const [updating, setUpdating] = useState<SrikandiOutgoing | null>(null);
+  const [sending, setSending] = useState<SrikandiOutgoing | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const client = useQueryClient();
@@ -183,7 +186,7 @@ export function RegisterBoard() {
             : `Konsep tersimpan di SRIKANDI${r.draft?.number ? ` (${r.draft.number})` : ""}.`,
           {
             id: pending,
-            description: "Buka SRIKANDI → Log Naskah Keluar, periksa, lalu Kirim Konsep sendiri.",
+            description: "Periksa konsepnya, lalu tekan Kirim Konsep (dengan PIN) di sini atau di SRIKANDI.",
             action: { label: "Lihat", onClick: () => setRunId(r.runId) },
           },
         );
@@ -342,6 +345,11 @@ export function RegisterBoard() {
                     {changedSinceRegister(entry) && (
                       <Badge className="bg-warning/15 text-warning">Berubah — perlu diperbarui di SRIKANDI</Badge>
                     )}
+                    {entry.draftSentAt && (
+                      <Badge className="bg-success/15 text-success">
+                        Konsep dikirim ke verifikator {formatShortDate(new Date(entry.draftSentAt))}
+                      </Badge>
+                    )}
                     {entry.submittedAt && status !== "incomplete" && status !== "ready" && (
                       <span className="text-muted-foreground">
                         Didaftarkan {formatShortDate(new Date(entry.submittedAt))}
@@ -365,6 +373,11 @@ export function RegisterBoard() {
                   {status === "submitted" && changedSinceRegister(entry) && (
                     <Button size="sm" disabled={!!busy} onClick={() => setUpdating(entry)}>
                       {busy === entry.id ? <Loader2 className="animate-spin" /> : <RefreshCw />} Perbarui di SRIKANDI
+                    </Button>
+                  )}
+                  {canSendDraft(entry) && (
+                    <Button size="sm" disabled={!!busy} onClick={() => setSending(entry)}>
+                      <Send /> Kirim Konsep
                     </Button>
                   )}
                   {status === "submitted" && (
@@ -420,12 +433,12 @@ export function RegisterBoard() {
                           <CheckCircle2 /> Tandai terdaftar (manual)
                         </DropdownMenuItem>
                       )}
-                      {status === "submitted" && (
+                      {status === "submitted" && !entry.draftSentAt && (
                         <DropdownMenuItem disabled={!!busy} onSelect={() => void runUpdate(entry, true)}>
                           <ScanSearch /> Periksa perubahan di SRIKANDI (tanpa simpan)
                         </DropdownMenuItem>
                       )}
-                      {status === "submitted" && !changedSinceRegister(entry) && (
+                      {status === "submitted" && !entry.draftSentAt && !changedSinceRegister(entry) && (
                         <DropdownMenuItem disabled={!!busy} onSelect={() => setUpdating(entry)}>
                           <RefreshCw /> Perbarui di SRIKANDI
                         </DropdownMenuItem>
@@ -484,7 +497,7 @@ export function RegisterBoard() {
         open={!!registering}
         onOpenChange={(o) => !o && setRegistering(null)}
         title="Daftarkan ke SRIKANDI?"
-        description="Robot mengisi formulir Registrasi Naskah Keluar dan menekan Simpan: konsep masuk Log Naskah Keluar, belum dikirim. Kirim Konsep ke verifikator tetap Anda lakukan sendiri di SRIKANDI. Butuh sesi SRIKANDI aktif (tab Connector)."
+        description="Robot mengisi formulir Registrasi Naskah Keluar dan menekan Simpan: konsep masuk Log Naskah Keluar, belum dikirim. Kirim Konsep ke verifikator dilakukan terpisah lewat tombol Kirim Konsep (wajib PIN) atau di SRIKANDI. Butuh sesi SRIKANDI aktif (tab Connector)."
         itemName={registering?.subject || "(tanpa hal)"}
         confirmLabel="Daftarkan"
         destructive={false}
@@ -497,7 +510,7 @@ export function RegisterBoard() {
         open={!!updating}
         onOpenChange={(o) => !o && setUpdating(null)}
         title="Perbarui konsep di SRIKANDI?"
-        description="Robot membuka Edit konsep ini di Log Naskah Keluar dan hanya mengubah yang berbeda dari entri LifeOS: isian & file naskah (Perbarui Naskah), lampiran, tujuan/tembusan, verifikator, penandatangan — termasuk menghapus baris yang sudah Anda lepas di LifeOS. Konsep yang sudah dikirim tidak bisa diubah. Kirim Konsep tetap Anda lakukan sendiri. Gunakan Periksa perubahan (menu ⋯) bila ingin melihat rencananya dulu."
+        description="Robot membuka Edit konsep ini di Log Naskah Keluar dan hanya mengubah yang berbeda dari entri LifeOS: isian & file naskah (Perbarui Naskah), lampiran, tujuan/tembusan, verifikator, penandatangan — termasuk menghapus baris yang sudah Anda lepas di LifeOS. Konsep yang sudah dikirim tidak bisa diubah. Kirim Konsep dilakukan terpisah (tombol Kirim Konsep, wajib PIN). Gunakan Periksa perubahan (menu ⋯) bila ingin melihat rencananya dulu."
         itemName={updating?.subject || "(tanpa hal)"}
         confirmLabel="Perbarui"
         destructive={false}
@@ -505,6 +518,12 @@ export function RegisterBoard() {
           if (updating) void runUpdate(updating, false);
           setUpdating(null);
         }}
+      />
+      <SendDraftDialog
+        entry={sending}
+        onClose={() => setSending(null)}
+        onDone={() => void client.invalidateQueries({ queryKey: queryKeys.records("srikandi_outgoing") })}
+        onShowRun={setRunId}
       />
       <RunDialog id={runId} onClose={() => setRunId(null)} />
       <ConfirmDialog
