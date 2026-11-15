@@ -10,6 +10,9 @@ coverage/
 .env.*
 !.env.example
 
+# Cache Turborepo
+.turbo/
+
 # Logs & OS
 *.log
 .DS_Store

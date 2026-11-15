@@ -55,7 +55,7 @@ $env:PROCESSOR_ARCHITECTURE     # AMD64 = Windows x64 (Intel/AMD) · ARM64 = Win
 - **[ARM64]** Paket native tanpa prebuilt win32-arm64 akan gagal dipasang. Proyek ini sudah memakai alternatif yang aman
   (`@node-rs/argon2`, Prisma tanpa engine Rust + adapter `pg`; lihat ARCHITECTURE.md §2.2).
 - npm 11 memblokir install script yang belum disetujui; daftar yang diizinkan ada di field `allowScripts`
-  pada `backend/package.json`. Paket baru yang butuh postinstall: `npm approve-scripts <pkg>` lalu `npm rebuild <pkg>`.
+  pada `apps/akasha/api/package.json`. Paket baru yang butuh postinstall: `npm approve-scripts <pkg>` lalu `npm rebuild <pkg>`.
 
 ## 2. Aturan port (berlaku di semua terminal & semua thread Claude)
 
@@ -65,8 +65,8 @@ test) semuanya mengandalkan angka yang sama.
 
 | Komponen | Port | Alamat | Diatur di |
 |---|---|---|---|
-| Frontend (Vite dev server) | **5173** | http://localhost:5173 | `frontend/vite.config.ts` (`strictPort`) |
-| Backend (NestJS API) | **4000** | http://localhost:4000/api/v1 · Swagger `/api/docs` | `backend/.env` `PORT` |
+| Frontend (Vite dev server) | **5173** | http://localhost:5173 | `apps/akasha/web/vite.config.ts` (`strictPort`) |
+| Backend (NestJS API) | **4000** | http://localhost:4000/api/v1 · Swagger `/api/docs` | `apps/akasha/api/.env` `PORT` |
 | PostgreSQL | **5432** | db `lifeos` (+ `lifeos_shadow`) | `docker-compose.yml` |
 | Redis | **6379** | — | `docker-compose.yml` |
 | SeaweedFS S3 API / filer UI | **8333** / **8888** | filer: http://localhost:8888 | `docker-compose.yml` |
@@ -74,8 +74,8 @@ test) semuanya mengandalkan angka yang sama.
 | Service robot Playwright (opsional, profile `robot`) | **4100** (hanya 127.0.0.1) | http://localhost:4100/health | `docker-compose.yml` |
 | Agen Hermes (opsional, profile `agent`) | **8642** (hanya 127.0.0.1) | http://localhost:8642/health | `docker-compose.yml` |
 | Markdown Converter (opsional, profile `converter`) | **4200** (hanya 127.0.0.1) | http://localhost:4200/health | `docker-compose.yml` |
-| Prisma Studio (opsional) | 5555 | `npm --prefix backend run prisma:studio` | default Prisma |
-| Vite preview build (opsional) | 4173 | `npm --prefix frontend run preview` | default Vite |
+| Prisma Studio (opsional) | 5555 | `npm --prefix apps/akasha/api run prisma:studio` | default Prisma |
+| Vite preview build (opsional) | 4173 | `npm --prefix apps/akasha/web run preview` | default Vite |
 | Stack produksi uji lokal (opsional) | 80 / 443 | http://localhost | `docker-compose.prod.yml` (Caddy) |
 
 Aturan main:
@@ -169,23 +169,19 @@ wsl -e sh -c "docker exec lifeos-postgres psql -U postgres -c 'CREATE DATABASE l
 
 ```powershell
 Copy-Item backend\.env.example backend\.env
-npm --prefix backend install                         # juga membuat Prisma Client (postinstall)
-npm --prefix backend run prisma:deploy              # membuat semua tabel
-npm --prefix backend run prisma:seed                 # pengaturan + akun demo
+npm install                         # juga membuat Prisma Client (postinstall)
+npm --prefix apps/akasha/api run prisma:deploy              # membuat semua tabel
+npm --prefix apps/akasha/api run prisma:seed                 # pengaturan + akun demo
 ```
 
-**Langkah 5 — frontend**:
-
-```powershell
-npm --prefix frontend install
-```
+**Langkah 5 — frontend**: tidak perlu langkah tambahan (paketnya ikut terpasang oleh `npm install` di root pada langkah 4).
 
 **Langkah 6 — coba jalankan** mengikuti §4 langkah 3–4, buka http://localhost:5173 dan login
 `admin@lifeos.com` / `123` (akun kedua untuk uji berbagi: `user@lifeos.com` / `123`). Opsional, pastikan semuanya sehat:
 
 ```powershell
-npm --prefix backend test; npm --prefix frontend test
-npm --prefix backend run test:smoke                  # butuh backend yang sedang berjalan
+npm run check                       # Turborepo: lint, typecheck, test, build semua workspace
+npm --prefix apps/akasha/api run test:smoke                  # butuh backend yang sedang berjalan
 ```
 
 Setelah ini, cukup ikuti §4 setiap mulai bekerja.
@@ -194,13 +190,13 @@ Setelah ini, cukup ikuti §4 setiap mulai bekerja.
 
 | Bila berubah | Jalankan |
 |---|---|
-| `backend/package.json` / `frontend/package.json` | `npm --prefix backend install` / `npm --prefix frontend install` |
-| Folder baru di `backend/prisma/migrations/` | `npm --prefix backend run prisma:deploy` (lalu `npm --prefix backend run prisma:generate`) |
-| `backend/.env.example` punya variabel baru | Salin variabelnya ke `backend/.env` (backend menolak start bila env wajib kosong, §13) |
-| `robot/` (kode robot) | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile robot up -d --build --wait robot"` |
-| `converter/` (kode converter) | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile converter up -d --build --wait converter"` |
+| `package-lock.json` / `package.json` workspace mana pun | `npm install` (di root) |
+| Folder baru di `apps/akasha/api/prisma/migrations/` | `npm --prefix apps/akasha/api run prisma:deploy` (lalu `npm --prefix apps/akasha/api run prisma:generate`) |
+| `apps/akasha/api/.env.example` punya variabel baru | Salin variabelnya ke `apps/akasha/api/.env` (backend menolak start bila env wajib kosong, §13) |
+| `services/robot/` (kode robot) | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile robot up -d --build --wait robot"` |
+| `services/converter/` (kode converter) | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile converter up -d --build --wait converter"` |
 | `infra/onlyoffice/` | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office up -d --build --wait onlyoffice"` |
-| `infra/hermes/` atau `agents/hermes/skills/` | Jalankan ulang `infra/hermes/up.sh` (§4 langkah 8) |
+| `apps/akai/agent/hermes/` atau `apps/akai/agent/skills/` | Jalankan ulang `apps/akai/agent/hermes/up.sh` (§4 langkah 8) |
 
 ## 4. Menyalakan (setiap mulai bekerja)
 
@@ -210,8 +206,8 @@ Setelah ini, cukup ikuti §4 setiap mulai bekerja.
 |---|---|---|
 | A | `wsl -e lazydocker` (atau `wsl -e sh -c "sleep infinity"`) | ya — menjaga WSL & Docker hidup |
 | A2 / tab mana saja | `wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose up -d --wait"` | tidak (selesai sendiri) |
-| B | `npm --prefix backend run dev` | ya |
-| C | `npm --prefix frontend run dev` | ya |
+| B | `npm --prefix apps/akasha/api run dev` | ya |
+| C | `npm --prefix apps/akasha/web run dev` | ya |
 
 Lalu buka http://localhost:5173 (login `admin@lifeos.com` / `123`).
 
@@ -223,11 +219,11 @@ Lalu buka http://localhost:5173 (login `admin@lifeos.com` / `123`).
    ```
 3. **Tab B — backend** (tunggu sampai muncul log `Nest application successfully started`):
    ```powershell
-   npm --prefix backend run dev
+   npm --prefix apps/akasha/api run dev
    ```
 4. **Tab C — frontend**:
    ```powershell
-   npm --prefix frontend run dev
+   npm --prefix apps/akasha/web run dev
    ```
 5. Buka http://localhost:5173. Cek API: http://localhost:4000/api/v1/health (harus `"status":"ok"`).
 6. **Opsional — ONLYOFFICE** (editor dokumen, menu Tools → ONLYOFFICE; butuh ± 1–2 GB RAM, start pertama ± 1–2 menit):
@@ -235,11 +231,11 @@ Lalu buka http://localhost:5173 (login `admin@lifeos.com` / `123`).
    wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile office up -d --wait onlyoffice"
    ```
    Pertama kali, perintah ini **membangun image** `lifeos-onlyoffice:10.0` (image resmi + plugin AI ONLYOFFICE yang
-   memakai AI LifeOS, `infra/onlyoffice/Dockerfile`; butuh internet ± 1 menit). Font tambahan diunggah admin dari Tools → ONLYOFFICE (`backend/.env` perlu
-   `ONLYOFFICE_FONTS_DIR`, lihat `backend/.env.example`).
+   memakai AI LifeOS, `infra/onlyoffice/Dockerfile`; butuh internet ± 1 menit). Font tambahan diunggah admin dari Tools → ONLYOFFICE (`apps/akasha/api/.env` perlu
+   `ONLYOFFICE_FONTS_DIR`, lihat `apps/akasha/api/.env.example`).
    Cek: http://localhost:8080/healthcheck menampilkan `true`. Tanpa langkah ini aplikasi tetap jalan, hanya editor
-   ONLYOFFICE yang tidak tersedia. `backend/.env` harus berisi variabel `ONLYOFFICE_*` (salin dari
-   `backend/.env.example`, lalu restart backend). Detail: [ONLYOFFICE.md](ONLYOFFICE.md).
+   ONLYOFFICE yang tidak tersedia. `apps/akasha/api/.env` harus berisi variabel `ONLYOFFICE_*` (salin dari
+   `apps/akasha/api/.env.example`, lalu restart backend). Detail: [ONLYOFFICE.md](ONLYOFFICE.md).
 
 7. **Opsional — Service robot** (konektor e-Kinerja, SRIKANDI & SIMAN, tab **Connector** di menu grup Connection & MCP;
    ± 300–600 MB RAM saat dipakai). Menyalakan robot **tidak** menjalankan apa pun ke sistem pemerintah; jadwal otomasi
@@ -248,7 +244,7 @@ Lalu buka http://localhost:5173 (login `admin@lifeos.com` / `123`).
    wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile robot up -d --wait robot"
    ```
    Pertama kali **membangun image** `lifeos-robot` (image resmi Playwright + Chromium, unduhan ± 2 GB, ukuran ± 3,5 GB).
-   `backend/.env` harus berisi `ROBOT_URL` & `ROBOT_TOKEN` (salin dari `backend/.env.example`, lalu restart backend).
+   `apps/akasha/api/.env` harus berisi `ROBOT_URL` & `ROBOT_TOKEN` (salin dari `apps/akasha/api/.env.example`, lalu restart backend).
    Cek: http://localhost:4100/health → `{"ok":true,…}`.
 
 8. **Opsional — Markdown Converter** (Tools → Markdown Converter; MarkItDown + Docling, ± 1,2 GB RAM saat menyala). Berkas yang
@@ -258,7 +254,7 @@ Lalu buka http://localhost:5173 (login `admin@lifeos.com` / `123`).
    wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose --profile converter up -d --wait converter"
    ```
    Pertama kali **membangun image** `lifeos-converter` (± 10–15 menit, unduhan torch CPU + model Docling, ukuran ± 5 GB).
-   `backend/.env` harus berisi `CONVERTER_URL` & `CONVERTER_TOKEN` (salin dari `backend/.env.example`, lalu restart backend).
+   `apps/akasha/api/.env` harus berisi `CONVERTER_URL` & `CONVERTER_TOKEN` (salin dari `apps/akasha/api/.env.example`, lalu restart backend).
    Cek: http://localhost:4200/health → `"ready": true` (± 20 detik setelah menyala, model Docling dimuat).
 
 9. **Opsional — Agen Hermes** (menu **AI Agent**; ± 300–800 MB RAM; nyalakan setelah backend):
@@ -266,9 +262,9 @@ Lalu buka http://localhost:5173 (login `admin@lifeos.com` / `123`).
    wsl -e sh /mnt/d/Development/Application/LifeOS/infra/hermes/up.sh
    ```
    Pertama kali mengunduh image `nousresearch/hermes-agent`; skrip juga mengatur Hermes agar memakai model **lewat LifeOS**
-   (`infra/hermes/configure.sh`, tanpa API key di Hermes). Sekali di LifeOS: API key di Pengaturan → Model AI, lalu
+   (`apps/akai/agent/hermes/configure.sh`, tanpa API key di Hermes). Sekali di LifeOS: API key di Pengaturan → Model AI, lalu
    **AI Agent → Status & Skill → Siapkan agen** (docs/TODO-USER.md A7).
-   `backend/.env` harus berisi `HERMES_URL`, `HERMES_API_KEY`, `HERMES_OWNER_EMAIL` (salin dari `backend/.env.example`).
+   `apps/akasha/api/.env` harus berisi `HERMES_URL`, `HERMES_API_KEY`, `HERMES_OWNER_EMAIL` (salin dari `apps/akasha/api/.env.example`).
    Cek: http://localhost:8642/health → `{"status": "ok", …}`. ± 20 detik pertama Hermes masih menolak tugas (404) — normal.
    Hermes membaca alat MCP saat menyala: setelah izin agen diubah, jalankan
    `wsl -e sh -c "docker restart lifeos-hermes"`.
@@ -310,8 +306,8 @@ Data dev hanya data dummy dan boleh dihapus kapan saja (backend harus mati dulu)
 ```powershell
 wsl -e sh -c "cd /mnt/d/Development/Application/LifeOS && docker compose down -v && docker compose up -d --wait"
 wsl -e sh -c "docker exec lifeos-postgres psql -U postgres -c 'CREATE DATABASE lifeos_shadow'"
-npm --prefix backend run prisma:deploy
-npm --prefix backend run prisma:seed
+npm --prefix apps/akasha/api run prisma:deploy
+npm --prefix apps/akasha/api run prisma:seed
 ```
 
 ## 6. Cek status (apa yang sedang menyala?)
@@ -381,7 +377,7 @@ done
 docker exec lifeos-postgres psql -U postgres -d lifeos -c "ANALYZE"
 
 # 4. Verifikasi: bandingkan jumlah baris per tabel (query COUNT_SQL di DEPLOYMENT.md §8) sebelum & sesudah,
-#    lalu (di backend/) npx prisma migrate deploy, cek drift (§10), npm run test:smoke, buka UI.
+#    lalu (di apps/akasha/api/) npx prisma migrate deploy, cek drift (§10), npm run test:smoke, buka UI.
 # 5. Rollback: kembalikan docker-compose.yml lalu docker compose up -d (volume lama masih utuh).
 #    Bila sudah stabil: docker volume rm lifeos-postgres<lama>-data
 ```
@@ -389,7 +385,7 @@ docker exec lifeos-postgres psql -U postgres -d lifeos -c "ANALYZE"
 ## 8. Backend
 
 ```bash
-cd backend
+cd apps/akasha/api
 cp .env.example .env            # PowerShell: Copy-Item .env.example .env
 npm install
 npx prisma migrate deploy       # terapkan semua migrasi
@@ -402,7 +398,7 @@ npm run dev                     # http://localhost:4000/api/v1
 - Log: format mudah dibaca di development, JSON di production (`LOG_LEVEL`).
 - Akun demo (seed development): `admin@lifeos.com` / `123` (super_admin), `user@lifeos.com` / `123` (member, untuk uji
   berbagi). Data setiap akun terisolasi — admin pun tidak melihat data akun lain kecuali dibagikan.
-- Semua env divalidasi saat boot (`src/config/env.validation.ts`); daftar lengkap di `backend/.env.example`.
+- Semua env divalidasi saat boot (`src/config/env.validation.ts`); daftar lengkap di `apps/akasha/api/.env.example`.
 - **Basis pengetahuan (vault Obsidian)**: `KNOWLEDGE_VAULTS_DIR="../infra/knowledge-vaults"` — setiap subfolder = satu
   vault (tidak ikut git). Buat dari **Tools → Basis Pengetahuan → Buat vault baru dari templat**, lalu buka foldernya di
   Obsidian (*Open folder as vault*). Perubahan di Obsidian terbaca otomatis (± 3 detik). Folder `smoke-vault` dipakai
@@ -424,7 +420,7 @@ npm run dev                     # http://localhost:4000/api/v1
 ## 9. Frontend
 
 ```bash
-cd frontend
+cd apps/akasha/web
 npm install
 npm run dev                     # http://localhost:5173 (port dikunci, §2)
 ```
@@ -443,8 +439,8 @@ Vite mem-proxy `/api` ke `http://localhost:4000`, sehingga frontend cukup memaka
 
 ## 10. Alur kerja database
 
-- Skema: `backend/prisma/schema.prisma`. Model domain (tabel `schedules`, `todos`, `resources`, `archive_*`, ...)
-  **dibuat otomatis** dari `backend/src/records/record-schema.ts`.
+- Skema: `apps/akasha/api/prisma/schema.prisma`. Model domain (tabel `schedules`, `todos`, `resources`, `archive_*`, ...)
+  **dibuat otomatis** dari `apps/akasha/api/src/records/record-schema.ts`.
 - Mengubah/menambah field domain:
   1. Edit `record-schema.ts`.
   2. `npm run db:generate-models` (memperbarui `schema.prisma`).
@@ -457,8 +453,8 @@ Vite mem-proxy `/api` ke `http://localhost:4000`, sehingga frontend cukup memaka
      `CREATE DATABASE lifeos_shadow;` (§3 langkah 3)
   4. `npx prisma migrate deploy` lalu `npx prisma generate`.
   5. Cek tidak ada drift: perintah diff yang sama dengan `--exit-code` (tanpa `--script`) harus keluar 0.
-- Prisma: URL koneksi ada di `backend/prisma.config.ts` (bukan di `schema.prisma`). Prisma Client di-generate ke
-  `backend/src/generated/prisma` (tidak di-commit) oleh `postinstall`/`npm run prisma:generate`; import dari path itu,
+- Prisma: URL koneksi ada di `apps/akasha/api/prisma.config.ts` (bukan di `schema.prisma`). Prisma Client di-generate ke
+  `apps/akasha/api/src/generated/prisma` (tidak di-commit) oleh `postinstall`/`npm run prisma:generate`; import dari path itu,
   bukan dari `@prisma/client`. `migrate dev`/`db push` tidak lagi menjalankan generate/seed otomatis.
 
 ## 11. Continuous Integration
@@ -481,10 +477,10 @@ Lihat [DEPLOYMENT.md](DEPLOYMENT.md) (VPS dengan `docker-compose.prod.yml`: Cadd
 | `Cannot connect to the Docker daemon` di WSL | Tunggu beberapa detik setelah WSL baru hidup, lalu ulangi |
 | `database "lifeos_shadow" already exists` | Aman diabaikan (sudah dibuat sebelumnya) |
 | Vite menampilkan modul usang setelah banyak perubahan | Restart `npm run dev` frontend |
-| `Konfigurasi environment tidak valid` saat backend start | Lengkapi `backend/.env` sesuai `.env.example` (mis. setelah `git pull` menambah variabel baru seperti `AI_ENCRYPTION_KEY`: buat dengan `node -p "require('crypto').randomBytes(32).toString('hex')"`) |
+| `Konfigurasi environment tidak valid` saat backend start | Lengkapi `apps/akasha/api/.env` sesuai `.env.example` (mis. setelah `git pull` menambah variabel baru seperti `AI_ENCRYPTION_KEY`: buat dengan `node -p "require('crypto').randomBytes(32).toString('hex')"`) |
 | Fitur AI: "AI belum diatur" / "Model … tidak tersedia" / "API key … ditolak" | Buka **Pengaturan → Model AI**: simpan API key, pilih provider aktif, ganti model bila provider menghentikannya, lalu **Uji koneksi** |
 | Prisma error tabel/kolom tidak ada | `npx prisma migrate deploy` lalu `npx prisma generate` |
-| `Cannot find module '../generated/prisma/client'` | Prisma Client belum dibuat → `npm --prefix backend install` atau `npm --prefix backend run prisma:generate` |
+| `Cannot find module '../generated/prisma/client'` | Prisma Client belum dibuat → `npm install` atau `npm --prefix apps/akasha/api run prisma:generate` |
 | Node/npm terasa lambat di Windows ARM, `node -p "process.arch"` = `x64` | Node x64 berjalan lewat emulasi → pasang versi arm64 (§3 langkah 0, "Salah arsitektur?") lalu pasang ulang `node_modules` |
 | `nvm use 24.x.x` → `Version not installed` padahal ada di `nvm list` | Versi itu arm64 → `nvm use 24.x.x arm64` |
 | `npm install`: beberapa `moderate`/`low` vulnerabilities | Sudah diketahui (UPGRADE-PLAN.md §3): hanya perkakas pengembangan (`minimatch`, `deepmerge` lewat CLI `shadcn`), tidak masuk aplikasi; `npm audit --omit=dev` bersih. **Jangan** `npm audit fix --force` (bisa menurunkan paket utama dan merusak proyek) |

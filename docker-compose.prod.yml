@@ -42,14 +42,18 @@ services:
     logging: *logging
 
   frontend:
-    build: ./frontend
+    build:
+      context: .
+      dockerfile: apps/akasha/web/Dockerfile
     image: lifeos-frontend:${APP_VERSION:-latest}
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 64m } } }
     logging: *logging
 
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: apps/akasha/api/Dockerfile
     image: lifeos-backend:${APP_VERSION:-latest}
     restart: unless-stopped
     depends_on:
@@ -118,11 +122,11 @@ services:
       - onlyoffice-fonts:/app/office-fonts
       - ./knowledge-vaults:/app/knowledge-vaults
       # Skill Hermes dari repo (daftar skill di Asisten Agen; folder sama dipasang ke container hermes)
-      - ./agents/hermes/skills:/app/agent-skills:ro
+      - ./apps/akai/agent/skills:/app/agent-skills:ro
     networks:
       default:
       agent:
-        # Alamat backend yang dipakai MCP Hermes (sama dengan dev: infra/hermes/lifeos-mcp.yaml)
+        # Alamat backend yang dipakai MCP Hermes (sama dengan dev: apps/akai/agent/hermes/lifeos-mcp.yaml)
         aliases: [lifeos-api]
     deploy: { resources: { limits: { memory: "${BACKEND_MEM_LIMIT:-768m}" } } }
     logging: *logging
@@ -235,7 +239,9 @@ services:
     # Browser otomatis (Playwright) untuk konektor SRIKANDI & e-Kinerja (Tools → Konektor Robot).
     # Opsional: hanya menyala dengan COMPOSE_PROFILES=robot. Tidak membuka port & tidak menyimpan data (sesi login
     # disimpan backend terenkripsi). Hanya backend yang memanggilnya lewat jaringan internal Docker.
-    build: ./robot
+    build:
+      context: .
+      dockerfile: services/robot/Dockerfile
     image: lifeos-robot:${APP_VERSION:-latest}
     restart: unless-stopped
     profiles: ["robot"]
@@ -250,7 +256,7 @@ services:
   converter:
     # Markdown Converter (Tools → Markdown Converter, docs/ARCHITECTURE.md §3.14): MarkItDown + Docling (OCR Tesseract).
     # Opsional: COMPOSE_PROFILES=converter. Tanpa port publik & tanpa data; model Docling ada di image (tidak perlu internet).
-    build: ./converter
+    build: ./services/converter
     image: lifeos-converter:${APP_VERSION:-latest}
     restart: unless-stopped
     profiles: ["converter"]
@@ -281,8 +287,8 @@ services:
     volumes:
       # config.yaml, memori, sesi — dicadangkan terpisah (DEPLOYMENT §14)
       - hermes-data:/opt/data
-      - ./agents/hermes/skills:/opt/data/skills/lifeos:ro
-      - ./infra/hermes:/opt/lifeos:ro
+      - ./apps/akai/agent/skills:/opt/data/skills/lifeos:ro
+      - ./apps/akai/agent/hermes:/opt/lifeos:ro
     # Jaringan sendiri: agen hanya menjangkau backend, bukan database, Redis, storage, atau robot (docs/AI-AGENT.md §26)
     networks: [agent]
     shm_size: 1g

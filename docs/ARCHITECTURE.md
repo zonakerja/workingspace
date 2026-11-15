@@ -29,7 +29,7 @@ Prinsip:
 
 ### 2.1 Komponen dan versi (per 2026-10-10)
 
-Sumber kebenaran versi: `package-lock.json` (backend/frontend), `Dockerfile`, `docker-compose*.yml`, `.nvmrc`,
+Sumber kebenaran versi: `package-lock.json` (root workspace: apps/akasha/api, apps/akasha/web, services/robot), `Dockerfile`, `docker-compose*.yml`, `.nvmrc`,
 `.github/workflows/ci.yml`. Tabel ini diperbarui setiap upgrade major.
 
 | Lapisan | Komponen | Versi | Peran / alasan pemilihan |
@@ -66,10 +66,10 @@ Sumber kebenaran versi: `package-lock.json` (backend/frontend), `Dockerfile`, `d
 | | Redis | **8.10** (`redis:8.10-alpine`) | Antrian BullMQ; cache/rate-limit/sesi chat (rencana) |
 | | SeaweedFS | 4.48 | S3-compatible self-host (dev & default produksi) |
 | Edge | Caddy / nginx | 2.11 / 1.30 (stable) | HTTPS otomatis + reverse proxy / sajian SPA + CSP |
-| Agen | Hermes Agent (`nousresearch/hermes-agent:v0.22.2`, image resmi, amd64+arm64) | 0.22.2 | Service `hermes` (profile `agent`): API server OpenAI-compatible + MCP klien ke LifeOS; skill di `agents/hermes/skills/` (§3.11) |
+| Agen | Hermes Agent (`nousresearch/hermes-agent:v0.22.2`, image resmi, amd64+arm64) | 0.22.2 | Service `hermes` (profile `agent`): API server OpenAI-compatible + MCP klien ke LifeOS; skill di `apps/akai/agent/skills/` (§3.11) |
 | Sinkron vault | Syncthing (`syncthing/syncthing:2.1.6`, image resmi, amd64+arm64) | 2.1.6 | Service `syncthing` (profile `sync`, produksi saja): vault Obsidian laptop/HP ↔ `./knowledge-vaults` VPS (DEPLOYMENT §10); Obsidian tidak berjalan di server |
-| Robot | Playwright + Chromium (`mcr.microsoft.com/playwright:v1.63.0-noble`, paket `playwright` **1.63.0** — versi keduanya wajib sama) | 1.63 | Service `robot/` (TypeScript, Node bawaan image): browser jarak jauh & eksplor halaman konektor SRIKANDI/e-Kinerja (§3.10) |
-| Converter | MarkItDown **0.1.9** + Docling **2.142.1** (Python 3.12, torch CPU 2.14.1, Tesseract `ind`+`eng`, FastAPI/uvicorn; image `converter/`, ± 5 GB, amd64+arm64; transitif dikunci `uv --exclude-newer`) | 0.1.9 / 2.142 | Service `converter` (profile `converter`): berkas → Markdown untuk semua fitur AI (§3.14) |
+| Robot | Playwright + Chromium (`mcr.microsoft.com/playwright:v1.63.0-noble`, paket `playwright` **1.63.0** — versi keduanya wajib sama) | 1.63 | Service `services/robot/` (TypeScript, Node bawaan image): browser jarak jauh & eksplor halaman konektor SRIKANDI/e-Kinerja (§3.10) |
+| Converter | MarkItDown **0.1.9** + Docling **2.142.1** (Python 3.12, torch CPU 2.14.1, Tesseract `ind`+`eng`, FastAPI/uvicorn; image `services/converter/`, ± 5 GB, amd64+arm64; transitif dikunci `uv --exclude-newer`) | 0.1.9 / 2.142 | Service `converter` (profile `converter`): berkas → Markdown untuk semua fitur AI (§3.14) |
 | Backup | rclone (`rclone/rclone:1.75.1`) di image `infra/backup` (base = image postgres) | 1.75 | Cermin object storage via API S3 + salinan luar server terenkripsi (crypt) |
 | CI | GitHub Actions | checkout v7, setup-node v7, setup-buildx v4, build-push v7; runner `ubuntu-24.04` | Lint, test, build, smoke, drift, image |
 
@@ -80,7 +80,7 @@ Sumber kebenaran versi: `package-lock.json` (backend/frontend), `Dockerfile`, `d
 - **Backend CommonJS**: paket NestJS 12 berformat ESM dimuat via `require(esm)` (Node ≥ 22.12); tsconfig
   `module/moduleResolution: nodenext`. Migrasi ke ESM tidak diperlukan.
 - **Prisma Client di-generate**, tidak di-commit: generator `prisma-client` (`moduleFormat = "cjs"`,
-  `importFileExtension = ""`) → `backend/src/generated/prisma`, dijalankan oleh `postinstall`. Kode mengimpor dari path
+  `importFileExtension = ""`) → `apps/akasha/api/src/generated/prisma`, dijalankan oleh `postinstall`. Kode mengimpor dari path
   itu (bukan `@prisma/client`). URL datasource & shadow DB di `prisma.config.ts`.
 - Image produksi multi-arsitektur (x86_64/ARM64), dibangun dari source; image pihak ketiga di-pin per minor.
 
@@ -101,15 +101,15 @@ Sumber kebenaran versi: `package-lock.json` (backend/frontend), `Dockerfile`, `d
 
   | Lokasi | Override | Alasan | Hapus bila |
   |---|---|---|---|
-  | `frontend/package.json` | `katex: "$katex"` (langsung `^0.18.9`) | `rehype-katex`/`micromark-extension-math` masih `^0.16` (advisory prototype pollution < 0.18.2) | keduanya mendukung katex ≥ 0.18 |
-  | `backend/package.json` | `multer` → 2.5.0 | `@nestjs/platform-express` 12.1.2 mem-pin `multer` 2.4.0 (advisory high GHSA-q7qp-rjg7-q26m, DoS `fileFilter` asinkron) | `npm view @nestjs/platform-express@<versi> dependencies.multer` ≥ 2.5.0 |
+  | `apps/akasha/web/package.json` | `katex: "$katex"` (langsung `^0.18.9`) | `rehype-katex`/`micromark-extension-math` masih `^0.16` (advisory prototype pollution < 0.18.2) | keduanya mendukung katex ≥ 0.18 |
+  | `apps/akasha/api/package.json` | `multer` → 2.5.0 | `@nestjs/platform-express` 12.1.2 mem-pin `multer` 2.4.0 (advisory high GHSA-q7qp-rjg7-q26m, DoS `fileFilter` asinkron) | `npm view @nestjs/platform-express@<versi> dependencies.multer` ≥ 2.5.0 |
 
   Override `prisma > mysql2` dicabut 2026-11-09: Prisma 7.10.1 sudah memakai `mysql2` 3.24.4.
 
   Advisory 2026-10-19–22 `body-parser` ≤ 2.3.0 (via `express`) dan `fast-uri` ≤ 3.1.8 (via `ajv`) ditutup cukup dengan
   `npm update --before=<tanggal>` dalam rentang semver induknya (2.4.0 / 3.1.9) — tanpa override.
 
-## 3. Backend (`backend/`)
+## 3. Backend (`apps/akasha/api/`)
 
 NestJS (CommonJS), prefix `api/v1`, port 4000.
 
@@ -324,7 +324,7 @@ tetap Asset LifeOS di object storage.
 |---|---|
 | `GET /office/status` | aktif? (`ONLYOFFICE_URL` diisi), URL server ONLYOFFICE, format yang bisa diedit |
 | `GET /office/diagnostics` (admin) | halaman Tools → ONLYOFFICE: server sehat (`/healthcheck`), versi (Command Service `version`), alamat teknis |
-| `POST /office/documents` `{ format: docx\|xlsx\|pptx\|pdf \| templateId, title?, context?, ownerId? }` | dokumen kosong dari templat `backend/templates/office/` (A4, id-ID), atau salinan berkas templat (`templateId` = berkas yang boleh dibaca; format selain docx/xlsx/pptx/pdf dikonversi ONLYOFFICE) → Asset seperti upload lampiran (context default `office`; `ownerId` = pemilik item bersama berizin edit) |
+| `POST /office/documents` `{ format: docx\|xlsx\|pptx\|pdf \| templateId, title?, context?, ownerId? }` | dokumen kosong dari templat `apps/akasha/api/templates/office/` (A4, id-ID), atau salinan berkas templat (`templateId` = berkas yang boleh dibaca; format selain docx/xlsx/pptx/pdf dikonversi ONLYOFFICE) → Asset seperti upload lampiran (context default `office`; `ownerId` = pemilik item bersama berizin edit) |
 | `GET/PATCH /office/preferences` `{ ai: boolean }` | sakelar AI di editor per user (`users.office_ai`) + `aiReady` + provider/model yang menjawab |
 | `POST /office/ai/proxy` (token sesi AI di `headers.Authorization` isi permintaan, bukan token login) | proxy tab AI ONLYOFFICE: Chat Completions → `AiService.generate` milik user → jawaban format OpenAI (biasa/SSE); 60/menit; CORS origin apa pun tanpa credentials |
 | `GET /office/templates` | templat dokumen milik user (berkas konteks `office-template`, diunggah lewat `/uploads`) |
@@ -441,7 +441,7 @@ path lengkap, nama berkas tanpa peka huruf, alias; nama ganda → path terpendek
 `00-Inbox` = draf, folder `90-Templat` = templat (tidak diindeks). Endpoint `/knowledge`: `GET status` (jumlah, catatan
 bermasalah — tanpa properti/jenis/status —, tautan tak ditemukan), `GET folders`, `PUT vault { folder|null }` (lepas =
 catatan, tautan, berkas salinan, potongan dihapus; isi disk tidak disentuh), `POST vault/create { folder }` (salin
-templat `backend/templates/knowledge-vault/`), `POST scan`, `GET notes?q=`, `GET notes/:id` (isi + tautan keluar +
+templat `apps/akasha/api/templates/knowledge-vault/`), `POST scan`, `GET notes?q=`, `GET notes/:id` (isi + tautan keluar +
 backlink), `POST inbox { title, content, question? }` (menulis catatan draf ke `00-Inbox/`, tidak pernah menimpa).
 Logika murni + test: `vault-parser.ts`.
 
@@ -555,12 +555,12 @@ bot bisa dipakai untuk layanan apa pun (profil layanan per user).
 - Pengiriman: `POST {WHATSAPP_API_URL}/{WHATSAPP_GRAPH_VERSION}/{phone_number_id}/messages` (teks dipecah ≤ 4096);
   media diunduh dari Graph API (≤ 20 MB) → `createFromBuffer` context `request`.
 
-### 3.10 Konektor robot SRIKANDI & e-Kinerja (`robot/`, `src/robot/`, tab Connector di Laporan Kinerja & SRIKANDI) + tautan publik
+### 3.10 Konektor robot SRIKANDI & e-Kinerja (`services/robot/`, `src/robot/`, tab Connector di Laporan Kinerja & SRIKANDI) + tautan publik
 
 Tahap 6 [AI-AGENT.md](AI-AGENT.md) §21. Mesin robot dibangun di LifeOS (keputusan AG-21): OnTrack belum punya mesin
 Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sistem.
 
-- **Service robot** (`robot/`, container `robot`, profile `robot`, port dev `127.0.0.1:4100`, produksi hanya jaringan
+- **Service robot** (`services/robot/`, container `robot`, profile `robot`, port dev `127.0.0.1:4100`, produksi hanya jaringan
   internal): Node `http` + Playwright Chromium headless, viewport 1280×800, locale id-ID/WIB. **Tanpa penyimpanan**: sesi
   masuk sebagai `storageState` (cookie + localStorage + IndexedDB) dari backend dan dikembalikan setelah selesai. API
   (Bearer `ROBOT_TOKEN`): `POST /sessions` (buka browser jarak jauh), `GET /sessions/:id/frame` (JPEG + header url/judul/
@@ -569,7 +569,7 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   (tangkapan layar halaman penuh + `ariaSnapshot`), `GET /health`. Hanya membuka host konektor (+ subdomain, https)
   — `urlAllowed`; tombol yang boleh dikirim dibatasi (tanpa pintasan alat pengembang); sesi menganggur ditutup 10 menit,
   maks. 4 sesi. Status login ditebak `looksLikeLogin` (kolom password terlihat / penanda alamat login). Logika murni +
-  test: `robot/src/logic.ts`.
+  test: `services/robot/src/logic.ts`.
 - **Backend** `src/robot/`: tabel `robot_connectors` (per user per sistem: alamat, host tambahan, penanda login, status
   `none | active | expired | error`, `session_enc` = storageState terenkripsi AES-256-GCM dengan kunci turunan HMAC dari
   `AI_ENCRYPTION_KEY` — `robotSessionKey`), `robot_runs` (login/check/capture, url, judul, catatan, snapshot aria,
@@ -730,18 +730,18 @@ Tidak masuk Sampah: centang rutinitas & log (`NO_TRASH_RECORD_TYPES`), hapus ole
 turunannya (+ berkas miliknya yang tidak dipakai data lain) masuk Sampah bertanda agen. Setiap hapus yang masuk Sampah mengembalikan
 `batchId`; frontend menampilkan notifikasi "Pulihkan" untuk kelompok itu (`lib/trash-toast.ts`). Jenis hasil sinkron robot & log hanya bisa dibaca agen.
 
-### 3.14 Markdown Converter (`converter/`, `src/converter/`, Tools → Markdown Converter)
+### 3.14 Markdown Converter (`services/converter/`, `src/converter/`, Tools → Markdown Converter)
 
 Tujuan: AI tidak membayar token untuk **membaca** berkas. Berkas diubah sekali menjadi Markdown di server sendiri, disimpan di
 `asset_extractions.extracted_text`, lalu dipakai ulang oleh semua fitur (ringkasan AI Resource & lampiran, Notes AI, My Notebook,
 chatbot & Pencarian Pintar lewat indeks RAG, Approval, alat MCP agen Hermes, berkas PDF vault Obsidian). Markdown juga membuat
 pemotongan indeks lebih baik (`chunkStructured` memakai judul).
 
-**Service `converter/`** (Python, FastAPI, satu proses, tanpa penyimpanan; dev `127.0.0.1:4200` profile `converter`, produksi
+**Service `services/converter/`** (Python, FastAPI, satu proses, tanpa penyimpanan; dev `127.0.0.1:4200` profile `converter`, produksi
 `http://converter:4200` tanpa port publik). `POST /convert` (Bearer `CONVERTER_TOKEN`, multipart `file`, `filename`, `mime_type`,
 `mode` auto|markitdown|docling, `pdf_mode`) → `{ markdown, engine, reason, pages, chars, tokens, warnings, durationMs, fallbackFrom }`;
 `GET /health` (tanpa token) = versi mesin, bahasa OCR, `ready` (model Docling sudah dimuat; pemanasan di latar saat start).
-Logika murni + pytest `converter/app/logic.py` (`tests/test_logic.py`, dijalankan di image):
+Logika murni + pytest `services/converter/app/logic.py` (`tests/test_logic.py`, dijalankan di image):
 - **Pembagian mesin** (`choose_engine`): gambar (PNG/JPG/WEBP/GIF/BMP/TIFF; selain PNG/JPG diubah ke PNG) **selalu Docling** (OCR
   Tesseract `ind,eng`, `force_full_page_ocr`); dokumen teks (DOCX, XLSX, XLS, PPTX, EPUB, MSG, HTML, CSV, JSON, XML, TXT/MD)
   **MarkItDown**; **PDF** `auto` = profil pypdfium2 (`pdf_profile`): ada halaman < 20 karakter (scan) → Docling; ≥ 25 % halaman berisi
@@ -929,7 +929,7 @@ Setiap tabel domain juga punya `id` (cuid), `user_id`, `client_id`, `extra` (jso
 
 ### 4.3 Spesifikasi sebagai sumber tunggal
 
-`backend/src/records/record-schema.ts` mendefinisikan untuk tiap record type: model/tabel, field & jenisnya
+`apps/akasha/api/src/records/record-schema.ts` mendefinisikan untuk tiap record type: model/tabel, field & jenisnya
 (`string | int | float | bool | ymd | dateKey | timestamp | json`), indeks, `titleKey`/`dateKey`, dan apakah diaudit.
 Dari spesifikasi ini:
 - `prisma/generate-domain-models.mts` menghasilkan model Prisma;
@@ -962,7 +962,7 @@ perubahan data. API: `GET /api/v1/archive-audit?entityType=&entityId=&take=`.
 
 Respons: `{ id, clientId, type, userId, title, date, payload, createdAt, updatedAt }`.
 
-## 5. Frontend (`frontend/`)
+## 5. Frontend (`apps/akasha/web/`)
 
 React SPA (komponen & versi di §2.1): Tailwind + shadcn/ui (Radix, ikon lucide), React Router (rute lazy per modul),
 TanStack Query, Zustand (sesi & UI), react-hook-form + zod, sonner.

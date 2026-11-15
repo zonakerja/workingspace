@@ -2,7 +2,7 @@
 
 Modul manajemen kearsipan sesuai kaidah kearsipan Indonesia: pemberkasan, klasifikasi, Jadwal Retensi Arsip (JRA),
 penataan fisik/digital, peminjaman, dan penyusutan (pemusnahan / penyerahan statis).
-Kode: `frontend/src/features/file-control/` (peta file di §9).
+Kode: `apps/akasha/web/src/features/file-control/` (peta file di §9).
 
 ## 1. Data
 

@@ -1,7 +1,7 @@
 # Font tambahan ONLYOFFICE (development)
 
 Cara utama: admin mengunggah font dari **Tools → ONLYOFFICE → Font → Unggah font** (.ttf/.otf/.ttc). Backend menulis
-berkas ke folder ini (`ONLYOFFICE_FONTS_DIR="../infra/onlyoffice/fonts"` di `backend/.env`), lalu pemantau di container
+berkas ke folder ini (`ONLYOFFICE_FONTS_DIR="../../../infra/onlyoffice/fonts"` di `apps/akasha/api/.env`), lalu pemantau di container
 ONLYOFFICE (`infra/onlyoffice/lifeos-entrypoint.sh`) membuat ulang daftar font ± 30 detik–2 menit kemudian (editor yang
 sedang terbuka tersambung ulang sebentar). Menyalin berkas langsung ke folder ini juga terdeteksi otomatis.
 

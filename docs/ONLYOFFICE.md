@@ -21,7 +21,7 @@ acuan thread integrasi ONLYOFFICE: hasil riset, arsitektur, keputusan, dan dafta
 | Cara integrasi | (a) **Docs API** (JS `api.js` + `DocsAPI.DocEditor(config)`): config ditandatangani JWT HS256 **di backend**, ONLYOFFICE mengunduh berkas dari `document.url`, lalu mengirim status ke `editorConfig.callbackUrl`. (b) WOPI (untuk host WOPI seperti SharePoint) — tidak dipakai. | Pakai **Docs API**; secret JWT hanya di backend (sesuai prinsip "secret di server"). |
 | Callback | POST JSON berisi `key`, `status`: 1 sedang diedit · **2 siap disimpan** (± 10 detik setelah editor terakhir ditutup) · 3 gagal simpan · 4 ditutup tanpa perubahan · **6 force save** (tombol Simpan) · 7 gagal force save. Untuk 2/3/6/7 ada `url` berkas hasil edit (+ `changesurl` riwayat). Backend wajib menjawab `{"error":0}`. | Backend mengunduh `url`, menyimpan ke S3 sebagai versi baru Asset, memicu ekstraksi teks + indeks RAG. |
 | `document.key` | Unik di seluruh server ONLYOFFICE, karakter `0-9 a-z A-Z - . _ =`, maks. 128, **wajib berganti setiap kali dokumen tersimpan** (key yang sama = ONLYOFFICE membuka versi cache lama). | Key = `<assetId>-<versi>`; versi naik di setiap penyimpanan. Pengguna yang membuka key sama = **co-editing** otomatis. |
-| Jenis berkas | Daftar resmi server `document-formats/onlyoffice-docs-formats.json` (74 format): **edit** (docx, docm, dotx, dotm, xlsx, xlsm, xlsb, xltx, xltm, pptx, pptm, ppsx, ppsm, potx, potm, pdf), **lossy-edit** = bisa disunting tetapi sebagian format bisa hilang (odt, ott, rtf, txt, md, html, epub, fb2, ods, ots, xls, csv, tsv, odp, otp), **view** (doc, ppt, xlt, pages, numbers, key, hwp, djvu, xps, vsdx, …). `assemblyFormatAsOrigin: true` → disimpan kembali dalam format aslinya. | Tabel disalin ke `backend/src/office/office-formats.ts` & `frontend/.../office-formats.ts` (perbarui saat upgrade ONLYOFFICE). |
+| Jenis berkas | Daftar resmi server `document-formats/onlyoffice-docs-formats.json` (74 format): **edit** (docx, docm, dotx, dotm, xlsx, xlsm, xlsb, xltx, xltm, pptx, pptm, ppsx, ppsm, potx, potm, pdf), **lossy-edit** = bisa disunting tetapi sebagian format bisa hilang (odt, ott, rtf, txt, md, html, epub, fb2, ods, ots, xls, csv, tsv, odp, otp), **view** (doc, ppt, xlt, pages, numbers, key, hwp, djvu, xps, vsdx, …). `assemblyFormatAsOrigin: true` → disimpan kembali dalam format aslinya. | Tabel disalin ke `apps/akasha/api/src/office/office-formats.ts` & `frontend/.../office-formats.ts` (perbarui saat upgrade ONLYOFFICE). |
 | Di belakang proxy (sub-path) | Butuh header `X-Forwarded-Proto` dan `X-Forwarded-Host` **berisi path** (mis. `domain/office`) + dukungan WebSocket. | Produksi: Caddy `/office/*` → container ONLYOFFICE di domain yang sama → CSP `'self'` cukup, tanpa DNS/sertifikat tambahan. |
 
 ### 1.1 Uji jaringan WSL ↔ Windows (dilakukan 2026-10-15 di laptop user)
@@ -104,8 +104,8 @@ ONLYOFFICE Docs (container) ── 3. GET  document.url   → backend /office/fi
 
 ### 3.2 Hasil tahap 1 — backend (2026-10-15)
 
-Modul `backend/src/office/` (rincian endpoint & aturan: [ARCHITECTURE.md §3.5](ARCHITECTURE.md)), migrasi
-`20261015120000_asset_versions`, templat kosong `backend/templates/office/new.{docx,xlsx,pptx,pdf}` (disalin dari
+Modul `apps/akasha/api/src/office/` (rincian endpoint & aturan: [ARCHITECTURE.md §3.5](ARCHITECTURE.md)), migrasi
+`20261015120000_asset_versions`, templat kosong `apps/akasha/api/templates/office/new.{docx,xlsx,pptx,pdf}` (disalin dari
 image ONLYOFFICE, locale id-ID; ikut ke image Docker backend). Env baru (opsional; kosong = fitur nonaktif):
 
 | Env | Development | Produksi |
@@ -115,7 +115,7 @@ image ONLYOFFICE, locale id-ID; ikut ke image Docker backend). Env baru (opsiona
 | `ONLYOFFICE_JWT_SECRET` | secret dev di `docker-compose.yml` | `openssl rand -hex 32` (= `JWT_SECRET` container) |
 | `ONLYOFFICE_BACKEND_URL` | `auto` | `http://backend:4000` |
 
-`backend/.env` yang sudah ada **perlu ditambah** empat baris itu (salin dari `backend/.env.example`), lalu restart backend.
+`apps/akasha/api/.env` yang sudah ada **perlu ditambah** empat baris itu (salin dari `apps/akasha/api/.env.example`), lalu restart backend.
 
 Terverifikasi:
 - Unit test `office-logic.spec.ts` (18): format, kunci, nama dokumen, alamat backend WSL, penolakan URL asing (SSRF),

@@ -16,8 +16,8 @@ Internet ──► Caddy :80/:443 (HTTPS otomatis Let's Encrypt, HSTS, kompresi)
 | Service | Image | Data |
 |---|---|---|
 | caddy | `caddy` (alpine) | volume `caddy-data` (sertifikat) |
-| frontend | dibangun dari `frontend/Dockerfile` | — |
-| backend | dibangun dari `backend/Dockerfile` (user non-root) | — |
+| frontend | dibangun dari `apps/akasha/web/Dockerfile` | — |
+| backend | dibangun dari `apps/akasha/api/Dockerfile` (user non-root) | — |
 | postgres | `pgvector/pgvector` (PostgreSQL + pgvector) | volume `postgres18-data` (nomor major di nama volume, lihat §8) |
 | redis | `redis` alpine (AOF, password) | volume `redis-data` |
 | storage | `chrislusf/seaweedfs` | volume `storage-data` |
@@ -282,7 +282,7 @@ dipakai.
 | Rotasi log | otomatis (json-file 10 MB × 5 per service) |
 | Pemakaian memori | `docker stats --no-stream` (batas per service: §1.1) |
 | Status backup | `dc ps backup` (healthy/unhealthy) · `dc logs --tail 20 backup` |
-| Uji end-to-end | `API_URL=https://<domain>/api/v1 SMOKE_ADMIN_EMAIL=... SMOKE_ADMIN_PASSWORD=... npm --prefix backend run test:smoke` (membuat & menghapus user sementara) |
+| Uji end-to-end | `API_URL=https://<domain>/api/v1 SMOKE_ADMIN_EMAIL=... SMOKE_ADMIN_PASSWORD=... npm --prefix apps/akasha/api run test:smoke` (membuat & menghapus user sementara) |
 
 ### 5.1 Pemantauan (disarankan, gratis)
 
@@ -493,7 +493,7 @@ sederhana: [TODO-USER.md](TODO-USER.md) A8.
 5. **Brankas kredensial**: `CREDENTIAL_ENCRYPTION_KEY` wajib unik per server, disimpan di password manager, **tidak** sama
    dengan `AI_ENCRYPTION_KEY`. Hilang/diganti = kredensial robot harus disimpan ulang dari tab Connector (sesi
    & data lain tidak terpengaruh). Backup database berisi kredensial terenkripsi — tanpa kunci ini tidak bisa dibuka.
-6. Pembaruan Playwright: ganti versi paket `playwright` **dan** tag image di `robot/Dockerfile` bersamaan
+6. Pembaruan Playwright: ganti versi paket `playwright` **dan** tag image di `services/robot/Dockerfile` bersamaan
    (docs/UPGRADE-PLAN.md).
 7. Tautan publik berkas (`/api/v1/public/files/<token>`) dan **brankas digital** (`/brankas/<token>`, API
    `/api/v1/public/vaults/…`) tidak butuh konfigurasi tambahan; jalur `/api` sudah diteruskan Caddy. Log akses brankas memakai IP
@@ -548,6 +548,6 @@ memanggil `http://converter:4200`. Tanpa service ini LifeOS tetap berjalan (pemb
    Tools → Markdown Converter → status **Aktif**. Berkas lama bisa dibaca ulang dari kartu **Berkas tersimpan**.
 4. **RAM & CPU**: Docling ± 1,2 GB saat diam; membaca scan memakai CPU penuh ± 1–5 dtk per halaman (satu berkas sekaligus). Dengan
    ONLYOFFICE + robot + Hermes + converter sekaligus gunakan VPS **8 GB**; di VPS 4 GB nyalakan converter hanya bila ONLYOFFICE mati.
-5. **Pembaruan**: naikkan `docling`/`markitdown` di `converter/requirements.txt` dan tanggal `--exclude-newer` di
-   `converter/Dockerfile` (rilis ≥ 2 minggu), lalu build ulang; jalankan `python -m pytest tests` di image dan coba beberapa berkas di
+5. **Pembaruan**: naikkan `docling`/`markitdown` di `services/converter/requirements.txt` dan tanggal `--exclude-newer` di
+   `services/converter/Dockerfile` (rilis ≥ 2 minggu), lalu build ulang; jalankan `python -m pytest tests` di image dan coba beberapa berkas di
    Tools → Markdown Converter → Dokumen.

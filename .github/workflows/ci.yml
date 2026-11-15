@@ -5,110 +5,77 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  frontend:
+  # Semua workspace Node (apps/*, services/robot) lewat Turborepo dari root monorepo
+  checks:
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm test
-      - run: npm run build
+      - run: npx turbo run lint typecheck test build format:check
 
-  backend:
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-
-      # Uji end-to-end terhadap infrastruktur nyata (postgres, redis, object storage)
+      # Uji end-to-end backend Akasha terhadap infrastruktur nyata (postgres, redis, object storage)
       - name: Start infrastructure
-        working-directory: .
         run: docker compose up -d --wait
       - name: Migrate & seed
+        working-directory: apps/akasha/api
         run: |
           cp .env.example .env
           npx prisma migrate deploy
           npm run prisma:seed
       - name: Check schema drift
+        working-directory: apps/akasha/api
         run: |
-          docker compose -f ../docker-compose.yml exec -T postgres psql -U postgres -c "CREATE DATABASE lifeos_shadow"
+          docker compose -f ../../../docker-compose.yml exec -T postgres psql -U postgres -c "CREATE DATABASE lifeos_shadow"
           npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
       - name: Smoke test
+        working-directory: apps/akasha/api
         run: |
           node dist/main.js > api.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:4000/api/v1/health && break; sleep 2; done
           npm run test:smoke
       - name: API log
         if: failure()
-        run: cat api.log
-
-  robot:
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: robot
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: robot/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+        run: cat apps/akasha/api/api.log
 
   docker:
     runs-on: ubuntu-24.04
-    needs: [frontend, backend, robot]
+    needs: [checks]
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
-      - name: Build backend image
+      - name: Build Akasha API image
         uses: docker/build-push-action@v7
         with:
-          context: backend
+          context: .
+          file: apps/akasha/api/Dockerfile
           push: false
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
-      - name: Build frontend image
+          cache-from: type=gha,scope=akasha-api
+          cache-to: type=gha,mode=max,scope=akasha-api
+      - name: Build Akasha web image
         uses: docker/build-push-action@v7
         with:
-          context: frontend
+          context: .
+          file: apps/akasha/web/Dockerfile
           push: false
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+          cache-from: type=gha,scope=akasha-web
+          cache-to: type=gha,mode=max,scope=akasha-web
       - name: Build robot image
         uses: docker/build-push-action@v7
         with:
-          context: robot
+          context: .
+          file: services/robot/Dockerfile
           push: false
           cache-from: type=gha,scope=robot
           cache-to: type=gha,mode=max,scope=robot

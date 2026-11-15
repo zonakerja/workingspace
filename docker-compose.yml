@@ -93,7 +93,9 @@ services:
     # Browser otomatis (Playwright) untuk konektor SRIKANDI & e-Kinerja (Tools → Konektor Robot, docs/AI-AGENT.md §21).
     # Opsional (± 300–600 MB RAM saat dipakai) → hanya menyala dengan profile: docker compose --profile robot up -d
     # Tanpa penyimpanan: sesi login dikirim/disimpan backend (terenkripsi), bukan di container ini.
-    build: ./robot
+    build:
+      context: .
+      dockerfile: services/robot/Dockerfile
     # Image lokal; tag lewat variabel (lihat catatan onlyoffice) — nilai default = versi Playwright
     image: lifeos-robot:${LIFEOS_ROBOT_TAG:-1.63.0}
     container_name: lifeos-robot
@@ -112,7 +114,7 @@ services:
     # Markdown Converter (MarkItDown + Docling) untuk Tools → Markdown Converter & ekstraksi berkas (docs/ARCHITECTURE.md §3.14).
     # Opsional (± 1–2 GB RAM saat Docling membaca gambar/scan) → docker compose --profile converter up -d --wait converter
     # Tanpa penyimpanan: berkas dikirim backend per permintaan, hasil Markdown disimpan backend.
-    build: ./converter
+    build: ./services/converter
     # Image lokal; tag lewat variabel (lihat catatan onlyoffice) — nilai default = versi Docling
     image: lifeos-converter:${LIFEOS_CONVERTER_TAG:-2.142.1}
     container_name: lifeos-converter
@@ -150,8 +152,8 @@ services:
     volumes:
       - lifeos-hermes-data:/opt/data
       # Skill LifeOS dari repo (baca-saja) → kategori "lifeos" di daftar skill Hermes
-      - ./agents/hermes/skills:/opt/data/skills/lifeos:ro
-      - ./infra/hermes:/opt/lifeos:ro
+      - ./apps/akai/agent/skills:/opt/data/skills/lifeos:ro
+      - ./apps/akai/agent/hermes:/opt/lifeos:ro
     ports:
       # Hanya untuk backend di laptop (bukan untuk dibuka ke jaringan)
       - "127.0.0.1:8642:8642"

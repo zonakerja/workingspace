@@ -693,7 +693,7 @@ produksi: [DEPLOYMENT.md §10](DEPLOYMENT.md).
 **Tahap 2 — konektor Obsidian** ✅:
 - Vault = subfolder di `KNOWLEDGE_VAULTS_DIR` (dev: `infra/knowledge-vaults/`, tidak ikut git; produksi:
   `./knowledge-vaults` + Syncthing). Pilih folder yang ada atau **buat dari templat** (struktur §10.3 + templat catatan
-  di `90-Templat` + catatan "Mulai di sini"; `backend/templates/knowledge-vault/`).
+  di `90-Templat` + catatan "Mulai di sini"; `apps/akasha/api/templates/knowledge-vault/`).
 - Server memantau perubahan (± 3 detik), membaca properti YAML, `[[tautan]]` (termasuk di properti `dasar_hukum`),
   tag, dan menyalin PDF/DOCX/XLSX di vault ke storage untuk diekstrak & diindeks.
 - **GraphRAG ringan**: saat menjawab, catatan yang tertaut dengan catatan yang ditemukan ikut dibaca AI.
@@ -848,7 +848,7 @@ nama pengguna & kata sandi). Ini menguatkan rancangan: robot **tidak pernah** me
 sendiri mengetiknya di browser jarak jauh.
 
 Yang dibangun (teknis: [ARCHITECTURE.md §3.10](ARCHITECTURE.md), operasional: [DEPLOYMENT.md §13](DEPLOYMENT.md)):
-1. **Service robot** (`robot/`, Playwright 1.63 + Chromium, container terpisah tanpa penyimpanan): browser jarak jauh,
+1. **Service robot** (`services/robot/`, Playwright 1.63 + Chromium, container terpisah tanpa penyimpanan): browser jarak jauh,
    cek sesi, eksplor halaman (tangkapan layar + struktur halaman), batas host & tombol.
 2. **Tools → Konektor Robot**: kartu SRIKANDI & e-Kinerja — alamat sistem (+ host SSO, penanda login), **Login (browser
    jarak jauh)** = tayangan langsung browser robot di dalam LifeOS (klik, ketik, tempel, gulir; ketikan dikirim
@@ -883,14 +883,14 @@ OnTrack: robot mengisi nama pengguna & kata sandi, LifeOS menampilkan potongan g
 Kode OTP selalu diketik user; **rahasia TOTP tetap tidak disimpan** (menyimpannya = MFA tidak berarti). Karena sesi
 dipakai ulang (Session Reuse First, sama dengan OnTrack), langkah ini hanya saat sesi habis.
 
-- **Brankas** (`backend/src/robot/credential-vault.ts`): AES-256-GCM, kunci khusus env `CREDENTIAL_ENCRYPTION_KEY` (64 hex,
+- **Brankas** (`apps/akasha/api/src/robot/credential-vault.ts`): AES-256-GCM, kunci khusus env `CREDENTIAL_ENCRYPTION_KEY` (64 hex,
   terpisah dari `AI_ENCRYPTION_KEY`, **tanpa kunci bawaan** — berbeda dari OnTrack yang punya kunci cadangan di kode), IV
   acak per nilai, AAD = `user + sistem + kolom` (ciphertext tidak bisa dipindah ke user/sistem/kolom lain), kolom
   `robot_connectors.username_enc/password_enc` + `credential_hint` tersamar. Menyimpan/mengganti wajib **kata sandi akun
   LifeOS** (argon2 verify). Tidak ada endpoint untuk membaca kembali kredensial; nilai hanya didekripsi saat login
   otomatis dan dikirim ke robot lewat jaringan internal; robot mengisinya dengan `fill` (tidak dicatat).
 - **Login otomatis** (`POST /robot/connectors/:system/auto-login` → `POST /robot/sessions/:id/answer`): robot memindai formulir
-  (`robot/src/login-form.ts`: kolom nama pengguna/NIP, kata sandi, CAPTCHA, OTP satu kolom atau kotak per digit, tombol
+  (`services/robot/src/login-form.ts`: kolom nama pengguna/NIP, kata sandi, CAPTCHA, OTP satu kolom atau kotak per digit, tombol
   Masuk/Verifikasi, pesan galat situs), mengisi kredensial, lalu berhenti di tahap `captcha` (gambar dipotong dari elemen
   bertanda captcha / terdekat di atas kolomnya) atau `otp`; kata sandi diisi ulang bila situs mengosongkannya setelah CAPTCHA
   salah; `done` = sesi disimpan. Formulir tak dikenali → **Buka tayangan** (browser jarak jauh dengan sesi yang sama).
@@ -1261,7 +1261,7 @@ formulir di akun user dipetakan lewat browser jarak jauh, lalu robot pendaftaran
   Log berada di luar layar (tabel bergulir horizontal).
 
 **Program** (robot + backend + UI):
-- Robot `POST /jobs/srikandi/register` (`robot/src/srikandi-register.ts` logika murni + test, `BrowserPool.srikandiRegister`):
+- Robot `POST /jobs/srikandi/register` (`services/robot/src/srikandi-register.ts` logika murni + test, `BrowserPool.srikandiRegister`):
   cek Log dulu (draf berhal sama & belum terkirim → `exists`, tidak dibuat ulang) → buka formulir → tipe naskah → tiap pilihan:
   label → kolom react-select berikutnya (penanda `data-lifeos-select`), ketik `searchTerm` (bagian sebelum " - " / koma gelar),
   tunggu opsi, klik opsi `pickOption` (persis → nama/kode sama, dibedakan jabatan → satu-satunya yang memuat) → nomor (ketik /
@@ -1269,7 +1269,7 @@ formulir di akun user dipetakan lewat browser jarak jauh, lalu robot pendaftaran
   verifikator, penandatangan, tipe TTD, visual TTE → `dryRun` berhenti (tangkapan layar halaman penuh) atau **Simpan** (pesan
   selain "berhasil" = galat) → baca Log → draf. `safeClick` menolak kirim/ajukan/hapus. Batas body 40 MB (berkas base64).
 - Backend `POST /robot/srikandi/register/:id { dryRun? }` (`RobotService.registerSrikandiOutgoing`; logika murni + test
-  `backend/src/robot/srikandi-register.ts`): entri milik user, `registerBlockers`, jabatan referensi menjadi petunjuk nama
+  `apps/akasha/api/src/robot/srikandi-register.ts`): entri milik user, `registerBlockers`, jabatan referensi menjadi petunjuk nama
   kembar, berkas dibaca dari object storage, run + tangkapan layar di Riwayat Connector; simpan → entri `submitted`,
   `submittedAt`, `srikandiNumber`. Entri yang sudah terdaftar ditolak 400.
 - UI tab Register: baris **Siap didaftarkan** → **Daftarkan ke SRIKANDI** (konfirmasi; toast + "Lihat" tangkapan layar);
@@ -1312,7 +1312,7 @@ disetujui hanya punya "Lihat Status Saat Ini"). Judul "Ubah Log Naskah Keluar"; 
 | Hapus baris | Konfirmasi "Data <nama> akan dihapus ?" → Hapus | Modal SRIKANDI bukan `role=dialog` |
 
 **Dibangun**:
-- Robot `POST /jobs/srikandi/register/update` (`robot/src/srikandi-register-edit.ts` logika murni + test, `BrowserPool.srikandiRegisterUpdate`):
+- Robot `POST /jobs/srikandi/register/update` (`services/robot/src/srikandi-register-edit.ts` logika murni + test, `BrowserPool.srikandiRegisterUpdate`):
   cari konsep di Log dari hal saat terakhir dikirim (`findSubject`, cadangan hal terbaru — Perbarui yang terhenti di tengah jalan) →
   tanpa tautan Edit = `locked` → baca isi halaman Edit (`readEditState`) → `planEdit` (hanya yang berbeda; nama dicocokkan tanpa
   jabatan/instansi; grup tujuan tidak bisa dicocokkan karena SRIKANDI memecahnya → tidak dihapus, diberi peringatan) → `dryRun` = rencana
@@ -1359,12 +1359,12 @@ belum terlihat. Risiko yang perlu diputuskan: membuka detail kemungkinan menguba
 melihatnya), sehingga robot sebaiknya hanya membaca daftar, atau hanya mengambil PDF dari naskah yang sudah dibaca user.
 
 **Tahap 1 dibangun 2026-11-13** (persetujuan user atas rekomendasi):
-- Robot `POST /jobs/srikandi/inbox` (`robot/src/srikandi-inbox.ts` logika murni + test, `BrowserPool.srikandiInbox` + `readTablePages`):
+- Robot `POST /jobs/srikandi/inbox` (`services/robot/src/srikandi-inbox.ts` logika murni + test, `BrowserPool.srikandiInbox` + `readTablePages`):
   membuka kelima halaman daftar, Hitung Total, lalu halaman berikutnya sampai habis (maks. 30 halaman); baris dibaca per judul kolom
   (diselaraskan dari kanan seperti referensi), baris filter/"tidak ada data" dibuang. **Detail tidak pernah dibuka.**
 - Backend record type `srikandi_inbox` (migrasi `20261113120000_srikandi_inbox`; kolom kind, date, sent_date, number, subject, origin,
   read_status, follow_up_status, synced_at; sisanya di `extra`), `POST /robot/srikandi/inbox/sync` → `RobotService.syncSrikandiInbox`
-  (logika murni + test `backend/src/robot/srikandi-inbox.ts`): ID `si-<hash isi>` (ID detail SRIKANDI acak), kolom robot ditimpa, kolom LifeOS
+  (logika murni + test `apps/akasha/api/src/robot/srikandi-inbox.ts`): ID `si-<hash isi>` (ID detail SRIKANDI acak), kolom robot ditimpa, kolom LifeOS
   (`todoId`, `firstSeenAt`) tetap, tanpa perubahan = tidak ditulis ulang, butir yang hilang dari SRIKANDI tidak dihapus. Jenis otomasi
   `srikandi_inbox` (bawaan tiap jam kerja menit ke-15, nonaktif), MCP `srikandi_sync_inbox` (izin `srikandi:robot`), baca-saja untuk agen
   (`AGENT_READONLY_TYPES`), diindeks RAG ("Naskah Masuk SRIKANDI").
@@ -1397,7 +1397,7 @@ pernah mengirim.
 - **Belum diketahui**: dialog konfirmasi & pesan hasil setelah Kirim Konsep diklik (tidak pernah diklik).
 
 **Dibangun**:
-- Robot `POST /jobs/srikandi/register/send` (`robot/src/srikandi-send.ts` logika murni + test, `BrowserPool.srikandiSendDraft`): cari baris Log
+- Robot `POST /jobs/srikandi/register/send` (`services/robot/src/srikandi-send.ts` logika murni + test, `BrowserPool.srikandiSendDraft`): cari baris Log
   dari hal (+ nomor) → buka Detail → wajib "Naskah ini belum dikirim" & hal sama (`detailMatches`) → tombol aktif. **Tanpa `confirm: "KIRIM_KONSEP"`
   server robot selalu dryRun** (apa pun isi `dryRun`): tombol diberi garis merah, tangkapan layar, berhenti (`ready`). Kirim: klik tombol →
   dialog baru disetujui **hanya** bila teksnya tentang pengiriman dan tombolnya persetujuan (`pickSendConfirm`); dialog lain → Esc + `unconfirmed`;
@@ -1429,7 +1429,7 @@ bulan draf (Oktober 2026 akun pemilik) = tabel indikator (kolom ke-4 "Aksi") lal
 dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu. **Belum diketahui**: dialog konfirmasi & pesan hasil setelah tombol diklik.
 
 **Dibangun**:
-- Robot `POST /jobs/ekinerja/renaksi/submit` (`robot/src/ekinerja-submit.ts` logika murni + test, `BrowserPool.ekinerjaSubmit`; `renaksiBlock` kini
+- Robot `POST /jobs/ekinerja/renaksi/submit` (`services/robot/src/ekinerja-submit.ts` logika murni + test, `BrowserPool.ekinerjaSubmit`; `renaksiBlock` kini
   menandai tombol `data-lifeos-renaksi=submit` / `canSubmit`). Urutan: buka Rencana Aksi SKP → blok bulan → sudah diajukan/dinilai = `already_submitted`
   → tanpa tombol = `not_ready` → baris e-Kinerja **sama persis** dengan kunci baris dari LifeOS (`expectedKeys`, `rowDifference`) atau `mismatch` →
   setiap baris punya renaksi, realisasi, bukti (`incompleteRows`) atau `incomplete` → teks tombol dicek ulang (`isSubmitButton`). **Tanpa
@@ -1449,7 +1449,7 @@ dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu. **Belum diketahui**:
   Atur PIN. Konektor e-Kinerja `SYSTEM_INFO.flows`/`limits` diperbarui.
 
 **Diuji 2026-11-15** (**tidak pernah dikirim ke e-Kinerja**): rekam halaman tanpa klik; **halaman e-Kinerja tiruan** (HTML dummy di localhost dalam
-container robot, `robot/test/dummy-ekinerja.mjs`, cara menjalankan di kepala berkas) → tanpa confirm = `ready` & tidak terkirim, isi beda = `mismatch`, baris kosong = `incomplete`, bulan
+container robot, `services/robot/test/dummy-ekinerja.mjs`, cara menjalankan di kepala berkas) → tanpa confirm = `ready` & tidak terkirim, isi beda = `mismatch`, baris kosong = `incomplete`, bulan
 diajukan = `already_submitted`, dialog asing ("Pilih atasan penilai … OK") = `unconfirmed` tanpa klik (ditemukan saat uji: aturan awal menyetujuinya karena
 memuat kata "atasan" → kini wajib kata kirim/ajukan), dialog konfirmasi dummy → `sent`. Unit robot +6, backend +1, frontend +1; smoke +3 (tidak ada alat
 agen, tanpa sesi, periode salah); UI dengan akun uji `user@lifeos.com` + data dummy (tombol aktif, tanpa PIN → Atur PIN, PIN uji → server menolak
@@ -1532,7 +1532,7 @@ Satu skill per jenis dokumen (format `SKILL.md` yang dipakai Hermes — dicek ul
    (`nomor_naskah`, `tanggal_naskah`, `ttd*`) dibiarkan.
 5. **Contoh**: satu contoh telaah & dokumen yang sudah Anda setujui (gaya Anda).
 
-Skill disimpan di repo/vault (diusulkan `agents/hermes/skills/` di repo LifeOS atau folder vault `70-Agen/`) lalu disalin /
+Skill disimpan di repo/vault (diusulkan `apps/akai/agent/skills/` di repo LifeOS atau folder vault `70-Agen/`) lalu disalin /
 disinkronkan ke `~/.hermes/skills/` — agar ikut versi & cadangan.
 
 ### 22.3 Dampak ke LifeOS (rencana, belum dikerjakan — dokumentasi dulu)
@@ -1551,12 +1551,12 @@ disinkronkan ke `~/.hermes/skills/` — agar ikut versi & cadangan.
 
 | ID | Pertanyaan | Rekomendasi |
 |---|---|---|
-| AG-22 | Skill Hermes disimpan di mana? | Repo LifeOS `agents/hermes/skills/` (ikut git & review), disalin ke Hermes saat pasang |
+| AG-22 | Skill Hermes disimpan di mana? | Repo LifeOS `apps/akai/agent/skills/` (ikut git & review), disalin ke Hermes saat pasang |
 | AG-23 | Tombol Analisis/Telaah bawaan + `analyze_request` dihapus setelah skill teruji? | Ya, setelah 2–3 pengajuan nyata berhasil lewat skill |
 | AG-24 | Hermes berjalan di mana untuk alur ini? | Laptop (WSL) untuk uji; VPS (B7) untuk harian |
 | AG-25 | Urutan kerja | (1) tool MCP templat & `update_request` di LifeOS → (2) skill `penetapan-psp` tanpa OnTrack → (3) sambung MCP OnTrack setelah tersedia → (4) skill jenis lain |
 
-**Keputusan user (2026-10-31): AG-22 … AG-25 disetujui sesuai rekomendasi** (skill di repo `agents/hermes/skills/`; tombol
+**Keputusan user (2026-10-31): AG-22 … AG-25 disetujui sesuai rekomendasi** (skill di repo `apps/akai/agent/skills/`; tombol
 Analisis/Telaah bawaan dihapus setelah 2–3 pengajuan nyata berhasil lewat skill; Hermes di laptop untuk uji, VPS untuk
 harian; urutan kerja AG-25).
 
@@ -1572,7 +1572,7 @@ harian; urutan kerja AG-25).
 
 Service: `RequestsService.templates`, `fileTexts`, `agentUpdate` (status hanya maju), `createDocument(…, by)`. Smoke +7
 (daftar tool per cakupan, templat, isian, berkas kosong, simpan telaah → menunggu verifikasi, dokumen dari templat, tolak
-pengajuan yang sudah diputuskan). **Berikutnya (2)**: draf skill `penetapan-psp` di `agents/hermes/skills/` — butuh contoh
+pengajuan yang sudah diputuskan). **Berikutnya (2)**: draf skill `penetapan-psp` di `apps/akai/agent/skills/` — butuh contoh
 nyata dari user (C5).
 
 To-do user: siapkan contoh nyata (surat permohonan + dokumen jadi) untuk PSP & panitia penghapusan;
@@ -1584,13 +1584,13 @@ selesaikan MCP/API OnTrack (C1). To-do Claude: setelah keputusan, kerjakan langk
 
 **Keputusan**: pemakaian harian lewat **UI LifeOS**; Hermes = mesin agen di belakang. Dashboard bawaan Hermes
 (`HERMES_DASHBOARD`, port 9119) dan Open WebUI tidak dipakai (login terpisah, tidak tahu konteks Approval). Pengaturan teknis
-sesekali: model & API key (wizard Hermes), skill (berkas repo), MCP (`infra/hermes/lifeos-mcp.yaml`).
+sesekali: model & API key (wizard Hermes), skill (berkas repo), MCP (`apps/akai/agent/hermes/lifeos-mcp.yaml`).
 
 | Bagian | Isi |
 |---|---|
 | Container | `nousresearch/hermes-agent:v0.22.2` (profile `agent`, `gateway run`, `API_SERVER_ENABLED`), port dev `127.0.0.1:8642`, volume `lifeos-hermes-data` → `/opt/data`; produksi tanpa port publik |
-| Skrip | `infra/hermes/up.sh` (hitung IP Windows → `lifeos-api`, nyalakan, perbaiki pemilik folder skill, jalankan `configure.sh`). `setup.sh` (wizard interaktif) dihapus 2026-10-31 — lihat §23.1 |
-| Skill | `agents/hermes/skills/` → `/opt/data/skills/lifeos` (kategori lifeos). Skill uji `telaah-pengajuan` (kelengkapan, telaah bersitasi, konsep jawaban → `update_request` + `submitForReview`) |
+| Skrip | `apps/akai/agent/hermes/up.sh` (hitung IP Windows → `lifeos-api`, nyalakan, perbaiki pemilik folder skill, jalankan `configure.sh`). `setup.sh` (wizard interaktif) dihapus 2026-10-31 — lihat §23.1 |
+| Skill | `apps/akai/agent/skills/` → `/opt/data/skills/lifeos` (kategori lifeos). Skill uji `telaah-pengajuan` (kelengkapan, telaah bersitasi, konsep jawaban → `update_request` + `submitForReview`) |
 | Backend | `src/agent/` — status, skill, chat, jalankan skill atas pengajuan, pantau & hentikan run; hanya `HERMES_OWNER_EMAIL` |
 | UI | **AI Agent → Asisten Agen** (Chat, Status & Skill) + **Kerjakan dengan agen** di detail Approval |
 
@@ -1614,7 +1614,7 @@ Google Cloud). **Keputusan**: "satu pintu" seperti AI di ONLYOFFICE — Hermes t
 
 | Bagian | Isi |
 |---|---|
-| Model | `config.yaml` Hermes: `model.provider: custom`, `base_url: http://lifeos-api:4000/api/v1/agent/llm/v1`, `default: lifeos-agent`, `api_key: "${API_SERVER_KEY}"` (ditulis `infra/hermes/configure.sh`, idempoten, tanpa rahasia). Backend `AgentLlmController` (`GET models`, `POST chat/completions`) meneruskan ke endpoint OpenAI-compatible resmi provider user (Gemini `…/v1beta/openai`, OpenAI) dengan key tersimpan; **Claude** diterjemahkan ke Messages API native (lihat di bawah); model = Pembagian tugas → **Agen (Hermes)** (`ai_routing.agent`, kosong = provider aktif). Streaming diteruskan apa adanya; error provider diteruskan dengan status aslinya (Hermes mencoba ulang 503/429 sendiri). Logika murni + test `agent-llm.ts`, `agent-claude.ts`. |
+| Model | `config.yaml` Hermes: `model.provider: custom`, `base_url: http://lifeos-api:4000/api/v1/agent/llm/v1`, `default: lifeos-agent`, `api_key: "${API_SERVER_KEY}"` (ditulis `apps/akai/agent/hermes/configure.sh`, idempoten, tanpa rahasia). Backend `AgentLlmController` (`GET models`, `POST chat/completions`) meneruskan ke endpoint OpenAI-compatible resmi provider user (Gemini `…/v1beta/openai`, OpenAI) dengan key tersimpan; **Claude** diterjemahkan ke Messages API native (lihat di bawah); model = Pembagian tugas → **Agen (Hermes)** (`ai_routing.agent`, kosong = provider aktif). Streaming diteruskan apa adanya; error provider diteruskan dengan status aslinya (Hermes mencoba ulang 503/429 sendiri). Logika murni + test `agent-llm.ts`, `agent-claude.ts`. |
 | Izin | Satu kunci bersama `HERMES_API_KEY` (= `API_SERVER_KEY` container) di dua arah. Tombol **Siapkan agen** membuat token akses "Agen Hermes (otomatis)" milik `HERMES_OWNER_EMAIL` dengan hash kunci itu + cakupan pilihan (bawaan semua, termasuk `ai:model` baru) → MCP & model memakai isolasi/log token biasa; dicabut di Pengaturan → Integrasi. Kunci harus 24–128 huruf/angka/`_`/`-` (`openssl rand -hex 32`). |
 | UI | Kartu **Siapkan agen** di Asisten Agen → Status & Skill: Hermes menyala, model (provider · model, tautan Pengaturan → Model AI), izin agen (dialog cakupan), panggilan model terakhir. |
 
@@ -1726,8 +1726,8 @@ SRIKANDI; AG-28: tahap 1 dengan data master tiruan, shadow dulu lalu auto dinaik
 | Bagian | Isi |
 |---|---|
 | Data | `agent_policies` (aturan per pemilik: jenis, grup, skill, mode off/shadow/auto, ambang, kolom kritis, toleransi nilai %, batas harian, masa tunda, templat Register), `agent_runs` (semua run agen — tombol, chat, aturan — permanen; dulu di memori), `users.agent_auto_paused` (sakelar darurat), `requests.asset_check` & `requests.auto_decision`. Migrasi `20261106120000_agent_policies`. |
-| Logika murni | `backend/src/agent/agent-policy.ts` (+ test): `compareAssets` (cocok lewat NUP + kode barang, lalu NUP saja; nama hanya informasi kecuali dijadikan kolom kritis), `matchPolicy` (aturan dengan grup menang atas aturan semua grup), `decidePolicy` (lolos hanya bila master tersedia, skor ≥ ambang, ada dokumen, belum diputuskan; shadow / sakelar darurat / batas harian = tidak diterapkan). |
-| Verifikasi aset | Alat MCP `submit_asset_check` → `AssetVerificationService`: agen menyerahkan daftar aset dari berkas, **server** mencocokkan ke data master dan menghitung skor; respons `branch: lanjut | telaah`. Sumber master tahap 1 = berkas JSON tiruan `AGENT_ASSET_MASTER_FILE` (dev: `backend/test/fixtures/asset-master.json`, isi `[UJI]`); kosong = selalu telaah. OnTrack menggantikannya (C1). |
+| Logika murni | `apps/akasha/api/src/agent/agent-policy.ts` (+ test): `compareAssets` (cocok lewat NUP + kode barang, lalu NUP saja; nama hanya informasi kecuali dijadikan kolom kritis), `matchPolicy` (aturan dengan grup menang atas aturan semua grup), `decidePolicy` (lolos hanya bila master tersedia, skor ≥ ambang, ada dokumen, belum diputuskan; shadow / sakelar darurat / batas harian = tidak diterapkan). |
+| Verifikasi aset | Alat MCP `submit_asset_check` → `AssetVerificationService`: agen menyerahkan daftar aset dari berkas, **server** mencocokkan ke data master dan menghitung skor; respons `branch: lanjut | telaah`. Sumber master tahap 1 = berkas JSON tiruan `AGENT_ASSET_MASTER_FILE` (dev: `apps/akasha/api/test/fixtures/asset-master.json`, isi `[UJI]`); kosong = selalu telaah. OnTrack menggantikannya (C1). |
 | Pemicu & run | `AgentPolicyService`: pengajuan baru milik pemilik agen yang cocok aturan → `agent_runs` `queued` (trigger `policy`). Pemantau `AgentService` (10 dtk) memulai run Hermes setelah pengajuan tenang 90 dtk dan berkasnya selesai dibaca (maks. tunggu 15 menit), lalu membaca status run; run > 45 menit = gagal. |
 | Keputusan | Run selesai → `finalize`: run gagal = telaah; tanpa templat Register = tidak diterapkan. Diterapkan (auto) → status **Disetujui** (riwayat oleh "kebijakan") → entri Register `reg-auto-<id>` (isian disalin dari templat Register, berkas = dokumen terakhir pengajuan, nomor = Ambil Nomor) → job BullMQ `agent-send` setelah masa tunda → `registerSrikandiOutgoing` (Simpan konsep saja) → kabar status (WhatsApp) **setelah** konsep tersimpan. Tidak diterapkan → **Menunggu verifikasi** + alasan. |
 | Endpoint | `GET/POST /agent/policies`, `PATCH/DELETE /agent/policies/:id`, `POST /agent/policies/pause { paused }`, `POST /agent/requests/:id/auto/cancel` (batalkan kiriman selama masa tunda → kembali menunggu verifikasi). Semua hanya pemilik agen. |
@@ -2077,7 +2077,7 @@ Keterbatasan di laptop: port yang dipublikasikan WSL (mis. 5432) masih terjangka
 
 **Diuji**: unit, smoke, UI; Hermes dengan Claude Opus 5.5 sungguhan: usulan workflow bermodal jadi draf, nama "Approval" ditolak, disetujui, modal menolak kirim tanpa isian wajib, dijalankan dengan isian terkirim, data uji dihapus.
 
-**Keterbatasan**: modal belum bisa menerima berkas. Halaman fitur masih umum (belum ada tampilan khusus seperti tabel hasil verifikasi). `agents/hermes/skills` baca saja, jadi skill yang ditulis Hermes tersimpan di volumenya dan belum tampil di daftar skill LifeOS. Riwayat chat AI Agent belum disimpan.
+**Keterbatasan**: modal belum bisa menerima berkas. Halaman fitur masih umum (belum ada tampilan khusus seperti tabel hasil verifikasi). `apps/akai/agent/skills` baca saja, jadi skill yang ditulis Hermes tersimpan di volumenya dan belum tampil di daftar skill LifeOS. Riwayat chat AI Agent belum disimpan.
 
 **Knowledge lintas bidang (dibangun 2026-11-09)**: satu vault untuk semua bidang; tiap catatan berproperti `bidang` (teks atau daftar, tanpa peka huruf besar/kecil). Pilihan **bidang aktif** di banner Knowledge berlaku per akun.
 

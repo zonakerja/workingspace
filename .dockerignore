@@ -1,0 +1,18 @@
+# Konteks build image aplikasi Node = root monorepo (turbo prune memilih workspace yang dibutuhkan).
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/src/generated
+.git
+.turbo
+_uji
+backups
+knowledge-vaults
+infra/knowledge-vaults
+infra/onlyoffice/fonts
+services/converter
+docs

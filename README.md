@@ -25,8 +25,9 @@ Panduan lengkap (setup awal, menyalakan, mematikan, aturan port, laptop Windows 
 
 ```bash
 docker compose up -d                 # postgres, redis, object storage
-cd backend && cp .env.example .env && npm install && npx prisma migrate deploy && npm run prisma:seed && npm run dev
-cd frontend && npm install && npm run dev   # http://localhost:5173 — admin@lifeos.com / 123
+npm install                          # semua workspace (root monorepo)
+cd apps/akasha/api && cp .env.example .env && npx prisma migrate deploy && npm run prisma:seed && npm run dev
+cd apps/akasha/web && npm run dev   # http://localhost:5173 — admin@lifeos.com / 123
 ```
 
 ## Dokumentasi
@@ -46,13 +47,15 @@ cd frontend && npm install && npm run dev   # http://localhost:5173 — admin@li
 ## Struktur repo
 
 ```
-backend/              NestJS API (prisma/, src/, test/, Dockerfile)
-frontend/             React SPA (src/, Dockerfile, nginx.conf)
-robot/                service robot Playwright (konektor SRIKANDI & e-Kinerja)
-agents/hermes/skills/ skill agen Hermes
-infra/                Caddyfile, skrip backup, konfigurasi S3 dev, ONLYOFFICE, Hermes
+apps/akasha/api/      NestJS API (prisma/, src/, test/, Dockerfile)
+apps/akasha/web/      React SPA (src/, Dockerfile, nginx.conf)
+apps/akai/agent/      skill & konfigurasi agen Hermes
+services/robot/       service robot Playwright (konektor SRIKANDI & e-Kinerja)
+services/converter/   Markdown Converter (Python)
+infra/                Caddyfile, skrip backup, konfigurasi S3 dev, ONLYOFFICE
 docs/                 dokumentasi
+package.json · turbo.json   root npm workspaces + Turborepo (npm run check = lint, typecheck, test, build)
 docker-compose.yml        infrastruktur development
 docker-compose.prod.yml   stack produksi (VPS)
-.github/              CI (lint, test, build, smoke test end-to-end) + Dependabot
+.github/              CI (Turborepo, smoke test end-to-end, image Docker) + Dependabot
 ```
