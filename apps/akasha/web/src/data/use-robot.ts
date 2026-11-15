@@ -61,7 +61,8 @@ export function useRobotMutations() {
         system: RobotSystem;
         username: string;
         password: string;
-        accountPassword: string;
+        accountPassword?: string;
+        accountPin?: string;
       }) => robotApi.setCredentials(system, input),
       onSuccess: apply,
     }),

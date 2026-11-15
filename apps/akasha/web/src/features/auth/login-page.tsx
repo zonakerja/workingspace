@@ -1,8 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Activity, AtSign, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { Activity, AtSign, Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Navigate, useLocation } from "react-router";
+import { Navigate, useLocation, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,9 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { appLogoUrl, useAppSettings } from "@/data/use-app-settings";
-import { useLogin } from "@/data/use-auth";
+import { useLogin, useSsoConfig } from "@/data/use-auth";
+import { rememberSsoLogin } from "@/features/security/pin-prompt";
+import { API_BASE_URL } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -27,11 +29,21 @@ function LoginPage() {
   const isAuthenticated = useAuthStore((s) => s.status === "authenticated");
   const location = useLocation();
   const login = useLogin();
+  const { data: sso } = useSsoConfig();
+  const [params] = useSearchParams();
+  const ssoError = params.get("sso_error");
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: "", password: "" } });
 
   const from = (location.state as { from?: string } | null)?.from ?? "/";
   if (isAuthenticated) return <Navigate to={from} replace />;
+
+  // Masuk lewat SSO = navigasi penuh (bukan fetch): SSO mengarahkan kembali ke /api/v1/auth/sso/callback
+  const startSso = () => {
+    rememberSsoLogin();
+    window.location.assign(`${API_BASE_URL}/auth/sso/start?returnTo=${encodeURIComponent(from)}`);
+  };
+  const showPasswordForm = !sso || sso.passwordLogin || !sso.enabled;
 
   const onSubmit = form.handleSubmit((values) =>
     login
@@ -84,63 +96,85 @@ function LoginPage() {
             <p className="mt-1.5 text-sm text-muted-foreground">{settings.welcomeSub}</p>
           </div>
 
-          <form onSubmit={onSubmit} noValidate>
-            <FieldGroup>
-              <Field data-invalid={!!form.formState.errors.email}>
-                <FieldLabel htmlFor="email">User ID / Email</FieldLabel>
-                <InputGroup className="h-11">
-                  <InputGroupAddon>
-                    <AtSign />
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    id="email"
-                    type="email"
-                    autoComplete="username"
-                    placeholder="nama@contoh.com"
-                    aria-invalid={!!form.formState.errors.email}
-                    {...form.register("email")}
-                  />
-                </InputGroup>
-                <FieldError errors={[form.formState.errors.email]} />
-              </Field>
+          {ssoError && (
+            <p
+              role="alert"
+              className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+            >
+              {ssoError}
+            </p>
+          )}
+          {sso?.enabled && (
+            <Button type="button" size="lg" className="h-11 w-full text-base font-bold" onClick={startSso}>
+              <ShieldCheck /> Masuk dengan akun Workingspace
+            </Button>
+          )}
+          {sso?.enabled && showPasswordForm && (
+            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              atau kata sandi lokal (pengembangan)
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          )}
+          {showPasswordForm && (
+            <form onSubmit={onSubmit} noValidate>
+              <FieldGroup>
+                <Field data-invalid={!!form.formState.errors.email}>
+                  <FieldLabel htmlFor="email">User ID / Email</FieldLabel>
+                  <InputGroup className="h-11">
+                    <InputGroupAddon>
+                      <AtSign />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="email"
+                      type="email"
+                      autoComplete="username"
+                      placeholder="nama@contoh.com"
+                      aria-invalid={!!form.formState.errors.email}
+                      {...form.register("email")}
+                    />
+                  </InputGroup>
+                  <FieldError errors={[form.formState.errors.email]} />
+                </Field>
 
-              <Field data-invalid={!!form.formState.errors.password}>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <InputGroup className="h-11">
-                  <InputGroupAddon>
-                    <LockKeyhole />
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder="••••••••"
-                    aria-invalid={!!form.formState.errors.password}
-                    {...form.register("password")}
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      size="icon-xs"
-                      aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                      onClick={() => setShowPassword((v) => !v)}
-                    >
-                      {showPassword ? <EyeOff /> : <Eye />}
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-                <FieldError errors={[form.formState.errors.password]} />
-              </Field>
+                <Field data-invalid={!!form.formState.errors.password}>
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <InputGroup className="h-11">
+                    <InputGroupAddon>
+                      <LockKeyhole />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      aria-invalid={!!form.formState.errors.password}
+                      {...form.register("password")}
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        size="icon-xs"
+                        aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                        onClick={() => setShowPassword((v) => !v)}
+                      >
+                        {showPassword ? <EyeOff /> : <Eye />}
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <FieldError errors={[form.formState.errors.password]} />
+                </Field>
 
-              <Button
-                type="submit"
-                size="lg"
-                className="mt-2 h-11 w-full text-base font-bold"
-                disabled={login.isPending}
-              >
-                {login.isPending ? <Spinner /> : "Masuk Aplikasi"}
-              </Button>
-            </FieldGroup>
-          </form>
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="mt-2 h-11 w-full text-base font-bold"
+                  disabled={login.isPending}
+                >
+                  {login.isPending ? <Spinner /> : "Masuk Aplikasi"}
+                </Button>
+              </FieldGroup>
+            </form>
+          )}
         </section>
       </div>
     </div>

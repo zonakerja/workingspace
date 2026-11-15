@@ -16,3 +16,4 @@ infra/knowledge-vaults
 infra/onlyoffice/fonts
 services/converter
 docs
+**/.mail

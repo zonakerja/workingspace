@@ -58,6 +58,12 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto, actor: AuthUser) {
     const target = await this.findById(id);
     this.ensureCanManage(actor, target.role);
+    // Akun SSO: email, role, dan kata sandi dikelola di SSO workingspace.id (disalin ulang setiap masuk)
+    if (target.ssoSubject && (dto.email || dto.role || dto.password))
+      throw new ConflictException({
+        message: "Akun ini dikelola akun Workingspace: ubah email, role, dan kata sandi di halaman admin SSO.",
+        code: "MANAGED_BY_SSO",
+      });
     if (dto.role) this.ensureCanAssignRole(actor, dto.role);
     if (dto.email) await this.ensureEmailAvailable(dto.email, id);
 

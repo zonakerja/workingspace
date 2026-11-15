@@ -62,7 +62,7 @@ AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, TODO-U
 - Folder kerja: `D:\Development\Application\workingspace`. `.claude/launch.json` berisi konfigurasi `backend` & `frontend`
   untuk preview browser Claude. Panel browser Claude sering tersembunyi → uji UI lewat `javascript_tool`.
 - **Aturan port (semua thread sama, tidak boleh diganti)**: frontend 5173, backend 4000, PostgreSQL 5432, Redis 6379,
-  SeaweedFS 8333/8888, ONLYOFFICE 8080 (profile `office`), robot 4100 (profile `robot`, hanya 127.0.0.1), Hermes 8642 (profile `agent`, hanya 127.0.0.1), Markdown Converter 4200 (profile `converter`, hanya 127.0.0.1) (opsional: Prisma Studio 5555, Vite preview 4173, stack prod uji 80/443).
+  SeaweedFS 8333/8888, ONLYOFFICE 8080 (profile `office`), robot 4100 (profile `robot`, hanya 127.0.0.1), Hermes 8642 (profile `agent`, hanya 127.0.0.1), Markdown Converter 4200 (profile `converter`, hanya 127.0.0.1) SSO workingspace.id: API 4300, halaman masuk 5175 (dibuka di `http://auth.localhost:5175`), halaman depan 5176 (`docs/SSO.md` §2.1) (opsional: Prisma Studio 5555, Vite preview 4173, stack prod uji 80/443).
   Proyek user lain di laptop yang sama, **OnTrack Data Hub** (sumber data SIMAN/MyIntress, `docs/AI-AGENT.md` §16), memakai
   port sendiri (keputusan 2026-10-24): web 5174, API/MCP 3000, PostgreSQL 5433, Redis 6380 — jangan dipakai Akasha. Satu komponen = satu
   proses: cek §2a dulu; bila port sudah dipakai (mis. user menjalankan dev server di terminalnya), **pakai yang ada**
@@ -82,6 +82,8 @@ ingatan percakapan.
 |---|---|---|---|---|
 | Frontend (Vite) | 5173 | 🟢 aktif / ⚪ mati | preview Claude / terminal user / — | http://localhost:5173 (login `admin@workingspace.id` / `123`) |
 | Backend (NestJS) | 4000 | … | … | http://localhost:4000/api/v1/health · Swagger `/api/docs` |
+| SSO API (NestJS) | 4300 | … | … | http://localhost:4300/api/health · OIDC `/oidc/.well-known/openid-configuration` |
+| SSO halaman masuk (Vite) | 5175 | … | … | http://auth.localhost:5175 |
 | PostgreSQL (Docker) | 5432 | … | Docker (WSL) | DB `akasha` + `akasha_shadow` |
 | Redis (Docker) | 6379 | … | Docker (WSL) | |
 | SeaweedFS S3 / filer (Docker) | 8333 / 8888 | … | Docker (WSL) | filer UI http://localhost:8888 |
@@ -163,6 +165,9 @@ workingspace/  (monorepo ekosistem workingspace: npm workspaces + Turborepo, doc
 │   │   ├── api/              @akasha/api — NestJS (Dockerfile, prisma/, src/, templates/office/ = dokumen kosong ONLYOFFICE,
 │   │   │                     templates/knowledge-vault/ = templat vault Obsidian, test/smoke.mjs, .env)
 │   │   └── web/              @akasha/web — React SPA (Dockerfile, nginx.conf, src/)
+│   ├── auth/
+│   │   ├── api/              @workingspace/auth-api — SSO workingspace.id (NestJS + oidc-provider, DB workingspace_auth, test/smoke.mjs, .env; docs/SSO.md)
+│   │   └── web/              @workingspace/auth-web — halaman masuk/daftar/verifikasi/reset/akun (Vite + React + shadcn, token desain salinan Akasha)
 │   └── akai/
 │       └── agent/
 │           ├── skills/       skill Hermes (SKILL.md) — dipasang baca-saja ke container hermes & dibaca backend
@@ -663,6 +668,22 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   File Control tidak bisa dikunci (`isFileControlResource`). Riwayat chatbot: jawaban bersitasi item terkunci diganti keterangan & tidak dikirim
   ulang ke model selama terkunci. Komentar item terkunci (`CommentsService`, `LockService` lewat `ModuleRef`) & isi `GET /archive-audit`
   item terkunci (`changes: {}`, `locked`) ikut tertutup. PIN bukan enkripsi. Jenis baru yang bisa dikunci → resep §14.
+- **Masuk lewat SSO workingspace.id** (`src/auth/sso.service.ts` + logika murni & test `sso-logic.ts`, docs/SSO.md): env `SSO_ISSUER`,
+  `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` (= secret klien `akasha` di SSO), `SSO_REDIRECT_URI` (`<CORS_ORIGIN>/api/v1/auth/sso/callback`),
+  `SSO_POST_LOGOUT_URI`, `PASSWORD_LOGIN` (bawaan: aktif di luar production untuk smoke/dev, mati di production). `GET /auth/sso/config`
+  (publik), `GET /auth/sso/start?returnTo=` (cookie alur `akasha_sso` = JWT bertanda tangan berisi state/nonce/PKCE, path `/api/v1/auth/sso`,
+  Lax) → SSO → `GET /auth/sso/callback` (tukar kode, akun dicari `users.sso_subject` lalu email — ditautkan sekali, lalu dibuat; nama,
+  email, role disalin dari klaim) → cookie `akasha_rt` biasa → redirect `returnTo` (galat → `/login?sso_error=`). `refresh` memeriksa
+  `GET /api/client/account` SSO (cache 60 dtk; akun nonaktif / akses dicabut → semua sesi dihapus, 401; SSO tak terjangkau = sesi
+  dibiarkan). `logout` mengembalikan `ssoLogoutUrl`. `users.password_hash` boleh null (akun SSO saja → login lokal 401, ganti kata sandi
+  & konfirmasi kata sandi robot/PIN ditolak dengan pesan). Uji: `node test/sso-smoke.mjs` (± 3 menit, menunggu cache).
+  **PIN & akun SSO** (B2 langkah 2): `PinService` untuk akun ber-`sso_subject` (dan SSO aktif) memeriksa PIN lewat SSO
+  (`SsoService.verifyPin` / `pinStatus`, galat SSO diteruskan: `PIN_WRONG` 400, `PIN_NOT_SET` 409, `PIN_BLOCKED` 429); atur/hapus PIN di
+  Akasha → 409 `PIN_IN_SSO` (+ `accountUrl`); `GET /security/pin` → `managedBySso`, `accountUrl`. Cermin `users.sso_pin` (diisi saat masuk,
+  refresh, dan status PIN) → `hasPin` publik. `toPublicUser` + `hasPassword`. Kredensial robot: `accountPassword` **atau** `accountPin`
+  (akun tanpa kata sandi lokal, `PinService.confirmOwner`). `PATCH /auth/me` nama/email & `PATCH /users/:id` email/role/kata sandi akun SSO
+  ditolak (`MANAGED_BY_SSO`). Frontend: tawaran PIN setelah masuk lewat SSO memakai penanda sessionStorage (`rememberSsoLogin` sebelum
+  pindah ke SSO, `restoreSsoLoginPrompt` di `main.tsx`).
 - **Health**: `/health` (readiness, 503 bila dependensi down), `/health/live` (liveness).
 - **Seed**: `src/database/seed.ts` (dev: akun demo via `prisma db seed` → `tsx`; production: super admin dari env,
   `node dist/database/seed.js`).
@@ -1482,7 +1503,7 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | Deployment VPS (compose prod, Caddy HTTPS, batas memori, backup luar server terenkripsi + pemantauan) — diuji end-to-end lokal, termasuk pemulihan dari luar server | ✅ |
 | Kualitas (Vitest, smoke test, CI GitHub Actions, Dependabot npm/docker/docker-compose/actions) | ✅ |
 | Tech stack terbaru yang stabil (versi: `docs/ARCHITECTURE.md` §2.1) | ✅ |
-| `npm audit` | ✅ 2026-11-09 `--omit=dev` bersih di backend, frontend, robot (Prisma 7.10.1, `zod` 4.6.7, `fast-uri` 3.1.9, `shadcn` 4.22.1). Sisa hanya perkakas pengembangan: `minimatch` 10.x (moderate, perbaikan di major 11) & `deepmerge` (low, via CLI `shadcn`), risiko diterima — jangan `npm audit fix --force` (`docs/UPGRADE-PLAN.md` §3) |
+| `npm audit` | ✅ 2026-11-16 `--omit=dev` bersih (hono 4.13.16, `@hono/node-server` 2.1.6); 2026-11-09 di backend, frontend, robot (Prisma 7.10.1, `zod` 4.6.7, `fast-uri` 3.1.9, `shadcn` 4.22.1). Sisa hanya perkakas pengembangan: `minimatch` 10.x (moderate, perbaikan di major 11) & `deepmerge` (low, via CLI `shadcn`), risiko diterima — jangan `npm audit fix --force` (`docs/UPGRADE-PLAN.md` §3) |
 | Panduan setup awal / menyalakan / mematikan + aturan port (`docs/SETUP.md` §1–§6) | ✅ ditulis & diverifikasi 2026-10-11 dengan menjalankan §3 langkah 0–6 di laptop user (Node 24.21.0 arm64; login, unit test, smoke test lulus; `strictPort` terbukti menolak instance kedua) — laptop sudah ter-setup |
 | AI multi-provider di backend (Gemini/Claude/OpenAI, key terenkripsi, model bisa diganti user) | ✅ 2026-10-11 — unit + smoke + UI diuji; panggilan ke provider sungguhan menunggu API key user |
 | RAG tahap 1: ekstraksi PDF/DOCX/XLSX/OCR + indeks pgvector (Gemini embedding) + pencarian gabungan | ✅ 2026-10-11 — unit + smoke (record → indeks → cari → hapus) + embedding Gemini sungguhan di akun admin dev |
@@ -1555,20 +1576,37 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Instansi Pengirim** (referensi "Dikirimkan melalui" dari daftar pilihan formulir Registrasi SRIKANDI) + **Register naskah dari editor ONLYOFFICE** + Tautkan final setelah Kirim Konsep | ✅ 2026-11-15 — unit robot +1 (72), backend 513, frontend +1 (348), smoke penuh lulus (+1), lint, typecheck, format; **diuji ke SRIKANDI sungguhan** (baca saja: 1.472 instansi, formulir tidak diisi/disimpan); browser: pilihan bercari di formulir Register, tombol Register naskah di editor (templat Nota Dinas, dibatalkan — tanpa entri baru & tanpa versi templat). **Belum**: robot Register memilih Dikirimkan melalui dari daftar baru (masih mengetik istilah cari seperti sebelumnya — sudah teruji) |
 | Lepas kunci PIN tanpa notifikasi palsu + Overview Working Space diperkaya (kesehatan project, pekerjaan 7 hari, selesai per minggu, ringkasan Area) | ✅ 2026-11-15 — unit frontend +7 (355), lint, typecheck, format; browser 1366×768 (klik tugas terlambat → modal Area dengan kegiatan terpilih) & 375 px tanpa luberan. **Belum**: alur lepas kunci diklik di browser dengan akun ber-PIN (diperiksa lewat kode) |
 | **Monorepo workingspace tahap A no. 3**: folder → `apps/akasha/{api,web}`, `services/{robot,converter}`, `apps/akai/agent/{skills,hermes}`; npm workspaces (satu lockfile root) + Turborepo 2.11.10; Dockerfile dibangun dari root (`turbo prune --docker`); CI satu job Turborepo + smoke + image | ✅ 2026-11-15 — `npm run check` 12/12, smoke penuh lulus dari lokasi baru, image api/web/robot dibangun dari root, Hermes membaca skill dari path baru, UI login tampil. Dependensi ikut naik minor/patch (rilis ≤ 1 Nov) karena lockfile digabung. **Belum**: rebrand (tahap A no. 4), `packages/` bersama (dibuat saat dibutuhkan) |
-| **Rebrand total LifeOS → Akasha + Productivity → Working Space (tahap A no. 4)**: teks, kode, berkas, alamat (`/working-space/*`, kunci modul `working-space`, jenis cermin `workingSpace`), cookie `akasha_rt`, token `akasha_pat_`, MCP `akasha`, container/volume/DB/bucket `akasha*`, konstanta & kunci enkripsi baru, vault dev (`80-Akasha/`, cermin lama dihapus), branding bawaan (Akasha · Ruang Kerja); database & storage dimulai dari nol, seed `admin@workingspace.id` / `user@workingspace.id` (`123`) | ✅ 2026-11-15 — `npm run check` lulus, migrasi + seed + cek drift bersih, smoke penuh, UI (login, sidebar, Working Space, Ctrl+K). **Belum**: ganti nama folder proyek & repo GitHub (tahap A 5a/5b), uji ulang memakai berkas `_uji/` lalu hapus folder itu, isi ulang API key/router, login robot, vault, Hermes |
+| **Rebrand total LifeOS → Akasha + Productivity → Working Space (tahap A no. 4)**: teks, kode, berkas, alamat (`/working-space/*`, kunci modul `working-space`, jenis cermin `workingSpace`), cookie `akasha_rt`, token `akasha_pat_`, MCP `akasha`, container/volume/DB/bucket `akasha*`, konstanta & kunci enkripsi baru, vault dev (`80-Akasha/`, cermin lama dihapus), branding bawaan (Akasha · Ruang Kerja); database & storage dimulai dari nol, seed `admin@workingspace.id` / `user@workingspace.id` (`123`) | ✅ 2026-11-15 — `npm run check` lulus, migrasi + seed + cek drift bersih, smoke penuh, UI (login, sidebar, Working Space, Ctrl+K). Folder proyek & repo GitHub sudah diganti (tahap A 5a/5b ✅ 2026-11-16, smoke lulus dari lokasi baru). **Belum**: uji ulang memakai berkas `_uji/` lalu hapus folder itu, isi ulang API key/router, login robot, vault, Hermes |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
 Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 
 **Lanjutan yang disepakati (per 2026-11-09)** — mulai dari sini di chat baru:
-0. **Setelah folder proyek diganti nama menjadi `workingspace` (2026-11-15/16)**: jalankan `npm install` di root dulu (junction workspace di
-   `node_modules` menunjuk path lama), lalu nyalakan lingkungan (§0 langkah 3), `npm run check`, smoke. Memori Claude sudah disalin ke
-   `~/.claude/projects/D--Development-Application-workingspace/`. Berikutnya: user mengisi ulang pengaturan (TODO-USER A41), uji ulang
-   dengan `_uji/`, hapus `_uji/`, lalu tahap B (docs/AKASHA-PLAN.md §4).
+0. **Folder proyek & repo GitHub sudah berganti (2026-11-16)**: folder `D:\Development\Application\Workingspace`, remote
+   `origin` = `https://github.com/zonakerja/workingspace.git`. Diverifikasi dari lokasi baru: `npm install` (junction menunjuk path baru),
+   lint/typecheck/test/build tanpa cache, smoke penuh lulus, halaman login tampil. Commit lokal belum di-push (push atas perintah user).
+   Berikutnya: user mengisi ulang pengaturan (TODO-USER A41), uji ulang dengan `_uji/`, hapus `_uji/`, lalu tahap B (docs/AKASHA-PLAN.md §4).
+   Advisory `hono` & `@hono/node-server` (transitif MCP SDK) ditutup hari yang sama (4.13.16 / 2.1.6, lockfile saja).
 1. Menunggu user: unggah templat (TODO-USER A24), kepastian penanda `no_naskah`, `pangkat_pengirim`, `nama_tujuan`, `hal`, `sifat` (A23), **mengajarkan proses PSP** (tiket SIMAN → lampiran Excel satker → verifikasi ke master aset; A25) dan contoh dokumen (C5). Proses itu dibangun Hermes sebagai skill + workflow bermodal yang disetujui di Approval, **bukan fitur native**. Koneksi SIMAN = cek tiket & memasukkan SK; pemrosesan di AI Agent & Approval. Saat diajarkan, putuskan sumber data master (OnTrack) dan cara membaca Excel, serta bangun robot tiket & unggah SK dengan data dummy dulu.
 2. Bidang aktif sudah ada; pemilik perlu menandai catatan lamanya (TODO-USER A26).
 3. Uji robot ditunda atas keputusan user sampai Knowledge & AI Agent matang, dimulai dengan data dummy / robot dummy. Robot boleh menyala, tetapi jangan menjalankan alurnya ke SRIKANDI/e-Kinerja sungguhan untuk uji.
+0a. **Tahap B no. 5 — SSO (2026-11-16, `docs/SSO.md`)**: keputusan SSO-1…4 (bangun sendiri, daftar sendiri + Google + email Titan,
+   role per aplikasi, PIN pindah ke SSO). **B1 bagian inti ✅**: `apps/auth/api` (akun, daftar + verifikasi email, masuk, lupa/ganti kata
+   sandi, sesi `ws_sid`, OIDC kode + PKCE dengan `oidc-provider`, persetujuan otomatis, keluar dua arah), unit 10, smoke 54 lulus.
+   **`apps/auth/web` ✅** (masuk biasa & dari aplikasi + "Lanjut sebagai", daftar, verifikasi, lupa/reset, akun: aplikasi, profil, kata sandi,
+   perangkat), diuji di browser lewat alur OIDC sungguhan. **Admin ✅** (`/api/admin/*` + halaman `/admin` dimuat malas: cari akun, tambah
+   akun = undangan email 3 hari atau kata sandi dari admin, akses & role per aplikasi di tabel, nonaktifkan = sesi dicabut, kirim tautan
+   kata sandi, keluarkan dari semua perangkat, log keamanan, pendaftaran mandiri per aplikasi); smoke SSO ± 84 cek. **PIN ✅** (aturan
+   dipindah dari Akasha: `/api/pin` untuk pemilik dengan kata sandi akun, `/api/pin/verify` & `/status` untuk backend aplikasi dengan HTTP
+   Basic klien OIDC, blokir bertahap bersama semua aplikasi; kartu PIN di halaman akun). **Dockerfile ✅** (`apps/auth/api`, `apps/auth/web`
+   + `nginx.conf`). **Sisa B1**: masuk dengan Google (menunggu OAuth client pemilik, A42).
+   **B2 langkah 1 ✅ (2026-11-16)**: Akasha masuk lewat SSO (`openid-client`; tombol "Masuk dengan akun Workingspace", akun ditautkan
+   lewat `users.sso_subject` atau email, role dari klaim, sesi berakhir bila akses dicabut di SSO, keluar Akasha = keluar SSO); uji
+   `apps/akasha/api/test/sso-smoke.mjs`, smoke Akasha penuh lulus. **B2 langkah 2 ✅ (2026-11-16)**: PIN akun SSO diperiksa SSO
+   (kartu PIN Profil → "Kelola PIN" di halaman akun SSO, simpan kredensial robot dikonfirmasi PIN), nama/email/kata sandi akun SSO
+   hanya diubah di SSO (Profil & Manajemen User menolak + tautan admin SSO), tawaran PIN setelah masuk lewat SSO; `sso-smoke.mjs` 30 cek.
+   **Sisa B**: login Google (A42), compose produksi + env SSO (B4), halaman depan (B3), lalu Akai (no. 6–7). Lalu B2 (Akasha memakai SSO), B3 (halaman depan), B4 (produksi).
 4. **Tampilan ringkas (2026-11-12)** sudah di-commit (`style(ui): compact layout across modules and dialogs`), belum di-push. Modal yang jarang dipakai (robot, brankas, Register SRIKANDI) belum dilihat satu per satu.
 5. Commit lokal bisa belum di-push (cek `git status -sb`): push hanya atas perintah user, lalu user mengecek CI.
 6d. **Commit gabungan (2026-11-13, atas perintah user)**: Edit register + Naskah Masuk di-commit **bersama** pekerjaan sesi "SIMAN connection
@@ -2661,6 +2699,41 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 
 - 2026-11-15 — **Rebrand total dijalankan** (tahap A no. 4): pemetaan `LifeOS→Akasha`, `lifeos→akasha`, `Productivity→Working Space`, kunci modul `working-space` (kata `workspace` sudah dipakai koleksi indeks & cakupan token), jenis cermin `workingSpace`; record type PARA (`para_*`) tetap. Konstanta kriptografi `akasha:*` + kunci `.env` baru, database/storage/volume baru (`akasha`, `akasha-assets`, `akasha-*-data`), seed `@workingspace.id`. Image dibangun ulang dengan nama `akasha-api`, `akasha-web`, `akasha-robot`, `akasha-onlyoffice`, `akasha-converter`. Volume & image `lifeos-*` lama dihapus setelah uji (cadangan isi di `_uji/`). Nama grup sidebar **Workspace** belum diubah (menunggu pemilik).
 
+- 2026-11-16 — **Folder & repo berganti** (tahap A 5a/5b): sesi baru dibuka di `D:\Development\Application\Workingspace`, remote
+  `origin` diganti ke `zonakerja/workingspace`. Smoke: skenario "dokumen disunting tetap disimpan" kini hanya dijalankan bila
+  ONLYOFFICE menyala (tanpa ONLYOFFICE dokumen tidak pernah punya versi kedua → skenario selalu gagal); tanpa ONLYOFFICE diuji bahwa
+  dokumen belum disunting ikut dibuang.
+- 2026-11-16 — **Advisory `hono` ditutup**: `hono` 4.13.16 & `@hono/node-server` 2.1.6 (transitif `@modelcontextprotocol/sdk`, masih dalam
+  rentang SDK → cukup `npm update … --before=2026-11-03`, tanpa override). Smoke (termasuk MCP) lulus.
+- 2026-11-16 — **SSO workingspace.id** (tahap B no. 5, `docs/SSO.md`): pemilik memilih SSO **dibangun sendiri**, **daftar sendiri + Google**
+  (email verifikasi & reset lewat Titan `noreply@workingspace.id`), **role per aplikasi**, **PIN pindah ke SSO**. Mesin protokol =
+  pustaka `oidc-provider` (tersertifikasi OpenID) karena menulis OIDC sendiri rawan celah; akun, email, role, PIN = kode sendiri. Sesi
+  halaman SSO = cookie host-only `ws_sid` (bukan `Domain=.workingspace.id`) dan menjadi sumber kebenaran: sesi oidc-provider diperiksa
+  terhadapnya (`interactionPolicy` check), keluar dari aplikasi (end_session) ikut menghapusnya. Aplikasi tetap memegang sesinya sendiri
+  (Akasha: cookie `akasha_rt`). Klien = aplikasi sendiri → persetujuan otomatis. Dev: halaman SSO di `auth.localhost:5175` (asal berbeda
+  dari Akasha tanpa mengubah hosts), API 4300, DB `workingspace_auth`. Seed dev akun sama dengan Akasha (`admin@` super admin, `user@`).
+- 2026-11-16 — **Halaman SSO `apps/auth/web`**: SPA terpisah (bukan bagian Akasha) dengan token desain & komponen shadcn **disalin** dari
+  Akasha (kelak dipindah ke `packages/ui`), tanpa TanStack Query/react-hook-form agar ringan (± 384 kB). Dev: Vite 5175 meneruskan `/api`,
+  `/oidc`, `/interaction` ke 4300 dengan Host asli (`changeOrigin: false`), jadi cookie interaksi oidc-provider (path `/interaction/<uid>`)
+  dan alamat issuer sama dengan produksi. Halaman masuk dari aplikasi = `/login?uid=`; API interaksi di `/interaction/:uid/*`.
+- 2026-11-16 — **Admin SSO**: hanya super admin ekosistem; tidak ada hapus akun (cukup nonaktifkan — data di aplikasi tetap milik
+  pemiliknya, penghapusan akun lintas aplikasi dirancang bersama B2). Super admin tidak bisa menonaktifkan / mencabut super admin dirinya,
+  dan minimal satu super admin aktif harus ada (`admin-logic.ts` + test). Akun dari admin: tanpa kata sandi = email undangan (token
+  `reset` berlaku 3 hari, email terverifikasi saat kata sandi dibuat); dengan kata sandi = dianggap terverifikasi.
+- 2026-11-16 — **PIN di SSO**: SSO hanya menjawab PIN benar/salah (status "terbuka" tetap per sesi aplikasi); hitungan salah & blokir
+  dihitung sekali untuk semua aplikasi. Aplikasi memanggil `POST /api/pin/verify { sub, pin }` dengan HTTP Basic `client_id:client_secret`
+  klien OIDC-nya (perbandingan waktu-konstan), dan akun wajib punya akses aplikasi itu. Akun tanpa kata sandi (Google) mengubah PIN hanya
+  dengan sesi ≤ 15 menit. Hapus PIN diizinkan di SSO (item terkunci di aplikasi tetap terkunci sampai PIN dibuat lagi), berbeda dengan
+  aturan lama Akasha yang menolak hapus selama ada item terkunci — SSO tidak tahu isi aplikasi.
+- 2026-11-16 — **B2 langkah 1: Akasha masuk lewat SSO**. Akasha tetap memegang sesinya (cookie `akasha_rt`); SSO hanya membuktikan
+  identitas & role. Akun lama ditautkan lewat email yang sama sekali saja (email yang sudah tertaut ke akun SSO lain ditolak). Login kata
+  sandi lokal dipertahankan di luar production agar smoke test Akasha (±700 skenario dengan user sementara) tetap jalan tanpa SSO;
+  production mematikannya. Status akun dicek saat refresh token dengan cache 60 dtk — pencabutan akses berlaku dalam ± 1 menit + umur
+  access token (15 menit). Bila SSO mati sesaat, sesi yang ada tidak diputus.
+- 2026-11-16 — **B2 langkah 2**: konfirmasi pemilik untuk akun tanpa kata sandi lokal (akun SSO) = PIN keamanan (diperiksa SSO), bukan
+  kata sandi — aplikasi tidak pernah memeriksa kata sandi akun ekosistem. Akun lokal (dev/smoke) tetap memakai PIN & kata sandi lokal
+  seperti sebelumnya, sehingga smoke Akasha tidak berubah. Status "terbuka" tetap per sesi Akasha.
+
 ## 13. Konvensi Kode
 
 - Indentasi 2 spasi, LF, UTF-8 (`.editorconfig`, `.gitattributes`). Prettier tunggal di root.
@@ -2872,6 +2945,15 @@ utama tetap < 500 kB (cek output `npm run build`).
 
 - Monorepo: dependensi di-hoist ke `node_modules` root; folder workspace hanya punya `node_modules` sendiri untuk versi yang bentrok. Image Node dibangun dengan konteks **root** (`docker build -f apps/akasha/api/Dockerfile .`), jadi `.dockerignore` root yang berlaku (mengecualikan `_uji`, vault, `services/converter`). Di image, Prisma CLI dipanggil `node /app/node_modules/prisma/build/index.js` dari `/app/apps/akasha/api`. Telemetri Turborepo dimatikan (`turbo telemetry disable` lokal, `TURBO_TELEMETRY_DISABLED` di CI).
 
+- oidc-provider membentuk alamat endpoint (authorize, token, …) dari Host permintaan, bukan dari PUBLIC_URL → Caddy / proxy wajib
+  meneruskan Host asli (bawaan Caddy & Vite `changeOrigin: false`). Image `@workingspace/auth-api` diuji dengan `NODE_ENV=production`
+  (dev memakai pino-pretty yang tidak ada di image; production mewajibkan SMTP_HOST & alamat klien https).
+- Jangan menulis path berisi `.. ` (titik-titik + spasi) dengan tool Write: Windows membuat folder bernama `.. ` yang di banyak API
+  dianggap folder induk. Hapus hanya lewat PowerShell `Remove-Item -LiteralPath '\\?\D:\…\.. \<isi>'` (awalan `\\?\` mematikan normalisasi) per berkas/folder kosong,
+  **jangan** `rm -rf`.
+- SSO dev: buka halaman SSO di `http://auth.localhost:5175`, **bukan** `localhost:5175` (issuer & cookie terikat host itu). Node &
+  Chrome menerjemahkan `*.localhost` sendiri (Node → `::1`). `nest build` di `apps/auth/api` saat `nest start --watch` berjalan menghapus
+  `dist` sesaat → tunggu ± 20 dtk sebelum smoke. Email dev ada di `apps/auth/api/.mail/` (nama berkas: karakter selain huruf/angka/@/. → `_`).
 - Bash tool memakan backslash di heredoc/`node -e` → pakai skrip file (Write) untuk regex/teks dengan `\`.
 - Variabel `${X:?}` di compose dievaluasi meski service tidak dipakai → compose dev tidak boleh punya variabel wajib.
 - `prisma migrate dev` tidak bisa interaktif di sini → buat migrasi dengan `prisma migrate diff ... --script`.

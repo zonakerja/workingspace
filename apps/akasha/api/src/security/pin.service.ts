@@ -7,6 +7,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { hash, verify } from "@node-rs/argon2";
+import { SsoService } from "../auth/sso.service";
 import { AuthUser } from "../common/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PIN_MAX_ATTEMPTS, isValidPin, isWeakPin, pinBlockMs } from "./lock-logic";
@@ -20,18 +21,52 @@ export class PinService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly locks: LockService,
+    private readonly sso: SsoService,
   ) {}
+
+  /**
+   * Akun yang PIN-nya dikelola SSO workingspace.id (masuk lewat SSO & SSO aktif di server ini): `sub` SSO-nya, selain
+   * itu null (PIN lokal Akasha seperti sebelumnya).
+   */
+  private async ssoSubjectOf(userId: string) {
+    if (!this.sso.enabled) return null;
+    const row = await this.prisma.user.findUnique({ where: { id: userId }, select: { ssoSubject: true } });
+    return row?.ssoSubject ?? null;
+  }
+
+  /** PIN akun SSO diatur di halaman akun Workingspace, bukan di Akasha. */
+  private ssoManaged(): never {
+    throw new ConflictException({
+      message: "PIN akun ini diatur di halaman akun Workingspace.",
+      code: "PIN_IN_SSO",
+      accountUrl: this.sso.accountUrl,
+    });
+  }
 
   async status(user: AuthUser) {
     const row = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { pinHash: true, pinBlockedUntil: true },
+      select: { pinHash: true, pinBlockedUntil: true, ssoSubject: true, ssoPin: true },
     });
     const set = await this.locks.lockSet(user.id);
+    let hasPin = !!row.pinHash;
+    let blockedUntil: Date | string | null =
+      row.pinBlockedUntil && row.pinBlockedUntil > new Date() ? row.pinBlockedUntil : null;
+    const managedBySso = !!row.ssoSubject && this.sso.enabled;
+    if (managedBySso) {
+      const remote = await this.sso.pinStatus(row.ssoSubject!);
+      hasPin = remote.hasPin;
+      blockedUntil = remote.blockedUntil;
+      if (remote.hasPin !== row.ssoPin)
+        await this.prisma.user.update({ where: { id: user.id }, data: { ssoPin: remote.hasPin } });
+    }
     return {
-      hasPin: !!row.pinHash,
-      unlocked: !!row.pinHash && (await this.locks.isUnlocked(user)),
-      blockedUntil: row.pinBlockedUntil && row.pinBlockedUntil > new Date() ? row.pinBlockedUntil : null,
+      hasPin,
+      unlocked: hasPin && (await this.locks.isUnlocked(user)),
+      blockedUntil,
+      /** PIN diatur di halaman akun Workingspace (`accountUrl`), bukan di Akasha */
+      managedBySso,
+      accountUrl: managedBySso ? this.sso.accountUrl : null,
       lockedItems: set.roots + set.notebooks.size,
       /** Sesi ini bisa memakai PIN (token agen tidak) */
       sessionCapable: !!user.sid,
@@ -40,6 +75,7 @@ export class PinService {
 
   /** Atur PIN pertama kali atau ganti PIN. Kata sandi akun wajib; sesi lain dikunci kembali. */
   async setPin(user: AuthUser, password: string, pin: string) {
+    if (await this.ssoSubjectOf(user.id)) this.ssoManaged();
     if (!isValidPin(pin)) throw new BadRequestException("PIN harus 6 angka.");
     if (isWeakPin(pin)) throw new BadRequestException("PIN terlalu mudah ditebak (angka sama semua / berurutan).");
     await this.checkPassword(user.id, password);
@@ -74,6 +110,8 @@ export class PinService {
 
   /** Periksa PIN akun: blokir bertahap setelah salah berulang; benar = hitungan salah dikosongkan. */
   private async checkPin(userId: string, pin: string) {
+    const subject = await this.ssoSubjectOf(userId);
+    if (subject) return this.sso.verifyPin(subject, pin);
     const row = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: { pinHash: true, pinFailed: true, pinBlockedUntil: true },
@@ -117,6 +155,7 @@ export class PinService {
 
   /** Hapus PIN: kata sandi akun wajib dan tidak boleh ada item yang masih terkunci. */
   async removePin(user: AuthUser, password: string) {
+    if (await this.ssoSubjectOf(user.id)) this.ssoManaged();
     await this.checkPassword(user.id, password);
     const set = await this.locks.lockSet(user.id);
     if (set.records.size || set.notebooks.size) {
@@ -134,12 +173,28 @@ export class PinService {
 
   /** Pemilik bisa mengunci item: PIN harus sudah diatur. */
   async assertHasPin(userId: string) {
+    const subject = await this.ssoSubjectOf(userId);
+    if (subject) {
+      if (!(await this.sso.pinStatus(subject)).hasPin)
+        throw new BadRequestException("Atur PIN keamanan di halaman akun Workingspace sebelum mengunci item.");
+      return;
+    }
     const row = await this.prisma.user.findUnique({ where: { id: userId }, select: { pinHash: true } });
     if (!row?.pinHash) throw new BadRequestException("Atur PIN keamanan di Profil Saya sebelum mengunci item.");
   }
 
+  /** Konfirmasi pemilik untuk akun tanpa kata sandi lokal (akun SSO): PIN keamanan. Dipakai brankas kredensial robot. */
+  async confirmOwner(userId: string, pin: string | undefined) {
+    if (!pin) throw new BadRequestException("Masukkan PIN keamanan untuk konfirmasi.");
+    await this.checkPin(userId, pin);
+  }
+
   private async checkPassword(userId: string, password: string) {
     const row = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } });
+    if (!row.passwordHash)
+      throw new BadRequestException(
+        "Akun ini masuk lewat SSO workingspace.id dan tidak punya kata sandi lokal. Konfirmasi dengan PIN akan menggantikannya (B2 langkah berikutnya).",
+      );
     if (!(await verify(row.passwordHash, password))) throw new BadRequestException("Kata sandi akun salah.");
   }
 }

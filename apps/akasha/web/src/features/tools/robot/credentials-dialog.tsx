@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useRobotMutations } from "@/data/use-robot";
 import { useOpenSession } from "@/hooks/use-retained";
 import { errorMessage } from "@/lib/api/client";
+import { useAuthStore } from "@/stores/auth-store";
 import type { RobotConnector } from "@/types/api";
 
 /**
@@ -46,10 +47,17 @@ function CredentialsForm({ connector, onDone }: { connector: RobotConnector; onD
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [accountPassword, setAccountPassword] = useState("");
+  // Akun SSO tanpa kata sandi lokal Akasha → konfirmasi dengan PIN keamanan (diperiksa SSO)
+  const usePin = useAuthStore((s) => s.user?.hasPassword === false);
   const [show, setShow] = useState(false);
   const save = () =>
     m.setCredentials.mutate(
-      { system: connector.system, username: username.trim(), password, accountPassword },
+      {
+        system: connector.system,
+        username: username.trim(),
+        password,
+        ...(usePin ? { accountPin: accountPassword } : { accountPassword }),
+      },
       {
         onSuccess: () => {
           toast.success("Kredensial disimpan di brankas.");
@@ -101,13 +109,16 @@ function CredentialsForm({ connector, onDone }: { connector: RobotConnector; onD
         </div>
       </div>
       <div className="grid gap-1 rounded-lg bg-muted/40 p-2">
-        <Label htmlFor="cred-account">Kata sandi akun Akasha Anda (konfirmasi)</Label>
+        <Label htmlFor="cred-account">
+          {usePin ? "PIN keamanan Anda (konfirmasi)" : "Kata sandi akun Akasha Anda (konfirmasi)"}
+        </Label>
         <Input
           id="cred-account"
           type="password"
           value={accountPassword}
-          onChange={(e) => setAccountPassword(e.target.value)}
-          autoComplete="current-password"
+          onChange={(e) => setAccountPassword(usePin ? e.target.value.replace(/\D/g, "").slice(0, 6) : e.target.value)}
+          inputMode={usePin ? "numeric" : undefined}
+          autoComplete={usePin ? "off" : "current-password"}
         />
       </div>
       <DialogFooter>

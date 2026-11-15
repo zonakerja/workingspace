@@ -5,6 +5,7 @@ import {
   HttpCode,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -21,18 +22,27 @@ import { AuthService, type Session } from "./auth.service";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
-import { REFRESH_COOKIE, clearRefreshCookie, readRefreshCookie, setRefreshCookie } from "./refresh-cookie";
+import { REFRESH_COOKIE, clearRefreshCookie, readCookie, readRefreshCookie, setRefreshCookie } from "./refresh-cookie";
+import { ssoErrorMessage } from "./sso-logic";
+import { SsoService } from "./sso.service";
+
+/** Cookie alur masuk SSO (state, nonce, PKCE verifier bertanda tangan), hanya dikirim ke /api/v1/auth/sso. */
+const SSO_FLOW_COOKIE = "akasha_sso";
+const SSO_FLOW_PATH = "/api/v1/auth/sso";
 
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
   private readonly secureCookie: boolean;
+  private readonly passwordLogin: boolean;
 
   constructor(
     private readonly auth: AuthService,
+    private readonly sso: SsoService,
     config: ConfigService,
   ) {
     this.secureCookie = config.getOrThrow<boolean>("COOKIE_SECURE");
+    this.passwordLogin = config.get<boolean>("PASSWORD_LOGIN") ?? false;
   }
 
   /** Refresh token dikirim sebagai cookie httpOnly; body hanya berisi user + access token. */
@@ -63,6 +73,10 @@ export class AuthController {
     }
   }
 
+  /**
+   * Keluar dari Akasha. Bila SSO aktif, `ssoLogoutUrl` = halaman keluar SSO (frontend mengarahkan ke sana agar sesi akun
+   * Workingspace di browser ini ikut berakhir).
+   */
   @ApiCookieAuth(REFRESH_COOKIE)
   @HttpCode(200)
   @Post("logout")
@@ -70,7 +84,56 @@ export class AuthController {
     const token = readRefreshCookie(req);
     if (token) await this.auth.logout(token);
     clearRefreshCookie(res, this.secureCookie);
-    return { success: true };
+    return { success: true, ssoLogoutUrl: await this.sso.logoutUrl() };
+  }
+
+  /** Cara masuk yang tersedia (publik, untuk halaman login). */
+  @Get("sso/config")
+  ssoConfig() {
+    return { enabled: this.sso.enabled, passwordLogin: this.passwordLogin, accountUrl: this.sso.accountUrl };
+  }
+
+  /** Mulai masuk lewat SSO: cookie alur + alihkan ke halaman masuk akun Workingspace. */
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @Get("sso/start")
+  async ssoStart(@Query("returnTo") returnTo: string | undefined, @Res() res: Response) {
+    const flow = await this.sso.start(returnTo);
+    res.cookie(SSO_FLOW_COOKIE, flow.cookie, {
+      httpOnly: true,
+      secure: this.secureCookie,
+      // Lax: cookie ikut saat SSO mengarahkan kembali (navigasi tingkat atas dari situs lain)
+      sameSite: "lax",
+      path: SSO_FLOW_PATH,
+      maxAge: flow.maxAgeMs,
+    });
+    res.redirect(302, flow.url);
+  }
+
+  /** Kembali dari SSO: tukar kode, buat sesi Akasha, alihkan ke halaman tujuan (galat → /login?sso_error=). */
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @Get("sso/callback")
+  async ssoCallback(@Req() req: Request, @Res() res: Response) {
+    const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?") + 1) : "";
+    const params = new URLSearchParams(query);
+    const flowCookie = readCookie(req, SSO_FLOW_COOKIE);
+    res.clearCookie(SSO_FLOW_COOKIE, {
+      httpOnly: true,
+      secure: this.secureCookie,
+      sameSite: "lax",
+      path: SSO_FLOW_PATH,
+    });
+    const fail = (message: string) => res.redirect(302, `/login?sso_error=${encodeURIComponent(message)}`);
+    const error = params.get("error");
+    if (error) return fail(ssoErrorMessage(error, params.get("error_description")));
+    try {
+      const { user, returnTo } = await this.sso.callback(query, flowCookie);
+      const session = await this.auth.sessionFor(user);
+      setRefreshCookie(res, session.refreshToken, session.refreshTtlSeconds, this.secureCookie);
+      return res.redirect(302, returnTo);
+    } catch (err) {
+      const message = err instanceof Error && "getStatus" in err ? err.message : "Masuk lewat akun Workingspace gagal.";
+      return fail(message);
+    }
   }
 
   @ApiBearerAuth()

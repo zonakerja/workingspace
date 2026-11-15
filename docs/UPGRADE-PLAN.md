@@ -83,7 +83,8 @@ Prisma, build image Docker; untuk perubahan infra juga stack produksi lokal + ce
 
 ## 3. Temuan audit yang masih dipantau (`npm audit`)
 
-Per 2026-11-09 `npm audit --omit=dev` **bersih di backend, frontend, dan robot**. Ditutup hari itu: `deepmerge-ts` (lewat Prisma 7.10.1),
+Per 2026-11-16 `npm audit --omit=dev` **bersih** (ditutup: `hono` 4.13.16 & `@hono/node-server` 2.1.6, transitif MCP SDK, lewat
+`npm update --before=2026-11-03` tanpa override). Per 2026-11-09 juga bersih di backend, frontend, dan robot. Ditutup hari itu: `deepmerge-ts` (lewat Prisma 7.10.1),
 `zod` 4.6.7, `fast-uri` 3.1.9, dan paket CLI `shadcn` 4.22.1 (`undici`, `systeminformation`, `body-parser`, `qs`, `ip-address`, `seroval`
 lewat `npm update --before=<tanggal>`). Peringatan lama `braces` & `sprintf-js` tidak lagi dilaporkan audit.
 

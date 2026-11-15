@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Database, Home, Pencil, Phone, Plus, Share2, Trash2, Users } from "lucide-react";
+import { Database, ExternalLink, Home, Pencil, Phone, Plus, Share2, ShieldCheck, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { ROLE_LABELS } from "@/config/navigation";
+import { useSsoConfig } from "@/data/use-auth";
 import { useUserMutations, useUsers } from "@/data/use-users";
 import { useUserStats } from "@/data/use-sharing";
 import { useToday } from "@/hooks/use-today";
@@ -74,6 +75,10 @@ export function UsersTab() {
   const { remove } = useUserMutations();
   const { data: stats = [] } = useUserStats();
   const now = useToday();
+  const { data: sso } = useSsoConfig();
+  // SSO aktif: akun & role dikelola di admin SSO; akun lokal baru hanya berguna bila login kata sandi lokal masih aktif
+  const ssoAdminUrl = sso?.enabled && sso.accountUrl ? sso.accountUrl.replace(/\/account$/, "/admin") : null;
+  const canCreateLocal = !sso?.enabled || sso.passwordLogin;
 
   const isSuperAdmin = currentUser?.role === "super_admin";
   // Admin biasa tidak boleh mengelola akun super admin (juga ditegakkan backend)
@@ -97,11 +102,29 @@ export function UsersTab() {
       title="Manajemen User"
       description="Kelola akun dan role pengguna. Data setiap pengguna terisolasi — admin hanya melihat statistik pemakaian, bukan isi data."
       action={
-        <Button onClick={() => setEditing("new")}>
-          <Plus /> Tambah User
-        </Button>
+        canCreateLocal ? (
+          <Button onClick={() => setEditing("new")}>
+            <Plus /> {ssoAdminUrl ? "Tambah user lokal" : "Tambah User"}
+          </Button>
+        ) : undefined
       }
     >
+      {ssoAdminUrl && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-muted/40 p-3 text-sm">
+          <ShieldCheck className="size-4 shrink-0 text-module" />
+          <span className="min-w-0 flex-1 text-muted-foreground">
+            Akun, role, dan akses Akasha dikelola di <b>admin akun Workingspace</b>. Akun baru muncul di sini setelah
+            pertama kali masuk Akasha.
+          </span>
+          {isSuperAdmin && (
+            <Button asChild size="sm" variant="outline">
+              <a href={ssoAdminUrl} target="_blank" rel="noreferrer">
+                <ExternalLink /> Kelola akun Workingspace
+              </a>
+            </Button>
+          )}
+        </div>
+      )}
       {isLoading ? (
         <PageLoader />
       ) : (
@@ -122,6 +145,11 @@ export function UsersTab() {
                     <span className="font-semibold">{u.name}</span>
                     <Badge className={ROLE_BADGE[u.role]}>{ROLE_LABELS[u.role]}</Badge>
                     {u.id === currentUser?.id && <Badge variant="outline">Anda</Badge>}
+                    {u.ssoSubject && (
+                      <Badge variant="secondary">
+                        <ShieldCheck /> Akun Workingspace
+                      </Badge>
+                    )}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                   <UserStatsLine stat={stats.find((st) => st.userId === u.id)} now={now} />
@@ -143,9 +171,11 @@ export function UsersTab() {
               </div>
               {canManage(u) && (
                 <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => setEditing(u)}>
-                    <Pencil /> Edit
-                  </Button>
+                  {!u.ssoSubject && (
+                    <Button size="sm" variant="secondary" onClick={() => setEditing(u)}>
+                      <Pencil /> Edit
+                    </Button>
+                  )}
                   {u.id !== currentUser?.id && (
                     <Button size="sm" variant="destructive" onClick={() => setDeleting(u)}>
                       <Trash2 /> Hapus

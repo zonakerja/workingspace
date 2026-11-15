@@ -79,7 +79,12 @@ model User {
   id              String      @id @default(cuid())
   name            String
   email           String      @unique
-  passwordHash    String      @map("password_hash")
+  /// Hash kata sandi lokal; null = akun hanya masuk lewat SSO workingspace.id
+  passwordHash    String?     @map("password_hash")
+  /// `sub` akun SSO workingspace.id (docs/SSO.md); null = akun lokal yang belum pernah masuk lewat SSO
+  ssoSubject      String?     @unique @map("sso_subject")
+  /// Cermin "PIN sudah diatur" untuk akun SSO (PIN-nya sendiri disimpan & diperiksa SSO)
+  ssoPin          Boolean     @default(false) @map("sso_pin")
   role            UserRole    @default(member)
   phone           String?
   address         String?

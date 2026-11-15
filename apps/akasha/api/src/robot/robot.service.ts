@@ -169,7 +169,7 @@ export class RobotService {
    */
   async setCredentials(userId: string, system: string, dto: CredentialsDto) {
     const vault = this.requireVault();
-    await this.confirmAccountPassword(userId, dto.accountPassword);
+    await this.confirmAccountPassword(userId, dto.accountPassword, dto.accountPin);
     const connector = await this.connector(userId, system);
     const username = dto.username.trim();
     const row = await this.prisma.robotConnector.update({
@@ -276,8 +276,11 @@ export class RobotService {
     return this.vault;
   }
 
-  private async confirmAccountPassword(userId: string, password: string) {
+  /** Konfirmasi pemilik sebelum menyimpan kredensial: kata sandi akun Akasha, atau PIN untuk akun SSO tanpa kata sandi lokal. */
+  private async confirmAccountPassword(userId: string, password: string | undefined, pin: string | undefined) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } });
+    if (!user.passwordHash) return this.pins.confirmOwner(userId, pin);
+    if (!password) throw new ForbiddenException("Masukkan kata sandi akun Akasha untuk konfirmasi.");
     if (!(await verify(user.passwordHash, password))) throw new ForbiddenException("Kata sandi akun Akasha salah.");
   }
 

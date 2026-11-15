@@ -26,12 +26,17 @@ export function clearRefreshCookie(res: Response, secure: boolean) {
 
 /** Baca cookie refresh tanpa dependensi cookie-parser. */
 export function readRefreshCookie(req: Request): string | undefined {
+  return readCookie(req, REFRESH_COOKIE);
+}
+
+/** Baca satu cookie tanpa cookie-parser. */
+export function readCookie(req: Request, name: string): string | undefined {
   const header = req.headers.cookie;
   if (!header) return undefined;
   for (const part of header.split(";")) {
     const index = part.indexOf("=");
     if (index < 0) continue;
-    if (part.slice(0, index).trim() === REFRESH_COOKIE) {
+    if (part.slice(0, index).trim() === name) {
       const value = part.slice(index + 1).trim();
       try {
         return decodeURIComponent(value) || undefined;

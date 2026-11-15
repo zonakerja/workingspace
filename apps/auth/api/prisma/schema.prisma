@@ -1,0 +1,174 @@
+// ============================================================================
+// SSO workingspace.id — skema database (DB workingspace_auth)
+// Konvensi sama dengan Akasha: model PascalCase, tabel & kolom snake_case, timestamptz(3).
+// Rancangan: docs/SSO.md §2.4
+// ============================================================================
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AppRole {
+  admin
+  member
+
+  @@map("app_role")
+}
+
+enum EmailTokenKind {
+  verify
+  reset
+
+  @@map("email_token_kind")
+}
+
+/// Akun ekosistem (satu akun untuk semua aplikasi)
+model Account {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String
+  /// Hash argon2; null = akun hanya masuk lewat Google
+  passwordHash    String?   @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  /// Akun dinonaktifkan super admin → tidak bisa masuk aplikasi mana pun
+  disabled        Boolean   @default(false)
+  /// Super admin ekosistem: mengelola akun & akses aplikasi (bukan melihat data aplikasi)
+  superAdmin      Boolean   @default(false) @map("super_admin")
+  /// PIN keamanan (6 angka, hash argon2) bersama semua aplikasi; null = belum diatur
+  pinHash         String?   @map("pin_hash")
+  pinFailed       Int       @default(0) @map("pin_failed")
+  pinBlockedUntil DateTime? @map("pin_blocked_until") @db.Timestamptz(3)
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  identities  AccountIdentity[]
+  memberships AppMembership[]
+  emailTokens EmailToken[]
+  sessions    AuthSession[]
+  events      SecurityEvent[]
+
+  @@map("accounts")
+}
+
+/// Identitas login luar (Google)
+model AccountIdentity {
+  id        String   @id @default(cuid())
+  accountId String   @map("account_id")
+  provider  String
+  subject   String
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([accountId])
+  @@map("account_identities")
+}
+
+/// Aplikasi ekosistem (Akasha, Akai, Cendikia, …)
+model App {
+  key         String   @id
+  name        String
+  url         String
+  description String?
+  /// Role yang otomatis diberikan ke akun baru (daftar sendiri); null = harus diberi super admin
+  selfSignup  AppRole? @map("self_signup")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships AppMembership[]
+
+  @@map("apps")
+}
+
+/// Akses akun ke satu aplikasi + role-nya di aplikasi itu
+model AppMembership {
+  accountId String   @map("account_id")
+  appKey    String   @map("app_key")
+  role      AppRole  @default(member)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  app     App     @relation(fields: [appKey], references: [key], onDelete: Cascade)
+
+  @@id([accountId, appKey])
+  @@index([appKey])
+  @@map("app_memberships")
+}
+
+/// Token sekali pakai di tautan email (verifikasi / reset kata sandi); hanya hash yang disimpan
+model EmailToken {
+  id        String         @id @default(cuid())
+  accountId String         @map("account_id")
+  kind      EmailTokenKind
+  tokenHash String         @unique @map("token_hash")
+  expiresAt DateTime       @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?      @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, kind])
+  @@map("email_tokens")
+}
+
+/// Sesi masuk di halaman SSO (cookie host-only auth.workingspace.id); hanya hash token yang disimpan
+model AuthSession {
+  id         String   @id @default(cuid())
+  accountId  String   @map("account_id")
+  tokenHash  String   @unique @map("token_hash")
+  userAgent  String?  @map("user_agent")
+  ip         String?
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("auth_sessions")
+}
+
+/// Penyimpanan oidc-provider (kode otorisasi, sesi, grant, interaksi, …) — satu tabel untuk semua model
+model OidcPayload {
+  id         String
+  type       String
+  payload    Json
+  grantId    String?   @map("grant_id")
+  userCode   String?   @map("user_code")
+  uid        String?
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+
+  @@id([type, id])
+  @@index([grantId])
+  @@index([uid])
+  @@index([expiresAt])
+  @@map("oidc_payloads")
+}
+
+/// Log keamanan akun (masuk, gagal, ganti/reset kata sandi, PIN)
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  accountId String?  @map("account_id")
+  event     String
+  ip        String?
+  userAgent String?  @map("user_agent")
+  detail    Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("security_events")
+}

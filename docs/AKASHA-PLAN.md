@@ -141,15 +141,15 @@ Catatan rancangan:
    `80-LifeOS/Productivity/` → `80-Akasha/Working Space/`, teks UI/AI/MCP/dokumen. Tidak ada endpoint API khusus Productivity
    (datanya lewat `/records/:type`). Istilah metode **PARA** (record type `para_project`, `para_area`, `para_task`, …) tetap,
    karena itu nama metodenya, bukan nama modul.
-5a. **Ganti nama folder proyek** `D:\Development\Application\LifeOS` → folder baru ekosistem (nama final: §5) setelah semua
+5a. ✅ (2026-11-16, folder `D:\Development\Application\Workingspace`) **Ganti nama folder proyek** `D:\Development\Application\LifeOS` → folder baru ekosistem (nama final: §5) setelah semua
    proses dimatikan (dev server, Docker, WSL); bind mount Docker, skrip WSL (`/mnt/d/...`), `.claude/launch.json`, dan dokumen
    ikut diperbarui; memori Claude lokal disalin ke folder proyek baru; pekerjaan berikutnya dilanjutkan di sesi Claude baru
    yang dibuka di folder itu.
-5b. **GitHub**: repo `zonakerja/lifeos` di-rename menjadi `zonakerja/workingspace` (riwayat, CI, Dependabot tetap; alamat
+5b. ✅ (2026-11-16) **GitHub**: repo `zonakerja/lifeos` di-rename menjadi `zonakerja/workingspace` (riwayat, CI, Dependabot tetap; alamat
    lama otomatis dialihkan GitHub) lalu `git remote set-url origin`. Repo Cendikia lama dibiarkan sebagai arsip.
 
 **Tahap B — Akai & pintu masuk ekosistem**
-5. SSO `auth.workingspace.id` + landing `workingspace.id`; Akasha login lewat SSO.
+5. 🚧 SSO `auth.workingspace.id` + landing `workingspace.id`; Akasha login lewat SSO — rancangan, keputusan & status: `docs/SSO.md`.
 6. `apps/akai/api`: modul AI/agen dipindah dari Akasha + router & katalog model (§2).
 7. `apps/akai/web`: chat & agen mandiri + chat Akai tersemat di Akasha.
 

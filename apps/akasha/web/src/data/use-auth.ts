@@ -22,6 +22,15 @@ export function useLogin() {
   });
 }
 
+/** Cara masuk yang tersedia; tanpa backend (galat) dianggap hanya kata sandi lokal. */
+export function useSsoConfig() {
+  return useQuery({
+    queryKey: ["auth", "sso-config"],
+    queryFn: () => authApi.ssoConfig().catch(() => ({ enabled: false, passwordLogin: true, accountUrl: null })),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useLogout() {
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -32,10 +41,12 @@ export function useLogout() {
       return;
     }
     await flushPendingWrites();
-    await authApi.logout().catch(() => undefined);
+    const result = await authApi.logout().catch(() => undefined);
     useAuthStore.getState().clear();
     client.clear();
-    void navigate("/login", { replace: true });
+    // Masuk lewat SSO: keluar juga dari akun Workingspace di browser ini (SSO mengembalikan ke /login)
+    if (result?.ssoLogoutUrl) window.location.assign(result.ssoLogoutUrl);
+    else void navigate("/login", { replace: true });
   };
 }
 

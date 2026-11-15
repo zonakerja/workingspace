@@ -147,7 +147,14 @@ export interface UserInput {
 export const authApi = {
   login: (email: string, password: string) =>
     request<AuthSession>("/auth/login", { method: "POST", body: { email, password }, auth: false }),
-  logout: () => request<{ success: boolean }>("/auth/logout", { method: "POST", auth: false }),
+  /** `ssoLogoutUrl` = halaman keluar akun Workingspace (SSO aktif) — frontend mengarahkan ke sana. */
+  logout: () =>
+    request<{ success: boolean; ssoLogoutUrl?: string | null }>("/auth/logout", { method: "POST", auth: false }),
+  /** Cara masuk yang tersedia (SSO workingspace.id / kata sandi lokal). */
+  ssoConfig: () =>
+    request<{ enabled: boolean; passwordLogin: boolean; accountUrl: string | null }>("/auth/sso/config", {
+      auth: false,
+    }),
   me: () => request<PublicUser>("/auth/me"),
   updateMe: (input: ProfileInput) => request<PublicUser>("/auth/me", { method: "PATCH", body: input }),
   changePassword: (currentPassword: string, newPassword: string) =>
@@ -848,8 +855,10 @@ export const automationApi = {
 
 export const robotApi = {
   status: () => request<{ configured: boolean; reachable: boolean; vault: boolean }>("/robot/status"),
-  setCredentials: (system: RobotSystem, input: { username: string; password: string; accountPassword: string }) =>
-    request<RobotConnector>(`/robot/connectors/${system}/credentials`, { method: "POST", body: input }),
+  setCredentials: (
+    system: RobotSystem,
+    input: { username: string; password: string; accountPassword?: string; accountPin?: string },
+  ) => request<RobotConnector>(`/robot/connectors/${system}/credentials`, { method: "POST", body: input }),
   deleteCredentials: (system: RobotSystem) =>
     request<RobotConnector>(`/robot/connectors/${system}/credentials`, { method: "DELETE" }),
   autoLogin: (system: RobotSystem) =>

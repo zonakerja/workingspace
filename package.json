@@ -9,6 +9,8 @@
   "workspaces": [
     "apps/akasha/api",
     "apps/akasha/web",
+    "apps/auth/api",
+    "apps/auth/web",
     "services/robot"
   ],
   "scripts": {

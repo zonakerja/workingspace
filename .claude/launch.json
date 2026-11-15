@@ -12,6 +12,19 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "apps/akasha/web", "run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "auth-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/auth/api", "run", "dev"],
+      "port": 4300
+    },
+    {
+      "name": "auth-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/auth/web", "run", "dev"],
+      "port": 5175,
+      "url": "http://auth.localhost:5175"
     }
   ]
 }

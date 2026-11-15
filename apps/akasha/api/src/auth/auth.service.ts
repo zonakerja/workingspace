@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "@node-rs/argon2";
@@ -12,6 +18,7 @@ import { AccessTokenPayload, RefreshTokenPayload } from "./auth.types";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { SsoService } from "./sso.service";
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
@@ -33,22 +40,27 @@ const sessionOf = (record: { id: string; sessionId: string | null; pinUnlocked: 
 export class AuthService {
   private readonly refreshSecret: string;
   private readonly refreshTtlSeconds: number;
+  private readonly passwordLogin: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly sso: SsoService,
     config: ConfigService,
   ) {
+    this.passwordLogin = config.get<boolean>("PASSWORD_LOGIN") ?? false;
     this.refreshSecret = config.getOrThrow<string>("JWT_REFRESH_SECRET");
     this.refreshTtlSeconds = durationToSeconds(config.getOrThrow<string>("JWT_REFRESH_EXPIRES_IN"));
   }
 
   async login(dto: LoginDto) {
+    if (!this.passwordLogin)
+      throw new ForbiddenException("Masuk dengan kata sandi lokal dimatikan. Gunakan Masuk dengan akun Workingspace.");
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
 
-    if (!user || !(await verify(user.passwordHash, dto.password))) {
+    if (!user?.passwordHash || !(await verify(user.passwordHash, dto.password))) {
       throw new UnauthorizedException("Email atau password salah.");
     }
 
@@ -81,7 +93,7 @@ export class AuthService {
       where: { id: record.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
-    return this.createSession(record.user, sessionOf(record));
+    return this.createSession(await this.checkSsoAccount(record.user), sessionOf(record));
   }
 
   async logout(refreshToken: string) {
@@ -109,6 +121,10 @@ export class AuthService {
   }
 
   async updateProfile(authUser: AuthUser, dto: UpdateProfileDto) {
+    const current = await this.prisma.user.findUnique({ where: { id: authUser.id }, select: { ssoSubject: true } });
+    // Akun SSO: nama & email disalin dari akun Workingspace setiap masuk → ubah di halaman akun SSO
+    if (current?.ssoSubject && (dto.name !== undefined || dto.email !== undefined))
+      throw new BadRequestException("Nama dan email akun ini diubah di halaman akun Workingspace.");
     const user = await this.prisma.user.update({
       where: { id: authUser.id },
       data: { ...dto, email: dto.email?.toLowerCase() },
@@ -121,6 +137,8 @@ export class AuthService {
       where: { id: authUser.id },
     });
     if (!user) throw new NotFoundException("User tidak ditemukan.");
+    if (!user.passwordHash)
+      throw new BadRequestException("Akun ini memakai kata sandi akun Workingspace. Ganti di halaman akun SSO.");
     if (!(await verify(user.passwordHash, dto.currentPassword))) {
       throw new BadRequestException("Password saat ini salah.");
     }
@@ -139,6 +157,31 @@ export class AuthService {
       where: { userId: user.id, ...(currentJti ? { id: { not: currentJti } } : {}) },
     });
     return { success: true };
+  }
+
+  /**
+   * Akun SSO: dinonaktifkan / akses Akasha dicabut di SSO → semua sesi Akasha diakhiri; role disamakan dengan SSO.
+   * SSO tidak terjangkau = sesi dibiarkan (tidak mengeluarkan semua orang saat SSO sesaat mati).
+   */
+  private async checkSsoAccount(user: User): Promise<User> {
+    if (!user.ssoSubject || !this.sso.enabled) return user;
+    const status = await this.sso.accountStatus(user.ssoSubject);
+    if (status === null) return user;
+    if (status === "missing" || !status.active) {
+      await this.revokeAllSessions(user.id);
+      throw new UnauthorizedException("Akses akun Anda ke Akasha sudah berakhir. Silakan masuk lagi.");
+    }
+    const role = status.superAdmin ? "super_admin" : (status.role ?? user.role);
+    if (role === user.role && status.name === user.name && status.hasPin === user.ssoPin) return user;
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: { role, name: status.name, ssoPin: status.hasPin },
+    });
+  }
+
+  /** Sesi baru setelah masuk lewat SSO (cookie diatur controller). */
+  sessionFor(user: User) {
+    return this.createSession(user);
   }
 
   /** Hapus semua sesi user. (`revokedAt` hanya dipakai untuk token hasil rotasi → deteksi reuse.) */

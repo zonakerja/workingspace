@@ -11,6 +11,10 @@ export interface PublicUser {
   aiProvider: AiProviderId | null;
   /** PIN keamanan sudah diatur (membuka item terkunci) */
   hasPin?: boolean;
+  /** Punya kata sandi lokal Akasha (akun yang hanya masuk lewat SSO = false) */
+  hasPassword?: boolean;
+  /** `sub` akun SSO workingspace.id (null = akun lokal) */
+  ssoSubject?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -564,6 +568,9 @@ export interface PinStatus {
   /** Jumlah item yang dikunci langsung */
   lockedItems: number;
   sessionCapable: boolean;
+  /** PIN diatur di halaman akun Workingspace (SSO), bukan di Akasha */
+  managedBySso?: boolean;
+  accountUrl?: string | null;
 }
 
 // ============================================================================

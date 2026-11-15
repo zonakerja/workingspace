@@ -1,4 +1,4 @@
-import { KeyRound, Lock, LockOpen, ShieldCheck, Trash2 } from "lucide-react";
+import { ExternalLink, KeyRound, Lock, LockOpen, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/common/section-card";
@@ -105,71 +105,90 @@ export function PinSettingsCard() {
                       <LockOpen /> Buka dengan PIN
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setRemoving(true)}>
-                    <Trash2 /> Hapus PIN
-                  </Button>
+                  {!status.managedBySso && (
+                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setRemoving(true)}>
+                      <Trash2 /> Hapus PIN
+                    </Button>
+                  )}
                 </span>
               </div>
             )}
 
-            <form
-              className="rounded-xl border p-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void save();
-              }}
-            >
-              <FieldGroup className="gap-3">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  <KeyRound className="size-4 text-module" /> {status?.hasPin ? "Ganti PIN" : "Atur PIN"}
-                </p>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <Field>
-                    <FieldLabel htmlFor="pin-new">PIN baru (6 angka)</FieldLabel>
-                    <Input
-                      id="pin-new"
-                      type="password"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      maxLength={6}
-                      value={pin}
-                      onChange={(e) => setPinValue(digitsOnly(e.target.value))}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="pin-confirm">Ulangi PIN</FieldLabel>
-                    <Input
-                      id="pin-confirm"
-                      type="password"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      maxLength={6}
-                      value={confirm}
-                      onChange={(e) => setConfirm(digitsOnly(e.target.value))}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="pin-password">Kata sandi akun</FieldLabel>
-                    <Input
-                      id="pin-password"
-                      type="password"
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </Field>
-                </div>
-                <FieldDescription>
-                  {problem ??
-                    "Lupa PIN? Atur PIN baru di sini dengan kata sandi akun. Sesi lain akan terkunci dan perlu PIN baru."}
-                </FieldDescription>
-                <div className="flex justify-end">
-                  <Button type="submit" size="sm" disabled={!pin || !!problem || !password || setPin.isPending}>
-                    {setPin.isPending ? <Spinner /> : <ShieldCheck />} {status?.hasPin ? "Ganti PIN" : "Aktifkan PIN"}
+            {status?.managedBySso ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border p-3 text-sm">
+                <KeyRound className="size-4 shrink-0 text-module" />
+                <span className="min-w-0 flex-1 text-muted-foreground">
+                  {status.hasPin ? "PIN Anda" : "PIN"} diatur di <b>akun Workingspace</b>: satu PIN untuk semua
+                  aplikasi. Lupa PIN? Buat PIN baru di sana dengan kata sandi akun.
+                </span>
+                {status.accountUrl && (
+                  <Button asChild size="sm" variant={status.hasPin ? "outline" : "default"}>
+                    <a href={`${status.accountUrl}#pin`} target="_blank" rel="noreferrer">
+                      <ExternalLink /> {status.hasPin ? "Kelola PIN" : "Atur PIN"}
+                    </a>
                   </Button>
-                </div>
-              </FieldGroup>
-            </form>
+                )}
+              </div>
+            ) : (
+              <form
+                className="rounded-xl border p-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void save();
+                }}
+              >
+                <FieldGroup className="gap-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold">
+                    <KeyRound className="size-4 text-module" /> {status?.hasPin ? "Ganti PIN" : "Atur PIN"}
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <Field>
+                      <FieldLabel htmlFor="pin-new">PIN baru (6 angka)</FieldLabel>
+                      <Input
+                        id="pin-new"
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={6}
+                        value={pin}
+                        onChange={(e) => setPinValue(digitsOnly(e.target.value))}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="pin-confirm">Ulangi PIN</FieldLabel>
+                      <Input
+                        id="pin-confirm"
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={6}
+                        value={confirm}
+                        onChange={(e) => setConfirm(digitsOnly(e.target.value))}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="pin-password">Kata sandi akun</FieldLabel>
+                      <Input
+                        id="pin-password"
+                        type="password"
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                  <FieldDescription>
+                    {problem ??
+                      "Lupa PIN? Atur PIN baru di sini dengan kata sandi akun. Sesi lain akan terkunci dan perlu PIN baru."}
+                  </FieldDescription>
+                  <div className="flex justify-end">
+                    <Button type="submit" size="sm" disabled={!pin || !!problem || !password || setPin.isPending}>
+                      {setPin.isPending ? <Spinner /> : <ShieldCheck />} {status?.hasPin ? "Ganti PIN" : "Aktifkan PIN"}
+                    </Button>
+                  </div>
+                </FieldGroup>
+              </form>
+            )}
           </div>
         )}
       </SectionCard>

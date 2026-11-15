@@ -293,6 +293,51 @@ class EnvironmentVariables {
   @IsEmail()
   HERMES_OWNER_EMAIL?: string;
 
+  /**
+   * SSO workingspace.id (docs/SSO.md). Kosong = masuk hanya dengan kata sandi lokal. Issuer = alamat OIDC SSO
+   * (dev `http://auth.localhost:5175/oidc`, produksi `https://auth.workingspace.id/oidc`).
+   */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: "SSO_ISSUER harus URL http(s)." })
+  SSO_ISSUER?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  SSO_CLIENT_ID?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  SSO_CLIENT_SECRET?: string;
+
+  /** Alamat callback yang terdaftar di klien SSO (lewat frontend: `<CORS_ORIGIN>/api/v1/auth/sso/callback`). */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: "SSO_REDIRECT_URI harus URL http(s)." })
+  SSO_REDIRECT_URI?: string;
+
+  /** Tujuan setelah keluar dari SSO (terdaftar sebagai post_logout_redirect_uri). */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: "SSO_POST_LOGOUT_URI harus URL http(s)." })
+  SSO_POST_LOGOUT_URI?: string;
+
+  /**
+   * Masuk dengan kata sandi lokal Akasha (`POST /auth/login`). Bawaan: aktif di luar production (smoke test & dev),
+   * mati di production — akun masuk lewat SSO.
+   */
+  @Transform(({ value }) =>
+    value === undefined || value === ""
+      ? undefined
+      : value === true || ["true", "1"].includes(String(value).toLowerCase()),
+  )
+  @IsOptional()
+  @IsBoolean()
+  PASSWORD_LOGIN?: boolean;
+
   /** true bila API berada di belakang reverse proxy (nginx) agar IP klien asli terbaca (rate limit). */
   @Transform(({ value }) => value === true || ["true", "1"].includes(String(value).toLowerCase()))
   @IsBoolean()
@@ -307,6 +352,14 @@ export function validateEnv(config: Record<string, unknown>) {
   const errors = validateSync(env, { skipMissingProperties: false });
 
   env.COOKIE_SECURE ??= env.NODE_ENV === "production";
+  env.PASSWORD_LOGIN ??= env.NODE_ENV !== "production";
+
+  const sso = [env.SSO_ISSUER, env.SSO_CLIENT_ID, env.SSO_CLIENT_SECRET, env.SSO_REDIRECT_URI];
+  if (sso.some(Boolean) && !sso.every(Boolean)) {
+    throw new Error(
+      "Konfigurasi environment tidak valid:\n- SSO_ISSUER, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_REDIRECT_URI harus diisi bersamaan.",
+    );
+  }
 
   if (env.ONLYOFFICE_URL && !env.ONLYOFFICE_JWT_SECRET) {
     throw new Error(

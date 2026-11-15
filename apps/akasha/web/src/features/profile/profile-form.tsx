@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, LockKeyhole, UserRound } from "lucide-react";
+import { CheckCircle2, ExternalLink, LockKeyhole, UserRound } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel, FieldSet, FieldLegend } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { useChangePassword, useUpdateProfile } from "@/data/use-auth";
+import { useChangePassword, useSsoConfig, useUpdateProfile } from "@/data/use-auth";
 import { errorMessage } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type { PublicUser } from "@/types/api";
@@ -46,6 +46,9 @@ export function ProfileForm() {
 function ProfileFormInner({ user }: { user: PublicUser }) {
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
+  // Akun SSO: nama, email, dan kata sandi diatur di akun Workingspace (disalin ulang setiap masuk)
+  const sso = !!user.ssoSubject;
+  const { data: ssoConfig } = useSsoConfig();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -64,8 +67,7 @@ function ProfileFormInner({ user }: { user: PublicUser }) {
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       await updateProfile.mutateAsync({
-        name: values.name,
-        email: values.email,
+        ...(sso ? {} : { name: values.name, email: values.email }),
         phone: values.phone,
         address: values.address,
       });
@@ -91,12 +93,18 @@ function ProfileFormInner({ user }: { user: PublicUser }) {
           <div className="grid gap-4 md:grid-cols-2">
             <Field data-invalid={!!errors.name}>
               <FieldLabel htmlFor="profile-name">Nama Lengkap</FieldLabel>
-              <Input id="profile-name" aria-invalid={!!errors.name} {...form.register("name")} />
+              <Input id="profile-name" readOnly={sso} aria-invalid={!!errors.name} {...form.register("name")} />
               <FieldError errors={[errors.name]} />
             </Field>
             <Field data-invalid={!!errors.email}>
               <FieldLabel htmlFor="profile-email">Email</FieldLabel>
-              <Input id="profile-email" type="email" aria-invalid={!!errors.email} {...form.register("email")} />
+              <Input
+                id="profile-email"
+                type="email"
+                readOnly={sso}
+                aria-invalid={!!errors.email}
+                {...form.register("email")}
+              />
               <FieldError errors={[errors.email]} />
             </Field>
             <Field>
@@ -109,51 +117,67 @@ function ProfileFormInner({ user }: { user: PublicUser }) {
             </Field>
           </div>
 
-          <FieldSet className="rounded-2xl border bg-muted/40 p-4 md:p-4">
-            <FieldLegend className="flex items-center gap-2">
-              <LockKeyhole className="size-4 text-module" /> Ganti Password
-            </FieldLegend>
-            <FieldGroup className="gap-4">
-              <Field data-invalid={!!errors.currentPassword}>
-                <FieldLabel htmlFor="current-password">Password Saat Ini</FieldLabel>
-                <Input
-                  id="current-password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="Kosongkan jika tidak mengubah"
-                  aria-invalid={!!errors.currentPassword}
-                  {...form.register("currentPassword")}
-                />
-                <FieldError errors={[errors.currentPassword]} />
-              </Field>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field data-invalid={!!errors.newPassword}>
-                  <FieldLabel htmlFor="new-password">Password Baru</FieldLabel>
+          {sso ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/40 p-3 text-sm">
+              <LockKeyhole className="size-4 shrink-0 text-module" />
+              <span className="min-w-0 flex-1 text-muted-foreground">
+                Nama, email, dan kata sandi mengikuti <b>akun Workingspace</b> Anda (berlaku untuk semua aplikasi).
+              </span>
+              {ssoConfig?.accountUrl && (
+                <Button asChild size="sm" variant="outline">
+                  <a href={ssoConfig.accountUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink /> Buka akun Workingspace
+                  </a>
+                </Button>
+              )}
+            </div>
+          ) : (
+            <FieldSet className="rounded-2xl border bg-muted/40 p-4 md:p-4">
+              <FieldLegend className="flex items-center gap-2">
+                <LockKeyhole className="size-4 text-module" /> Ganti Password
+              </FieldLegend>
+              <FieldGroup className="gap-4">
+                <Field data-invalid={!!errors.currentPassword}>
+                  <FieldLabel htmlFor="current-password">Password Saat Ini</FieldLabel>
                   <Input
-                    id="new-password"
+                    id="current-password"
                     type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    aria-invalid={!!errors.newPassword}
-                    {...form.register("newPassword")}
+                    autoComplete="current-password"
+                    placeholder="Kosongkan jika tidak mengubah"
+                    aria-invalid={!!errors.currentPassword}
+                    {...form.register("currentPassword")}
                   />
-                  <FieldError errors={[errors.newPassword]} />
+                  <FieldError errors={[errors.currentPassword]} />
                 </Field>
-                <Field data-invalid={!!errors.confirmPassword}>
-                  <FieldLabel htmlFor="confirm-password">Konfirmasi Password</FieldLabel>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    aria-invalid={!!errors.confirmPassword}
-                    {...form.register("confirmPassword")}
-                  />
-                  <FieldError errors={[errors.confirmPassword]} />
-                </Field>
-              </div>
-            </FieldGroup>
-          </FieldSet>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field data-invalid={!!errors.newPassword}>
+                    <FieldLabel htmlFor="new-password">Password Baru</FieldLabel>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="••••••••"
+                      aria-invalid={!!errors.newPassword}
+                      {...form.register("newPassword")}
+                    />
+                    <FieldError errors={[errors.newPassword]} />
+                  </Field>
+                  <Field data-invalid={!!errors.confirmPassword}>
+                    <FieldLabel htmlFor="confirm-password">Konfirmasi Password</FieldLabel>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="••••••••"
+                      aria-invalid={!!errors.confirmPassword}
+                      {...form.register("confirmPassword")}
+                    />
+                    <FieldError errors={[errors.confirmPassword]} />
+                  </Field>
+                </div>
+              </FieldGroup>
+            </FieldSet>
+          )}
 
           <div className="flex justify-end">
             <Button type="submit" disabled={isSaving}>

@@ -49,3 +49,26 @@ export function settleUnlock(ok: boolean) {
   pending = null;
   usePinPrompt.getState().hide();
 }
+
+/**
+ * Masuk lewat SSO = halaman dimuat ulang (redirect), jadi penanda login di memori hilang. Penanda disimpan sementara di
+ * sessionStorage sebelum pindah ke SSO, lalu dibaca sekali saat aplikasi dibuka lagi.
+ */
+const SSO_LOGIN_KEY = "akasha.ssoLoginPending";
+export function rememberSsoLogin() {
+  try {
+    sessionStorage.setItem(SSO_LOGIN_KEY, "1");
+  } catch {
+    // Penyimpanan diblokir: tawaran PIN dilewati, PIN tetap diminta saat membuka item terkunci
+  }
+}
+export function restoreSsoLoginPrompt() {
+  try {
+    if (sessionStorage.getItem(SSO_LOGIN_KEY)) {
+      sessionStorage.removeItem(SSO_LOGIN_KEY);
+      markLoginPinPrompt();
+    }
+  } catch {
+    // abaikan
+  }
+}

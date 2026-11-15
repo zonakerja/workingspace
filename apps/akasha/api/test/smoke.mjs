@@ -1456,16 +1456,22 @@ try {
       }
     }
     await j("DELETE", "/records/para_resource/sm-office", null, at);
-    // Form Working Space ditutup: dokumen yang sudah disunting (versi > 1) dipindah ke ruang kerja, bukan dibuang
-    r = await j("DELETE", `/uploads/${docId}?discard=1`, null, at);
-    const kept = await j("GET", "/office/workspace", null, at);
-    ok(
-      "office edited doc discarded from form → kept in workspace",
-      r.s === 200 && r.d.kept === true && kept.d.some((d) => d.id === docId),
-      { r, kept },
-    );
-    r = await j("DELETE", `/uploads/${docId}`, null, at);
-    ok("office doc delete (with versions)", r.s === 200, r);
+    if (dsSecret && dsUp) {
+      // Form Working Space ditutup: dokumen yang sudah disunting (versi > 1) dipindah ke ruang kerja, bukan dibuang
+      r = await j("DELETE", `/uploads/${docId}?discard=1`, null, at);
+      const kept = await j("GET", "/office/workspace", null, at);
+      ok(
+        "office edited doc discarded from form → kept in workspace",
+        r.s === 200 && r.d.kept === true && kept.d.some((d) => d.id === docId),
+        { r, kept },
+      );
+      r = await j("DELETE", `/uploads/${docId}`, null, at);
+      ok("office doc delete (with versions)", r.s === 200, r);
+    } else {
+      // Tanpa ONLYOFFICE dokumen tidak pernah disunting (versi 1) → dibuang seperti unggahan biasa
+      r = await j("DELETE", `/uploads/${docId}?discard=1`, null, at);
+      ok("office unedited doc discarded from form → removed", r.s === 200 && !r.d.kept, r);
+    }
     r = await j("GET", `/office/files/${finalPdf.d.id}/links`, null, at);
     ok("office final kept when draft deleted (link cleared)", r.s === 200 && r.d.draft === null, r);
     await j("DELETE", `/uploads/${finalPdf.d.id}`, null, at);
