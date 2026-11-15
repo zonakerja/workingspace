@@ -41,7 +41,13 @@ export function withUnlocked(item: Lockable | null | undefined, action: () => vo
 export function useLockToggle() {
   const { data: status } = usePinStatus();
   const navigate = useNavigate();
-  return <T extends Lockable>(item: T, save: (next: T) => void) => {
+  return async <T extends Lockable>(item: T, save: (next: T) => void | Promise<unknown>) => {
+    if (isSealed(item)) {
+      // Isi belum terbuka: lepas kunci baru boleh setelah PIN benar. Batal / PIN salah = tidak ada yang berubah.
+      const ok = await ensureUnlocked(item);
+      if (ok) toast.info("PIN terbuka", { description: "Klik ikon gembok sekali lagi untuk melepas kunci item ini." });
+      return;
+    }
     if (!item.locked && !status?.hasPin) {
       toast.warning("Atur PIN keamanan dulu", {
         description: "Item dikunci dengan PIN 6 angka yang diatur di Profil Saya.",
@@ -49,7 +55,12 @@ export function useLockToggle() {
       });
       return;
     }
-    save({ ...item, locked: !item.locked });
+    try {
+      // Simpan yang mengembalikan promise (mis. notebook) ditunggu: gagal / PIN dibatalkan = tanpa notifikasi berhasil
+      await save({ ...item, locked: !item.locked });
+    } catch {
+      return;
+    }
     toast.success(item.locked ? "Kunci dilepas" : "Item dikunci", {
       description: item.locked
         ? undefined
@@ -66,7 +77,7 @@ export function LockToggleButton<T extends Lockable>({
   size = "icon-sm",
 }: {
   item: T;
-  onSave: (next: T) => void;
+  onSave: (next: T) => void | Promise<unknown>;
   className?: string;
   size?: "icon-sm" | "icon-xs";
 }) {
@@ -82,7 +93,7 @@ export function LockToggleButton<T extends Lockable>({
           className={cn(item.locked && "text-warning", className)}
           onClick={(e) => {
             e.stopPropagation();
-            toggle(item, onSave);
+            void toggle(item, onSave);
           }}
         >
           {item.locked ? <Lock /> : <LockOpen />}

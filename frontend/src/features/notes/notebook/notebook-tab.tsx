@@ -495,12 +495,15 @@ function NotebookLockItem({ notebook }: { notebook: NotebookListItem }) {
   return (
     <DropdownMenuItem
       onSelect={() =>
-        toggle({ title: notebook.title, locked: !!notebook.locked }, (next) => {
-          void notebooksApi
+        void toggle({ title: notebook.title, locked: !!notebook.locked, _locked: !!notebook.sealed }, (next) =>
+          notebooksApi
             .update(notebook.id, { locked: !!next.locked })
             .then(() => client.invalidateQueries({ queryKey: queryKeys.notebooks }))
-            .catch((error: unknown) => toast.error("Gagal mengubah kunci", { description: errorMessage(error) }));
-        })
+            .catch((error: unknown) => {
+              toast.error("Gagal mengubah kunci", { description: errorMessage(error) });
+              throw error;
+            }),
+        )
       }
     >
       {notebook.locked ? <LockOpen /> : <Lock />} {notebook.locked ? "Lepas kunci PIN" : "Kunci dengan PIN"}

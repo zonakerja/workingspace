@@ -1034,9 +1034,12 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
 - **Peta modul Productivity** (label menu **Working Space** sejak 2026-11-13; key modul `productivity`, path, kode, record type, warna
   `--mod-productivity`, dan folder cermin `80-LifeOS/Productivity` tetap) (`features/productivity/`, `/productivity/:tab`, `productivity-page.tsx` = hero jumlah
   projects/areas/resources + 5 tab; `ParaDetailDialogs` & `ScheduleDialogs` dipasang di halaman):
-  - **Overview** (`overview-tab.tsx`): 4 kartu statistik, `ParaCalendar` (`para-calendar.tsx`: rentang project berjalan
-    `isProjectRunningOn` + titik action/task per tanggal → `DayDetailDialog`), daftar project belum selesai (maks. 5, dua
-    bar `MiniProgress`: task berbobot `projectTaskProgress` & waktu `projectTimeProgress`, `lib/progress.ts`).
+  - **Overview** (`overview-tab.tsx`, diperkaya 2026-11-15; logika murni + test `lib/workspace-overview.ts`): 4 kartu statistik
+    berketerangan (berjalan/selesai, sub area & kegiatan, berkas/lainnya, arsip per jenis); **Kesehatan Project** = project berjalan
+    (`isProjectRunning`) dengan status Terlambat / Berisiko (waktu − progres ≥ `RISK_GAP` 25) / Sesuai jadwal / Tanpa deadline, paling
+    perlu perhatian dulu, maks. 6, dua bar `MiniProgress` (`lib/progress.ts`); **Pekerjaan 7 Hari** = action/task terlambat + jatuh tempo
+    7 hari (klik → `?task=`); **Selesai per Minggu** (8 minggu Senin–Minggu, `completedAt` atau tenggat); **Ringkasan Area** (project
+    berjalan, item area, task terbuka, progres; klik → `?area=`); lalu `ParaCalendar` (`para-calendar.tsx` → `DayDetailDialog`).
   - **Projects** (`projects-tab.tsx` + `project-dialogs.tsx`): cari judul, `DateRangeFilter` "Aktif Bulan/Tahun Ini"
     (`isProjectActiveIn`), paginasi 10; kartu ringkas (`CARD_ACTION_CLASS`: ubah, bagikan, arsip, hapus; label Free Project
     hanya untuk project milik sendiri); form Project = nama, deskripsi, tanggal mulai/deadline, area, Dasar Pelaksanaan
@@ -1061,10 +1064,8 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     "Lihat isi", Pulihkan dengan konfirmasi) | **Log Arsip & Pemulihan** (filter aksi). Tidak ada hapus arsip permanen.
   - Aksi berantai (arsip/pulihkan/hapus project, area, item area beserta turunan, agenda, berkas, log) terpusat di
     `use-para-actions.ts`; logika murni ber-test: `lib/para.ts`, `lib/para-archive.ts`, `lib/progress.ts`.
-  - Celah yang diketahui (belum diperbaiki): Overview Productivity memilih project dari progres saja (project berstatus
-    selesai/ditunda bisa muncul; Overview utama memakai `runningProjects`) dan masih berlabel Inggris ("Calendar
-    Overview", "Recent Active Projects", "Task Completion", "Time Elapsed"; form Project juga "Start Date", "Area of
-    Responsibility"); tab Areas belum punya pencarian.
+  - Celah yang diketahui (belum diperbaiki): kalender Overview masih berlabel "Calendar Overview", form Project masih "Start
+    Date", "Area of Responsibility"; tab Areas belum punya pencarian.
 - **Kalender Harian** (`planner-calendar.tsx`): sel tinggi tetap 44–48 px (bukan persegi; dulu 56–64 px); penanda dari `summarizeDay()`
   (`planner-logic.ts`, sumber sama dengan daftar Harian) — titik penuh = ada yang belum selesai, lingkaran = semua
   selesai (todo/task/rutinitas yang sudah selesai tetap ditandai); hover tanggal → tooltip ringkasan agenda, rutinitas,
@@ -1542,6 +1543,7 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Tab Penilaian e-Kinerja** (bulan draf/diajukan/dinilai dipisah dari Rencana Aksi; rating, feedback, isi, Kirim Penilaian pindah ke sini) | ✅ 2026-11-15 — unit frontend +2 (347), lint, typecheck, format, build; browser dengan potret sungguhan akun admin (Okt draf + Jan–Sep dinilai, hanya dibaca), tautan Rencana Aksi membuka Oktober, Rencana Aksi tanpa tombol Kirim Penilaian, 375 px tanpa luberan |
 | **Kirim Penilaian Ke Atasan dengan PIN** (tombol di tab Penilaian, Periksa dulu tanpa kirim, PIN setiap kali, isi e-Kinerja wajib sama dengan LifeOS & lengkap; agen/jadwal tidak pernah) | ✅ 2026-11-15 — unit robot +6 (71), backend 513, frontend 345, smoke penuh 700 lulus (+3), lint, typecheck, format; halaman Rencana Aksi direkam Playwright **tanpa klik**; alur kirim diuji pada **halaman e-Kinerja tiruan** di container robot (ready, mismatch, incomplete, sudah diajukan, dialog asing dibatalkan, konfirmasi dummy → sent); UI akun uji + data dummy (dihapus). **Tidak pernah dikirim ke e-Kinerja**: dialog konfirmasi sungguhan belum diketahui (TODO-USER A39) |
 | **Instansi Pengirim** (referensi "Dikirimkan melalui" dari daftar pilihan formulir Registrasi SRIKANDI) + **Register naskah dari editor ONLYOFFICE** + Tautkan final setelah Kirim Konsep | ✅ 2026-11-15 — unit robot +1 (72), backend 513, frontend +1 (348), smoke penuh lulus (+1), lint, typecheck, format; **diuji ke SRIKANDI sungguhan** (baca saja: 1.472 instansi, formulir tidak diisi/disimpan); browser: pilihan bercari di formulir Register, tombol Register naskah di editor (templat Nota Dinas, dibatalkan — tanpa entri baru & tanpa versi templat). **Belum**: robot Register memilih Dikirimkan melalui dari daftar baru (masih mengetik istilah cari seperti sebelumnya — sudah teruji) |
+| Lepas kunci PIN tanpa notifikasi palsu + Overview Working Space diperkaya (kesehatan project, pekerjaan 7 hari, selesai per minggu, ringkasan Area) | ✅ 2026-11-15 — unit frontend +7 (355), lint, typecheck, format; browser 1366×768 (klik tugas terlambat → modal Area dengan kegiatan terpilih) & 375 px tanpa luberan. **Belum**: alur lepas kunci diklik di browser dengan akun ber-PIN (diperiksa lewat kode) |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -2630,6 +2632,12 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   tidak menyampahi ruang kerja. Konfirmasi "Buang dokumen yang sudah berisi?" dihapus karena tidak ada lagi yang hilang; tombol Hapus dokumen
   kini ke Sampah. Database diperiksa: dokumen yang dulu dibuang sudah terhapus permanen; 3 berkas tanpa rujukan (2 CV dari form Resource
   10 Okt, 1 berkas uji) dipindah ke ruang kerja agar dibersihkan user (TODO-USER A40).
+- 2026-11-15 — **Lepas kunci PIN & Overview Working Space** (laporan user: notifikasi "Kunci dilepas" muncul walau PIN belum/gagal
+  dimasukkan; permintaan: perkaya Overview). Item yang isinya belum terbuka (`_locked`, notebook `sealed`) kini meminta PIN dulu dan
+  tidak mengubah apa pun bila dibatalkan/salah; setelah PIN benar user mengklik gembok sekali lagi (pola `ensureUnlocked`: data dimuat
+  ulang utuh dulu, kerangka tidak pernah disimpan). Simpan yang mengembalikan promise (notebook) ditunggu sebelum notifikasi berhasil.
+  Overview Working Space mendapat kesehatan project, pekerjaan 7 hari, grafik selesai per minggu, ringkasan Area — memakai data
+  koleksi yang sudah dimuat (tanpa backend baru); celah lama (project selesai/ditunda ikut tampil, label Inggris) ikut ditutup.
 
 ## 13. Konvensi Kode
 
