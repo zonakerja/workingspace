@@ -3124,7 +3124,7 @@ utama tetap < 500 kB (cek output `npm run build`).
   (beberapa panggilan `await` 30–40 detik), jangan satu loop panjang.
 - Bila preview backend Claude mati ("exited with code 4294967295"), proses `nest start --watch` / `dist/main` anaknya bisa
   tertinggal: preview baru pindah ke 4001, atau dua pengawas saling membangun ulang `dist/` sehingga backend restart di tengah smoke
-  (ECONNREFUSED). Cek proses node `*Akashaackend*`, hentikan semuanya, lalu `preview_start` sekali.
+  (ECONNREFUSED). Cek proses node yang memuat `apps/akasha/api`, hentikan semuanya, lalu `preview_start` sekali.
 - Pekerjaan berkala (`setInterval(() => void this.x())`) wajib menangkap semua galat (`try/catch` atau `.catch`): penolakan
   promise yang lolos = proses backend mati (Node 24), mis. saat database/Redis sesaat putus setelah restart WSL.
 - Komponen interaktif yang menyimpan saat `pointerup`/`blur` (Canvas): updater `setState(fn)` baru dijalankan saat render
