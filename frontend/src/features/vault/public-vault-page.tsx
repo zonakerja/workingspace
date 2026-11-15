@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Download, Eye, FileText, FolderLock, Loader2, ScrollText, ShieldAlert } from "lucide-react";
+import { ChevronRight, Download, Eye, FileText, FolderLock, Loader2, ScrollText, ShieldAlert } from "lucide-react";
 import { useParams } from "react-router";
 import { ThemeMenu } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import { formatVaultSize } from "./vault-utils";
 /**
  * Halaman publik brankas digital (tanpa login): bukti data dukung satu poin renaksi e-Kinerja yang dibuka atasan / pejabat
  * pembina kepegawaian. Server mencatat setiap pembukaan & unduhan (waktu, IP, perkiraan lokasi, peramban); pengunjung
- * diberi tahu pencatatan itu dan kewajiban pelindungan data pribadi.
+ * diberi tahu pencatatan itu dan kewajiban pelindungan data pribadi. Fokus halaman = daftar berkas; kedua pemberitahuan tampil
+ * sebagai baris kecil di bawahnya yang bisa dibuka untuk teks lengkap (keputusan pemilik 2026-11-15).
  */
 function PublicVaultPage() {
   const { token = "" } = useParams();
@@ -67,24 +68,36 @@ function PublicVaultPage() {
           </div>
         ) : (
           <>
-            <section className="rounded-2xl border bg-card p-5">
-              <h1 className="text-lg leading-snug font-bold">{vault.data.title}</h1>
+            <section className="rounded-2xl border bg-card p-4 sm:p-5">
+              <h1 className="text-lg leading-snug font-bold sm:text-xl">{vault.data.title}</h1>
               {vault.data.description && (
                 <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">{vault.data.description}</p>
               )}
-              <p className="mt-2 text-xs text-muted-foreground">
-                Pemilik: {vault.data.owner} · Diperbarui {formatDateTime(vault.data.updatedAt)} ·{" "}
-                {vault.data.files.length} berkas
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Pemilik: {vault.data.owner} · Diperbarui {formatDateTime(vault.data.updatedAt)}
               </p>
-              <ul className="mt-4 grid grid-cols-1 gap-2">
+              <p className="mt-4 mb-2 text-sm font-semibold">{vault.data.files.length} berkas bukti</p>
+              <ul className="grid grid-cols-1 gap-2">
                 {vault.data.files.map((file) => (
-                  <li key={file.id} className="flex min-w-0 items-center gap-3 rounded-xl bg-muted/50 px-3 py-2">
-                    <FileText className="size-5 shrink-0 text-module" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatVaultSize(file.size)}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" title="Lihat" onClick={() => setViewing(file)}>
+                  <li
+                    key={file.id}
+                    className="group flex min-w-0 items-center gap-3 rounded-xl border bg-background p-3 transition-colors hover:border-module/50 hover:bg-module-soft"
+                  >
+                    {/* Seluruh baris = Lihat berkas; Unduh tetap tombol sendiri */}
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => setViewing(file)}
+                    >
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-module-soft text-module">
+                        <FileText className="size-6" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium break-words sm:text-base">{file.name}</span>
+                        <span className="block text-xs text-muted-foreground">{formatVaultSize(file.size)}</span>
+                      </span>
+                    </button>
+                    <Button size="sm" title="Lihat" onClick={() => setViewing(file)}>
                       <Eye /> <span className="hidden sm:inline">Lihat</span>
                     </Button>
                     <Button asChild variant="outline" size="sm" title="Unduh">
@@ -97,50 +110,57 @@ function PublicVaultPage() {
               </ul>
             </section>
 
-            <section className="rounded-2xl border border-warning/40 bg-warning/10 p-5 text-sm">
-              <h2 className="flex items-center gap-2 font-semibold text-warning">
-                <ShieldAlert className="size-5" /> Pemberitahuan Pelindungan Data Pribadi
-              </h2>
-              <ul className="mt-2 grid list-disc grid-cols-1 gap-1.5 pl-5 text-foreground/90">
-                <li>
-                  Brankas ini berisi dokumen kedinasan dan dapat memuat <strong>data pribadi</strong>. Akses hanya
-                  diperuntukkan bagi atasan, pejabat penilai kinerja, dan pejabat pembina kepegawaian yang berwenang
-                  dalam rangka penilaian kinerja.
-                </li>
-                <li>
-                  Dilarang menyebarluaskan tautan, menyalin, mengunggah ulang, atau memakai dokumen di luar keperluan
-                  tersebut. Bila tautan ini Anda terima tanpa kewenangan, mohon tutup halaman ini dan beri tahu
-                  pemiliknya.
-                </li>
-                <li>
-                  Memperoleh, mengungkapkan, atau menggunakan data pribadi yang bukan miliknya secara melawan hukum
-                  diancam pidana penjara dan/atau denda sebagaimana diatur dalam{" "}
-                  <strong>Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi</strong> (Pasal 65 jo.
-                  Pasal 67), serta dapat dikenai sanksi disiplin bagi Aparatur Sipil Negara.
-                </li>
-              </ul>
-            </section>
-
-            <section className="rounded-2xl border bg-card p-5 text-sm">
-              <h2 className="flex items-center gap-2 font-semibold">
-                <ScrollText className="size-5 text-module" /> Akses Anda tercatat
-              </h2>
-              <p className="mt-1 text-muted-foreground">
-                Untuk keamanan, setiap pembukaan brankas dan setiap berkas yang dilihat atau diunduh dicatat dan dapat
-                dilihat pemilik brankas: waktu, alamat IP, perkiraan lokasi (dari alamat IP), serta jenis peramban dan
-                perangkat.
-              </p>
-              <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 rounded-xl bg-muted/50 p-3 sm:grid-cols-[auto_1fr]">
-                <dt className="text-muted-foreground">Waktu</dt>
-                <dd className="font-medium">{formatDateTime(vault.data.visitor.at)}</dd>
-                <dt className="text-muted-foreground">Alamat IP</dt>
-                <dd className="font-medium break-all">{vault.data.visitor.ip ?? "Tidak terbaca"}</dd>
-                <dt className="text-muted-foreground">Perkiraan lokasi</dt>
-                <dd className="font-medium">{vault.data.visitor.location}</dd>
-                <dt className="text-muted-foreground">Peramban</dt>
-                <dd className="font-medium">{vault.data.visitor.browser ?? "Tidak terbaca"}</dd>
-              </dl>
-            </section>
+            {/* Pemberitahuan tetap ada tetapi ringkas: satu baris, teks lengkap saat dibuka */}
+            <div className="grid grid-cols-1 gap-1.5 text-xs text-muted-foreground">
+              <details className="group/pdp rounded-lg px-3 py-2 hover:bg-muted/50 open:bg-muted/50">
+                <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
+                  <ShieldAlert className="mt-px size-3.5 shrink-0 text-warning" />
+                  <span className="flex-1">
+                    Dokumen kedinasan, dapat memuat data pribadi — hanya untuk pejabat penilai yang berwenang (UU
+                    27/2022).
+                  </span>
+                  <ChevronRight className="mt-px size-3.5 shrink-0 transition-transform group-open/pdp:rotate-90" />
+                </summary>
+                <ul className="mt-2 grid list-disc grid-cols-1 gap-1 pl-9">
+                  <li>
+                    Akses hanya diperuntukkan bagi atasan, pejabat penilai kinerja, dan pejabat pembina kepegawaian yang
+                    berwenang dalam rangka penilaian kinerja.
+                  </li>
+                  <li>
+                    Dilarang menyebarluaskan tautan, menyalin, mengunggah ulang, atau memakai dokumen di luar keperluan
+                    tersebut. Bila tautan ini Anda terima tanpa kewenangan, mohon tutup halaman ini dan beri tahu
+                    pemiliknya.
+                  </li>
+                  <li>
+                    Memperoleh, mengungkapkan, atau menggunakan data pribadi yang bukan miliknya secara melawan hukum
+                    diancam pidana penjara dan/atau denda sebagaimana diatur dalam Undang-Undang Nomor 27 Tahun 2022
+                    tentang Pelindungan Data Pribadi (Pasal 65 jo. Pasal 67), serta dapat dikenai sanksi disiplin bagi
+                    Aparatur Sipil Negara.
+                  </li>
+                </ul>
+              </details>
+              <details className="group/log rounded-lg px-3 py-2 hover:bg-muted/50 open:bg-muted/50">
+                <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
+                  <ScrollText className="mt-px size-3.5 shrink-0" />
+                  <span className="flex-1">
+                    Akses Anda tercatat: {formatDateTime(vault.data.visitor.at)} · IP{" "}
+                    {vault.data.visitor.ip ?? "tidak terbaca"}
+                  </span>
+                  <ChevronRight className="mt-px size-3.5 shrink-0 transition-transform group-open/log:rotate-90" />
+                </summary>
+                <p className="mt-2 pl-5.5">
+                  Untuk keamanan, setiap pembukaan brankas dan setiap berkas yang dilihat atau diunduh dicatat dan dapat
+                  dilihat pemilik brankas: waktu, alamat IP, perkiraan lokasi (dari alamat IP), serta jenis peramban dan
+                  perangkat.
+                </p>
+                <dl className="mt-1.5 grid grid-cols-1 gap-x-3 gap-y-0.5 pl-5.5 sm:grid-cols-[auto_1fr]">
+                  <dt>Perkiraan lokasi</dt>
+                  <dd className="text-foreground">{vault.data.visitor.location}</dd>
+                  <dt>Peramban</dt>
+                  <dd className="text-foreground">{vault.data.visitor.browser ?? "Tidak terbaca"}</dd>
+                </dl>
+              </details>
+            </div>
           </>
         )}
       </div>

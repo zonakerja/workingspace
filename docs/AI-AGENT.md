@@ -1139,6 +1139,9 @@ yang hanya di e-Kinerja pada bulan draf).
 
 ### 21.10b Brankas digital bukti data dukung (2026-10-31)
 
+> **Revisi tampilan 2026-11-15** (permintaan user): halaman publik berfokus ke daftar berkas (baris besar, klik = Lihat). Pemberitahuan PDP dan
+> catatan akses tetap ada, diringkas menjadi dua baris kecil di bawah daftar yang dibuka untuk teks lengkap.
+
 Permintaan user: link bukti dibuka atasan / pejabat pembina kepegawaian → **satu poin renaksi = satu tautan**, satu renaksi bisa
 beberapa berkas (terisolasi per renaksi); karena tautan terbuka bagi siapa pun yang mengetahuinya, halaman memuat informasi
 pelindungan data pribadi & larangan penyalahgunaan, dan **setiap pembukaan dicatat** (IP + lokasi) — juga diberitahukan di
@@ -1446,7 +1449,7 @@ dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu. **Belum diketahui**:
   Atur PIN. Konektor e-Kinerja `SYSTEM_INFO.flows`/`limits` diperbarui.
 
 **Diuji 2026-11-15** (**tidak pernah dikirim ke e-Kinerja**): rekam halaman tanpa klik; **halaman e-Kinerja tiruan** (HTML dummy di localhost dalam
-container robot, `scratchpad/dummy-ekinerja.mjs`) → tanpa confirm = `ready` & tidak terkirim, isi beda = `mismatch`, baris kosong = `incomplete`, bulan
+container robot, `robot/test/dummy-ekinerja.mjs`, cara menjalankan di kepala berkas) → tanpa confirm = `ready` & tidak terkirim, isi beda = `mismatch`, baris kosong = `incomplete`, bulan
 diajukan = `already_submitted`, dialog asing ("Pilih atasan penilai … OK") = `unconfirmed` tanpa klik (ditemukan saat uji: aturan awal menyetujuinya karena
 memuat kata "atasan" → kini wajib kata kirim/ajukan), dialog konfirmasi dummy → `sent`. Unit robot +6, backend +1, frontend +1; smoke +3 (tidak ada alat
 agen, tanpa sesi, periode salah); UI dengan akun uji `user@lifeos.com` + data dummy (tombol aktif, tanpa PIN → Atur PIN, PIN uji → server menolak
