@@ -69,7 +69,7 @@ function StatusCard({ status }: { status?: ConverterStatus }) {
     <SectionCard
       icon={ServerCog}
       title="Service converter"
-      description="MarkItDown & Docling berjalan di server LifeOS sendiri — isi berkas tidak dikirim ke penyedia AI."
+      description="MarkItDown & Docling berjalan di server Akasha sendiri — isi berkas tidak dikirim ke penyedia AI."
       action={
         <Badge variant="outline" className={cn(reachable ? "text-success" : "text-warning")}>
           {reachable

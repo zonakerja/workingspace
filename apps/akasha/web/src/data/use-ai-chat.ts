@@ -4,7 +4,7 @@ import { aiChatApi } from "@/lib/api/endpoints";
 import type { AiChatMessage } from "@/types/api";
 import { queryKeys } from "./query-keys";
 
-/** Riwayat percakapan chatbot LifeOS (30 terbaru). */
+/** Riwayat percakapan chatbot Akasha (30 terbaru). */
 export function useAiConversations(enabled = true) {
   return useQuery({ queryKey: queryKeys.aiConversations, queryFn: aiChatApi.conversations, enabled });
 }

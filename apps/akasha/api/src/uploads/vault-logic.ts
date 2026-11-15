@@ -115,13 +115,13 @@ export function referrerOrigin(raw: unknown): string | null {
   }
 }
 
-/** Label asal untuk log akses: e-Kinerja (host konektor pemilik), LifeOS sendiri, situs lain, atau tanpa asal. */
+/** Label asal untuk log akses: e-Kinerja (host konektor pemilik), Akasha sendiri, situs lain, atau tanpa asal. */
 export function referrerLabel(origin: string | null, appOrigin: string | null, ekinerjaHosts: string[]) {
   if (!origin) return { kind: "none" as const, label: "Tanpa asal (ditempel / dibuka langsung)" };
   const host = new URL(origin).hostname;
   if (ekinerjaHosts.some((h) => host === h || host.endsWith(`.${h}`))) {
     return { kind: "ekinerja" as const, label: `e-Kinerja (${host})` };
   }
-  if (appOrigin && origin === appOrigin.toLowerCase()) return { kind: "app" as const, label: "LifeOS" };
+  if (appOrigin && origin === appOrigin.toLowerCase()) return { kind: "app" as const, label: "Akasha" };
   return { kind: "other" as const, label: host };
 }

@@ -131,9 +131,16 @@ Catatan rancangan:
    dev, dan berkas uji lain yang ditemukan di database/storage), sebelum database dihapus. Folder dihapus setelah pengujian
    rebrand selesai.
 3. ✅ **Restrukturisasi monorepo + Turborepo** (2026-11-15): compose tetap di root, `packages/` dibuat saat dibutuhkan, `apps/akai/{api,web}` dibuat di tahap B.
-4. **Rebrand total LifeOS → Akasha** (teks, kode, API, infra, cookie, token, MCP, Hermes, cermin vault, **kunci & konstanta
+4. ✅ (2026-11-15, kecuali uji ulang dengan `_uji/`) **Rebrand total LifeOS → Akasha** (teks, kode, API, infra, cookie, token, MCP, Hermes, cermin vault, **kunci & konstanta
    enkripsi baru**) dengan **database & storage dimulai dari nol** → seed baru → uji ulang menyeluruh memakai berkas uji →
    hapus folder berkas uji.
+   **Termasuk Productivity → Working Space total** (permintaan pemilik 2026-11-15; dulu hanya label): kunci modul
+   `productivity` → `working-space`, alamat `/productivity/*` → `/working-space/*` (deep link, `links.*`, tautan cermin),
+   folder kode `features/productivity` → `features/working-space`, token warna `--mod-productivity` → `--mod-working-space`,
+   modul Pencarian Pintar (`MODULE_BY_SOURCE`), jenis cermin `productivity` → `workingSpace`, folder cermin Obsidian
+   `80-LifeOS/Productivity/` → `80-Akasha/Working Space/`, teks UI/AI/MCP/dokumen. Tidak ada endpoint API khusus Productivity
+   (datanya lewat `/records/:type`). Istilah metode **PARA** (record type `para_project`, `para_area`, `para_task`, …) tetap,
+   karena itu nama metodenya, bukan nama modul.
 5a. **Ganti nama folder proyek** `D:\Development\Application\LifeOS` → folder baru ekosistem (nama final: §5) setelah semua
    proses dimatikan (dev server, Docker, WSL); bind mount Docker, skrip WSL (`/mnt/d/...`), `.claude/launch.json`, dan dokumen
    ikut diperbarui; memori Claude lokal disalin ke folder proyek baru; pekerjaan berikutnya dilanjutkan di sesi Claude baru

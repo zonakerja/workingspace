@@ -107,7 +107,7 @@ describe("pemantauan & sinkron bulan", () => {
     expect(monthSummary("desember Belum ada pengisian Rencana Aksi -", false, false, 0).status).toBe("unavailable");
   });
 
-  it("baris berisi butir di luar LifeOS ditulis ulang; indikator lama dilepas; yang kurang ditambah", () => {
+  it("baris berisi butir di luar Akasha ditulis ulang; indikator lama dilepas; yang kurang ditambah", () => {
     const key = rowKey(row().rhk, row().indicator);
     const old = { key: "rhk lama indikator x", renaksi: ["a"], realisasi: [], bukti: [] };
     const changed = { key, renaksi: ["Mengikuti rapat BMN"], realisasi: ["Laporan lama"], bukti: [] };

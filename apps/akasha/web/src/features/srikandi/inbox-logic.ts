@@ -2,7 +2,7 @@ import type { SrikandiInbox, SrikandiInboxKind, SrikandiOutgoing, Todo } from "@
 
 /**
  * Logika murni tab SRIKANDI → Naskah Masuk (diuji di `inbox-logic.test.ts`). Data diambil robot dari halaman daftar
- * SRIKANDI saja (docs/AI-AGENT.md §21.14); tindak lanjut di LifeOS = to-do Planner dan balasan lewat Register.
+ * SRIKANDI saja (docs/AI-AGENT.md §21.14); tindak lanjut di Akasha = to-do Planner dan balasan lewat Register.
  */
 
 export const INBOX_KINDS: SrikandiInboxKind[] = ["masuk", "tembusan", "disposisi", "koordinasi", "arahan"];

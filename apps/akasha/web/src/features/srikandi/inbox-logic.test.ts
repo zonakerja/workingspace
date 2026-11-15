@@ -34,7 +34,7 @@ const items: SrikandiInbox[] = [
   },
 ];
 
-describe("Naskah Masuk SRIKANDI di LifeOS", () => {
+describe("Naskah Masuk SRIKANDI di Akasha", () => {
   it("status, judul, dan urutan terbaru (tanggal disposisi didahulukan)", () => {
     expect(isUnread(items[0])).toBe(true);
     expect(isFollowedUp(items[1])).toBe(true);

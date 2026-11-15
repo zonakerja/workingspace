@@ -33,7 +33,7 @@ export function fileControlStatus(current: ArchivalStatus | undefined, include: 
   return current ? "none" : undefined;
 }
 
-const KEY = "lifeos.attachments.fileControl";
+const KEY = "akasha.attachments.fileControl";
 
 /** Preferensi centang "Masukkan ke File Control" (per browser, default mati) — sama seperti "Ringkas dengan AI". */
 export const readFileControlPreference = () => {

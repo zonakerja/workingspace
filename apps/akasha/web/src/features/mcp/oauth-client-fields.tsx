@@ -11,7 +11,7 @@ export interface OAuthClientValue {
   scope: string;
 }
 
-/** Alamat callback OAuth LifeOS (sama dengan backend: alamat aplikasi + path callback). */
+/** Alamat callback OAuth Akasha (sama dengan backend: alamat aplikasi + path callback). */
 export const oauthRedirectUrl = (fromServer?: string | null) =>
   fromServer || `${window.location.origin}/api/v1/mcp-connections/oauth/callback`;
 
@@ -89,7 +89,7 @@ export function OAuthClientFields({
         </p>
       </div>
       <p className="text-xs text-muted-foreground">
-        Client ID, secret, dan izin disimpan terenkripsi di LifeOS dan tidak pernah dikirim ke agen.
+        Client ID, secret, dan izin disimpan terenkripsi di Akasha dan tidak pernah dikirim ke agen.
       </p>
     </div>
   );

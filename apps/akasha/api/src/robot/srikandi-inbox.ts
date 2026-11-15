@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 /**
  * Logika murni sinkron Naskah Masuk SRIKANDI → record `srikandi_inbox` (diuji di `srikandi-inbox.spec.ts`). Robot hanya
- * membaca halaman daftar (docs/AI-AGENT.md §21.14); isian tindak lanjut LifeOS pada record (to-do, balasan) dipertahankan
+ * membaca halaman daftar (docs/AI-AGENT.md §21.14); isian tindak lanjut Akasha pada record (to-do, balasan) dipertahankan
  * setiap sinkron. Butir yang hilang dari daftar SRIKANDI tidak dihapus (naskah masuk adalah arsip, tidak hilang).
  */
 
@@ -17,7 +17,7 @@ export const INBOX_KIND_LABELS: Record<InboxKind, string> = {
   arahan: "Arahan",
 };
 
-/** Kolom yang diisi robot (selain itu milik LifeOS / pemilik dan tidak pernah ditimpa sinkron). */
+/** Kolom yang diisi robot (selain itu milik Akasha / pemilik dan tidak pernah ditimpa sinkron). */
 const SYNCED_KEYS = [
   "kind",
   "date",
@@ -90,7 +90,7 @@ export function inboxClientId(item: RobotInboxItem) {
 }
 
 /**
- * Isi record hasil sinkron: kolom dari robot menimpa, kolom LifeOS (todoId, replyId, catatan, firstSeenAt) tetap.
+ * Isi record hasil sinkron: kolom dari robot menimpa, kolom Akasha (todoId, replyId, catatan, firstSeenAt) tetap.
  * `changed` = ada kolom robot yang berubah (tanpa perubahan → tidak ditulis ulang, agar indeks & riwayat tidak berputar).
  */
 export function mergeInboxRecord(

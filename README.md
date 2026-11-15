@@ -1,10 +1,10 @@
-# LifeOS
+# Akasha
 
 Personal operating system berbasis web untuk produktivitas pribadi dan pekerjaan:
 
 - **Planner** — agenda harian, jadwal, rutinitas (dengan freeze period), todo.
 - **Notes** — catatan bebas, catatan AI (transkripsi audio, ringkasan dokumen), daftar.
-- **Productivity** — metode PARA (Projects, Areas, Resources, Archives) dengan task berbobot.
+- **Working Space** — metode PARA (Projects, Areas, Resources, Archives) dengan task berbobot.
 - **File Control** — manajemen kearsipan sesuai kaidah kearsipan Indonesia: pemberkasan, klasifikasi, JRA,
   penataan fisik/digital, peminjaman, penyusutan (pemusnahan/penyerahan statis), label QR & scan.
 - **Approval** — antrian verifikasi pengajuan dokumen (berkas pemohon, telaah AI, dokumen dari templat, bot WhatsApp).
@@ -27,7 +27,7 @@ Panduan lengkap (setup awal, menyalakan, mematikan, aturan port, laptop Windows 
 docker compose up -d                 # postgres, redis, object storage
 npm install                          # semua workspace (root monorepo)
 cd apps/akasha/api && cp .env.example .env && npx prisma migrate deploy && npm run prisma:seed && npm run dev
-cd apps/akasha/web && npm run dev   # http://localhost:5173 — admin@lifeos.com / 123
+cd apps/akasha/web && npm run dev   # http://localhost:5173 — admin@workingspace.id / 123
 ```
 
 ## Dokumentasi

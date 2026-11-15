@@ -50,7 +50,7 @@ interface ToolPrefs {
   penOnly: boolean;
 }
 
-const PREFS_KEY = "lifeos.ink.prefs";
+const PREFS_KEY = "akasha.ink.prefs";
 const DEFAULT_PREFS: ToolPrefs = {
   tool: "pen",
   penColor: "ink",

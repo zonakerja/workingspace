@@ -22,7 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { describeFrequency, scheduleStart } from "@/features/planner/lib/planner-logic";
 import { links } from "@/lib/deep-links";
 import type { SmartSearchMode } from "@/types/api";
-import { type LifeosData, useLifeosData } from "./lifeos-context";
+import { type AkashaData, useAkashaData } from "./akasha-context";
 import { SmartSearchPanel } from "./smart-search-panel";
 
 interface SearchResult {
@@ -36,7 +36,7 @@ interface SearchResult {
 }
 
 /** Pencarian cepat lintas modul (maks. 15 hasil). */
-const searchAll = (data: LifeosData, query: string): SearchResult[] => {
+const searchAll = (data: AkashaData, query: string): SearchResult[] => {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const has = (s?: string | null) => !!s && s.toLowerCase().includes(q);
@@ -50,7 +50,7 @@ const searchAll = (data: LifeosData, query: string): SearchResult[] => {
         title: p.title,
         desc: p.deadline ? `Deadline: ${p.deadline}` : "No deadline",
         icon: Layers,
-        color: "text-mod-productivity",
+        color: "text-mod-working-space",
         path: links.project(p.id),
       });
   });
@@ -179,7 +179,7 @@ export function GlobalSearchButton() {
           className="top-[10svh] flex max-h-[80svh] translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
         >
           <DialogTitle className="sr-only">Pencarian Global</DialogTitle>
-          <DialogDescription className="sr-only">Cari item dan isi berkas di seluruh LifeOS.</DialogDescription>
+          <DialogDescription className="sr-only">Cari item dan isi berkas di seluruh Akasha.</DialogDescription>
           <GlobalSearchPanel onClose={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
@@ -189,7 +189,7 @@ export function GlobalSearchButton() {
 
 function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const data = useLifeosData();
+  const data = useAkashaData();
   const [mode, setMode] = useState<"standard" | "smart">("standard");
   const [smartMode, setSmartMode] = useState<SmartSearchMode>("text");
   const [query, setQuery] = useState("");

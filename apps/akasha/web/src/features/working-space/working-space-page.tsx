@@ -24,7 +24,7 @@ export function Component() {
 
   return (
     <ModulePage
-      module="productivity"
+      module="working-space"
       meta={
         <>
           <HeroStat>

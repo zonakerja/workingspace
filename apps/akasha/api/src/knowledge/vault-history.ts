@@ -1,5 +1,5 @@
 /**
- * Riwayat versi catatan vault (K7, docs/AI-AGENT.md §25.6) — pola File recovery Obsidian: isi berkas sebelum LifeOS menimpanya
+ * Riwayat versi catatan vault (K7, docs/AI-AGENT.md §25.6) — pola File recovery Obsidian: isi berkas sebelum Akasha menimpanya
  * selalu disimpan; versi yang terpantau saat pindai (mis. diubah di Obsidian) dirapatkan per selang waktu. Logika murni.
  */
 
@@ -31,7 +31,7 @@ export interface LatestVersion {
 
 /**
  * Keputusan mencatat versi baru: isi sama dengan versi terakhir dilewati (atau ditandai bila itu isi sebelum ditimpa
- * LifeOS); versi terpantau yang masih dalam selang
+ * Akasha); versi terpantau yang masih dalam selang
  * menggantikan versi terpantau terakhir; selain itu tambah versi baru.
  */
 export function versionAction(
@@ -39,7 +39,7 @@ export function versionAction(
   input: { hash: string; reason: VersionReason; now: Date },
 ): { kind: "skip" } | { kind: "mark"; id: string } | { kind: "replace"; id: string } | { kind: "create" } {
   if (latest?.hash === input.hash) {
-    // isi sebelum ditimpa LifeOS = versi terpantau terakhir → tandai agar tidak ditimpa versi terpantau berikutnya
+    // isi sebelum ditimpa Akasha = versi terpantau terakhir → tandai agar tidak ditimpa versi terpantau berikutnya
     return input.reason !== "observed" && latest.reason === "observed"
       ? { kind: "mark", id: latest.id }
       : { kind: "skip" };

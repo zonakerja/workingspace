@@ -2,7 +2,7 @@
   "name": "@akasha/api",
   "version": "0.1.0",
   "private": true,
-  "description": "LifeOS backend API",
+  "description": "Akasha backend API",
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",

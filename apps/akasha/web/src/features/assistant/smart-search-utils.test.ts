@@ -34,9 +34,9 @@ describe("smart search utils", () => {
         result({ sourceType: "para_resource", sourceId: "r1", module: "file_control", archivalStatus: "physical" }),
       ),
     ).toEqual({ kind: "page", path: "/file-control/physical?archive=r1" });
-    expect(smartTarget(result({ sourceType: "para_resource", sourceId: "r2", module: "productivity" }))).toEqual({
+    expect(smartTarget(result({ sourceType: "para_resource", sourceId: "r2", module: "working-space" }))).toEqual({
       kind: "page",
-      path: "/productivity/resources?resource=r2",
+      path: "/working-space/resources?resource=r2",
     });
     expect(smartTarget(result({ sourceType: "archive_jra", module: "file_control" }))).toEqual({
       kind: "page",

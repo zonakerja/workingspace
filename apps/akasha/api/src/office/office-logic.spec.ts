@@ -123,8 +123,8 @@ describe("URL berkas hasil edit dari callback", () => {
   it("URL publik dialihkan ke URL internal", () => {
     expect(
       toInternalUrl(
-        "https://lifeos.id/office/cache/files/data/x/output.docx?md5=a",
-        "https://lifeos.id/office",
+        "https://akasha.id/office/cache/files/data/x/output.docx?md5=a",
+        "https://akasha.id/office",
         "http://onlyoffice",
       ),
     ).toBe("http://onlyoffice/cache/files/data/x/output.docx?md5=a");
@@ -140,7 +140,7 @@ describe("URL berkas hasil edit dari callback", () => {
       toInternalUrl("http://169.254.169.254/latest", "http://localhost:8080", "http://localhost:8080"),
     ).toThrow();
     expect(() =>
-      toInternalUrl("https://lifeos.id/officex/a", "https://lifeos.id/office", "http://onlyoffice"),
+      toInternalUrl("https://akasha.id/officex/a", "https://akasha.id/office", "http://onlyoffice"),
     ).toThrow();
     expect(() => toInternalUrl("file:///etc/passwd", "http://localhost:8080", "http://localhost:8080")).toThrow();
     expect(() => toInternalUrl("bukan url", "http://localhost:8080", "http://localhost:8080")).toThrow();
@@ -262,7 +262,7 @@ describe("config editor", () => {
   });
 
   it("AI di editor mengikuti sakelar user", () => {
-    const pluginOptions = { lifeos: { token: "t" } };
+    const pluginOptions = { akasha: { token: "t" } };
     const off = buildEditorConfig({ ...base, access: "edit", ai: { enabled: false, guid: "asc.{AI}" } });
     expect(off.editorConfig.customization.ai).toEqual({ disabled: true });
     expect("plugins" in off.editorConfig).toBe(false);

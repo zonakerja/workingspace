@@ -5,7 +5,7 @@ import { dayInMonth, scheduleEnd, scheduleStart } from "./planner-logic";
 /**
  * Agenda berulang (mis. kuliah mingguan). Setiap pertemuan disimpan sebagai **agenda tersendiri** dengan `seriesId` &
  * pola `recurrence` yang sama, sehingga tiap pertemuan punya hasil, Notes AI, dan lampiran sendiri, sementara daftar
- * Harian, kalender, Overview, notifikasi, Productivity, dan berbagi tetap bekerja per agenda.
+ * Harian, kalender, Overview, notifikasi, Working Space, dan berbagi tetap bekerja per agenda.
  */
 
 /** Batas pertemuan per seri (mencegah ribuan record tak sengaja). */

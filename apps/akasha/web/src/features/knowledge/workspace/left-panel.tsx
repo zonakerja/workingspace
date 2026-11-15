@@ -516,7 +516,7 @@ function TagsPanel({ notes, onPick }: { notes: KnowledgeNoteListItem[]; onPick: 
         description: result.failed?.length
           ? `${result.failed.length} catatan dilewati karena properti rusak: ${result.failed.slice(0, 3).join(", ")}`
           : result.notes === 0
-            ? "Tag ini hanya ada di cermin 80-LifeOS (dikelola LifeOS) — ubah di menu asalnya."
+            ? "Tag ini hanya ada di cermin 80-Akasha (dikelola Akasha) — ubah di menu asalnya."
             : undefined,
       });
     } catch (error) {

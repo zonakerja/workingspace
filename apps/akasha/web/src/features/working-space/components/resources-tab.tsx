@@ -102,7 +102,7 @@ const todayYmd = () => formatLocalYMD(new Date());
 const ALL_TAGS = "__all__";
 
 type ResourceViewMode = "grid" | "table";
-const VIEW_KEY = "lifeos.resources.view";
+const VIEW_KEY = "akasha.resources.view";
 const readViewPreference = (): ResourceViewMode => {
   try {
     return localStorage.getItem(VIEW_KEY) === "table" ? "table" : "grid";

@@ -24,7 +24,7 @@ interface Owned {
 // Planner
 // ============================================================================
 
-export type AgendaColor = "planner" | "notes" | "overview" | "productivity" | "files" | "settings";
+export type AgendaColor = "planner" | "notes" | "overview" | "working-space" | "files" | "settings";
 /** Key ikon dari paket ikon aplikasi (`lib/icons/icon-registry.ts`), mis. "briefcase". */
 export type AgendaIcon = string;
 
@@ -217,7 +217,7 @@ export interface Resource extends Owned {
 }
 
 // ============================================================================
-// Productivity (PARA) — dilengkapi saat porting modul Productivity
+// Working Space (PARA) — dilengkapi saat porting modul Working Space
 // ============================================================================
 
 export type ParaStatus = "active" | "completed" | "on-hold" | "archived" | string;
@@ -245,7 +245,7 @@ export interface Project extends Owned {
 /**
  * Item bertingkat di dalam Area (punya tasks seperti project). Hierarki:
  * Area → **Sub Area** (tanpa `parentId`) → **Kegiatan** → **Sub Kegiatan** → Task; task boleh melekat di tingkat
- * mana pun. Tingkat ditentukan rantai `parentId` (lihat `features/productivity/lib/para.ts`).
+ * mana pun. Tingkat ditentukan rantai `parentId` (lihat `features/working-space/lib/para.ts`).
  */
 export interface Activity extends Owned {
   id: string;
@@ -347,7 +347,7 @@ export type ActionPlanSourceType = "task" | "activity" | "schedule" | "ekinerja"
 export type ActionPlanStatus = "draft" | "ready" | "filled";
 
 /**
- * Rencana aksi bulanan yang dipilih user dari Productivity — "produk jadi" untuk robot e-Kinerja: bulan, RHK +
+ * Rencana aksi bulanan yang dipilih user dari Working Space — "produk jadi" untuk robot e-Kinerja: bulan, RHK +
  * indikator, rencana aksi, realisasi, bukti data dukung. Satu entri = satu butir di setiap indikator terpilih.
  */
 export interface ActionPlanEntry extends Owned {
@@ -370,7 +370,7 @@ export interface ActionPlanEntry extends Owned {
   documentUrl?: string;
   /** Brankas digital (beberapa berkas, satu tautan) yang menjadi bukti data dukung entri ini */
   vaultId?: string;
-  /** Asal item di Productivity (hanya rujukan; entri tetap ada walau item dihapus) */
+  /** Asal item di Working Space (hanya rujukan; entri tetap ada walau item dihapus) */
   sourceType?: ActionPlanSourceType;
   sourceId?: string;
   sourceTitle?: string;
@@ -428,7 +428,7 @@ export type SrikandiInboxKind = "masuk" | "tembusan" | "disposisi" | "koordinasi
 
 /**
  * Naskah masuk SRIKANDI (diambil robot dari halaman daftar saja; detail tidak dibuka agar Status Baca tetap). Kolom
- * dari robot ditimpa setiap sinkron; kolom tindak lanjut LifeOS (`todoId`) dipertahankan.
+ * dari robot ditimpa setiap sinkron; kolom tindak lanjut Akasha (`todoId`) dipertahankan.
  */
 export interface SrikandiInbox extends Owned {
   id: string;
@@ -454,7 +454,7 @@ export interface SrikandiInbox extends Owned {
   todoId?: string;
 }
 
-/** Naskah keluar SRIKANDI (diambil robot; PDF ber-TTD = berkas LifeOS `uploadId`). */
+/** Naskah keluar SRIKANDI (diambil robot; PDF ber-TTD = berkas Akasha `uploadId`). */
 export interface SrikandiLetter extends Owned {
   id: string;
   /** Kunci = nomor naskah */
@@ -472,9 +472,9 @@ export interface SrikandiLetter extends Owned {
   uploadId?: string;
   importedAt?: string;
   syncedAt?: string;
-  /** Lampiran naskah (berkas LifeOS; tanpa `uploadId` = belum terambil) */
+  /** Lampiran naskah (berkas Akasha; tanpa `uploadId` = belum terambil) */
   attachments?: { name: string; uploadId?: string }[];
-  /** PDF utama + semua lampiran sudah di LifeOS */
+  /** PDF utama + semua lampiran sudah di Akasha */
   attachmentsComplete?: boolean;
   /** uploadId → ID Resource Global yang dibuat (tag "Dokumen Final", masuk File Control) */
   resources?: Record<string, string>;
@@ -506,7 +506,7 @@ export interface SrikandiReference extends Owned {
 /** Tipe form Registrasi Naskah Keluar SRIKANDI: verifikasi & TTE di SRIKANDI, atau naskah sudah final di luar SRIKANDI. */
 export type SrikandiFormType = "keluar" | "final";
 
-/** Berkas di entri register (berkas LifeOS). `owned` = diunggah lewat register → ikut dihapus bersama entri. */
+/** Berkas di entri register (berkas Akasha). `owned` = diunggah lewat register → ikut dihapus bersama entri. */
 export interface SrikandiOutgoingFile {
   uploadId: string;
   name: string;
@@ -525,8 +525,8 @@ export interface SrikandiPick {
 export type SrikandiOutgoingStage = "draft" | "submitted" | "done";
 
 /**
- * Register Naskah Keluar: gerbang LifeOS sebelum naskah didaftarkan ke SRIKANDI. Isian mengikuti formulir Registrasi
- * Naskah Keluar SRIKANDI; berkas mentah berasal dari Approval atau Productivity; naskah final ditautkan lewat `letterId`.
+ * Register Naskah Keluar: gerbang Akasha sebelum naskah didaftarkan ke SRIKANDI. Isian mengikuti formulir Registrasi
+ * Naskah Keluar SRIKANDI; berkas mentah berasal dari Approval atau Working Space; naskah final ditautkan lewat `letterId`.
  */
 export interface SrikandiOutgoing extends Owned {
   id: string;
@@ -583,7 +583,7 @@ export interface SrikandiOutgoing extends Owned {
   pushedFileId?: string;
   /** Nomor konsep di Log Naskah Keluar saat didaftarkan robot (mis. penanda Ambil Nomor) */
   srikandiNumber?: string;
-  /** Waktu Kirim Konsep ke verifikator lewat LifeOS (dengan PIN) */
+  /** Waktu Kirim Konsep ke verifikator lewat Akasha (dengan PIN) */
   draftSentAt?: string;
   /** Waktu terakhir konsep diperbarui robot lewat Edit di Log Naskah Keluar (ISO) */
   updatedInSrikandiAt?: string;

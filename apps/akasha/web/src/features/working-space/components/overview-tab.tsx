@@ -95,7 +95,7 @@ export function OverviewTab({ onOpenProject }: { onOpenProject: (id: string) => 
       value: areas.length,
       sub: `${activities.length} sub area & kegiatan`,
       icon: Grid2x2,
-      module: "productivity",
+      module: "working-space",
     },
     {
       label: "Resources",

@@ -20,7 +20,7 @@ import { periodLabel } from "./lib/action-plan";
 /**
  * Kirim Penilaian Ke Atasan (e-Kinerja). Tindakan resmi atas nama Anda (bulan itu diajukan ke atasan dan terkunci), jadi
  * setiap kali wajib PIN keamanan, bukan status PIN sesi. "Periksa dulu" = robot membuka Rencana Aksi, memeriksa isi bulan
- * sama dengan LifeOS & lengkap, dan menandai tombol tanpa mengklik. Agen tidak punya jalur ke tindakan ini.
+ * sama dengan Akasha & lengkap, dan menandai tombol tanpa mengklik. Agen tidak punya jalur ke tindakan ini.
  */
 export function SubmitAssessmentDialog({
   period,
@@ -80,7 +80,7 @@ function SubmitForm({
     try {
       const r = await robotApi.submitRenaksi(period, { dryRun: true });
       setChecked(r.runId);
-      toast.success("Isi bulan sama dengan LifeOS dan tombol Kirim Penilaian siap — belum dikirim.", {
+      toast.success("Isi bulan sama dengan Akasha dan tombol Kirim Penilaian siap — belum dikirim.", {
         action: { label: "Lihat", onClick: () => onShowRun(r.runId) },
       });
     } catch (e) {
@@ -123,9 +123,9 @@ function SubmitForm({
           <UserCheck className="size-5 text-module" /> Kirim penilaian ke atasan?
         </DialogTitle>
         <DialogDescription>
-          Robot membuka Rencana Aksi {periodLabel(period)} di e-Kinerja, memastikan isinya sama dengan LifeOS dan setiap
+          Robot membuka Rencana Aksi {periodLabel(period)} di e-Kinerja, memastikan isinya sama dengan Akasha dan setiap
           indikator sudah berisi renaksi, realisasi, dan bukti, lalu menekan <b>Kirim Penilaian Ke Atasan</b>. Bulan itu
-          diajukan atas nama Anda dan tidak bisa diubah lagi dari LifeOS maupun e-Kinerja.
+          diajukan atas nama Anda dan tidak bisa diubah lagi dari Akasha maupun e-Kinerja.
         </DialogDescription>
       </DialogHeader>
 

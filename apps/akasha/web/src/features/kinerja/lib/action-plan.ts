@@ -11,7 +11,7 @@ import type {
 } from "@/types/entities";
 
 /**
- * Logika murni rencana aksi (Renaksi) e-Kinerja: user memilih sendiri item Productivity yang masuk renaksi bulanan,
+ * Logika murni rencana aksi (Renaksi) e-Kinerja: user memilih sendiri item Working Space yang masuk renaksi bulanan,
  * memetakannya ke RHK, menulis uraian, dan memberi link dokumen. Hasilnya "produk jadi" untuk robot e-Kinerja.
  */
 
@@ -161,14 +161,14 @@ export function missingFields(entry: Omit<StatusFields, "status">, target?: SkpT
 export interface DocumentOption {
   id: string;
   label: string;
-  /** url = tautan web siap pakai; file = berkas LifeOS (perlu tautan publik) */
+  /** url = tautan web siap pakai; file = berkas Akasha (perlu tautan publik) */
   kind: "url" | "file";
   url?: string;
   uploadId?: string;
 }
 
 /**
- * Kandidat link dokumen dari lampiran item: web link langsung, berkas LifeOS (dibuatkan tautan publik saat disimpan),
+ * Kandidat link dokumen dari lampiran item: web link langsung, berkas Akasha (dibuatkan tautan publik saat disimpan),
  * resource global yang dirujuk (link/berkasnya). Lampiran catatan dilewati (tidak bisa dibuka pihak luar).
  */
 export function documentOptions(attachments: AttachedResource[] | undefined, resources: Resource[]): DocumentOption[] {
@@ -244,7 +244,7 @@ export function entrySignature(entry: SignatureFields) {
 export const isChanged = (entry: ActionPlanEntry) =>
   entry.status === "filled" && !!entry.pushedSignature && entry.pushedSignature !== entrySignature(entry);
 
-/** Bulan yang sudah diajukan / dinilai di e-Kinerja: isian LifeOS bulan itu terkunci. */
+/** Bulan yang sudah diajukan / dinilai di e-Kinerja: isian Akasha bulan itu terkunci. */
 export const isLockedMonth = (month?: Pick<ActionPlanMonth, "status"> | null) =>
   month?.status === "submitted" || month?.status === "rated";
 
@@ -272,7 +272,7 @@ export function entryInMonth(entry: ActionPlanEntry, target: SkpTarget | null | 
   });
 }
 
-/** Status tampilan entri (gabungan isian LifeOS + potret e-Kinerja). */
+/** Status tampilan entri (gabungan isian Akasha + potret e-Kinerja). */
 export type DisplayStatus = ActionPlanStatus | "changed" | "deleted" | "missing" | "locked";
 
 export function displayStatus(
@@ -284,7 +284,7 @@ export function displayStatus(
   if (entry.deleted) return "deleted";
   if (isChanged(entry)) return "changed";
   const base = entryStatus(entry, target);
-  // Terisi menurut LifeOS tetapi butirnya tidak ada lagi di potret e-Kinerja (diubah langsung di e-Kinerja)
+  // Terisi menurut Akasha tetapi butirnya tidak ada lagi di potret e-Kinerja (diubah langsung di e-Kinerja)
   if (base === "filled" && month?.status === "draft" && !entryInMonth(entry, target, month)) return "missing";
   return base;
 }
@@ -319,7 +319,7 @@ export const MONTH_STATUS_LABELS: Record<ActionPlanMonth["status"], string> = {
 };
 
 /**
- * Alasan Kirim Penilaian Ke Atasan belum bisa dipakai (null = bisa): bulan draf di e-Kinerja dan semua isian LifeOS
+ * Alasan Kirim Penilaian Ke Atasan belum bisa dipakai (null = bisa): bulan draf di e-Kinerja dan semua isian Akasha
  * bulan itu sudah terisi sama dengan e-Kinerja. Salinan aturan backend `submitBlockers` (`ekinerja-renaksi.ts`).
  */
 export function submitBlocker(month: Pick<ActionPlanMonth, "status"> | null | undefined, statuses: DisplayStatus[]) {

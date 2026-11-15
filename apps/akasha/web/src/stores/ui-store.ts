@@ -15,7 +15,7 @@ export const useUiStore = create<UiState>()(
       theme: "system",
       setTheme: (theme) => set({ theme }),
     }),
-    { name: "lifeos-ui", storage: createJSONStorage(() => localStorage) },
+    { name: "akasha-ui", storage: createJSONStorage(() => localStorage) },
   ),
 );
 

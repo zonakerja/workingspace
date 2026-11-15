@@ -168,7 +168,7 @@ function AppDetail({ connection }: { connection: McpConnectionInfo }) {
       <SectionCard
         icon={Bot}
         title="Izin agen"
-        description="Agen (Hermes) memakai alat aplikasi ini lewat LifeOS; token tidak pernah diberikan ke agen."
+        description="Agen (Hermes) memakai alat aplikasi ini lewat Akasha; token tidak pernah diberikan ke agen."
         contentClassName="grid grid-cols-1 gap-3"
       >
         <label className="flex items-start justify-between gap-3">

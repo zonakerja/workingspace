@@ -66,7 +66,7 @@ export type ModuleKey =
   | "planner"
   | "notes"
   | "knowledge"
-  | "productivity"
+  | "working-space"
   | "files"
   | "requests"
   | "agent"
@@ -141,10 +141,10 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
-    key: "productivity",
+    key: "working-space",
     label: "Working Space",
     description: "Metode PARA: Projects, Areas, Resources, dan Archives.",
-    path: "/productivity",
+    path: "/working-space",
     icon: Layers,
     tabs: [
       { id: "overview", label: "Overview", icon: LayoutGrid },
@@ -176,7 +176,7 @@ export const MODULES: ModuleDef[] = [
     key: "knowledge",
     sidebarGroup: "ai",
     label: "Knowledge",
-    description: "Vault Obsidian Anda di LifeOS: jelajahi, sunting, graf tautan, tabel properti, dan kurasi Inbox.",
+    description: "Vault Obsidian Anda di Akasha: jelajahi, sunting, graf tautan, tabel properti, dan kurasi Inbox.",
     path: "/knowledge",
     icon: BrainCircuit,
     tabs: [
@@ -195,7 +195,7 @@ export const MODULES: ModuleDef[] = [
     sidebarGroup: "ai",
     label: "AI Agent",
     description:
-      "Agen AI Hermes yang bekerja dengan data LifeOS: chat dan workflow — hasilnya selalu Anda periksa di Approval.",
+      "Agen AI Hermes yang bekerja dengan data Akasha: chat dan workflow — hasilnya selalu Anda periksa di Approval.",
     path: "/agent",
     icon: BotMessageSquare,
     tabs: [

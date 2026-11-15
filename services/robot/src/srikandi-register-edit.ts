@@ -36,7 +36,7 @@ export interface EditState {
   signers: string[];
 }
 
-/** Masukan job Edit: formulir LifeOS terkini (berkas naskah hanya bila diganti) + hal saat terakhir dikirim. */
+/** Masukan job Edit: formulir Akasha terkini (berkas naskah hanya bila diganti) + hal saat terakhir dikirim. */
 export interface UpdateForm extends Omit<RegisterForm, "file"> {
   file?: RegisterFile;
   /** Hal konsep di SRIKANDI saat terakhir didaftarkan/diperbarui (dipakai mencari baris Log) */
@@ -66,7 +66,7 @@ const head = (text: string) =>
     .replace(/[.\s]+$/, "")
     .trim();
 
-/** Baris tabel (nama atau "Nama - Jabatan") mewakili pilihan LifeOS bila nama/kodenya sama. */
+/** Baris tabel (nama atau "Nama - Jabatan") mewakili pilihan Akasha bila nama/kodenya sama. */
 export const sameParty = (row: string, pick: RegisterPick) => head(row) === head(pick.label);
 
 /** Isian react-select sama: persis, atau kode/nama bagian pertama sama ("KU.204 - Laporan Keuangan"). */
@@ -242,7 +242,7 @@ export function parseUpdateForm(body: unknown): { form: UpdateForm } | { error: 
 
 /**
  * Baris Log konsep yang akan diubah: hal saat terakhir dikirim, lalu hal terbaru (Perbarui yang terhenti di tengah jalan
- * sudah menyimpan hal baru tetapi LifeOS belum mencatatnya). Baris yang masih punya tautan Edit diutamakan.
+ * sudah menyimpan hal baru tetapi Akasha belum mencatatnya). Baris yang masih punya tautan Edit diutamakan.
  */
 export function findEditRow<T extends { subject: string; editHref?: string | null }>(
   rows: T[],

@@ -1,9 +1,9 @@
 {
   "identities": [
     {
-      "name": "lifeos",
+      "name": "akasha",
       "credentials": [
-        { "accessKey": "lifeos", "secretKey": "lifeos-secret" }
+        { "accessKey": "akasha", "secretKey": "akasha-secret" }
       ],
       "actions": ["Admin", "Read", "List", "Tagging", "Write"]
     }

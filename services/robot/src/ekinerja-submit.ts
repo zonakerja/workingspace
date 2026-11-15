@@ -7,8 +7,8 @@ import { monthName, normalize } from "./ekinerja-renaksi.js";
  * sudah diajukan menampilkan "Tanggal Pengajuan Penilaiaan : dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu.
  *
  * Mengirim = mengajukan penilaian bulan itu ke atasan (tindakan resmi; sesudahnya isian terkunci). Robot hanya menjalankannya
- * atas permintaan pemilik yang dibuktikan dengan PIN di LifeOS (diperiksa backend), pada bulan yang isinya sama persis dengan
- * LifeOS dan lengkap (setiap baris punya renaksi, realisasi, bukti). Dialog konfirmasi setelah tombol diklik **belum pernah
+ * atas permintaan pemilik yang dibuktikan dengan PIN di Akasha (diperiksa backend), pada bulan yang isinya sama persis dengan
+ * Akasha dan lengkap (setiap baris punya renaksi, realisasi, bukti). Dialog konfirmasi setelah tombol diklik **belum pernah
  * direkam** (atas perintah pemilik tidak pernah dikirim saat membangun), jadi robot hanya menyetujui dialog yang jelas meminta
  * konfirmasi pengiriman penilaian; dialog lain dibatalkan dan dilaporkan.
  */
@@ -21,7 +21,7 @@ export interface SubmitRequest {
   skpExternalId: string;
   /** YYYY-MM */
   period: string;
-  /** Kunci baris indikator yang menurut LifeOS ada di bulan itu (pembanding: e-Kinerja harus sama persis) */
+  /** Kunci baris indikator yang menurut Akasha ada di bulan itu (pembanding: e-Kinerja harus sama persis) */
   expectedKeys: string[];
   dryRun: boolean;
 }
@@ -35,7 +35,7 @@ export function parseSubmitRequest(body: unknown): { request: SubmitRequest } | 
   const keys = Array.isArray(b.expectedKeys)
     ? b.expectedKeys.filter((k): k is string => typeof k === "string" && !!k.trim()).slice(0, 200)
     : [];
-  if (!keys.length) return { error: "Isian LifeOS bulan ini kosong." };
+  if (!keys.length) return { error: "Isian Akasha bulan ini kosong." };
   return {
     request: { skpExternalId, period, expectedKeys: [...new Set(keys.map(normalize))], dryRun: b.dryRun !== false },
   };
@@ -66,13 +66,13 @@ export function incompleteRows(rows: BlockRow[]) {
     .filter((r) => r.missing.length);
 }
 
-/** Baris e-Kinerja dibanding isian LifeOS: yang hanya ada di salah satu sisi. */
+/** Baris e-Kinerja dibanding isian Akasha: yang hanya ada di salah satu sisi. */
 export function rowDifference(rows: BlockRow[], expectedKeys: string[]) {
   const have = new Set(rows.map((r) => r.key));
   const want = new Set(expectedKeys.map(normalize));
   return {
     onlyEkinerja: [...have].filter((k) => !want.has(k)),
-    onlyLifeos: [...want].filter((k) => !have.has(k)),
+    onlyAkasha: [...want].filter((k) => !have.has(k)),
   };
 }
 

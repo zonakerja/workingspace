@@ -1,5 +1,5 @@
 #!/bin/sh
-# Backup berkala LifeOS (service `backup` di docker-compose.prod.yml). Panduan: docs/DEPLOYMENT.md §4.
+# Backup berkala Akasha (service `backup` di docker-compose.prod.yml). Panduan: docs/DEPLOYMENT.md §4.
 #
 #   backup.sh            loop: backup setiap BACKUP_INTERVAL_HOURS jam
 #   backup.sh --once     satu kali backup (exit 0 = sukses)
@@ -18,7 +18,7 @@ set -eu
 INTERVAL_HOURS="${BACKUP_INTERVAL_HOURS:-24}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 OFFSITE_RETENTION_DAYS="${OFFSITE_RETENTION_DAYS:-30}"
-BUCKET="${ASSET_BUCKET:-lifeos-assets}"
+BUCKET="${ASSET_BUCKET:-akasha-assets}"
 DIR=/backups
 MARKER="$DIR/.last-success"
 
@@ -48,7 +48,7 @@ configure_rclone() {
     # Bucket dibuat manual di penyedia; key cukup punya izin baca/tulis objek
     export RCLONE_CONFIG_OFFSITERAW_NO_CHECK_BUCKET=true
     export RCLONE_CONFIG_OFFSITE_TYPE=crypt
-    export RCLONE_CONFIG_OFFSITE_REMOTE="offsiteraw:${OFFSITE_S3_BUCKET}/${OFFSITE_S3_PREFIX:-lifeos}"
+    export RCLONE_CONFIG_OFFSITE_REMOTE="offsiteraw:${OFFSITE_S3_BUCKET}/${OFFSITE_S3_PREFIX:-akasha}"
     RCLONE_CONFIG_OFFSITE_PASSWORD="$(rclone obscure "$BACKUP_ENCRYPTION_PASSWORD")" || return 1
     export RCLONE_CONFIG_OFFSITE_PASSWORD
   fi

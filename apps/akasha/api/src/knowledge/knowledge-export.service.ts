@@ -47,9 +47,9 @@ interface ExportStatus {
 }
 
 /**
- * Cermin satu arah hasil kerja LifeOS → vault Obsidian (`80-LifeOS/`, logika murni `vault-export.ts`). Berjalan saat
+ * Cermin satu arah hasil kerja Akasha → vault Obsidian (`80-Akasha/`, logika murni `vault-export.ts`). Berjalan saat
  * data user berubah (diperiksa tiap menit), saat diaktifkan, dan lewat tombol Sinkronkan sekarang. Hanya data milik
- * user sendiri; hanya berkas bertanda `sumber: lifeos` yang ditimpa/dihapus (catatan user di folder itu aman).
+ * user sendiri; hanya berkas bertanda `sumber: akasha` yang ditimpa/dihapus (catatan user di folder itu aman).
  */
 @Injectable()
 export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
@@ -159,7 +159,7 @@ export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
     const job = this.doRun(userId)
       .catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Cermin 80-LifeOS user ${userId} gagal: ${message}`);
+        this.logger.warn(`Cermin 80-Akasha user ${userId} gagal: ${message}`);
         this.setStatus(userId, { lastError: message });
         throw error;
       })
@@ -187,7 +187,7 @@ export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
       // Berkas buatan user sendiri yang kebetulan bernama sama tidak pernah ditimpa
       if (existing !== null && !isManagedNote(existing)) continue;
       await mkdir(dirname(absolute), { recursive: true });
-      const temp = `${absolute}.${randomUUID().slice(0, 8)}.lifeos-tmp`;
+      const temp = `${absolute}.${randomUUID().slice(0, 8)}.akasha-tmp`;
       await writeFile(temp, text, "utf8");
       await rename(temp, absolute);
       written++;
@@ -215,7 +215,7 @@ export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
     if (removed) await this.vault.scanNow(userId);
   }
 
-  /** Hapus berkas cermin yang datanya sudah tidak ada (hanya bertanda `sumber: lifeos`) + folder yang jadi kosong. */
+  /** Hapus berkas cermin yang datanya sudah tidak ada (hanya bertanda `sumber: akasha`) + folder yang jadi kosong. */
   private async removeStale(base: string, keep: Set<string>) {
     const root = join(base, EXPORT_DIR);
     let removed = 0;

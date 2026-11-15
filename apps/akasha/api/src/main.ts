@@ -45,7 +45,7 @@ async function bootstrap() {
   if (config.get<string>("NODE_ENV") !== "production") {
     const document = SwaggerModule.createDocument(
       app,
-      new DocumentBuilder().setTitle("LifeOS API").setVersion("1.0").addBearerAuth().build(),
+      new DocumentBuilder().setTitle("Akasha API").setVersion("1.0").addBearerAuth().build(),
     );
     SwaggerModule.setup("api/docs", app, document, {
       jsonDocumentUrl: "api/docs-json",

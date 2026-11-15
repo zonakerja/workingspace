@@ -26,7 +26,7 @@ import { fileHeaders } from "./file-headers";
 
 /**
  * Tautan publik baca-saja ke satu berkas (tahap 6 docs/AI-AGENT.md §21): dipakai sebagai "link dokumen" bukti kinerja di
- * e-Kinerja yang harus bisa dibuka atasan/penilai tanpa akun LifeOS. Token acak 32 byte hanya ditampilkan sekali (yang
+ * e-Kinerja yang harus bisa dibuka atasan/penilai tanpa akun Akasha. Token acak 32 byte hanya ditampilkan sekali (yang
  * disimpan hash-nya), bisa diberi masa berlaku, dan dicabut kapan saja.
  */
 const TOKEN_PREFIX = "lp_";

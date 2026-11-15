@@ -114,7 +114,7 @@ function request(url: URL): Promise<IncomingMessage> {
         lookup: safeLookup,
         timeout: TIMEOUT_MS,
         headers: {
-          "User-Agent": "LifeOS-Notebook/1.0 (+https://github.com/zonakerja/lifeos)",
+          "User-Agent": "Akasha-Notebook/1.0 (+https://github.com/zonakerja/workingspace)",
           Accept: "text/html,application/xhtml+xml,text/plain,application/pdf;q=0.9,*/*;q=0.5",
           "Accept-Language": "id,en;q=0.8",
         },

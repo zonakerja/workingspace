@@ -10,9 +10,9 @@ import { RobotModule } from "../robot/robot.module";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { ApiTokensService } from "./api-tokens.service";
 import { IntegrationsController, McpController } from "./integrations.controller";
-import { LifeosMcpService } from "./lifeos-mcp.service";
+import { AkashaMcpService } from "./akasha-mcp.service";
 
-/** Integrasi agen: token akses pribadi + MCP server LifeOS (docs/AI-AGENT.md tahap 3). */
+/** Integrasi agen: token akses pribadi + MCP server Akasha (docs/AI-AGENT.md tahap 3). */
 @Module({
   imports: [
     AgentActionsModule,
@@ -26,7 +26,7 @@ import { LifeosMcpService } from "./lifeos-mcp.service";
     WhatsappModule,
   ],
   controllers: [IntegrationsController, McpController],
-  providers: [ApiTokensService, LifeosMcpService],
+  providers: [ApiTokensService, AkashaMcpService],
   exports: [ApiTokensService],
 })
 export class IntegrationsModule {}

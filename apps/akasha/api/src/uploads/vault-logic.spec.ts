@@ -68,11 +68,11 @@ describe("brankas digital — asal pembuka", () => {
     expect(referrerOrigin(42)).toBeNull();
   });
 
-  it("label: e-Kinerja dari host konektor, LifeOS, situs lain, tanpa asal", () => {
+  it("label: e-Kinerja dari host konektor, Akasha, situs lain, tanpa asal", () => {
     const hosts = ["ekinerja.dephub.go.id"];
     expect(referrerLabel("https://ekinerja.dephub.go.id", null, hosts).kind).toBe("ekinerja");
     expect(referrerLabel("https://app.ekinerja.dephub.go.id", null, hosts).kind).toBe("ekinerja");
-    expect(referrerLabel("https://lifeos.contoh.id", "https://lifeos.contoh.id", hosts).kind).toBe("app");
+    expect(referrerLabel("https://akasha.contoh.id", "https://akasha.contoh.id", hosts).kind).toBe("app");
     expect(referrerLabel("https://web.whatsapp.com", null, hosts)).toEqual({
       kind: "other",
       label: "web.whatsapp.com",

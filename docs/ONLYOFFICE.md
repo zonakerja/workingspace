@@ -8,15 +8,15 @@ acuan thread integrasi ONLYOFFICE: hasil riset, arsitektur, keputusan, dan dafta
 
 ## 1. Ringkasan riset
 
-| Topik | Temuan | Dampak untuk LifeOS |
+| Topik | Temuan | Dampak untuk Akasha |
 |---|---|---|
 | Produk yang dipakai | **ONLYOFFICE Docs** (dulu "Document Server") **Community Edition**, self-hosted, image Docker resmi `onlyoffice/documentserver`. Bukan DocSpace/Workspace/Cloud (itu produk SaaS terpisah). | Cukup satu container tambahan; **tidak perlu akun ONLYOFFICE** untuk memasang & memakai. |
-| Lisensi | AGPL v3 + ketentuan tambahan sejak 9.4 (versi turunan/modifikasi wajib menampilkan bagian "About" yang menyebut ONLYOFFICE sebagai pengembang asli; merek diatur kebijakan merek). | LifeOS memakai image **tanpa modifikasi** sebagai layanan terpisah lewat API → cukup jangan menghapus logo/"About" ONLYOFFICE. (Bukan nasihat hukum.) |
+| Lisensi | AGPL v3 + ketentuan tambahan sejak 9.4 (versi turunan/modifikasi wajib menampilkan bagian "About" yang menyebut ONLYOFFICE sebagai pengembang asli; merek diatur kebijakan merek). | Akasha memakai image **tanpa modifikasi** sebagai layanan terpisah lewat API → cukup jangan menghapus logo/"About" ONLYOFFICE. (Bukan nasihat hukum.) |
 | Batas koneksi | Community dulu dibatasi 20 koneksi bersamaan; **dihapus sejak 9.4** (19 Mei 2026). | Tidak ada batas pemakaian untuk penggunaan pribadi/tim kecil. |
 | Versi | Stabil terbaru **10.0.0** dirilis 12 Okt 2026 (3 hari lalu); **9.4** dirilis 19 Mei 2026 (patch 9.4.0.1 Juli). 9.4 menyatukan semua komponen menjadi **satu proses** dan **tanpa RabbitMQ & database**. 10.0: JWT aktif default, endpoint konversi `from-file`, sakelar AI `customization.ai.disabled`, perubahan memutus untuk token `/converter` & `/command`. | **Keputusan user: langsung `10.0`** (rilis stabil). Breaking changes 10.0 tidak mengenai alur Docs API editor + callback; diperhatikan saat memakai `/converter` atau `/command` (token wajib dibuat terpisah, tidak boleh memakai token config editor). |
 | Arsitektur CPU | Tag 9.x & 10.0 tersedia **amd64 + arm64**. | Jalan native di WSL laptop (Ubuntu **aarch64**, sudah dicek) dan di VPS x86_64/ARM64. |
-| Kebutuhan sumber daya | Panduan resmi: 2 core, **RAM ≥ 4 GB**, swap ≥ 4 GB, disk ≥ 40 GB (angka lama; 9.4 lebih ringan karena satu proses). | Laptop 16 GB aman. **VPS 4 GB tidak cukup** untuk LifeOS + ONLYOFFICE → rekomendasi VPS naik ke **8 GB** (lihat §5). |
-| Port & volume | Container mendengar port 80 (443 bila SSL sendiri). Volume: `/var/log/onlyoffice` (log), `/var/lib/onlyoffice` (cache), `/var/www/onlyoffice/Data` (sertifikat). Font tambahan: `/usr/share/fonts/truetype/custom`. | Dev: host port **8080** (tidak bentrok dengan aturan port). Data dokumen tetap di S3 LifeOS — volume ONLYOFFICE hanya cache, tidak perlu di-backup. |
+| Kebutuhan sumber daya | Panduan resmi: 2 core, **RAM ≥ 4 GB**, swap ≥ 4 GB, disk ≥ 40 GB (angka lama; 9.4 lebih ringan karena satu proses). | Laptop 16 GB aman. **VPS 4 GB tidak cukup** untuk Akasha + ONLYOFFICE → rekomendasi VPS naik ke **8 GB** (lihat §5). |
+| Port & volume | Container mendengar port 80 (443 bila SSL sendiri). Volume: `/var/log/onlyoffice` (log), `/var/lib/onlyoffice` (cache), `/var/www/onlyoffice/Data` (sertifikat). Font tambahan: `/usr/share/fonts/truetype/custom`. | Dev: host port **8080** (tidak bentrok dengan aturan port). Data dokumen tetap di S3 Akasha — volume ONLYOFFICE hanya cache, tidak perlu di-backup. |
 | Env penting | `JWT_ENABLED` (default true), `JWT_SECRET` (**wajib diisi sendiri**: default acak dan berubah tiap restart → integrasi rusak), `JWT_HEADER` (default `Authorization`), `JWT_IN_BODY`, `ALLOW_PRIVATE_IP_ADDRESS` (default false), `GENERATE_FONTS`, `WOPI_ENABLED`. | `ALLOW_PRIVATE_IP_ADDRESS=true` wajib: ONLYOFFICE mengunduh berkas dari backend di alamat privat (jaringan Docker / IP WSL). |
 | Cara integrasi | (a) **Docs API** (JS `api.js` + `DocsAPI.DocEditor(config)`): config ditandatangani JWT HS256 **di backend**, ONLYOFFICE mengunduh berkas dari `document.url`, lalu mengirim status ke `editorConfig.callbackUrl`. (b) WOPI (untuk host WOPI seperti SharePoint) — tidak dipakai. | Pakai **Docs API**; secret JWT hanya di backend (sesuai prinsip "secret di server"). |
 | Callback | POST JSON berisi `key`, `status`: 1 sedang diedit · **2 siap disimpan** (± 10 detik setelah editor terakhir ditutup) · 3 gagal simpan · 4 ditutup tanpa perubahan · **6 force save** (tombol Simpan) · 7 gagal force save. Untuk 2/3/6/7 ada `url` berkas hasil edit (+ `changesurl` riwayat). Backend wajib menjawab `{"error":0}`. | Backend mengunduh `url`, menyimpan ke S3 sebagai versi baru Asset, memicu ekstraksi teks + indeks RAG. |
@@ -43,7 +43,7 @@ backend (berjalan di Windows) **membacanya sendiri** dari `os.networkInterfaces(
 ## 2. Arsitektur yang diusulkan
 
 ```
-Browser (LifeOS SPA)
+Browser (Akasha SPA)
   │ 1. POST /api/v1/office/config {uploadId, mode}   (Bearer, cek akses: pemilik / berbagi Lihat|Komentar|Edit)
   │ ◄── config + token JWT (ditandatangani backend dengan ONLYOFFICE_JWT_SECRET)
   │ 2. memuat <ONLYOFFICE_PUBLIC_URL>/web-apps/apps/api/documents/api.js → new DocsAPI.DocEditor(config)
@@ -61,7 +61,7 @@ ONLYOFFICE Docs (container) ── 3. GET  document.url   → backend /office/fi
   dev `auto` = IP WSL, prod `http://backend:4000`).
 - **Hak akses** memakai `ShareAccessService` yang ada: izin Edit → `mode: edit`; Komentar → `permissions.edit=false,
   comment=true`; Lihat → `view`. Isolasi data tetap (tanpa jalan pintas admin).
-- **Penyimpanan**: berkas tetap Asset LifeOS di S3. Setiap simpan = konten Asset diganti versi baru (riwayat versi:
+- **Penyimpanan**: berkas tetap Asset Akasha di S3. Setiap simpan = konten Asset diganti versi baru (riwayat versi:
   keputusan U-5), `key` berganti, ekstraksi + indeks RAG diperbarui. Validasi `url` callback hanya dari host ONLYOFFICE
   (cegah SSRF).
 - **Frontend**: modul baru **Tools** di sidebar (`navigation.ts`) dengan sub menu pertama **ONLYOFFICE**
@@ -71,7 +71,7 @@ ONLYOFFICE Docs (container) ── 3. GET  document.url   → backend /office/fi
   **"Masukkan ke File Control"** yang sudah ada. `previewFile()` untuk DOCX/XLSX/PPTX membuka ONLYOFFICE mode lihat.
   Editor punya tombol "Buka di ONLYOFFICE" dari lampiran/resource.
 - **AI (keputusan user: dua pilihan)**: pengaturan per user "AI di editor ONLYOFFICE": **Mati** (default, sesuai prinsip
-  data tidak keluar tanpa disadari) · **AI LifeOS** · **AI bawaan ONLYOFFICE**. Hasil riset & desain akhir: §3.4.
+  data tidak keluar tanpa disadari) · **AI Akasha** · **AI bawaan ONLYOFFICE**. Hasil riset & desain akhir: §3.4.
 - **Produksi**: service `onlyoffice` di `docker-compose.prod.yml` (tanpa port terbuka, batas memori), Caddy
   `handle_path /office/*` → `onlyoffice:80` + `X-Forwarded-Host {host}/office`; CSP `nginx.conf` tetap `'self'`
   (domain sama). Backup tidak berubah (data di PostgreSQL + S3).
@@ -83,16 +83,16 @@ ONLYOFFICE Docs (container) ── 3. GET  document.url   → backend /office/fi
 | 0. Infra dev | Service `onlyoffice` (`onlyoffice/documentserver:10.0`) di `docker-compose.yml` dengan **profile `office`** (tidak ikut `up -d` biasa agar RAM hemat), port 8080, JWT secret dev, `ALLOW_PRIVATE_IP_ADDRESS=true`, volume cache; deteksi IP WSL; dokumentasi SETUP (port 8080, menyalakan/mematikan). | Container sehat di laptop ARM64, `api.js` terbuka di browser, container menjangkau backend. |
 | 1. Backend | Modul `office`: config bertanda tangan, unduh bertoken, callback (status 2/6 → versi baru → ekstraksi/RAG), buat dokumen kosong dari templat, hak akses berbagi, **riwayat 10 versi + pulihkan**; unit test + smoke test (callback disimulasikan). | Lint, typecheck, test, smoke lulus. |
 | 2. Frontend | Menu **Tools → ONLYOFFICE**, daftar & buat baru, editor layar penuh, integrasi `previewFile` + tombol buka dari lampiran/resource, Resource Global + File Control. | Uji browser: buat → edit → simpan → buka ulang (versi baru), berbagi Lihat/Edit (co-editing dua akun), HP. |
-| 3. Lanjutan | AI bawaan ONLYOFFICE + penyedia kustom "AI LifeOS" (U-7), templat instansi (kop surat, nota dinas), font tambahan, konversi (mis. DOCX → PDF untuk File Control). | Sesuai keputusan user. |
-| 4. Produksi | Compose prod + Caddy sub-path (blokir `/office/welcome`, `/office/example`, `/office/admin`, `/office/info`) + batas memori + uji stack prod lokal (`lifeos-upgradetest`), DEPLOYMENT.md. | Smoke lewat `http://localhost`, editor terbuka lewat `/office/`. |
+| 3. Lanjutan | AI bawaan ONLYOFFICE + penyedia kustom "AI Akasha" (U-7), templat instansi (kop surat, nota dinas), font tambahan, konversi (mis. DOCX → PDF untuk File Control). | Sesuai keputusan user. |
+| 4. Produksi | Compose prod + Caddy sub-path (blokir `/office/welcome`, `/office/example`, `/office/admin`, `/office/info`) + batas memori + uji stack prod lokal (`akasha-upgradetest`), DEPLOYMENT.md. | Smoke lewat `http://localhost`, editor terbuka lewat `/office/`. |
 
 ### 3.1 Hasil tahap 0 (2026-10-15)
 
-- `docker-compose.yml` service `onlyoffice` (container `lifeos-onlyoffice`, profile `office`, port 8080, volume
-  `lifeos-onlyoffice-cache` & `lifeos-onlyoffice-logs`, healthcheck `/healthcheck`). `docker compose up -d` biasa
+- `docker-compose.yml` service `onlyoffice` (container `akasha-onlyoffice`, profile `office`, port 8080, volume
+  `akasha-onlyoffice-cache` & `akasha-onlyoffice-logs`, healthcheck `/healthcheck`). `docker compose up -d` biasa
   **tidak** menyalakannya; nyalakan dengan `docker compose --profile office up -d --wait onlyoffice` (SETUP §4 langkah 6).
-- Env dev: `JWT_SECRET` tetap (`lifeos-dev-onlyoffice-jwt-secret-…`, nanti = `ONLYOFFICE_JWT_SECRET` backend),
-  `JWT_HEADER=AuthorizationJwt` (terpisah dari Bearer LifeOS), `ALLOW_PRIVATE_IP_ADDRESS=true`.
+- Env dev: `JWT_SECRET` tetap (`akasha-dev-onlyoffice-jwt-secret-…`, nanti = `ONLYOFFICE_JWT_SECRET` backend),
+  `JWT_HEADER=AuthorizationJwt` (terpisah dari Bearer Akasha), `ALLOW_PRIVATE_IP_ADDRESS=true`.
 - Terverifikasi: versi **10.0.0-169**, image **arm64** native (± 950 MB), sehat ± 1 menit setelah start, RAM diam
   **± 390 MB**, `api.js` termuat di browser (`DocsAPI.DocEditor.version()` = 10.0.0), JWT & private IP aktif di
   `local.json`, container → backend Windows lewat IP WSL = 200.
@@ -139,7 +139,7 @@ Menu **Tools → ONLYOFFICE** hanya berisi **pengaturan/status** editor.
   versi, JWT; admin juga melihat alamat browser/backend/ONLYOFFICE untuk diagnosis; kartu "Cara memakai". Pilihan AI di
   editor (U-7) akan ditambahkan di halaman ini (tahap 3).
 - **Membuka & menyunting** di semua fitur lewat pratinjau berkas bersama (`previewFile`, dipakai lampiran
-  Productivity/Planner/Notes, Resource Global, File Control): DOCX/XLSX/PPTX/ODT/… tampil lewat ONLYOFFICE mode lihat; PDF
+  Working Space/Planner/Notes, Resource Global, File Control): DOCX/XLSX/PPTX/ODT/… tampil lewat ONLYOFFICE mode lihat; PDF
   tetap penampil browser; berkas yang bisa diedit (DOCX/XLSX/PPTX/PDF) punya tombol **Edit di ONLYOFFICE**.
 - **Buat dokumen baru = pilihan Tipe "Buat Dokumen (ONLYOFFICE)"** (revisi user: tombol di samping "Pilih File" sulit
   ditemukan) di `AttachmentForm` (Project, Action/Task, Tandai Selesai, Agenda: dasar pelaksanaan & hasil) dan form Resource
@@ -170,7 +170,7 @@ Menu **Tools → ONLYOFFICE** hanya berisi **pengaturan/status** editor.
   membaca isinya (`OfficeTextConverter`, metode `onlyoffice`). ONLYOFFICE mati → status tetap "format tidak didukung".
   Diuji: ODT hasil edit → `completed` via `onlyoffice`; smoke +2 (ekstraksi ODT, ODT bisa disunting & ditandai lossy).
 - **Simpan otomatis saat modal ditutup (permintaan user)**: tombol X / Esc → `POST /office/files/:id/forcesave` →
-  editor menampilkan "Menyimpan dokumen ke LifeOS…" sampai versi tersimpan, baru modal tertutup (toast "Dokumen
+  editor menampilkan "Menyimpan dokumen ke Akasha…" sampai versi tersimpan, baru modal tertutup (toast "Dokumen
   tersimpan"). Gagal / server lambat → toast peringatan; ONLYOFFICE tetap menyimpan sendiri ± 10 detik setelah ditutup.
 - **Editor** = modal hampir layar penuh dari `openOfficeEditor({ uploadId, name?, mode? })` (`OfficeEditorHost` di
   AppShell, editor dimuat malas). Riwayat versi (unduh, pulihkan) dari header editor.
@@ -187,12 +187,12 @@ Menu **Tools → ONLYOFFICE** hanya berisi **pengaturan/status** editor.
 
 ### 3.4 Hasil tahap 3 — AI di editor, templat, font, impor (2026-10-16)
 
-Keputusan awal user: plugin AI LifeOS sendiri, AI bawaan dengan key di editor, templat dari Resource bertag Templat, font
+Keputusan awal user: plugin AI Akasha sendiri, AI bawaan dengan key di editor, templat dari Resource bertag Templat, font
 dari folder server. **Direvisi user di hari yang sama** setelah mencoba (lihat U-9 s.d. U-13):
 
 - **AI satu pintu**: tab **AI bawaan ONLYOFFICE** (Chatbot, Summarization, Translation, Grammar & Spelling, asisten
-  kustom, OCR PDF, …) dipakai apa adanya, tetapi **provider & API key = Pengaturan → Model AI LifeOS**; tidak ada pengaturan AI
-  di editor; plugin panel "AI LifeOS" buatan sendiri dihapus.
+  kustom, OCR PDF, …) dipakai apa adanya, tetapi **provider & API key = Pengaturan → Model AI Akasha**; tidak ada pengaturan AI
+  di editor; plugin panel "AI Akasha" buatan sendiri dihapus.
 - **Templat diunggah di Tools → ONLYOFFICE** (bukan lewat tag Resource).
 - **Impor berkas** DOCX/XLSX/PPTX/… saat Buat Dokumen.
 
@@ -210,12 +210,12 @@ dari folder server. **Direvisi user di hari yang sama** setelah mencoba (lihat U
   Tools → ONLYOFFICE; berlaku saat dokumen dibuka berikutnya.
 - Image ONLYOFFICE dev dibangun sendiri (`infra/onlyoffice/Dockerfile`): image resmi + plugin AI
   (`documentserver-pluginsmanager.sh --install="ai"`, butuh internet saat build) + **jembatan**
-  `infra/onlyoffice/lifeos-ai-bridge.js` disisipkan ke `index.html` & awal `Asc.plugin.init` (build gagal bila struktur
-  plugin berubah). Jembatan membaca `info.options.lifeos` dan mengisi `info.aiPluginSettings`: provider **"AI LifeOS"**
-  (url `<origin>/api/v1/office/ai/openai`, key = token sesi AI), satu model `lifeos` (Chat + Vision, 128k), semua aksi →
+  `infra/onlyoffice/akasha-ai-bridge.js` disisipkan ke `index.html` & awal `Asc.plugin.init` (build gagal bila struktur
+  plugin berubah). Jembatan membaca `info.options.akasha` dan mengisi `info.aiPluginSettings`: provider **"AI Akasha"**
+  (url `<origin>/api/v1/office/ai/openai`, key = token sesi AI), satu model `akasha` (Chat + Vision, 128k), semua aksi →
   model itu kecuali ImageGeneration (belum didukung).
 - Config editor (bertanda tangan): `customization.ai.disabled = !aktif`; bila aktif + mode edit/komentar,
-  `editorConfig.plugins.options["asc.{9DC9…}"] = { lifeos: { token, proxy, url, modelId, modelName } }` (token sesi AI
+  `editorConfig.plugins.options["asc.{9DC9…}"] = { akasha: { token, proxy, url, modelId, modelName } }` (token sesi AI
   12 jam, purpose `office-ai`; origin = origin browser bila terdaftar di `CORS_ORIGIN`, selain itu yang pertama).
 - `POST /office/ai/proxy` (tanpa token login; 60/menit): body dibaca sebagai teks (`main.ts`), token sesi dari
   `headers.Authorization` isi permintaan; `…/chat/completions` → pesan OpenAI → satu prompt + gambar data URL
@@ -252,7 +252,7 @@ Terverifikasi:
   sendiri saja, PNG diabaikan, terisolasi per user, dokumen baru dari templat), templat ODT → DOCX.
 - Browser:
   - Sakelar aktif → editor: tab **AI** tanpa tombol Settings.
-  - Pilih teks → **Summarization** → Summarize: dijawab Gemini akun admin dev lewat proxy LifeOS.
+  - Pilih teks → **Summarization** → Summarize: dijawab Gemini akun admin dev lewat proxy Akasha.
     Ditemukan & diperbaiki saat uji: plugin mengirim body tanpa Content-Type → body kosong (401) → parser teks khusus jalur proxy.
   - Kartu Templat: unggah DOCX + PNG (PNG ditolak) → muncul di "Dari templat" form Tambah Resource.
   - **Impor berkas** DOCX → langsung terbuka di editor → Batal tanpa perubahan → dokumen dibuang.
@@ -267,7 +267,7 @@ dokumen**, dan **Cara memakai**; **admin** juga melihat **Status server** (forma
 **Font diunggah admin** (menggantikan "salin ke folder + restart"): kartu Font → **Unggah font** (.ttf/.otf/.ttc ≤ 30 MB;
 isi berkas divalidasi, nama dibersihkan) / hapus (konfirmasi). Backend menulis ke folder bersama `ONLYOFFICE_FONTS_DIR`
 (dev `../infra/onlyoffice/fonts`, produksi volume `onlyoffice-fonts` → `/app/office-fonts`). Image ONLYOFFICE punya
-entrypoint `infra/onlyoffice/lifeos-entrypoint.sh`: pemantau folder font (tiap 30 detik) menjalankan
+entrypoint `infra/onlyoffice/akasha-entrypoint.sh`: pemantau folder font (tiap 30 detik) menjalankan
 `documentserver-generate-allfonts.sh` bila isinya berubah → daftar font terbarui ± 30 detik–2 menit tanpa restart
 manual (layanan dokumen di-restart oleh skrip itu → editor yang terbuka tersambung ulang sebentar). Diuji: unggah
 Bookman Old Style → terdaftar ± 30 detik; berkas palsu ditolak; member 403; hapus di luar folder 404.
@@ -313,7 +313,7 @@ dokumen di Tools memakai daftar yang sama (Lihat / Sunting / Hapus).
   `/office/example`, `/office/admin`, `/office/info` → 404. Satu domain → CSP aplikasi tetap `'self'`; tab AI memanggil
   `/api/v1/office/ai/proxy` di origin yang sama (origin `ONLYOFFICE_URL` diterima sebagai origin aplikasi).
 - Panduan: [DEPLOYMENT.md §9](DEPLOYMENT.md); `.env.example` root punya blok ONLYOFFICE.
-- **Uji stack produksi lokal** (`lifeos-upgradetest`, `APP_DOMAIN=http://localhost`, profile office): semua container
+- **Uji stack produksi lokal** (`akasha-upgradetest`, `APP_DOMAIN=http://localhost`, profile office): semua container
   healthy; rute `/office/healthcheck` & `api.js` 200, halaman bawaan 404; **smoke test penuh lulus lewat Caddy**
   (`API_URL=http://localhost/api/v1`, termasuk callback ONLYOFFICE ⇄ backend di jaringan internal, konversi, versi, AI
   proxy, templat, font, tautan); UI: pratinjau & editor dimuat dari `/office/` (plugin AI + jembatan ikut), dokumen bisa
@@ -364,14 +364,14 @@ dari form Resource/lampiran → Buat Dokumen (ONLYOFFICE) → **Dari Dokumen Say
 |---|---|
 | U-1 | **Community Edition** (gratis, tanpa akun, tanpa batas koneksi). |
 | U-2 | **Langsung 10.0** (image `onlyoffice/documentserver:10.0`). |
-| U-3 | Tahap pertama: (a) buka/edit DOCX/XLSX/PPTX yang sudah ada, (b) buat dokumen baru dari menu Tools, (c) pratinjau modal memakai ONLYOFFICE, **(d) edit PDF** (PDF yang sudah ada di LifeOS & PDF/formulir baru). |
+| U-3 | Tahap pertama: (a) buka/edit DOCX/XLSX/PPTX yang sudah ada, (b) buat dokumen baru dari menu Tools, (c) pratinjau modal memakai ONLYOFFICE, **(d) edit PDF** (PDF yang sudah ada di Akasha & PDF/formulir baru). |
 | U-4 | Dokumen baru menjadi **Resource Global** (tag `ONLYOFFICE`) + centang "Masukkan ke File Control". |
 | U-5 | **10 versi terakhir** per dokumen disimpan dan bisa dipulihkan (versi lebih lama dihapus dari storage). |
-| U-6 | Edit bersama mengikuti berbagi LifeOS (Edit / Komentar / Lihat). |
-| U-7 | **User memilih**: AI LifeOS (lewat backend) **atau** AI bawaan ONLYOFFICE (atau mati) — lihat §2 butir AI. |
-| U-8 | Bahasa Indonesia, nama sesuai akun LifeOS. |
-| U-9 | (2026-10-16, revisi) **AI satu pintu**: tab AI bawaan ONLYOFFICE apa adanya, provider & key = Pengaturan → Model AI LifeOS; tanpa pengaturan AI di editor; sakelar per user (default mati). |
-| U-10 | (2026-10-16, revisi) Pilihan "AI bawaan dengan key diisi di editor" dan plugin panel AI LifeOS sendiri **dihapus**. |
+| U-6 | Edit bersama mengikuti berbagi Akasha (Edit / Komentar / Lihat). |
+| U-7 | **User memilih**: AI Akasha (lewat backend) **atau** AI bawaan ONLYOFFICE (atau mati) — lihat §2 butir AI. |
+| U-8 | Bahasa Indonesia, nama sesuai akun Akasha. |
+| U-9 | (2026-10-16, revisi) **AI satu pintu**: tab AI bawaan ONLYOFFICE apa adanya, provider & key = Pengaturan → Model AI Akasha; tanpa pengaturan AI di editor; sakelar per user (default mati). |
+| U-10 | (2026-10-16, revisi) Pilihan "AI bawaan dengan key diisi di editor" dan plugin panel AI Akasha sendiri **dihapus**. |
 | U-11 | (2026-10-16, revisi) Templat instansi **diunggah di Tools → ONLYOFFICE** (bukan tag Resource). |
 | U-12 | (2026-10-16) Font tambahan = **folder font di server** (`infra/onlyoffice/fonts`) + restart container. |
 | U-13 | (2026-10-16) **Impor berkas** DOCX/XLSX/PPTX/… dari komputer saat Buat Dokumen. |
@@ -400,7 +400,7 @@ dari form Resource/lampiran → Buat Dokumen (ONLYOFFICE) → **Dari Dokumen Say
 
 ### 4.5 Produksi (saat membeli VPS — DEPLOYMENT.md §0)
 
-- [ ] Pilih **VPS 8 GB RAM / 4 vCPU** (LifeOS ± 3,3 GB + ONLYOFFICE ± 2–3 GB + ruang OS). VPS 4 GB hanya bisa bila
+- [ ] Pilih **VPS 8 GB RAM / 4 vCPU** (Akasha ± 3,3 GB + ONLYOFFICE ± 2–3 GB + ruang OS). VPS 4 GB hanya bisa bila
   ONLYOFFICE dimatikan.
 - [ ] Disk ≥ 60 GB (image ONLYOFFICE + cache).
 - [ ] Tidak perlu subdomain/DNS tambahan: ONLYOFFICE disajikan di `https://<APP_DOMAIN>/office/`.

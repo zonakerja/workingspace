@@ -126,7 +126,7 @@ export function AiSettingsTab() {
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />
           <p className="leading-relaxed">
             API key disimpan terenkripsi di server dan tidak pernah dikirim kembali ke browser — hanya 4 karakter
-            terakhirnya yang ditampilkan. Permintaan AI diproses oleh server LifeOS memakai kuota akun provider Anda.
+            terakhirnya yang ditampilkan. Permintaan AI diproses oleh server Akasha memakai kuota akun provider Anda.
           </p>
         </div>
       </div>

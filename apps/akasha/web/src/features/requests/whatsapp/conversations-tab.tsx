@@ -98,7 +98,7 @@ function BotStatusCard() {
           {live
             ? `Webhook: ${window.location.origin}${data.webhookPath} · Graph API ${data.graphVersion}`
             : data.configured
-              ? "Kredensial Meta sudah diisi di server, tetapi bot memakai akun LifeOS lain (WHATSAPP_OWNER_EMAIL)."
+              ? "Kredensial Meta sudah diisi di server, tetapi bot memakai akun Akasha lain (WHATSAPP_OWNER_EMAIL)."
               : "Isi kredensial WhatsApp Cloud API di server (docs/TODO-USER.md bagian WhatsApp). Sementara itu coba bot lewat Simulator — balasan hanya dicatat."}
         </p>
       </div>

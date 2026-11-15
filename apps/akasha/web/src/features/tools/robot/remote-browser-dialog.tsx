@@ -24,7 +24,7 @@ const FRAME_INTERVAL = 900;
 
 /**
  * Browser jarak jauh: tayangan browser robot tempat Anda login sendiri ke SRIKANDI / e-Kinerja (nama pengguna, kata
- * sandi, CAPTCHA, kode OTP). Klik & ketikan diteruskan ke robot; LifeOS hanya menyimpan sesi (cookie) terenkripsi
+ * sandi, CAPTCHA, kode OTP). Klik & ketikan diteruskan ke robot; Akasha hanya menyimpan sesi (cookie) terenkripsi
  * setelah Anda menekan "Selesai & simpan sesi".
  */
 export function RemoteBrowserDialog({
@@ -191,7 +191,7 @@ function RemoteBrowser({
         </DialogTitle>
         <DialogDescription>
           Klik pada tayangan lalu ketik seperti biasa (nama pengguna, kata sandi, CAPTCHA, kode OTP). Ketikan diteruskan
-          langsung ke {connector.label} lewat robot — LifeOS tidak menyimpan kata sandi atau kode OTP; yang disimpan
+          langsung ke {connector.label} lewat robot — Akasha tidak menyimpan kata sandi atau kode OTP; yang disimpan
           hanya sesi login (terenkripsi) setelah Anda menekan <strong>Selesai &amp; simpan sesi</strong>.
         </DialogDescription>
       </DialogHeader>

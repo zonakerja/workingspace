@@ -4,12 +4,12 @@ import { wikilink } from "./vault-export";
 /**
  * Catatan harian (setara core plugin Daily notes Obsidian, K1 docs/AI-AGENT.md §25.6): satu berkas per tanggal di folder
  * `Harian/`, dibuat sekali dari templat `90-Templat/Harian.md` (bila ada) + ringkasan agenda, to-do, dan task hari itu.
- * Setelah dibuat berkas milik user sepenuhnya — LifeOS tidak pernah menimpanya.
+ * Setelah dibuat berkas milik user sepenuhnya — Akasha tidak pernah menimpanya.
  */
 export const DAILY_DIR = "Harian";
 export const DAILY_TEMPLATE = "90-Templat/Harian.md";
-/** Penanda di templat tempat ringkasan LifeOS disisipkan; tanpa penanda ringkasan ditaruh di akhir. */
-export const DAILY_MARKER = /\{\{\s*lifeos\s*\}\}/i;
+/** Penanda di templat tempat ringkasan Akasha disisipkan; tanpa penanda ringkasan ditaruh di akhir. */
+export const DAILY_MARKER = /\{\{\s*akasha\s*\}\}/i;
 
 const DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 const MONTHS = [
@@ -73,7 +73,7 @@ export interface DailyInput {
   overdue: DailyTask[];
   /** Nama project / item Area per id */
   parents: Map<string, { title: string; kind: "project" | "activity"; areaId?: string | null }>;
-  /** Path berkas cermin 80-LifeOS per `lifeos_id` (mis. `schedule:<id>`, `para_project:<id>`) — tautan wiki bila ada */
+  /** Path berkas cermin 80-Akasha per `akasha_id` (mis. `schedule:<id>`, `para_project:<id>`) — tautan wiki bila ada */
   mirror: Map<string, string>;
 }
 
@@ -90,7 +90,7 @@ function agendaTime(a: DailyAgenda, date: string) {
   return end ? `s.d. ${end}` : "Berlanjut";
 }
 
-/** Ringkasan LifeOS untuk satu tanggal (Markdown). */
+/** Ringkasan Akasha untuk satu tanggal (Markdown). */
 export function buildDailySection(input: DailyInput) {
   const app = input.appUrl.replace(/\/+$/, "");
   const open = (path: string) => (app ? ` · [buka](${app}${path})` : "");
@@ -131,14 +131,14 @@ export function buildDailySection(input: DailyInput) {
   }
   lines.push(
     "",
-    `> [!info] Ringkasan LifeOS saat catatan dibuat${open(`/planner/daily?date=${input.date}`)}`,
-    "> Centang di catatan ini tidak mengubah LifeOS — selesaikan item di Planner / Working Space.",
+    `> [!info] Ringkasan Akasha saat catatan dibuat${open(`/planner/daily?date=${input.date}`)}`,
+    "> Centang di catatan ini tidak mengubah Akasha — selesaikan item di Planner / Working Space.",
   );
   return lines.join("\n");
 }
 
 /**
- * Isi berkas catatan harian: templat (bila ada; `{{tanggal}}`, `{{judul}}`, `{{jam}}`, `{{lifeos}}`) atau isi bawaan.
+ * Isi berkas catatan harian: templat (bila ada; `{{tanggal}}`, `{{judul}}`, `{{jam}}`, `{{akasha}}`) atau isi bawaan.
  * `now` hanya dipakai untuk jam; tanggal selalu dari `date`.
  */
 export function buildDailyNote(input: { date: string; section: string; template?: string | null; now: Date }) {

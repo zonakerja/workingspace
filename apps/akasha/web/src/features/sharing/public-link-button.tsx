@@ -20,7 +20,7 @@ const DURATIONS = [
 
 /**
  * Tautan publik baca-saja ke satu berkas — mis. "link dokumen" bukti kinerja di e-Kinerja yang dibuka atasan tanpa akun
- * LifeOS. Alamat lengkap hanya tampil sekali saat dibuat; tautan bisa dicabut kapan saja. Hanya pemilik berkas.
+ * Akasha. Alamat lengkap hanya tampil sekali saat dibuat; tautan bisa dicabut kapan saja. Hanya pemilik berkas.
  */
 export function PublicLinkButton({ uploadId, name }: { uploadId: string; name?: string }) {
   const [open, setOpen] = useState(false);

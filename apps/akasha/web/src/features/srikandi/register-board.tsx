@@ -92,8 +92,8 @@ const matches = (entry: SrikandiOutgoing, q: string) =>
     .some((v) => v!.toLowerCase().includes(q));
 
 /**
- * SRIKANDI → Register Naskah Keluar: gerbang LifeOS sebelum naskah didaftarkan ke SRIKANDI. Entri berisi isian
- * formulir Registrasi Naskah Keluar + berkas mentah (Approval / berkas LifeOS); setelah naskah ditandatangani, PDF
+ * SRIKANDI → Register Naskah Keluar: gerbang Akasha sebelum naskah didaftarkan ke SRIKANDI. Entri berisi isian
+ * formulir Registrasi Naskah Keluar + berkas mentah (Approval / berkas Akasha); setelah naskah ditandatangani, PDF
  * final dari Daftar Naskah Keluar ditautkan ke entrinya. Pendaftaran ke SRIKANDI sementara ditandai manual — robot
  * menyusul setelah formulir SRIKANDI direkam.
  */
@@ -258,7 +258,7 @@ export function RegisterBoard() {
     <SectionCard
       icon={FilePlus2}
       title="Register Naskah Keluar"
-      description="Siapkan naskah sebelum didaftarkan ke SRIKANDI: isian formulir Registrasi Naskah Keluar, file naskah dari Approval atau berkas LifeOS, tujuan, verifikator, dan penandatangan. Setelah ditandatangani, naskah final ditautkan ke entrinya."
+      description="Siapkan naskah sebelum didaftarkan ke SRIKANDI: isian formulir Registrasi Naskah Keluar, file naskah dari Approval atau berkas Akasha, tujuan, verifikator, dan penandatangan. Setelah ditandatangani, naskah final ditautkan ke entrinya."
       action={
         <Button size="sm" onClick={() => setEditId("new", { replace: false })}>
           <FilePlus2 /> Register baru
@@ -517,7 +517,7 @@ export function RegisterBoard() {
         open={!!updating}
         onOpenChange={(o) => !o && setUpdating(null)}
         title="Perbarui konsep di SRIKANDI?"
-        description="Robot membuka Edit konsep ini di Log Naskah Keluar dan hanya mengubah yang berbeda dari entri LifeOS: isian & file naskah (Perbarui Naskah), lampiran, tujuan/tembusan, verifikator, penandatangan — termasuk menghapus baris yang sudah Anda lepas di LifeOS. Konsep yang sudah dikirim tidak bisa diubah. Kirim Konsep dilakukan terpisah (tombol Kirim Konsep, wajib PIN). Gunakan Periksa perubahan (menu ⋯) bila ingin melihat rencananya dulu."
+        description="Robot membuka Edit konsep ini di Log Naskah Keluar dan hanya mengubah yang berbeda dari entri Akasha: isian & file naskah (Perbarui Naskah), lampiran, tujuan/tembusan, verifikator, penandatangan — termasuk menghapus baris yang sudah Anda lepas di Akasha. Konsep yang sudah dikirim tidak bisa diubah. Kirim Konsep dilakukan terpisah (tombol Kirim Konsep, wajib PIN). Gunakan Periksa perubahan (menu ⋯) bila ingin melihat rencananya dulu."
         itemName={updating?.subject || "(tanpa hal)"}
         confirmLabel="Perbarui"
         destructive={false}
@@ -537,7 +537,7 @@ export function RegisterBoard() {
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
         title="Hapus entri register?"
-        description="Berkas yang diunggah lewat register ikut dihapus. Dokumen Approval & berkas LifeOS lain tidak tersentuh, begitu pula naskah di SRIKANDI."
+        description="Berkas yang diunggah lewat register ikut dihapus. Dokumen Approval & berkas Akasha lain tidak tersentuh, begitu pula naskah di SRIKANDI."
         itemName={deleting?.subject || "(tanpa hal)"}
         confirmLabel="Hapus"
         onConfirm={() => {

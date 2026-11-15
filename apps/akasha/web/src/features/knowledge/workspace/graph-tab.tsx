@@ -215,7 +215,7 @@ export function GraphTab() {
             />
             <Toggle label="Catatan yatim" checked={settings.showOrphans} onChange={(v) => set("showOrphans", v)} />
             <Toggle
-              label="Cermin LifeOS (80-LifeOS)"
+              label="Cermin Akasha (80-Akasha)"
               checked={settings.showMirror}
               onChange={(v) => set("showMirror", v)}
             />
@@ -273,7 +273,7 @@ export function GraphTab() {
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Grup pertama yang cocok menentukan warna; disimpan untuk akun Anda. Contoh: <code>path:80-LifeOS</code>.
+              Grup pertama yang cocok menentukan warna; disimpan untuk akun Anda. Contoh: <code>path:80-Akasha</code>.
             </p>
           </Section>
 

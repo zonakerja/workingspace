@@ -119,7 +119,7 @@ export function PoliciesTab() {
           <p className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs text-warning">
             <ShieldAlert className="mt-0.5 size-4 shrink-0" />
             Mode Otomatis aktif. Agen Hermes masih bisa memakai semua alat bawaannya (terminal, browser, eksekusi kode).
-            Untuk kerja otomatis tanpa pengawasan, batasi alat Hermes ke MCP LifeOS saja.
+            Untuk kerja otomatis tanpa pengawasan, batasi alat Hermes ke MCP Akasha saja.
           </p>
         )}
       </Card>
@@ -229,7 +229,7 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
   const { data: skills } = useAgentSkills(true);
   const { items: outgoings } = useSrikandiOutgoings();
   const m = useAgentPolicyMutations();
-  const lifeos = (skills ?? []).filter((s) => s.lifeos);
+  const akasha = (skills ?? []).filter((s) => s.akasha);
   const set = <K extends keyof AgentPolicyInput>(key: K, value: AgentPolicyInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
   const toggleField = (field: AssetField, on: boolean) =>
@@ -301,13 +301,13 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
         </div>
         <div className="grid gap-1.5">
           <Label>Skill agen</Label>
-          {lifeos.length ? (
+          {akasha.length ? (
             <Select value={form.skill || undefined} onValueChange={(v) => set("skill", v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Pilih skill" />
               </SelectTrigger>
               <SelectContent>
-                {lifeos.map((s) => (
+                {akasha.map((s) => (
                   <SelectItem key={s.name} value={s.name}>
                     {s.name}
                   </SelectItem>

@@ -26,7 +26,7 @@ describe("vault-export", () => {
     });
   });
 
-  it("berkas bertanda sumber lifeos & nama ganda diberi nomor", () => {
+  it("berkas bertanda sumber akasha & nama ganda diberi nomor", () => {
     const files = buildExport(
       {
         ...empty,
@@ -46,7 +46,7 @@ describe("vault-export", () => {
     expect(isManagedNote(raw)).toBe(true);
     expect(isManagedNote("---\njenis: sop\n---\nhalo")).toBe(false);
     expect(raw).toContain("http://localhost:5173/notes/free?note=1");
-    expect(files.has(`${EXPORT_DIR}/LifeOS.md`)).toBe(true);
+    expect(files.has(`${EXPORT_DIR}/Akasha.md`)).toBe(true);
   });
 
   it("project, area, task, agenda & resource saling bertaut dan tautannya terselesaikan", () => {
@@ -86,17 +86,17 @@ describe("vault-export", () => {
       },
       all,
     );
-    const project = files.get(`${EXPORT_DIR}/Productivity/Project/Laporan Q4.md`)!;
+    const project = files.get(`${EXPORT_DIR}/Working Space/Project/Laporan Q4.md`)!;
     expect(project).toContain("progres: 40%");
     expect(project).toContain("- [x] Susun draf");
-    expect(project).toContain(wikilink(`${EXPORT_DIR}/Productivity/Area/Keuangan.md`, "Keuangan"));
+    expect(project).toContain(wikilink(`${EXPORT_DIR}/Working Space/Area/Keuangan.md`, "Keuangan"));
     expect(project).toContain("2026-11-05 Rapat review");
-    const area = files.get(`${EXPORT_DIR}/Productivity/Area/Keuangan.md`)!;
+    const area = files.get(`${EXPORT_DIR}/Working Space/Area/Keuangan.md`)!;
     expect(area).toContain("**Sub Area: Anggaran**");
     expect(area).toContain("- [ ] Rekap SPJ");
     expect([...files.keys()].some((p) => p.includes("Tanpa hasil"))).toBe(false);
-    expect(files.get(`${EXPORT_DIR}/Productivity/Resource/SOP Keuangan.md`)).toContain("Project-Basis");
-    expect(project).toContain(wikilink(`${EXPORT_DIR}/Productivity/Resource/KAK Laporan.md`, "KAK Laporan"));
+    expect(files.get(`${EXPORT_DIR}/Working Space/Resource/SOP Keuangan.md`)).toContain("Project-Basis");
+    expect(project).toContain(wikilink(`${EXPORT_DIR}/Working Space/Resource/KAK Laporan.md`, "KAK Laporan"));
 
     // Semua tautan [[…]] di berkas cermin menunjuk berkas yang ada
     const notes = [...files.keys()].map((path, i) => ({ id: String(i), path, frontmatter: null }));
@@ -129,7 +129,7 @@ describe("vault-export", () => {
           },
         ],
       },
-      { ...all, productivity: false },
+      { ...all, workingSpace: false },
     );
     const folder = `${EXPORT_DIR}/My Notebook/Regulasi BMN`;
     const index = files.get(`${folder}.md`)!;

@@ -126,7 +126,7 @@ const RUN_SELECT = {
 } as const;
 
 /**
- * Konektor robot SRIKANDI & e-Kinerja (tahap 6 docs/AI-AGENT.md §21). LifeOS menyimpan sesi browser terenkripsi dan —
+ * Konektor robot SRIKANDI & e-Kinerja (tahap 6 docs/AI-AGENT.md §21). Akasha menyimpan sesi browser terenkripsi dan —
  * bila pengguna mengaktifkan — kredensial di brankas terenkripsi (kunci khusus, AAD). Login otomatis mengisi nama pengguna
  * & kata sandi; CAPTCHA dan kode OTP **selalu diketik pengguna** (tidak dibaca mesin). Rahasia TOTP tidak pernah disimpan,
  * dan robot tidak pernah menandatangani.
@@ -164,7 +164,7 @@ export class RobotService {
   // ---------------------------------------------------------------- Brankas kredensial
 
   /**
-   * Simpan nama pengguna & kata sandi sistem (terenkripsi). Wajib konfirmasi kata sandi akun LifeOS agar sesi yang
+   * Simpan nama pengguna & kata sandi sistem (terenkripsi). Wajib konfirmasi kata sandi akun Akasha agar sesi yang
    * tertinggal terbuka tidak bisa dipakai mengganti kredensial. Kredensial tidak pernah dikembalikan ke browser.
    */
   async setCredentials(userId: string, system: string, dto: CredentialsDto) {
@@ -278,7 +278,7 @@ export class RobotService {
 
   private async confirmAccountPassword(userId: string, password: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } });
-    if (!(await verify(user.passwordHash, password))) throw new ForbiddenException("Kata sandi akun LifeOS salah.");
+    if (!(await verify(user.passwordHash, password))) throw new ForbiddenException("Kata sandi akun Akasha salah.");
   }
 
   // ---------------------------------------------------------------- Konektor
@@ -327,7 +327,7 @@ export class RobotService {
     return this.view(await this.prisma.robotConnector.update({ where: { id: connector.id }, data }));
   }
 
-  /** Lupakan sesi tersimpan (logout dari sisi LifeOS). */
+  /** Lupakan sesi tersimpan (logout dari sisi Akasha). */
   async forget(userId: string, system: string) {
     const connector = await this.connector(userId, system);
     return this.view(
@@ -658,7 +658,7 @@ export class RobotService {
   }
 
   /**
-   * e-Kinerja: samakan Rencana Aksi satu bulan dengan entri LifeOS. Urutan: (1) baca bulan di e-Kinerja → potret +
+   * e-Kinerja: samakan Rencana Aksi satu bulan dengan entri Akasha. Urutan: (1) baca bulan di e-Kinerja → potret +
    * impor butir yang hanya ada di e-Kinerja (agar tidak hilang), (2) robot mode sinkron: indikator baru dicentang, butir
    * kurang ditambah, baris yang isinya berubah / milik entri yang ditandai hapus ditulis ulang. Robot **tidak pernah**
    * menekan "Kirim Penilaian Ke Atasan"; bulan yang sudah diajukan dilewati (terkunci). Entri yang semua butirnya terbaca
@@ -812,9 +812,9 @@ export class RobotService {
   }
 
   /**
-   * e-Kinerja: **Kirim Penilaian Ke Atasan** satu bulan. Hanya pemilik dari aplikasi LifeOS yang bisa mengirim, dan setiap
+   * e-Kinerja: **Kirim Penilaian Ke Atasan** satu bulan. Hanya pemilik dari aplikasi Akasha yang bisa mengirim, dan setiap
    * kali wajib PIN keamanan (`PinService.confirmAction`; token agen / MCP selalu ditolak). `dryRun` (bawaan) = robot
-   * membuka Rencana Aksi, memeriksa isi bulan sama dengan LifeOS & lengkap, dan menandai tombol tanpa mengklik — tanpa PIN.
+   * membuka Rencana Aksi, memeriksa isi bulan sama dengan Akasha & lengkap, dan menandai tombol tanpa mengklik — tanpa PIN.
    * Tidak ada jalur agen, kebijakan otomatis, atau jadwal yang memanggil ini.
    */
   submitEkinerjaRenaksi(user: AuthUser, period: string, options: { dryRun?: boolean; pin?: string }) {
@@ -847,7 +847,7 @@ export class RobotService {
     if (blockers.length || !skp?.externalId) throw new BadRequestException(blockers.join(" "));
     const plan = buildSyncPlan(own, targets, period).bySkp.get(skp.id);
     const expectedKeys = [...new Set((plan?.rows ?? []).map((r) => rowKey(r.rhk, r.indicator)))];
-    if (!expectedKeys.length) throw new BadRequestException("Isian LifeOS bulan ini tidak lengkap.");
+    if (!expectedKeys.length) throw new BadRequestException("Isian Akasha bulan ini tidak lengkap.");
     // PIN diperiksa sebelum robot dipanggil: salah PIN tidak pernah sampai ke e-Kinerja
     if (!dryRun) await this.pins.confirmAction(user, pin);
 
@@ -873,9 +873,9 @@ export class RobotService {
       not_found: `Blok bulan ${result.month} tidak ditemukan di halaman Rencana Aksi e-Kinerja.`,
       already_submitted: `${label} sudah dikirim ke atasan di e-Kinerja${result.message ? ` (${result.message})` : ""} — jalankan Pantau e-Kinerja.`,
       not_ready: `Tombol Kirim Penilaian Ke Atasan tidak tersedia: ${result.message}`,
-      mismatch: `Isi e-Kinerja berbeda dengan LifeOS (${diff?.onlyEkinerja.length ?? 0} baris hanya di e-Kinerja, ${diff?.onlyLifeos.length ?? 0} hanya di LifeOS) — Pantau lalu Kirim perubahan dulu. Robot berhenti tanpa mengirim.`,
+      mismatch: `Isi e-Kinerja berbeda dengan Akasha (${diff?.onlyEkinerja.length ?? 0} baris hanya di e-Kinerja, ${diff?.onlyAkasha.length ?? 0} hanya di Akasha) — Pantau lalu Kirim perubahan dulu. Robot berhenti tanpa mengirim.`,
       incomplete: `${result.incomplete.length} baris indikator di e-Kinerja belum lengkap (renaksi/realisasi/bukti kosong) — robot berhenti tanpa mengirim.`,
-      ready: `Kirim Penilaian (periksa, tidak dikirim): ${label} sama dengan LifeOS & lengkap, tombol Kirim Penilaian Ke Atasan ditemukan`,
+      ready: `Kirim Penilaian (periksa, tidak dikirim): ${label} sama dengan Akasha & lengkap, tombol Kirim Penilaian Ke Atasan ditemukan`,
       unconfirmed: `e-Kinerja menampilkan dialog yang tidak dikenali robot, jadi dibatalkan tanpa mengirim: ${result.message}`,
       failed: `e-Kinerja menolak Kirim Penilaian: ${result.message}`,
       unknown: `Kirim Penilaian diklik tetapi hasilnya belum pasti — jalankan Pantau e-Kinerja. ${result.message}`,
@@ -889,11 +889,11 @@ export class RobotService {
       throw new BadRequestException(messages[result.status]);
     }
     if (result.status === "sent") {
-      // Bulan terkunci di LifeOS sampai Pantau berikutnya membaca tanggal pengajuan resmi dari e-Kinerja
+      // Bulan terkunci di Akasha sampai Pantau berikutnya membaca tanggal pengajuan resmi dari e-Kinerja
       await this.saveMonth(user, skp, Number(period.slice(5, 7)), {
         status: "submitted",
         submittedAt: todayYmd(new Date()),
-        submittedFromLifeos: true,
+        submittedFromAkasha: true,
       });
     }
     return { status: result.status, message: messages[result.status], runId: run.id };
@@ -1094,7 +1094,7 @@ export class RobotService {
 
   /**
    * SRIKANDI: baca Daftar Naskah Keluar → record `srikandi_letter` per naskah; naskah yang sudah ditandatangani dan belum
-   * punya berkas di LifeOS diambil PDF-nya (maks. 5 per sinkron) dan disimpan sebagai berkas milik user (context
+   * punya berkas di Akasha diambil PDF-nya (maks. 5 per sinkron) dan disimpan sebagai berkas milik user (context
    * `srikandi`, ikut ekstraksi & indeks). Robot hanya membaca halaman — tidak ada tombol yang diklik di SRIKANDI.
    */
   syncSrikandiLetters(user: AuthUser, trigger: RobotJobTrigger = "button") {
@@ -1111,7 +1111,7 @@ export class RobotService {
     const keyOf = (row: (typeof existing)[number]) =>
       ((row.extra as Record<string, unknown> | null)?.key as string | undefined) ?? row.number ?? "";
     const extraOf = (row: (typeof existing)[number]) => (row.extra as Record<string, unknown> | null) ?? {};
-    // Lengkap = PDF utama + semua lampiran sudah di LifeOS; yang baru punya PDF utama hanya diambil lampirannya
+    // Lengkap = PDF utama + semua lampiran sudah di Akasha; yang baru punya PDF utama hanya diambil lampirannya
     const known = existing
       .filter((r) => r.uploadId && extraOf(r).attachmentsComplete === true)
       .map(keyOf)
@@ -1220,7 +1220,7 @@ export class RobotService {
   /**
    * SRIKANDI → Naskah Masuk: robot membaca daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan → record
    * `srikandi_inbox` (ID stabil dari isi). Detail naskah tidak dibuka (Status Baca di SRIKANDI tetap); isian tindak lanjut
-   * LifeOS pada record dipertahankan, dan butir yang tidak lagi tampil tidak dihapus.
+   * Akasha pada record dipertahankan, dan butir yang tidak lagi tampil tidak dihapus.
    */
   syncSrikandiInbox(user: AuthUser, trigger: RobotJobTrigger = "button") {
     return this.job(user.id, "srikandi_inbox", trigger, () => this.readSrikandiInbox(user));
@@ -1485,7 +1485,7 @@ export class RobotService {
 
   /**
    * SRIKANDI: **Kirim Konsep** entri Register yang sudah terdaftar (konsep di Log Naskah Keluar → verifikator). Hanya pemilik
-   * dari aplikasi LifeOS yang bisa mengirim, dan setiap kali wajib PIN keamanan (`PinService.confirmAction`; token agen /
+   * dari aplikasi Akasha yang bisa mengirim, dan setiap kali wajib PIN keamanan (`PinService.confirmAction`; token agen /
    * MCP selalu ditolak). `dryRun` (bawaan) = robot membuka halaman detail konsep dan menandai tombol Kirim Konsep tanpa
    * mengklik — tanpa PIN. Tidak ada jalur agen, kebijakan otomatis, atau jadwal yang memanggil ini.
    */
@@ -1633,7 +1633,7 @@ export class RobotService {
   /**
    * Naskah ber-TTD + lampirannya → Resource Global (tag "Dokumen Final") dan File Control (Gantung), sekali per berkas
    * (resource yang sudah dihapus user tidak dibuat ulang). Tautan ke dokumen mentah yang dikirim ke SRIKANDI dibuat lewat
-   * Register Naskah Keluar (gerbang dari Approval / Productivity), bukan ditebak dari isi dokumen.
+   * Register Naskah Keluar (gerbang dari Approval / Working Space), bukan ditebak dari isi dokumen.
    */
   private async finalizeSrikandiLetters(user: AuthUser) {
     const rows = await this.prisma.srikandiLetter.findMany({

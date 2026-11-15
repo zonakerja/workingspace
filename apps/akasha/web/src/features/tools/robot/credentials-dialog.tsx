@@ -18,7 +18,7 @@ import { errorMessage } from "@/lib/api/client";
 import type { RobotConnector } from "@/types/api";
 
 /**
- * Simpan / ganti kredensial sistem ke brankas LifeOS (AES-256-GCM, kunci khusus server). Wajib kata sandi akun LifeOS
+ * Simpan / ganti kredensial sistem ke brankas Akasha (AES-256-GCM, kunci khusus server). Wajib kata sandi akun Akasha
  * sebagai konfirmasi. Nilai yang tersimpan tidak pernah bisa dilihat lagi dari aplikasi — hanya diganti atau dihapus.
  */
 export function CredentialsDialog({ connector, onClose }: { connector: RobotConnector | null; onClose: () => void }) {
@@ -31,7 +31,7 @@ export function CredentialsDialog({ connector, onClose }: { connector: RobotConn
             <LockKeyhole className="size-5 text-module" /> Kredensial {connector?.label}
           </DialogTitle>
           <DialogDescription>
-            Disimpan terenkripsi di server LifeOS dan hanya dipakai robot untuk mengisi formulir login. Tidak bisa
+            Disimpan terenkripsi di server Akasha dan hanya dipakai robot untuk mengisi formulir login. Tidak bisa
             dilihat lagi setelah disimpan. CAPTCHA & kode OTP tidak disimpan — selalu Anda ketik saat diminta.
           </DialogDescription>
         </DialogHeader>
@@ -101,7 +101,7 @@ function CredentialsForm({ connector, onDone }: { connector: RobotConnector; onD
         </div>
       </div>
       <div className="grid gap-1 rounded-lg bg-muted/40 p-2">
-        <Label htmlFor="cred-account">Kata sandi akun LifeOS Anda (konfirmasi)</Label>
+        <Label htmlFor="cred-account">Kata sandi akun Akasha Anda (konfirmasi)</Label>
         <Input
           id="cred-account"
           type="password"

@@ -33,9 +33,9 @@ import {
   useSchedules,
   useTodos,
 } from "@/data/collections";
-import { CompleteTaskDialog } from "@/features/productivity/components/complete-task-dialog";
-import { TaskQuickDialog, type TaskKind } from "@/features/productivity/components/task-quick-dialog";
-import { completionDefaults } from "@/features/productivity/lib/para";
+import { CompleteTaskDialog } from "@/features/working-space/components/complete-task-dialog";
+import { TaskQuickDialog, type TaskKind } from "@/features/working-space/components/task-quick-dialog";
+import { completionDefaults } from "@/features/working-space/lib/para";
 import { ownedFiles } from "@/features/resources/attachment-cleanup";
 import { DeleteWithFilesDialog } from "@/features/resources/delete-with-files-dialog";
 import { useAttachmentCleanup } from "@/features/resources/use-attachment-cleanup";
@@ -80,9 +80,9 @@ type CombinedItem = ({ isProd: false } & Todo) | ({ isProd: true; kind: TaskKind
 /** Gaya per jenis item to-do gabungan. */
 const ITEM_STYLE = {
   todo: {
-    border: "border-l-mod-productivity",
-    check: "border-mod-productivity bg-mod-productivity",
-    done: "bg-mod-productivity/8",
+    border: "border-l-mod-working-space",
+    check: "border-mod-working-space bg-mod-working-space",
+    done: "bg-mod-working-space/8",
   },
   action: { border: "border-l-mod-notes", check: "border-mod-notes bg-mod-notes", done: "bg-mod-notes/8" },
   task: { border: "border-l-primary", check: "border-primary bg-primary", done: "bg-primary/8" },
@@ -190,7 +190,7 @@ export function DailyTab() {
   const toggleItem = (item: CombinedItem, late = false) => {
     if (!canEdit) return;
     if (item.isProd) {
-      // Sama dengan Productivity: centang → dialog Tandai Selesai (tanggal, prioritas, bobot); batal centang langsung
+      // Sama dengan Working Space: centang → dialog Tandai Selesai (tanggal, prioritas, bobot); batal centang langsung
       if (item.completed)
         setTasks((prev) => prev.map((t) => (t.id === item.id ? { ...t, ...completionPatch(false) } : t)));
       else setCompletingTask({ task: stripCombined(item), kind: item.kind });
@@ -661,7 +661,7 @@ export function DailyTab() {
         onConfirm={(keepIds) => {
           if (deleting?.isProd) {
             setTasks((prev) => prev.filter((t) => t.id !== deleting.id));
-            // Lampiran berkas task/action ikut dihapus kecuali dipertahankan (tag sama dengan Productivity)
+            // Lampiran berkas task/action ikut dihapus kecuali dipertahankan (tag sama dengan Working Space)
             cleanup.release(deletingFiles, keepIds, {
               contextTag: deleting.kind === "action" ? "Project Action" : "Area Task",
               exclude: deleting.resources ?? [],

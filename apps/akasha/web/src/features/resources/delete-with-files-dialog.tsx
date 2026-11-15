@@ -34,7 +34,7 @@ interface DeleteWithFilesDialogProps {
 }
 
 /**
- * Konfirmasi hapus item beserta berkas lampirannya (dipakai bersama Planner & Productivity). Secara default semua berkas
+ * Konfirmasi hapus item beserta berkas lampirannya (dipakai bersama Planner & Working Space). Secara default semua berkas
  * ikut dihapus; user bisa mempertahankan satu atau lebih berkas → dipindah menjadi Resource global.
  */
 export function DeleteWithFilesDialog(props: DeleteWithFilesDialogProps) {

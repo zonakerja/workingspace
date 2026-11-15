@@ -60,7 +60,7 @@ export class SaveAiProviderDto {
 
 /** Pembagian tugas AI; null = kembali ke bawaan (provider aktif / urutan bawaan). Field yang tidak dikirim = tetap. */
 export class AiRoutingDto {
-  @ApiPropertyOptional({ enum: AiProvider, nullable: true, description: "Chat asisten LifeOS & My Notebook" })
+  @ApiPropertyOptional({ enum: AiProvider, nullable: true, description: "Chat asisten Akasha & My Notebook" })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsEnum(AiProvider, { message: "Provider AI tidak dikenal." })
@@ -72,7 +72,7 @@ export class AiRoutingDto {
   @IsEnum(AiProvider, { message: "Provider AI tidak dikenal." })
   general?: AiProvider | null;
 
-  @ApiPropertyOptional({ enum: AiProvider, nullable: true, description: "Model agen Hermes (lewat proxy LifeOS)" })
+  @ApiPropertyOptional({ enum: AiProvider, nullable: true, description: "Model agen Hermes (lewat proxy Akasha)" })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsEnum(AiProvider, { message: "Provider AI tidak dikenal." })

@@ -13,7 +13,7 @@ import {
 } from "class-validator";
 import { NotebookSourceKind } from "../../generated/prisma/client";
 
-/** Item LifeOS yang bisa dijadikan sumber notebook. */
+/** Item Akasha yang bisa dijadikan sumber notebook. */
 export const NOTEBOOK_RECORD_TYPES = ["free_note", "ai_note", "list", "para_resource"] as const;
 export type NotebookRecordType = (typeof NOTEBOOK_RECORD_TYPES)[number];
 

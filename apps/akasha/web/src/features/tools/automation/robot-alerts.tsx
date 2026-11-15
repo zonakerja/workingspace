@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { AutomationAlert } from "@/types/api";
 import { alertAction, newAlerts } from "./automation-utils";
 
-const seenKey = (userId: string) => `lifeos.robotAlerts.seen.${userId}`;
+const seenKey = (userId: string) => `akasha.robotAlerts.seen.${userId}`;
 
 function readSeen(userId: string): string[] {
   try {
@@ -53,7 +53,7 @@ export function useRobotAlertToasts() {
         action: { label: alertAction(alert), onClick: () => void navigate(alert.path) },
       });
       if (browserNotifications() && Notification.permission === "granted" && document.hidden) {
-        const n = new Notification(`LifeOS — ${alert.title}`, { body: alert.message, tag: alert.id });
+        const n = new Notification(`Akasha — ${alert.title}`, { body: alert.message, tag: alert.id });
         n.onclick = () => {
           window.focus();
           void navigate(alert.path);
@@ -93,7 +93,7 @@ export function RobotAlertsSection({ alerts, onOpen }: { alerts: AutomationAlert
   );
 }
 
-/** Tombol meminta izin notifikasi browser (muncul di luar tab LifeOS saat tab tidak sedang dilihat). */
+/** Tombol meminta izin notifikasi browser (muncul di luar tab Akasha saat tab tidak sedang dilihat). */
 export function BrowserNotificationButton() {
   const [permission, setPermission] = useState(() =>
     browserNotifications() ? Notification.permission : ("unsupported" as const),

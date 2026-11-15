@@ -117,7 +117,7 @@ export function DocumentLinksButton({ uploadId, name }: { uploadId: string; name
             <section className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
                 Berkas ini belum tertaut ke konsep. Tautkan bila ini dokumen final (mis. hasil tanda tangan) dari konsep
-                di LifeOS.
+                di Akasha.
               </p>
               <Button size="xs" variant="outline" onClick={() => openDialog("draft")}>
                 <Link2 /> Tautkan ke konsep
@@ -375,7 +375,7 @@ function LinkExistingDialog({
           <DialogTitle>{role === "final" ? "Tautkan dokumen final" : "Tautkan ke konsep"}</DialogTitle>
           <DialogDescription>
             {role === "final"
-              ? "Pilih berkas di LifeOS (mis. PDF bertanda tangan) yang merupakan versi final konsep ini."
+              ? "Pilih berkas di Akasha (mis. PDF bertanda tangan) yang merupakan versi final konsep ini."
               : "Pilih konsep (dokumen ONLYOFFICE) dari berkas final ini."}
           </DialogDescription>
         </DialogHeader>

@@ -7,7 +7,7 @@
 
 /*
  * ============================================================================
- * LifeOS Design Tokens
+ * Akasha Design Tokens
  * ----------------------------------------------------------------------------
  * - Semua warna didefinisikan sebagai CSS variable (OKLCH) di :root dan .dark.
  * - JANGAN menulis warna hardcoded / ternary dark mode di komponen.
@@ -60,7 +60,7 @@
   --color-mod-planner: var(--mod-planner);
   --color-mod-notes: var(--mod-notes);
   --color-mod-knowledge: var(--mod-knowledge);
-  --color-mod-productivity: var(--mod-productivity);
+  --color-mod-working-space: var(--mod-working-space);
   --color-mod-files: var(--mod-files);
   --color-mod-requests: var(--mod-requests);
   --color-mod-agent: var(--mod-agent);
@@ -133,8 +133,8 @@
   --mod-notes-2: oklch(0.66 0.21 25);
   --mod-knowledge: oklch(0.56 0.19 350);
   --mod-knowledge-2: oklch(0.6 0.17 15);
-  --mod-productivity: oklch(0.63 0.16 160);
-  --mod-productivity-2: oklch(0.66 0.13 200);
+  --mod-working-space: oklch(0.63 0.16 160);
+  --mod-working-space-2: oklch(0.66 0.13 200);
   --mod-files: oklch(0.6 0.21 12);
   --mod-files-2: oklch(0.7 0.18 50);
   --mod-requests: oklch(0.58 0.15 140);
@@ -161,7 +161,7 @@
 
   --chart-1: var(--mod-overview);
   --chart-2: var(--mod-planner);
-  --chart-3: var(--mod-productivity);
+  --chart-3: var(--mod-working-space);
   --chart-4: var(--mod-notes);
   --chart-5: var(--mod-files);
   /* Warna grup graf menu Pengetahuan (dibaca kanvas lewat getComputedStyle) */
@@ -227,8 +227,8 @@
   --mod-notes-2: oklch(0.72 0.18 30);
   --mod-knowledge: oklch(0.72 0.15 350);
   --mod-knowledge-2: oklch(0.74 0.13 15);
-  --mod-productivity: oklch(0.72 0.15 160);
-  --mod-productivity-2: oklch(0.74 0.12 200);
+  --mod-working-space: oklch(0.72 0.15 160);
+  --mod-working-space-2: oklch(0.74 0.12 200);
   --mod-files: oklch(0.7 0.18 15);
   --mod-files-2: oklch(0.76 0.15 50);
   --mod-requests: oklch(0.72 0.14 140);
@@ -278,9 +278,9 @@
   --module: var(--mod-knowledge);
   --module-2: var(--mod-knowledge-2);
 }
-[data-module="productivity"] {
-  --module: var(--mod-productivity);
-  --module-2: var(--mod-productivity-2);
+[data-module="working-space"] {
+  --module: var(--mod-working-space);
+  --module-2: var(--mod-working-space-2);
 }
 [data-module="files"] {
   --module: var(--mod-files);

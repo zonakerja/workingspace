@@ -60,7 +60,7 @@ const patchMessages = (
     prev ? { ...prev, messages: fn(prev.messages) } : prev,
   );
 
-/** Item LifeOS & berkas yang menjadi sumber notebook (dialog hapus catatan memakai ini). */
+/** Item Akasha & berkas yang menjadi sumber notebook (dialog hapus catatan memakai ini). */
 export function useNotebookUsage(enabled = true) {
   return useQuery({ queryKey: queryKeys.notebookUsage, queryFn: notebooksApi.usage, enabled, staleTime: 30_000 });
 }

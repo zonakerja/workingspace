@@ -6,7 +6,7 @@ import type { CookieOptions, Request, Response } from "express";
  * endpoint /api/v1/auth. Access token tetap dikirim lewat header Authorization dan
  * hanya disimpan di memori frontend.
  */
-export const REFRESH_COOKIE = "lifeos_rt";
+export const REFRESH_COOKIE = "akasha_rt";
 const COOKIE_PATH = "/api/v1/auth";
 
 const baseOptions = (secure: boolean): CookieOptions => ({

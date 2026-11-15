@@ -145,7 +145,7 @@ export function ProposalsTab() {
         onOpenChange={(open) => !open && setRemoving(null)}
         title="Hapus fitur buatan agen?"
         itemName={removing?.label}
-        description="Fitur ini hilang dari LifeOS. Skill dan hasil kerja agen yang sudah ada tidak ikut terhapus."
+        description="Fitur ini hilang dari Akasha. Skill dan hasil kerja agen yang sudah ada tidak ikut terhapus."
         confirmLabel="Hapus"
         onConfirm={() =>
           removing &&

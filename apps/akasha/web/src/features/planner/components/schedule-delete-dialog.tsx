@@ -9,7 +9,7 @@ import { membersInScope, type SeriesScope, seriesMembers } from "../lib/recurren
 import { SeriesScopePicker } from "./recurrence-fields";
 
 /**
- * Konfirmasi hapus agenda — dipakai bersama Planner (tab Jadwal) & Productivity (daftar agenda Project/Area).
+ * Konfirmasi hapus agenda — dipakai bersama Planner (tab Jadwal) & Working Space (daftar agenda Project/Area).
  * Agenda berulang: pilih cakupan (hanya ini / ini & berikutnya / semua dalam seri). Berkas dasar pelaksanaan & hasil
  * pertemuan yang terhapus ikut dihapus kecuali dipertahankan (→ Resource Global); berkas yang masih dipakai pertemuan
  * lain tetap aman. `schedule` null = tertutup.

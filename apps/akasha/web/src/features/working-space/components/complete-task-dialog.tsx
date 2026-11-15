@@ -34,7 +34,7 @@ export interface CompletionValues {
 /**
  * Dialog saat Action/Task dicentang selesai: Tanggal, Prioritas, dan Bobot (khusus action project) sudah terisi
  * otomatis (`completionDefaults`) dan bisa diubah; lampiran hasil (bukti/laporan) **opsional** lewat mekanisme lampiran
- * yang sama dengan form task. Dipakai Productivity & Planner Harian.
+ * yang sama dengan form task. Dipakai Working Space & Planner Harian.
  */
 export function CompleteTaskDialog({
   task: taskProp,

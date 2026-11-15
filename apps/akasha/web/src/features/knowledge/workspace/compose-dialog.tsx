@@ -32,7 +32,7 @@ import {
 const NEW_NOTE = "__new__";
 const ROOT = "__root__";
 const HEADING_PREFIX = "heading:";
-const AFTER_KEY = "lifeos.noteComposer.after";
+const AFTER_KEY = "akasha.noteComposer.after";
 type After = "link" | "embed" | "none";
 
 const AFTER_LABEL: Record<After, string> = {

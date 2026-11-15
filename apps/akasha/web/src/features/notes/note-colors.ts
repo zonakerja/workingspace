@@ -8,8 +8,8 @@ export const NOTE_COLORS = [
   {
     id: "bg-green-50",
     label: "Hijau",
-    card: "bg-mod-productivity/12 hover:border-mod-productivity/40",
-    swatch: "bg-mod-productivity",
+    card: "bg-mod-working-space/12 hover:border-mod-working-space/40",
+    swatch: "bg-mod-working-space",
   },
   { id: "bg-pink-50", label: "Merah Muda", card: "bg-mod-files/12 hover:border-mod-files/40", swatch: "bg-mod-files" },
   {

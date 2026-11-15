@@ -476,7 +476,7 @@ function CanvasEditor({
         {(file.error || incomplete) && (
           <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
             {file.error
-              ? `Berkas canvas tidak terbaca (${file.error}). Perbaiki di Obsidian — LifeOS tidak menimpanya.`
+              ? `Berkas canvas tidak terbaca (${file.error}). Perbaiki di Obsidian — Akasha tidak menimpanya.`
               : "Sebagian kartu/garis di berkas ini tidak lengkap sehingga canvas dibuka hanya-baca agar isinya tidak hilang."}
           </p>
         )}

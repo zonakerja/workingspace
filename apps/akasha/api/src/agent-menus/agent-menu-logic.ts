@@ -16,7 +16,7 @@ export const MENU_PLACEMENTS = ["workflow", "connection", "ekinerja", "srikandi"
 export type MenuPlacement = (typeof MENU_PLACEMENTS)[number];
 
 /**
- * Menu native LifeOS. Nama ini tidak boleh dipakai fitur buatan agen agar tidak bisa menyamar sebagai menu bawaan.
+ * Menu native Akasha. Nama ini tidak boleh dipakai fitur buatan agen agar tidak bisa menyamar sebagai menu bawaan.
  * Sama dengan `MODULES` di frontend (`config/navigation.ts`) dan tabel native di docs/AI-AGENT.md §26.
  */
 export const NATIVE_FEATURES = [
@@ -24,7 +24,6 @@ export const NATIVE_FEATURES = [
   "Planner",
   "Notes Space",
   "Working Space",
-  "Productivity",
   "File Control",
   "Knowledge",
   "AI Agent",
@@ -152,7 +151,7 @@ export function normalizeMenuProposal(input: MenuProposal): NormalizedMenu | { e
   const skill = input.skill.trim();
   if (!label || label.length > 40) return { error: "Nama wajib diisi, maksimal 40 karakter." };
   if (isNativeFeature(label)) {
-    return { error: `"${label}" adalah fitur native LifeOS. Agen tidak boleh membuat, mengubah, atau menimpanya.` };
+    return { error: `"${label}" adalah fitur native Akasha. Agen tidak boleh membuat, mengubah, atau menimpanya.` };
   }
   if (!description || description.length > 300) return { error: "Deskripsi wajib diisi, maksimal 300 karakter." };
   if (!instructions || instructions.length > 4000) return { error: "Instruksi wajib diisi, maksimal 4.000 karakter." };

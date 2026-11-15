@@ -1,4 +1,4 @@
--- Skema awal LifeOS (baseline). Dibuat dari prisma/schema.prisma.
+-- Skema awal Akasha (baseline). Dibuat dari prisma/schema.prisma.
 
 -- CreateEnum
 CREATE TYPE "user_role" AS ENUM ('super_admin', 'admin', 'member', 'viewer');
@@ -43,13 +43,13 @@ CREATE TABLE "refresh_tokens" (
 -- CreateTable
 CREATE TABLE "app_settings" (
     "id" TEXT NOT NULL DEFAULT 'global',
-    "name" TEXT NOT NULL DEFAULT 'LifeOS',
+    "name" TEXT NOT NULL DEFAULT 'Akasha',
     "nav_sub" TEXT NOT NULL DEFAULT 'Integrated Edition',
-    "login_sub" TEXT NOT NULL DEFAULT 'Ultimate',
-    "motto" TEXT NOT NULL DEFAULT 'Design Your Life, Manage Your Resources',
+    "login_sub" TEXT NOT NULL DEFAULT 'Ruang Kerja',
+    "motto" TEXT NOT NULL DEFAULT 'Ruang untuk pekerjaan, kehidupan, dan sumber daya',
     "welcome_title" TEXT NOT NULL DEFAULT 'Selamat Datang',
     "welcome_sub" TEXT NOT NULL DEFAULT 'Silakan masuk menggunakan User ID dan Password Anda.',
-    "footer_text" TEXT NOT NULL DEFAULT '© 2026 LifeOS System',
+    "footer_text" TEXT NOT NULL DEFAULT '© 2026 workingspace.id',
     "app_logo" TEXT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(3) NOT NULL,

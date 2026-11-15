@@ -117,7 +117,7 @@ export interface PeriodicInput {
   appUrl: string;
   agenda: PeriodicAgenda[];
   tasks: PeriodicTask[];
-  /** Path berkas cermin 80-LifeOS per `lifeos_id` (mis. `schedule:<id>`) */
+  /** Path berkas cermin 80-Akasha per `akasha_id` (mis. `schedule:<id>`) */
   mirror: Map<string, string>;
 }
 
@@ -143,7 +143,7 @@ function periodLinks(period: Period) {
   return weeks.map((key) => `[[Mingguan/${key}|${key.slice(5)}]]`).join(" · ");
 }
 
-/** Ringkasan LifeOS periode itu (Markdown). */
+/** Ringkasan Akasha periode itu (Markdown). */
 export function buildPeriodicSection(input: PeriodicInput) {
   const { period } = input;
   const app = input.appUrl.replace(/\/+$/, "");
@@ -175,13 +175,13 @@ export function buildPeriodicSection(input: PeriodicInput) {
   if (tasks.length > MAX_ITEMS) lines.push(`- _…dan ${tasks.length - MAX_ITEMS} task lain._`);
   lines.push(
     "",
-    `> [!info] Ringkasan LifeOS saat catatan dibuat${app ? ` · [buka Planner](${app}/planner/schedule)` : ""}`,
-    "> Centang di catatan ini tidak mengubah LifeOS — selesaikan item di Planner / Working Space.",
+    `> [!info] Ringkasan Akasha saat catatan dibuat${app ? ` · [buka Planner](${app}/planner/schedule)` : ""}`,
+    "> Centang di catatan ini tidak mengubah Akasha — selesaikan item di Planner / Working Space.",
   );
   return lines.join("\n");
 }
 
-/** Isi berkas catatan berkala: templat (`{{judul}}`, `{{tanggal}}`, `{{jam}}`, `{{lifeos}}`) atau isi bawaan. */
+/** Isi berkas catatan berkala: templat (`{{judul}}`, `{{tanggal}}`, `{{jam}}`, `{{akasha}}`) atau isi bawaan. */
 export function buildPeriodicNote(input: { period: Period; section: string; template?: string | null; now: Date }) {
   const { period } = input;
   const [y, m, d] = period.start.split("-").map(Number);

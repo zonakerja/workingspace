@@ -27,7 +27,7 @@ describe("sinkron Naskah Masuk SRIKANDI", () => {
     expect(inboxClientId(a)).toMatch(/^si-[0-9a-f]{20}$/);
   });
 
-  it("kolom LifeOS dipertahankan; tanpa perubahan robot tidak ditulis ulang", () => {
+  it("kolom Akasha dipertahankan; tanpa perubahan robot tidak ditulis ulang", () => {
     const item = cleanInboxItem(raw)!;
     const first = mergeInboxRecord("si-1", item, null, "2026-11-13T01:00:00.000Z");
     expect(first).toMatchObject({ changed: true, isNew: true });

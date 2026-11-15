@@ -31,8 +31,8 @@ import { WorkflowTab } from "./workflow-tab";
 import { ActionHistoryTab } from "./action-history-tab";
 
 /**
- * AI Agent: antarmuka LifeOS untuk agen Hermes (docs/AI-AGENT.md §23) — chat, status & skill, tugas
- * terakhir. Hermes bekerja dengan data LifeOS lewat MCP; hasil resmi selalu masuk Approval untuk diperiksa pemilik.
+ * AI Agent: antarmuka Akasha untuk agen Hermes (docs/AI-AGENT.md §23) — chat, status & skill, tugas
+ * terakhir. Hermes bekerja dengan data Akasha lewat MCP; hasil resmi selalu masuk Approval untuk diperiksa pemilik.
  */
 export function Component() {
   const { data: status, isLoading } = useAgentStatus();
@@ -46,7 +46,7 @@ export function Component() {
           {isLoading
             ? "Memeriksa agen…"
             : ready
-              ? `Hermes aktif · ${status?.lifeosSkills ?? 0} skill LifeOS`
+              ? `Hermes aktif · ${status?.akashaSkills ?? 0} skill Akasha`
               : "Agen tidak aktif"}
         </HeroStat>
       }
@@ -86,7 +86,8 @@ function NotReady({ status }: { status: AgentStatus }) {
           {status.configured && status.owner && (
             <>
               {" "}
-              Nyalakan dari PowerShell: <code>wsl -e sh /mnt/d/Development/Application/LifeOS/infra/hermes/up.sh</code>
+              Nyalakan dari PowerShell:{" "}
+              <code>wsl -e sh /mnt/d/Development/Application/workingspace/infra/hermes/up.sh</code>
             </>
           )}
         </EmptyDescription>
@@ -102,7 +103,7 @@ interface ChatMessage {
   error?: boolean;
 }
 
-const CONVERSATION_KEY = "lifeos.agent.conversation";
+const CONVERSATION_KEY = "akasha.agent.conversation";
 const readConversation = () => {
   try {
     return localStorage.getItem(CONVERSATION_KEY) ?? "utama";
@@ -246,8 +247,8 @@ function StatusTab({ status }: { status: AgentStatus }) {
   const { data: skills } = useAgentSkills(ready);
   const { data: runs } = useAgentRuns(ready);
   const client = useQueryClient();
-  const lifeos = (skills ?? []).filter((s) => s.lifeos);
-  const others = (skills ?? []).filter((s) => !s.lifeos);
+  const akasha = (skills ?? []).filter((s) => s.akasha);
+  const others = (skills ?? []).filter((s) => !s.akasha);
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {status.configured && status.owner && <AgentSetupCard status={status} />}
@@ -273,23 +274,23 @@ function StatusTab({ status }: { status: AgentStatus }) {
         />
         {status.error && <p className="text-xs text-warning">{status.error}</p>}
         <p className="text-xs text-muted-foreground">
-          Hermes berjalan sebagai container <code>lifeos-hermes</code> (profile <code>agent</code>). Model AI-nya
-          dipanggil lewat LifeOS memakai provider & API key di Pengaturan → Model AI.
+          Hermes berjalan sebagai container <code>akasha-hermes</code> (profile <code>agent</code>). Model AI-nya
+          dipanggil lewat Akasha memakai provider & API key di Pengaturan → Model AI.
         </p>
       </SectionCard>
 
       <SectionCard
         icon={Sparkles}
         title="Skill"
-        description="Skill LifeOS = prosedur kerja agen di repo (agents/hermes/skills/). Jalankan dari detail pengajuan di Approval."
+        description="Skill Akasha = prosedur kerja agen di repo (agents/hermes/skills/). Jalankan dari detail pengajuan di Approval."
         contentClassName="grid grid-cols-1 gap-1.5"
       >
         {!ready ? (
           <p className="text-sm text-muted-foreground">Nyalakan Hermes untuk melihat skill.</p>
-        ) : lifeos.length === 0 ? (
-          <p className="text-sm text-warning">Skill LifeOS belum terbaca — periksa mount folder skill.</p>
+        ) : akasha.length === 0 ? (
+          <p className="text-sm text-warning">Skill Akasha belum terbaca — periksa mount folder skill.</p>
         ) : (
-          lifeos.map((s) => (
+          akasha.map((s) => (
             <div key={s.name} className="rounded-md bg-muted/40 px-3 py-2">
               <p className="text-sm font-medium">{s.name}</p>
               <p className="line-clamp-2 text-xs text-muted-foreground">{s.description}</p>

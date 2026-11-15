@@ -175,7 +175,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     private readonly aiIndex: AiIndexService,
     private readonly trash: TrashService,
   ) {
-    // Catatan/folder/base/canvas yang dihapus ada di .trash vault; Sampah LifeOS bisa mengembalikannya ke tempat semula
+    // Catatan/folder/base/canvas yang dihapus ada di .trash vault; Sampah Akasha bisa mengembalikannya ke tempat semula
     this.trash.registerHandler("vault_note", {
       restore: (item) => this.restoreVaultTrash(item),
       purge: (item) => this.purgeVaultTrash(item),
@@ -414,7 +414,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     this.canvasMtimes.set(userId, next);
   }
 
-  /** Canvas vault → dokumen koleksi pengetahuan (templat & cermin 80-LifeOS tidak diindeks; JSON rusak = dilewati). */
+  /** Canvas vault → dokumen koleksi pengetahuan (templat & cermin 80-Akasha tidak diindeks; JSON rusak = dilewati). */
   private async canvasDocument(userId: string, path: string): Promise<SourceDocument | null> {
     if (!isCanvasPath(path) || [TEMPLATE_DIR, EXPORT_DIR].includes(path.split("/")[0])) return null;
     const absolute = this.inVault(await this.vaultBase(userId), this.validPath(path, "any"));
@@ -718,12 +718,12 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     return note;
   }
 
-  /** Berkas cermin 80-LifeOS ditimpa setiap sinkron → tidak diubah/dipindah/dihapus dari menu Knowledge. */
+  /** Berkas cermin 80-Akasha ditimpa setiap sinkron → tidak diubah/dipindah/dihapus dari menu Knowledge. */
   private async findEditable(userId: string, id: string) {
     const note = await this.findNote(userId, id);
-    if (isExportPath(note.path) && (note.frontmatter as Record<string, unknown> | null)?.sumber === "lifeos")
+    if (isExportPath(note.path) && (note.frontmatter as Record<string, unknown> | null)?.sumber === "akasha")
       throw new BadRequestException(
-        "Berkas ini dikelola LifeOS (cermin 80-LifeOS) dan ditimpa setiap sinkron — ubah datanya di menu asalnya.",
+        "Berkas ini dikelola Akasha (cermin 80-Akasha) dan ditimpa setiap sinkron — ubah datanya di menu asalnya.",
       );
     return note;
   }
@@ -768,7 +768,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Tulis catatan dari LifeOS: isi lama disimpan ke riwayat versi lebih dulu (bisa dipulihkan). */
+  /** Tulis catatan dari Akasha: isi lama disimpan ke riwayat versi lebih dulu (bisa dipulihkan). */
   private async writeNoteFile(
     userId: string,
     path: string,
@@ -796,7 +796,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
   /** Tulis atomik (berkas sementara → rename) agar Obsidian/Syncthing tidak pernah membaca berkas setengah jadi. */
   private async writeAtomic(absolute: string, text: string) {
     if (Buffer.byteLength(text) > MAX_NOTE_BYTES) throw new BadRequestException("Catatan terlalu besar (maks. 2 MB).");
-    const temp = `${absolute}.${randomUUID().slice(0, 8)}.lifeos-tmp`;
+    const temp = `${absolute}.${randomUUID().slice(0, 8)}.akasha-tmp`;
     await writeFile(temp, text, "utf8");
     await rename(temp, absolute);
   }
@@ -1183,7 +1183,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     return { path: to };
   }
 
-  /** Rujukan node `file` di semua canvas (bukan cermin 80-LifeOS); canvas rusak dilewati, tidak pernah ditimpa. */
+  /** Rujukan node `file` di semua canvas (bukan cermin 80-Akasha); canvas rusak dilewati, tidak pernah ditimpa. */
   private async updateCanvasRefs(
     userId: string,
     base: string,
@@ -1206,7 +1206,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     return updated;
   }
 
-  /** Tulis ulang `[[tautan]]` di catatan perujuk (catatan terindeks; cermin 80-LifeOS & `skip` dilewati). */
+  /** Tulis ulang `[[tautan]]` di catatan perujuk (catatan terindeks; cermin 80-Akasha & `skip` dilewati). */
   private async rewriteReferrers(
     userId: string,
     base: string,
@@ -1550,7 +1550,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Ganti nama tag se-vault (K10): semua catatan yang memakai tag itu (properti & `#tag`, termasuk turunan) + kueri grup graf.
-   * Cermin 80-LifeOS dilewati (ditimpa setiap sinkron). Setiap catatan yang berubah tercatat di riwayat versi.
+   * Cermin 80-Akasha dilewati (ditimpa setiap sinkron). Setiap catatan yang berubah tercatat di riwayat versi.
    */
   /** Tandai catatan yang belum punya bidang (mis. seluruh isi vault lama saat pertama memakai bidang). Berkas tetap catatan biasa. */
   async assignField(userId: string, field: string) {
@@ -1761,7 +1761,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Tugas lintas vault (K3): semua `- [ ]` dari catatan Markdown (dibaca dari isi tersimpan hasil pindai), kecuali templat,
-   * cermin 80-LifeOS (salinan data LifeOS), dan ringkasan LifeOS di catatan harian.
+   * cermin 80-Akasha (salinan data Akasha), dan ringkasan Akasha di catatan harian.
    */
   async tasks(userId: string) {
     const notes = await this.prisma.knowledgeNote.findMany({
@@ -1776,7 +1776,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     });
     const tasks: (VaultTask & { noteId: string; path: string; noteTitle: string })[] = [];
     for (const note of notes) {
-      for (const task of parseTasks(note.content ?? "", { skipLifeosSummary: true })) {
+      for (const task of parseTasks(note.content ?? "", { skipAkashaSummary: true })) {
         tasks.push({ ...task, noteId: note.id, path: note.path, noteTitle: note.title });
         if (tasks.length >= MAX_TASKS) return { tasks, truncated: true };
       }
@@ -1876,7 +1876,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     const folder = input.folder?.trim() ? this.validPath(input.folder, "folder") : "";
     const name = safeFileName(input.name);
     if (!name) throw new BadRequestException("Nama wajib diisi.");
-    if (isExportPath(joinVaultPath(folder, "x"))) throw new BadRequestException("Folder 80-LifeOS dikelola LifeOS.");
+    if (isExportPath(joinVaultPath(folder, "x"))) throw new BadRequestException("Folder 80-Akasha dikelola Akasha.");
     for (let n = 1; n < 100; n++) {
       const path = joinVaultPath(folder, `${name}${n > 1 ? ` ${n}` : ""}${ext}`);
       const absolute = this.inVault(base, path);
@@ -1925,7 +1925,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
   /** Simpan canvas utuh (bentuk diperiksa); berubah di disk sejak dibuka → 409, tidak pernah menimpa. */
   async saveCanvas(userId: string, input: { path: string; data: Record<string, unknown>; baseHash: string }) {
     const path = this.canvasPath(input.path);
-    if (isExportPath(path)) throw new BadRequestException("Folder 80-LifeOS dikelola LifeOS.");
+    if (isExportPath(path)) throw new BadRequestException("Folder 80-Akasha dikelola Akasha.");
     const invalid = validateCanvas(input.data);
     if (invalid) throw new BadRequestException(invalid);
     const absolute = this.inVault(await this.vaultBase(userId), path);
@@ -1939,7 +1939,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
 
   async deleteCanvas(userId: string, input: string) {
     const path = this.canvasPath(input);
-    if (isExportPath(path)) throw new BadRequestException("Folder 80-LifeOS dikelola LifeOS.");
+    if (isExportPath(path)) throw new BadRequestException("Folder 80-Akasha dikelola Akasha.");
     const base = await this.vaultBase(userId);
     if (!(await stat(this.inVault(base, path)).catch(() => null)))
       throw new NotFoundException("Berkas canvas tidak ditemukan.");
@@ -1975,7 +1975,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
   /** Simpan base (kunci utama ditulis ulang, sisanya dipertahankan). Berkas berubah di disk → 409. */
   async saveBase(userId: string, input: { path: string; data: Record<string, unknown>; baseHash: string }) {
     const path = this.basePath(input.path);
-    if (isExportPath(path)) throw new BadRequestException("Folder 80-LifeOS dikelola LifeOS.");
+    if (isExportPath(path)) throw new BadRequestException("Folder 80-Akasha dikelola Akasha.");
     const invalid = validateBase(input.data);
     if (invalid) throw new BadRequestException(invalid);
     const absolute = this.inVault(await this.vaultBase(userId), path);
@@ -1988,7 +1988,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
 
   async deleteBase(userId: string, input: string) {
     const path = this.basePath(input);
-    if (isExportPath(path)) throw new BadRequestException("Folder 80-LifeOS dikelola LifeOS.");
+    if (isExportPath(path)) throw new BadRequestException("Folder 80-Akasha dikelola Akasha.");
     const base = await this.vaultBase(userId);
     if (!(await stat(this.inVault(base, path)).catch(() => null)))
       throw new NotFoundException("Berkas base tidak ditemukan.");
@@ -2032,7 +2032,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
 
   async setPrefs(userId: string, input: unknown) {
     const prefs = parsePrefs(input);
-    // Pengaturan cermin 80-LifeOS (`export`, KnowledgeExportService) ikut disimpan di kolom yang sama — dipertahankan
+    // Pengaturan cermin 80-Akasha (`export`, KnowledgeExportService) ikut disimpan di kolom yang sama — dipertahankan
     const current = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: { knowledgePrefs: true },
@@ -2045,7 +2045,7 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
     return prefs;
   }
 
-  /** Folder vault user di disk, atau null bila vault belum dipilih / konektor nonaktif (dipakai cermin 80-LifeOS). */
+  /** Folder vault user di disk, atau null bila vault belum dipilih / konektor nonaktif (dipakai cermin 80-Akasha). */
   async vaultDir(userId: string) {
     if (!this.root) return null;
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { knowledgeVault: true } });

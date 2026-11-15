@@ -10,12 +10,12 @@ import { parse as parseYaml } from "yaml";
 /** Folder vault yang tidak dibaca: pengaturan Obsidian, sampah, git, dan folder tersembunyi lain. */
 export const isIgnoredDir = (name: string) => name.startsWith(".") || name === "node_modules";
 
-/** Folder usulan dari LifeOS/agen untuk dikurasi user (catatan di sini berstatus draf). */
+/** Folder usulan dari Akasha/agen untuk dikurasi user (catatan di sini berstatus draf). */
 export const INBOX_DIR = "00-Inbox";
 /** Templat catatan Obsidian — dibaca tetapi tidak dipakai untuk menjawab (isinya kerangka, bukan pengetahuan). */
 export const TEMPLATE_DIR = "90-Templat";
-/** Folder cermin hasil kerja LifeOS (vault-export.ts) — dibaca untuk graf, tidak diindeks ulang & tidak diperiksa. */
-export const EXPORT_DIR = "80-LifeOS";
+/** Folder cermin hasil kerja Akasha (vault-export.ts) — dibaca untuk graf, tidak diindeks ulang & tidak diperiksa. */
+export const EXPORT_DIR = "80-Akasha";
 
 /** Berkas lampiran vault yang disalin ke storage agar diekstrak (PDF peraturan, DOCX, XLSX, teks). */
 export const VAULT_FILE_TYPES: Record<string, string> = {
@@ -273,7 +273,7 @@ export function inboxNote(input: { title: string; content: string; question?: st
     "jenis: faq",
     "status: draf",
     "publik: false",
-    "sumber: LifeOS",
+    "sumber: Akasha",
     `dibuat: ${date}`,
     "---",
     "",

@@ -79,7 +79,7 @@ export function VersionHistoryDialog({
               <History className="size-4 text-module" /> Riwayat versi
             </DialogTitle>
             <DialogDescription>
-              Setiap sesi edit yang disimpan menjadi satu versi. LifeOS menyimpan 10 versi terakhir.
+              Setiap sesi edit yang disimpan menjadi satu versi. Akasha menyimpan 10 versi terakhir.
             </DialogDescription>
           </DialogHeader>
           {isLoading ? (

@@ -35,7 +35,7 @@ const data = {
   ],
 };
 
-describe("kandidat renaksi dari Productivity", () => {
+describe("kandidat renaksi dari Working Space", () => {
   it("tanggal selesai dibaca WIB", () => {
     expect(jakartaYmd("2026-09-30T18:00:00.000Z")).toBe("2026-10-01");
   });

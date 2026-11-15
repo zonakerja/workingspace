@@ -2,7 +2,7 @@
  * Seed data awal.
  *
  * - Development (default): pengaturan aplikasi + akun demo
- *   admin@lifeos.com / 123 (super_admin) dan user@lifeos.com / 123 (member, untuk uji berbagi).
+ *   admin@workingspace.id / 123 (super_admin) dan user@workingspace.id / 123 (member, untuk uji berbagi).
  * - Production (NODE_ENV=production): pengaturan aplikasi + satu super admin dari
  *   env SEED_ADMIN_EMAIL & SEED_ADMIN_PASSWORD (wajib, min. 8 karakter). Tanpa akun demo.
  *
@@ -36,8 +36,8 @@ async function main() {
     return;
   }
 
-  await ensureUser("admin@lifeos.com", "Super Admin", "123", UserRole.super_admin);
-  await ensureUser("user@lifeos.com", "Pengguna Demo", "123", UserRole.member);
+  await ensureUser("admin@workingspace.id", "Super Admin", "123", UserRole.super_admin);
+  await ensureUser("user@workingspace.id", "Pengguna Demo", "123", UserRole.member);
 }
 
 main()

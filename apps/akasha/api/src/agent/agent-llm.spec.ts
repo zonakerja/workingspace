@@ -29,7 +29,7 @@ describe("proxy model agen", () => {
     expect(prepareChatBody({ prompt: "x" }, "gemini", "m")).toBeNull();
   });
 
-  it("daftar model: satu model lifeos-agent dengan konteks provider", () => {
+  it("daftar model: satu model akasha-agent dengan konteks provider", () => {
     const list = modelsResponse("gemini", "gemini-3.8-flash");
     expect(list.data).toHaveLength(1);
     expect(list.data[0]).toMatchObject({ id: AGENT_MODEL_ID, context_length: 1_000_000 });

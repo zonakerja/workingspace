@@ -49,18 +49,18 @@ describe("parseTasks", () => {
     ]);
   });
 
-  it("melewati ringkasan LifeOS di catatan harian tanpa menggeser urutan", () => {
+  it("melewati ringkasan Akasha di catatan harian tanpa menggeser urutan", () => {
     const daily = [
       "# Senin",
       "## Agenda",
       "- 09:00 Rapat",
       "## To-do",
       "- [ ] Dari Planner",
-      "> [!info] Ringkasan LifeOS saat catatan dibuat",
+      "> [!info] Ringkasan Akasha saat catatan dibuat",
       "## Catatan",
       "- [ ] Milik saya",
     ].join("\n");
-    const tasks = parseTasks(daily, { skipLifeosSummary: true });
+    const tasks = parseTasks(daily, { skipAkashaSummary: true });
     expect(tasks.map((t) => [t.index, t.text])).toEqual([[1, "Milik saya"]]);
   });
 });

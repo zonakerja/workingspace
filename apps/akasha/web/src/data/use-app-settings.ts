@@ -6,13 +6,13 @@ import type { AppSettings, AppSettingsInput } from "@/types/api";
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
   id: "global",
-  name: "LifeOS",
+  name: "Akasha",
   navSub: "Integrated Edition",
-  loginSub: "Ultimate",
-  motto: "Design Your Life, Manage Your Resources",
+  loginSub: "Ruang Kerja",
+  motto: "Ruang untuk pekerjaan, kehidupan, dan sumber daya",
   welcomeTitle: "Selamat Datang",
   welcomeSub: "Silakan masuk menggunakan User ID dan Password Anda.",
-  footerText: "© 2026 LifeOS System",
+  footerText: "© 2026 workingspace.id",
   logoVersion: null,
   createdAt: "",
   updatedAt: "",

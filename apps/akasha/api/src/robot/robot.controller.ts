@@ -46,7 +46,7 @@ export class RobotController {
     private readonly renaksi: RenaksiProposalsService,
   ) {}
 
-  /** e-Kinerja: cakupan kegiatan Productivity yang dikecualikan dari renaksi (Area / Project / Lepas); berlaku juga untuk agen. */
+  /** e-Kinerja: cakupan kegiatan Working Space yang dikecualikan dari renaksi (Area / Project / Lepas); berlaku juga untuk agen. */
   @Get("ekinerja/renaksi/scope")
   async renaksiScope(@CurrentUser() user: AuthUser) {
     return { excluded: await this.renaksi.excluded(user.id) };
@@ -72,7 +72,7 @@ export class RobotController {
     return this.robot.update(user.id, system, dto);
   }
 
-  /** Simpan kredensial ke brankas (butuh kata sandi akun LifeOS). Tidak ada endpoint untuk membaca kembali kredensial. */
+  /** Simpan kredensial ke brankas (butuh kata sandi akun Akasha). Tidak ada endpoint untuk membaca kembali kredensial. */
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @HttpCode(200)
   @Post("connectors/:system/credentials")

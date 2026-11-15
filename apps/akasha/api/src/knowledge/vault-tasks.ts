@@ -107,12 +107,12 @@ export function parseTaskLine(raw: string): Omit<VaultTask, "index" | "line" | "
 
 /**
  * Semua tugas di isi catatan (berkas mentah ATAU isi tanpa properti — properti dibuang lebih dulu sehingga urutan sama).
- * Blok kode dilewati. `skipLifeosSummary` = lewati ringkasan LifeOS di catatan harian (salinan to-do Planner, bukan tugas
- * vault; centangnya memang tidak mengubah LifeOS).
+ * Blok kode dilewati. `skipAkashaSummary` = lewati ringkasan Akasha di catatan harian (salinan to-do Planner, bukan tugas
+ * vault; centangnya memang tidak mengubah Akasha).
  */
-export function parseTasks(text: string, options: { skipLifeosSummary?: boolean } = {}): VaultTask[] {
+export function parseTasks(text: string, options: { skipAkashaSummary?: boolean } = {}): VaultTask[] {
   const lines = splitFrontmatter(text).body.split("\n");
-  const skip = options.skipLifeosSummary ? lifeosSummaryRange(lines) : null;
+  const skip = options.skipAkashaSummary ? akashaSummaryRange(lines) : null;
   const tasks: { task: VaultTask; hidden: boolean }[] = [];
   let fenced = false;
   let heading: string | null = null;
@@ -136,9 +136,9 @@ export function parseTasks(text: string, options: { skipLifeosSummary?: boolean 
   return tasks.filter((t) => !t.hidden).map((t) => t.task);
 }
 
-/** Rentang baris ringkasan LifeOS di catatan harian: dari `## Agenda` terakhir sebelum callout penandanya sampai callout. */
-function lifeosSummaryRange(lines: string[]): [number, number] | null {
-  const end = lines.findIndex((l) => /^>\s*\[!info\]\s*Ringkasan LifeOS/i.test(l));
+/** Rentang baris ringkasan Akasha di catatan harian: dari `## Agenda` terakhir sebelum callout penandanya sampai callout. */
+function akashaSummaryRange(lines: string[]): [number, number] | null {
+  const end = lines.findIndex((l) => /^>\s*\[!info\]\s*Ringkasan Akasha/i.test(l));
   if (end < 0) return null;
   let start = 0;
   for (let i = end; i >= 0; i--) {

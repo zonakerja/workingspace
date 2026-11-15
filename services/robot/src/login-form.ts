@@ -5,7 +5,7 @@
  */
 
 export interface FieldInfo {
-  /** Indeks urutan elemen di halaman (dipakai kembali sebagai penanda `data-lifeos-field`) */
+  /** Indeks urutan elemen di halaman (dipakai kembali sebagai penanda `data-akasha-field`) */
   index: number;
   type: string;
   /** Gabungan label, placeholder, name, id, aria-label, autocomplete (huruf kecil) */

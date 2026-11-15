@@ -8,15 +8,15 @@ import {
   officeAiTarget,
 } from "./office-ai";
 
-describe("tab AI ONLYOFFICE lewat AI LifeOS", () => {
+describe("tab AI ONLYOFFICE lewat AI Akasha", () => {
   it("opsi plugin menunjuk proxy & provider di origin aplikasi", () => {
-    expect(officeAiPluginOptions({ appOrigin: "https://lifeos.id/", token: "t", modelName: "AI LifeOS" })).toEqual({
-      lifeos: {
+    expect(officeAiPluginOptions({ appOrigin: "https://akasha.id/", token: "t", modelName: "AI Akasha" })).toEqual({
+      akasha: {
         token: "t",
-        proxy: "https://lifeos.id/api/v1/office/ai/proxy",
-        url: "https://lifeos.id/api/v1/office/ai/openai",
-        modelId: "lifeos",
-        modelName: "AI LifeOS",
+        proxy: "https://akasha.id/api/v1/office/ai/proxy",
+        url: "https://akasha.id/api/v1/office/ai/openai",
+        modelId: "akasha",
+        modelName: "AI Akasha",
       },
     });
   });
@@ -64,8 +64,8 @@ describe("tab AI ONLYOFFICE lewat AI LifeOS", () => {
   });
 
   it("jawaban format OpenAI (biasa & streaming)", () => {
-    expect(chatCompletion("Hasil", "lifeos").choices[0].message.content).toBe("Hasil");
-    const sse = chatCompletionStream("Hasil", "lifeos");
+    expect(chatCompletion("Hasil", "akasha").choices[0].message.content).toBe("Hasil");
+    const sse = chatCompletionStream("Hasil", "akasha");
     const chunks = sse
       .split("\n\n")
       .filter((line) => line.startsWith("data: {"))

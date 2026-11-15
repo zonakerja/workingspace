@@ -1,8 +1,8 @@
 /**
- * Kandidat renaksi e-Kinerja dari Productivity (logika murni, diuji di `renaksi-candidates.spec.ts`; salinan frontend
+ * Kandidat renaksi e-Kinerja dari Working Space (logika murni, diuji di `renaksi-candidates.spec.ts`; salinan frontend
  * `features/kinerja/lib/renaksi-candidates.ts` — ubah keduanya bersamaan).
  *
- * Productivity tidak tahu apa-apa tentang e-Kinerja: menu e-Kinerja yang "menarik" kegiatan satu bulan (Action/Task yang
+ * Working Space tidak tahu apa-apa tentang e-Kinerja: menu e-Kinerja yang "menarik" kegiatan satu bulan (Action/Task yang
  * selesai / jatuh tempo, Agenda, Kegiatan & Sub Kegiatan bertenggat), lalu Hermes memetakan ke RHK dan menyusun narasi
  * Renaksi + Realisasi sebagai **usulan** (`proposed: true`). Pemilik yang memutuskan mana yang masuk e-Kinerja.
  */
@@ -23,7 +23,7 @@ export interface RenaksiCandidate {
   parentTitle: string | null;
   /** Lampiran item (nama + uploadId/url) — bahan Realisasi & bukti */
   attachments: { name: string; uploadId?: string; url?: string }[];
-  /** Cakupan Productivity: kunci `area:<id>` / `project:<id>`, atau `loose` (tanpa Area & Project) — dasar filter */
+  /** Cakupan Working Space: kunci `area:<id>` / `project:<id>`, atau `loose` (tanpa Area & Project) — dasar filter */
   scope: string[];
   /** "Area X · Project Y" / "Lepas" (untuk agen & tampilan) */
   scopeLabel: string;

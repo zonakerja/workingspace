@@ -5,11 +5,11 @@ publik: false
 ---
 # Mulai di sini
 
-Vault ini adalah **basis pengetahuan** LifeOS. Tulis pengetahuan Anda di sini (dengan Obsidian), dan LifeOS membacanya
+Vault ini adalah **basis pengetahuan** Akasha. Tulis pengetahuan Anda di sini (dengan Obsidian), dan Akasha membacanya
 otomatis untuk chatbot, agen dokumen, dan bot WhatsApp — tanpa perlu memberi input berulang.
 
 ## Struktur folder
-- **00-Inbox** — Usulan catatan dari LifeOS (jawaban chat yang disimpan, pertanyaan yang belum terjawab). Kurasi lalu pindahkan.
+- **00-Inbox** — Usulan catatan dari Akasha (jawaban chat yang disimpan, pertanyaan yang belum terjawab). Kurasi lalu pindahkan.
 - **10-Peraturan** — Satu catatan per peraturan (UU, PP, PMK, KM, Perdirjen, SE) + PDF-nya.
 - **10-Peraturan/Pasal** — Catatan per pasal penting: tafsir & catatan Anda, tertaut ke peraturannya.
 - **20-Topik** — Peta topik bidang kerja Anda, satu catatan per topik.
@@ -24,9 +24,9 @@ otomatis untuk chatbot, agen dokumen, dan bot WhatsApp — tanpa perlu memberi i
 2. Isi **properti** di kepala catatan (pakai templat di `90-Templat`): `jenis`, `status` (berlaku / draf / dicabut),
    `bidang` (mis. `bidang: BMN`; kosong = berlaku untuk semua bidang), `publik` (boleh dijawab ke semua pengguna bot WhatsApp), `grup` (opsional, mis. `grup: [KODE-GRUP]` — hanya untuk
    anggota grup kontak itu), `diperbarui`.
-3. Hubungkan catatan dengan `[[Nama Catatan]]` — LifeOS memakai tautan ini untuk mengambil catatan terkait saat menjawab.
+3. Hubungkan catatan dengan `[[Nama Catatan]]` — Akasha memakai tautan ini untuk mengambil catatan terkait saat menjawab.
 4. Peraturan yang dicabut: ubah `status: dicabut` (jangan dihapus) — AI tidak lagi memakainya untuk menjawab.
-5. PDF peraturan boleh disimpan di vault (mis. di `10-Peraturan`); LifeOS mengekstrak & mengindeks isinya.
+5. PDF peraturan boleh disimpan di vault (mis. di `10-Peraturan`); Akasha mengekstrak & mengindeks isinya.
 
 ## Mengaktifkan templat di Obsidian
 Settings → Core plugins → **Templates** aktif → Template folder location: `90-Templat`. Lalu buat catatan baru →

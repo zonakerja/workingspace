@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-# LifeOS Markdown Converter — MarkItDown (dokumen teks) + Docling (gambar & PDF scan/bergambar, OCR Tesseract).
+# Akasha Markdown Converter — MarkItDown (dokumen teks) + Docling (gambar & PDF scan/bergambar, OCR Tesseract).
 # Mengubah berkas menjadi Markdown di server sendiri sehingga fitur AI tidak membayar token untuk membaca berkas
 # (docs/ARCHITECTURE.md §3.14). Image amd64 & arm64; torch versi CPU. Model Docling diunduh saat build, saat jalan
 # tidak ada akses internet yang dibutuhkan (HF_HUB_OFFLINE).

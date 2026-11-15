@@ -82,7 +82,7 @@ export function Component() {
                 <ShieldCheck className="size-5" />
               </span>
               <div className="min-w-0 text-sm">
-                <p className="font-semibold">Kredensial tetap di LifeOS</p>
+                <p className="font-semibold">Kredensial tetap di Akasha</p>
                 <p className="mt-1 text-muted-foreground">
                   Token dan izin aplikasi disimpan terenkripsi dan tidak pernah dikirim ke browser maupun ke agen. Agen
                   hanya bisa memakai aplikasi yang Anda izinkan di halaman aplikasinya; alat yang bisa menghapus data

@@ -3,14 +3,14 @@ import { safeFileName } from "./vault-editor";
 import { EXPORT_DIR, splitFrontmatter } from "./vault-parser";
 
 /**
- * Cermin hasil kerja LifeOS ke vault Obsidian (satu arah, LifeOS → vault). Logika murni: data → peta path → isi
- * Markdown. Berkas di `80-LifeOS/` ditandai `sumber: lifeos` dan ditimpa setiap sinkron; catatan user sendiri di
+ * Cermin hasil kerja Akasha ke vault Obsidian (satu arah, Akasha → vault). Logika murni: data → peta path → isi
+ * Markdown. Berkas di `80-Akasha/` ditandai `sumber: akasha` dan ditimpa setiap sinkron; catatan user sendiri di
  * folder lain boleh menautkannya. Folder ini tidak diindeks ulang ke koleksi pengetahuan (datanya sudah diindeks
  * sebagai data kerja) agar jawaban AI tidak ganda.
  */
 export { EXPORT_DIR };
 
-export const EXPORT_KINDS = ["notes", "lists", "aiNotes", "notebooks", "productivity"] as const;
+export const EXPORT_KINDS = ["notes", "lists", "aiNotes", "notebooks", "workingSpace"] as const;
 export type ExportKind = (typeof EXPORT_KINDS)[number];
 
 export interface ExportSettings {
@@ -20,7 +20,7 @@ export interface ExportSettings {
 
 export const DEFAULT_EXPORT: ExportSettings = {
   enabled: false,
-  kinds: { notes: true, lists: true, aiNotes: true, notebooks: true, productivity: true },
+  kinds: { notes: true, lists: true, aiNotes: true, notebooks: true, workingSpace: true },
 };
 
 export function parseExportSettings(value: unknown): ExportSettings {
@@ -34,9 +34,9 @@ export function parseExportSettings(value: unknown): ExportSettings {
   };
 }
 
-/** Berkas dikelola LifeOS = frontmatter `sumber: lifeos` (hanya berkas seperti ini yang boleh ditimpa/dihapus). */
+/** Berkas dikelola Akasha = frontmatter `sumber: akasha` (hanya berkas seperti ini yang boleh ditimpa/dihapus). */
 export function isManagedNote(raw: string) {
-  return splitFrontmatter(raw).frontmatter?.sumber === "lifeos";
+  return splitFrontmatter(raw).frontmatter?.sumber === "akasha";
 }
 
 export const isExportPath = (path: string) => path.split("/")[0] === EXPORT_DIR;
@@ -56,7 +56,7 @@ export interface ExportNotebook {
 }
 
 export interface ExportInput {
-  /** Alamat aplikasi (untuk tautan "Buka di LifeOS"); kosong = tanpa tautan. */
+  /** Alamat aplikasi (untuk tautan "Buka di Akasha"); kosong = tanpa tautan. */
   appUrl: string;
   freeNotes: P[];
   lists: P[];
@@ -159,7 +159,7 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     });
   }
 
-  const prod = kinds.productivity;
+  const prod = kinds.workingSpace;
   const areas = prod ? [...input.areas].sort(byId) : [];
   const projects = prod ? [...input.projects].sort(byId) : [];
   const resources = prod ? [...input.resources].sort(byId) : [];
@@ -176,13 +176,13 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
   for (const a of areas)
     put(
       `area:${a.id}`,
-      plan.allocate(`${EXPORT_DIR}/Productivity/Area`, str(a.title) || "Area"),
+      plan.allocate(`${EXPORT_DIR}/Working Space/Area`, str(a.title) || "Area"),
       str(a.title) || "Area",
     );
   for (const p of projects)
     put(
       `project:${p.id}`,
-      plan.allocate(`${EXPORT_DIR}/Productivity/Project`, str(p.title) || "Project"),
+      plan.allocate(`${EXPORT_DIR}/Working Space/Project`, str(p.title) || "Project"),
       str(p.title) || "Project",
     );
   for (const s of schedules) {
@@ -190,14 +190,14 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     const date = ymd(s.startDate ?? s.date);
     put(
       `schedule:${s.id}`,
-      plan.allocate(`${EXPORT_DIR}/Productivity/Agenda`, date ? `${date} ${title}` : title),
+      plan.allocate(`${EXPORT_DIR}/Working Space/Agenda`, date ? `${date} ${title}` : title),
       title,
     );
   }
   for (const r of resources)
     put(
       `resource:${r.id}`,
-      plan.allocate(`${EXPORT_DIR}/Productivity/Resource`, str(r.title) || "Resource"),
+      plan.allocate(`${EXPORT_DIR}/Working Space/Resource`, str(r.title) || "Resource"),
       str(r.title) || "Resource",
     );
 
@@ -223,7 +223,7 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
   // ------------------------------------------------------------ Penulis
   const write = (path: string, meta: Record<string, unknown>, body: string[]) => {
     const props = Object.fromEntries(
-      Object.entries({ sumber: "lifeos", ...meta }).filter(
+      Object.entries({ sumber: "akasha", ...meta }).filter(
         ([, v]) => v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0),
       ),
     );
@@ -236,9 +236,9 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
   };
   const header = (url: string) =>
     [
-      "> [!info] Dikelola LifeOS",
-      "> Berkas ini dibuat otomatis dari LifeOS dan **ditimpa** setiap sinkron. Tulis catatan Anda sendiri di folder lain lalu tautkan ke sini.",
-      ...(url ? [`> [Buka di LifeOS](${url})`] : []),
+      "> [!info] Dikelola Akasha",
+      "> Berkas ini dibuat otomatis dari Akasha dan **ditimpa** setiap sinkron. Tulis catatan Anda sendiri di folder lain lalu tautkan ke sini.",
+      ...(url ? [`> [Buka di Akasha](${url})`] : []),
     ].join("\n");
   const ref = (key: string) => {
     const hit = pathOf.get(key) ?? noteKey.get(key);
@@ -257,7 +257,7 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     else {
       // Berkas yang juga tersimpan sebagai Resource Global → tautkan ke berkas Resource-nya (graf lebih kaya)
       const owner = resourceByUpload.get(str(a.uploadId));
-      line = (owner && ref(`resource:${owner}`)) || `${name} (berkas di LifeOS)`;
+      line = (owner && ref(`resource:${owner}`)) || `${name} (berkas di Akasha)`;
     }
     return `- ${line}${desc ? ` — ${desc.replace(/\s+/g, " ").slice(0, 300)}` : ""}`;
   };
@@ -274,11 +274,11 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     write(
       path,
       {
-        jenis: "lifeos-catatan",
-        lifeos_id: `free_note:${n.id}`,
+        jenis: "akasha-catatan",
+        akasha_id: `free_note:${n.id}`,
         judul: title,
         diperbarui: ymd(n.updatedAt),
-        lifeos: appLink(`/notes/free?note=${enc(n.id)}`),
+        akasha: appLink(`/notes/free?note=${enc(n.id)}`),
       },
       [
         header(appLink(`/notes/free?note=${enc(n.id)}`)),
@@ -294,13 +294,13 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     write(
       path,
       {
-        jenis: "lifeos-list",
-        lifeos_id: `list:${l.id}`,
+        jenis: "akasha-list",
+        akasha_id: `list:${l.id}`,
         judul: title,
         progres: items.length ? `${done}/${items.length}` : undefined,
         arsip: l.archived === true ? true : undefined,
         diperbarui: ymd(l.updatedAt),
-        lifeos: appLink(`/notes/lists?list=${enc(l.id)}`),
+        akasha: appLink(`/notes/lists?list=${enc(l.id)}`),
       },
       [
         header(appLink(`/notes/lists?list=${enc(l.id)}`)),
@@ -316,13 +316,13 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     write(
       path,
       {
-        jenis: "lifeos-notes-ai",
-        lifeos_id: `ai_note:${n.id}`,
+        jenis: "akasha-notes-ai",
+        akasha_id: `ai_note:${n.id}`,
         judul: title,
         tanggal: ymd(n.date),
         agenda: agenda ?? undefined,
         diperbarui: ymd(n.updatedAt),
-        lifeos: appLink(`/notes/ai?note=${enc(n.id)}`),
+        akasha: appLink(`/notes/ai?note=${enc(n.id)}`),
       },
       [
         header(appLink(`/notes/ai?note=${enc(n.id)}`)),
@@ -333,7 +333,7 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     );
   }
 
-  // ------------------------------------------------------------ Productivity
+  // ------------------------------------------------------------ Working Space
   const tasksOf = new Map<string, P[]>();
   for (const t of prod ? input.tasks : []) {
     const pid = str(t.projectId);
@@ -380,18 +380,18 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     write(
       path,
       {
-        jenis: "lifeos-project",
-        lifeos_id: `para_project:${p.id}`,
+        jenis: "akasha-project",
+        akasha_id: `para_project:${p.id}`,
         judul: title,
         status: STATUS[str(p.status)] ?? (str(p.status) || "berjalan"),
         mulai: ymd(p.startDate),
         deadline: ymd(p.deadline),
         progres: progress === undefined ? undefined : `${progress}%`,
         area: area ?? undefined,
-        lifeos: appLink(`/productivity/projects?project=${enc(p.id)}`),
+        akasha: appLink(`/working-space/projects?project=${enc(p.id)}`),
       },
       [
-        header(appLink(`/productivity/projects?project=${enc(p.id)}`)),
+        header(appLink(`/working-space/projects?project=${enc(p.id)}`)),
         str(p.description),
         attachments("Dasar Pelaksanaan", p.resources),
         tasks.length ? `## Action\n\n${taskLines(tasks).join("\n")}` : "",
@@ -430,13 +430,13 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     write(
       path,
       {
-        jenis: "lifeos-area",
-        lifeos_id: `para_area:${area.id}`,
+        jenis: "akasha-area",
+        akasha_id: `para_area:${area.id}`,
         judul: title,
-        lifeos: appLink(`/productivity/areas?area=${enc(area.id)}`),
+        akasha: appLink(`/working-space/areas?area=${enc(area.id)}`),
       },
       [
-        header(appLink(`/productivity/areas?area=${enc(area.id)}`)),
+        header(appLink(`/working-space/areas?area=${enc(area.id)}`)),
         str(area.description),
         structure.length ? `## Struktur\n\n${structure.join("\n")}` : "",
         areaProjects.length ? `## Project\n\n${areaProjects.map((p) => `- ${ref(`project:${p.id}`)}`).join("\n")}` : "",
@@ -460,8 +460,8 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     write(
       path,
       {
-        jenis: "lifeos-agenda",
-        lifeos_id: `schedule:${s.id}`,
+        jenis: "akasha-agenda",
+        akasha_id: `schedule:${s.id}`,
         judul: title,
         tanggal: ymd(s.startDate ?? s.date),
         sampai: ymd(s.endDate) !== ymd(s.startDate ?? s.date) ? ymd(s.endDate) : undefined,
@@ -469,7 +469,7 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
         tipe: str(s.type),
         lokasi: str(s.location),
         bagian_dari: parent ?? undefined,
-        lifeos: appLink(`/planner/schedule?agenda=${enc(s.id)}`),
+        akasha: appLink(`/planner/schedule?agenda=${enc(s.id)}`),
       },
       [
         header(appLink(`/planner/schedule?agenda=${enc(s.id)}`)),
@@ -490,14 +490,14 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     const note = type === "note" ? ref(str(r.noteId)) : null;
     const lines = [
       type === "link" && url ? `**Tautan:** [${linkLabel(title)}](${url})` : "",
-      type === "file" ? `**Berkas:** ${title} (berkas di LifeOS)` : "",
+      type === "file" ? `**Berkas:** ${title} (berkas di Akasha)` : "",
       note ? `**Catatan:** ${note}` : "",
     ];
     write(
       path,
       {
-        jenis: "lifeos-resource",
-        lifeos_id: `para_resource:${r.id}`,
+        jenis: "akasha-resource",
+        akasha_id: `para_resource:${r.id}`,
         judul: title,
         tipe: type,
         tanggal: ymd(r.date ?? r.createdAt),
@@ -510,10 +510,10 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
           ),
         ],
         file_control: str(r.archivalStatus) && str(r.archivalStatus) !== "none" ? str(r.archivalStatus) : undefined,
-        lifeos: appLink(`/productivity/resources?resource=${enc(r.id)}`),
+        akasha: appLink(`/working-space/resources?resource=${enc(r.id)}`),
       },
       [
-        header(appLink(`/productivity/resources?resource=${enc(r.id)}`)),
+        header(appLink(`/working-space/resources?resource=${enc(r.id)}`)),
         lines.filter(Boolean).join("\n"),
         section("Ringkasan AI", str(r.aiSummary)),
         section("Keterangan", str(r.content)),
@@ -540,12 +540,12 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     write(
       paths.index,
       {
-        jenis: "lifeos-notebook",
-        lifeos_id: `notebook:${nb.id}`,
+        jenis: "akasha-notebook",
+        akasha_id: `notebook:${nb.id}`,
         judul: nb.title,
         dibuat: ymd(nb.createdAt),
         diperbarui: ymd(nb.updatedAt),
-        lifeos: link,
+        akasha: link,
       },
       [
         header(link),
@@ -575,13 +575,13 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
       write(
         paths.notes.get(note.id)!,
         {
-          jenis: "lifeos-notebook-catatan",
-          lifeos_id: `notebook_note:${note.id}`,
+          jenis: "akasha-notebook-catatan",
+          akasha_id: `notebook_note:${note.id}`,
           judul: note.title,
           notebook: wikilink(paths.index, nb.title),
           asal: { chat: "jawaban chat", summary: "ringkasan", manual: "ditulis" }[note.origin] ?? note.origin,
           diperbarui: ymd(note.updatedAt),
-          lifeos: link,
+          akasha: link,
         },
         [header(link), note.content],
       );
@@ -592,12 +592,12 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
       write(
         paths.chat,
         {
-          jenis: "lifeos-notebook-chat",
-          lifeos_id: `notebook_chat:${nb.id}`,
+          jenis: "akasha-notebook-chat",
+          akasha_id: `notebook_chat:${nb.id}`,
           judul: `Riwayat Chat - ${nb.title}`,
           notebook: wikilink(paths.index, nb.title),
           pesan: messages.length,
-          lifeos: link,
+          akasha: link,
         },
         [
           header(link),
@@ -621,20 +621,20 @@ export function buildExport(input: ExportInput, kinds: Record<ExportKind, boolea
     ["List Bebas", "List Bebas"],
     ["Notes AI", "Notes AI"],
     ["My Notebook", "My Notebook"],
-    ["Productivity/Project", "Project"],
-    ["Productivity/Area", "Area"],
-    ["Productivity/Agenda", "Agenda (dengan hasil / bagian project)"],
-    ["Productivity/Resource", "Resource Global"],
+    ["Working Space/Project", "Project"],
+    ["Working Space/Area", "Area"],
+    ["Working Space/Agenda", "Agenda (dengan hasil / bagian project)"],
+    ["Working Space/Resource", "Resource Global"],
   ]
     .map(([folder, label]) => [label, count(folder)] as const)
     .filter(([, n]) => n > 0)
     .map(([label, n]) => `- ${label}: ${n} berkas`);
   write(
-    `${EXPORT_DIR}/LifeOS.md`,
-    { jenis: "lifeos-indeks", lifeos_id: "index", judul: "LifeOS", lifeos: appLink("/") },
+    `${EXPORT_DIR}/Akasha.md`,
+    { jenis: "akasha-indeks", akasha_id: "index", judul: "Akasha", akasha: appLink("/") },
     [
       header(appLink("/")),
-      "Folder ini adalah **cermin hasil kerja Anda di LifeOS** (Notes Space, My Notebook, Productivity). Isinya diperbarui otomatis; lihat hubungannya di Graf.",
+      "Folder ini adalah **cermin hasil kerja Anda di Akasha** (Notes Space, My Notebook, Working Space). Isinya diperbarui otomatis; lihat hubungannya di Graf.",
       index.length ? `## Isi\n\n${index.join("\n")}` : "_(Belum ada data yang dicerminkan.)_",
     ],
   );

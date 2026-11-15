@@ -19,7 +19,7 @@ import {
 export const INDICATORS = {
   routine: { label: "Rutinitas", dot: "bg-mod-overview", ring: "border-mod-overview" },
   schedule: { label: "Agenda", dot: "bg-mod-planner", ring: "border-mod-planner" },
-  todo: { label: "Todo", dot: "bg-mod-productivity", ring: "border-mod-productivity" },
+  todo: { label: "Todo", dot: "bg-mod-working-space", ring: "border-mod-working-space" },
   task: { label: "Task/Action", dot: "bg-mod-notes", ring: "border-mod-notes" },
 } as const;
 

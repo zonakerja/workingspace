@@ -67,7 +67,7 @@ export class PinService {
    */
   async confirmAction(user: AuthUser, pin: string | undefined) {
     if (!user.sid)
-      throw new ForbiddenException("Tindakan ini hanya bisa dilakukan pemilik dari aplikasi LifeOS (bukan agen).");
+      throw new ForbiddenException("Tindakan ini hanya bisa dilakukan pemilik dari aplikasi Akasha (bukan agen).");
     if (!pin) throw new BadRequestException("Masukkan PIN keamanan untuk melanjutkan.");
     await this.checkPin(user.id, pin);
   }

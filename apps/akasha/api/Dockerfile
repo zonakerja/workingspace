@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-# LifeOS Backend (NestJS + Prisma). Image produksi multi-stage, dibangun dari root monorepo:
-#   docker build -f apps/akasha/api/Dockerfile -t lifeos-backend .
+# Akasha Backend (NestJS + Prisma). Image produksi multi-stage, dibangun dari root monorepo:
+#   docker build -f apps/akasha/api/Dockerfile -t akasha-api .
 # `turbo prune` menyisakan workspace @akasha/api + lockfile terpangkas, lalu npm ci di root workspace.
 # Saat start: menerapkan migrasi database lalu menjalankan API.
 # ============================================================================

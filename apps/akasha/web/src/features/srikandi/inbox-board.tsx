@@ -61,7 +61,7 @@ const shortDate = (ymd?: string) => (ymd ? formatShortDate(parseLocalYMD(ymd)) :
 /**
  * SRIKANDI → Naskah Masuk: surat yang ditujukan ke Anda, tembusan, disposisi, koordinasi, dan arahan yang diambil robot
  * dari halaman daftar SRIKANDI (hanya membaca; detail tidak dibuka sehingga status baca di SRIKANDI tidak berubah).
- * Tindak lanjut di LifeOS: jadikan to-do Planner, atau buat entri Register sebagai balasan.
+ * Tindak lanjut di Akasha: jadikan to-do Planner, atau buat entri Register sebagai balasan.
  */
 export function InboxBoard() {
   const client = useQueryClient();

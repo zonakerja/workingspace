@@ -10,10 +10,10 @@ import type {
 } from "@/types/entities";
 
 /**
- * Kandidat renaksi e-Kinerja dari Productivity (logika murni, diuji di `renaksi-candidates.test.ts`; salinan backend
+ * Kandidat renaksi e-Kinerja dari Working Space (logika murni, diuji di `renaksi-candidates.test.ts`; salinan backend
  * `backend/src/robot/renaksi-candidates.ts` — ubah keduanya bersamaan).
  *
- * Productivity tidak punya tombol e-Kinerja: menu e-Kinerja menarik kegiatan satu bulan (Action/Task yang selesai /
+ * Working Space tidak punya tombol e-Kinerja: menu e-Kinerja menarik kegiatan satu bulan (Action/Task yang selesai /
  * jatuh tempo, Agenda, Kegiatan & Sub Kegiatan bertenggat). Hermes mengusulkan pemetaan ke RHK + narasi (entri
  * `proposed`), dan pemilik memutuskan lewat centang.
  */

@@ -89,7 +89,7 @@ const EXTRACTION_REASONS: Record<string, string> = {
 };
 
 /**
- * My Notebook (RAG ala NotebookLM): notebook berisi sumber (berkas, item LifeOS, teks tempel, halaman web), chat yang
+ * My Notebook (RAG ala NotebookLM): notebook berisi sumber (berkas, item Akasha, teks tempel, halaman web), chat yang
  * menjawab hanya dari sumber dengan sitasi, ringkasan Studio, dan catatan hasil. Semua data milik user sendiri.
  */
 @Injectable()
@@ -338,7 +338,7 @@ export class NotebooksService implements OnModuleInit {
   }
 
   /**
-   * Item LifeOS & berkas yang dipakai sebagai sumber notebook milik user — agar catatan/berkas itu tidak dihapus
+   * Item Akasha & berkas yang dipakai sebagai sumber notebook milik user — agar catatan/berkas itu tidak dihapus
    * diam-diam dari fitur lain (dialog hapus catatan menampilkan notebook-nya).
    */
   async usage(userId: string) {
@@ -455,7 +455,7 @@ export class NotebooksService implements OnModuleInit {
     return Promise.all(
       ids.map(async (id, i) => {
         const asset = byId.get(id)!;
-        // Hanya berkas yang diunggah dari kotak chat (berkas LifeOS lain bisa ikut terhapus saat chat dibersihkan)
+        // Hanya berkas yang diunggah dari kotak chat (berkas Akasha lain bisa ikut terhapus saat chat dibersihkan)
         if (asset.context !== NOTEBOOK_CHAT_CONTEXT) {
           throw new BadRequestException("Lampiran chat harus diunggah dari kotak chat notebook.");
         }
@@ -631,7 +631,7 @@ export class NotebooksService implements OnModuleInit {
   /** Bersihkan data turunan sumber yang dihapus: berkas unggahan notebook & potongan indeks teks/web. */
   private async cleanupSource(user: AuthUser, source: NotebookSource, trash = false) {
     if (source.kind === NotebookSourceKind.upload && source.assetId) {
-      // Hanya berkas yang diunggah langsung ke notebook yang ikut dihapus; berkas yang dipilih dari LifeOS (lampiran,
+      // Hanya berkas yang diunggah langsung ke notebook yang ikut dihapus; berkas yang dipilih dari Akasha (lampiran,
       // resource, dsb.) tetap utuh. Juga tidak dihapus bila masih dipakai sumber notebook lain.
       const asset = await this.prisma.asset.findUnique({ where: { id: source.assetId }, select: { context: true } });
       const others = await this.prisma.notebookSource.count({ where: { assetId: source.assetId } });
@@ -800,7 +800,7 @@ export class NotebooksService implements OnModuleInit {
       status: loaded.status,
       error: loaded.error,
       mimeType: loaded.asset?.mimeType ?? null,
-      /** true = berkas diunggah langsung ke notebook (ikut terhapus); false = berkas dari LifeOS (tidak dihapus) */
+      /** true = berkas diunggah langsung ke notebook (ikut terhapus); false = berkas dari Akasha (tidak dihapus) */
       ownedByNotebook: loaded.asset?.ownedByNotebook ?? false,
       chars: loaded.parts.reduce((sum, p) => sum + p.text.length, 0),
       /** Cuplikan awal isi (pratinjau di panel sumber) */

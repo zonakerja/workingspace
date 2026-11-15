@@ -14,7 +14,7 @@ function Dialog({
   onOpenChange,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  // LifeOS: X / Esc / klik luar melewati penjaga tutup dari isi dialog (components/common/dialog-close-guard.ts)
+  // Akasha: X / Esc / klik luar melewati penjaga tutup dari isi dialog (components/common/dialog-close-guard.ts)
   const [guards] = React.useState(() => new Set<{ current: DialogCloseGuard }>())
   const handleOpenChange = React.useCallback(
     async (open: boolean) => {

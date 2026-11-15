@@ -292,7 +292,7 @@ export class AgentLlmController {
     const token = bearerToken(req.headers.authorization);
     const principal = token ? await this.tokens.authenticate(token) : null;
     if (!principal) {
-      res.status(401).json({ error: { message: "Token agen tidak dikenal — tekan Siapkan agen di LifeOS." } });
+      res.status(401).json({ error: { message: "Token agen tidak dikenal — tekan Siapkan agen di Akasha." } });
     }
     return principal;
   }

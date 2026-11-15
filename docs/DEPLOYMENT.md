@@ -1,6 +1,6 @@
 # Deployment ke VPS
 
-Panduan memasang LifeOS di satu VPS Linux memakai `docker-compose.prod.yml`.
+Panduan memasang Akasha di satu VPS Linux memakai `docker-compose.prod.yml`.
 
 ## Arsitektur produksi
 
@@ -22,7 +22,7 @@ Internet ──► Caddy :80/:443 (HTTPS otomatis Let's Encrypt, HSTS, kompresi)
 | redis | `redis` alpine (AOF, password) | volume `redis-data` |
 | storage | `chrislusf/seaweedfs` | volume `storage-data` |
 | backup | dibangun dari `infra/backup/Dockerfile` (pg_dump + rclone) | folder `./backups` + bucket S3 luar server (terenkripsi) |
-| onlyoffice (opsional) | dibangun dari `infra/onlyoffice/Dockerfile` (ONLYOFFICE Docs + plugin AI LifeOS) | volume `onlyoffice-data` (cache), `onlyoffice-fonts` (font unggahan admin, dibagi dengan backend) |
+| onlyoffice (opsional) | dibangun dari `infra/onlyoffice/Dockerfile` (ONLYOFFICE Docs + plugin AI Akasha) | volume `onlyoffice-data` (cache), `onlyoffice-fonts` (font unggahan admin, dibagi dengan backend) |
 
 Tag image di-pin di `docker-compose.prod.yml`; daftar versinya ada di [ARCHITECTURE.md §2.1](ARCHITECTURE.md#21-komponen-dan-versi-per-2026-10-10).
 
@@ -49,17 +49,17 @@ Fitur tambahan yang berguna: snapshot/backup VPS dari penyedia, dan firewall di 
 ### 0.2 Domain & DNS
 
 1. Beli domain (mis. `namakamu.id`/`.com`) di registrar mana pun, atau pakai subdomain dari domain yang sudah ada
-   (mis. `lifeos.namakamu.id`).
+   (mis. `akasha.namakamu.id`).
 2. Setelah VPS aktif dan IP-nya diketahui, buat record DNS di panel registrar/DNS:
 
    | Tipe | Nama | Nilai | Keterangan |
    |---|---|---|---|
-   | A | `lifeos` (atau `@` untuk domain utama) | IP publik VPS | wajib |
+   | A | `akasha` (atau `@` untuk domain utama) | IP publik VPS | wajib |
    | AAAA | sama | IPv6 VPS | hanya bila VPS punya IPv6 |
 
    Bila memakai Cloudflare, set proxy **"DNS only" (awan abu-abu)** saat pertama kali agar Caddy bisa menerbitkan
    sertifikat Let's Encrypt.
-3. Tunggu propagasi (beberapa menit – beberapa jam), lalu cek dari laptop: `nslookup lifeos.namakamu.id` harus
+3. Tunggu propagasi (beberapa menit – beberapa jam), lalu cek dari laptop: `nslookup akasha.namakamu.id` harus
    menampilkan IP VPS.
 4. Domain inilah yang diisi ke `APP_DOMAIN` di `.env` (tanpa `https://`).
 
@@ -67,7 +67,7 @@ Fitur tambahan yang berguna: snapshot/backup VPS dari penyedia, dan firewall di 
 
 | Variabel | Isi |
 |---|---|
-| `APP_DOMAIN` | domain/subdomain dari langkah 0.2, mis. `lifeos.namakamu.id` |
+| `APP_DOMAIN` | domain/subdomain dari langkah 0.2, mis. `akasha.namakamu.id` |
 | `ACME_EMAIL` | email aktif (notifikasi sertifikat Let's Encrypt) |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `S3_SECRET_ACCESS_KEY` | string acak masing-masing berbeda: jalankan `openssl rand -hex 32` di VPS untuk tiap variabel |
 | `AI_ENCRYPTION_KEY` | kunci enkripsi API key AI milik user: `openssl rand -hex 32` (tepat 64 karakter hex). **Jangan diganti** setelah dipakai — key AI yang sudah tersimpan tidak bisa dibaca lagi dan setiap user harus memasukkannya ulang |
@@ -152,7 +152,7 @@ ssh-keygen -t ed25519            # (laptop) cukup sekali
 ssh-copy-id <user>@<IP-VPS>      # (laptop) lalu pastikan "ssh <user>@<IP-VPS>" masuk TANPA password
 
 # Di VPS: matikan login password & login root (JANGAN tutup sesi SSH yang sedang aktif sebelum mencoba sesi baru)
-sudo tee /etc/ssh/sshd_config.d/99-lifeos.conf >/dev/null <<'EOF'
+sudo tee /etc/ssh/sshd_config.d/99-akasha.conf >/dev/null <<'EOF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
@@ -167,7 +167,7 @@ sudo systemctl enable --now fail2ban
 sudo apt-get install -y unattended-upgrades
 sudo dpkg-reconfigure -f noninteractive unattended-upgrades
 echo 'Unattended-Upgrade::Automatic-Reboot "true";
-Unattended-Upgrade::Automatic-Reboot-Time "03:00";' | sudo tee /etc/apt/apt.conf.d/52lifeos-reboot
+Unattended-Upgrade::Automatic-Reboot-Time "03:00";' | sudo tee /etc/apt/apt.conf.d/52akasha-reboot
 ```
 
 Cek: `sudo sshd -T | grep -E "passwordauthentication|permitrootlogin"` (harus `no`), `sudo fail2ban-client status sshd`,
@@ -177,7 +177,7 @@ kembali setelah reboot otomatis.
 ## 2. Instalasi
 
 ```bash
-git clone https://github.com/zonakerja/lifeos.git && cd lifeos
+git clone https://github.com/zonakerja/workingspace.git && cd akasha
 cp .env.example .env
 nano .env        # isi APP_DOMAIN, ACME_EMAIL, semua secret & password (openssl rand -hex 32)
 chmod 600 .env
@@ -221,11 +221,11 @@ Service `backup` (`infra/backup/`) berjalan setiap `BACKUP_INTERVAL_HOURS` (defa
 
 ### 4.1 Menyiapkan bucket luar server (Cloudflare R2)
 
-1. Dashboard Cloudflare → **R2** → *Create bucket* (mis. `lifeos-backup`, lokasi Asia-Pacific).
+1. Dashboard Cloudflare → **R2** → *Create bucket* (mis. `akasha-backup`, lokasi Asia-Pacific).
 2. R2 → *Manage API tokens* → *Create API token*: izin **Object Read & Write**, batasi ke bucket tadi. Catat
    *Access Key ID*, *Secret Access Key*, dan endpoint `https://<account-id>.r2.cloudflarestorage.com`.
 3. Isi `.env`: `OFFSITE_S3_PROVIDER=Cloudflare`, `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_ACCESS_KEY_ID`,
-   `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_BUCKET=lifeos-backup`, `BACKUP_ENCRYPTION_PASSWORD`
+   `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_BUCKET=akasha-backup`, `BACKUP_ENCRYPTION_PASSWORD`
    (`openssl rand -hex 32`), lalu `docker compose -f docker-compose.prod.yml up -d backup`.
 4. Uji: `dc exec backup backup.sh --once` lalu `dc exec backup backup.sh rclone lsf -R offsite:` (daftar berkas
    terdekripsi). Di dashboard R2, nama berkas tampak acak — itu tanda enkripsi aktif.
@@ -245,10 +245,10 @@ ls -lh backups/                                       # backup lokal
 
 # Restore database dari backup lokal (aplikasi dihentikan dulu)
 dc stop backend
-dc exec -T postgres pg_restore --clean --if-exists --no-owner -U lifeos -d lifeos < backups/db-YYYYMMDD-HHMMSS.dump
+dc exec -T postgres pg_restore --clean --if-exists --no-owner -U akasha -d akasha < backups/db-YYYYMMDD-HHMMSS.dump
 
 # Restore berkas dari cermin lokal ke object storage
-dc exec backup backup.sh rclone copy /backups/storage/current src:lifeos-assets
+dc exec backup backup.sh rclone copy /backups/storage/current src:akasha-assets
 dc up -d
 ```
 
@@ -262,9 +262,9 @@ dc exec backup backup.sh rclone lsf offsite:db                              # pi
 dc exec backup backup.sh rclone copy offsite:db/db-YYYYMMDD-HHMMSS.dump /backups/restore/
 dc exec backup backup.sh rclone copy offsite:storage/current /backups/restore/storage
 dc stop backend
-dc exec -T postgres pg_restore --clean --if-exists --no-owner -U lifeos -d lifeos \
+dc exec -T postgres pg_restore --clean --if-exists --no-owner -U akasha -d akasha \
   < backups/restore/db-YYYYMMDD-HHMMSS.dump
-dc exec backup backup.sh rclone copy /backups/restore/storage src:lifeos-assets
+dc exec backup backup.sh rclone copy /backups/restore/storage src:akasha-assets
 dc up -d
 ```
 
@@ -333,21 +333,21 @@ COUNT_SQL="SELECT table_name, (xpath('/row/c/text()', query_to_xml(format('SELEC
 dc stop caddy backend
 dc exec backup backup.sh --once       # juga tersalin ke luar server (§4)
 ls -lh backups/
-dc exec -T postgres psql -U lifeos -d lifeos -At -c "$COUNT_SQL" > backups/counts-before.txt
+dc exec -T postgres psql -U akasha -d akasha -At -c "$COUNT_SQL" > backups/counts-before.txt
 
 # 2. Ubah tag image ke versi M di docker-compose.prod.yml (service postgres) DAN infra/backup/Dockerfile (FROM),
 #    volume postgres<N>-data → postgres<M>-data (service postgres + daftar volumes), path mount sesuai image M.
 dc stop postgres backup
-dc up -d --wait postgres              # cluster M kosong di volume baru (database lifeos dibuat otomatis)
+dc up -d --wait postgres              # cluster M kosong di volume baru (database akasha dibuat otomatis)
 
 # 3. Restore (pg_restore versi M dapat membaca dump versi N)
-dc exec -T postgres pg_restore --no-owner -U lifeos -d lifeos < backups/db-YYYYMMDD-HHMMSS.dump
-dc exec -T postgres psql -U lifeos -d lifeos -c "ANALYZE"
+dc exec -T postgres pg_restore --no-owner -U akasha -d akasha < backups/db-YYYYMMDD-HHMMSS.dump
+dc exec -T postgres psql -U akasha -d akasha -c "ANALYZE"
 
 # 4. Verifikasi
-dc exec -T postgres psql -U lifeos -d lifeos -At -c "$COUNT_SQL" > backups/counts-after.txt
+dc exec -T postgres psql -U akasha -d akasha -At -c "$COUNT_SQL" > backups/counts-after.txt
 diff backups/counts-before.txt backups/counts-after.txt && echo "jumlah baris sama"
-dc exec -T postgres psql -U lifeos -d lifeos -c "SELECT version()" \
+dc exec -T postgres psql -U akasha -d akasha -c "SELECT version()" \
   -c "SELECT extname, extversion FROM pg_extension"
 dc up -d --build                      # backend menjalankan migrate deploy saat start (harus "No pending migrations")
 curl https://<domain>/api/v1/health
@@ -357,7 +357,7 @@ curl https://<domain>/api/v1/health
 dc down && dc up -d --build           # volume postgres<N>-data masih utuh
 
 # 6. Setelah beberapa hari stabil: hapus volume lama
-docker volume rm lifeos-prod_postgres<N>-data
+docker volume rm akasha-prod_postgres<N>-data
 ```
 
 Catatan:
@@ -367,7 +367,7 @@ Catatan:
 
 ## 9. Editor dokumen ONLYOFFICE (opsional)
 
-Menu **Tools → ONLYOFFICE** (buat/sunting DOCX/XLSX/PPTX/PDF, riwayat versi, AI di editor lewat AI LifeOS, templat,
+Menu **Tools → ONLYOFFICE** (buat/sunting DOCX/XLSX/PPTX/PDF, riwayat versi, AI di editor lewat AI Akasha, templat,
 konsep ↔ dokumen final). Detail fitur & keputusan: [ONLYOFFICE.md](ONLYOFFICE.md).
 
 **Kebutuhan**: VPS **8 GB RAM / 4 vCPU** (ONLYOFFICE ± 2–3 GB saat dipakai), disk ≥ 60 GB. Tidak perlu subdomain:
@@ -396,11 +396,11 @@ ONLYOFFICE_JWT_SECRET=<openssl rand -hex 32>      # simpan di password manager b
 `onlyoffice-fonts`; ONLYOFFICE membuat ulang daftar font otomatis ± 1–2 menit, editor yang terbuka tersambung ulang
 sebentar). Volume font **tidak** ikut backup harian — simpan berkas font aslinya di tempat lain.
 
-**Backup**: tidak berubah — dokumen, versi, dan templat adalah berkas LifeOS (PostgreSQL + object storage). Volume
+**Backup**: tidak berubah — dokumen, versi, dan templat adalah berkas Akasha (PostgreSQL + object storage). Volume
 `onlyoffice-data` hanya cache.
 
 **Pembaruan ONLYOFFICE** (major, mis. 10 → 11): ganti tag di `infra/onlyoffice/Dockerfile`, `dc build onlyoffice` (build
-gagal bila struktur plugin AI berubah → periksa `infra/onlyoffice/lifeos-ai-bridge.js`), salin ulang daftar format
+gagal bila struktur plugin AI berubah → periksa `infra/onlyoffice/akasha-ai-bridge.js`), salin ulang daftar format
 (`document-formats/onlyoffice-docs-formats.json` → `office-formats.ts` backend & frontend), uji di stack lokal (`docs/ONLYOFFICE.md`).
 
 ## 10. Basis pengetahuan: vault Obsidian (Syncthing)
@@ -424,19 +424,19 @@ Anda (folder host); salinan juga ada di laptop/HP.
 3. Bagikan folder vault dari laptop ke VPS. Di VPS, path folder **di dalam container** =
    `/var/syncthing/knowledge-vaults/<nama folder>` (nama: huruf, angka, spasi, `.` `_` `-`). Aktifkan *File Versioning*
    (Staggered) di sisi VPS sebagai riwayat perubahan. Saran *Ignore Patterns* agar berkas tampilan Obsidian tidak
-   bolak-balik antar-perangkat: `.obsidian/workspace*.json`. Folder `.stfolder`/`.stversions` dilewati LifeOS (tersembunyi).
-4. Di LifeOS: **Tools → Basis Pengetahuan → Pakai folder yang sudah ada** → pilih folder itu. Server memantau
+   bolak-balik antar-perangkat: `.obsidian/workspace*.json`. Folder `.stfolder`/`.stversions` dilewati Akasha (tersembunyi).
+4. Di Akasha: **Tools → Basis Pengetahuan → Pakai folder yang sudah ada** → pilih folder itu. Server memantau
    perubahan otomatis; tombol **Pindai** memaksa baca ulang.
 5. Alternatif tanpa Syncthing: berlangganan Obsidian Sync dan jalankan klien resmi `obsidian-headless` (`ob`) di VPS
-   ke folder yang sama; atau **Buat vault baru dari templat** di LifeOS lalu sinkronkan folder itu ke perangkat.
+   ke folder yang sama; atau **Buat vault baru dari templat** di Akasha lalu sinkronkan folder itu ke perangkat.
 
 Catatan: isi vault & data kerja dikirim ke penyedia AI (embedding Gemini & provider aktif) — untuk data kantor pakai
 API key berbayar (billing Google Cloud aktif).
 
-## 11. MCP server LifeOS untuk agen AI
+## 11. MCP server Akasha untuk agen AI
 
 Agen AI (Hermes, Claude Desktop, n8n) terhubung ke `https://<APP_DOMAIN>/api/v1/mcp` dengan token akses pribadi dari
-**Pengaturan → Integrasi** (header `Authorization: Bearer lifeos_pat_…`). Tidak perlu konfigurasi Caddy tambahan (jalur
+**Pengaturan → Integrasi** (header `Authorization: Bearer akasha_pat_…`). Tidak perlu konfigurasi Caddy tambahan (jalur
 `/api` sudah diteruskan ke backend). Bila agen berjalan di server yang sama dalam jaringan Docker, boleh memakai
 `http://backend:4000/api/v1/mcp`. Cabut token dari halaman yang sama bila agen tidak dipakai lagi; jejak pemanggilan ada
 di kartu **Aktivitas agen**.
@@ -455,7 +455,7 @@ sederhana: [TODO-USER.md](TODO-USER.md) B6.
    WHATSAPP_ACCESS_TOKEN=...
    WHATSAPP_APP_SECRET=...
    WHATSAPP_VERIFY_TOKEN=...
-   WHATSAPP_OWNER_EMAIL=<akun LifeOS pemilik bot>
+   WHATSAPP_OWNER_EMAIL=<akun Akasha pemilik bot>
    # WHATSAPP_GRAPH_VERSION=v23.0   (naikkan bila Meta menghentikan versi lama)
    ```
 
@@ -507,29 +507,29 @@ sederhana: [TODO-USER.md](TODO-USER.md) A8.
 
 ## 14. Agen Hermes (Asisten Agen, opsional)
 
-Hermes = agen AI (Nous Research) yang dipakai LifeOS lewat menu **AI Agent → Asisten Agen** dan tombol **Kerjakan dengan
+Hermes = agen AI (Nous Research) yang dipakai Akasha lewat menu **AI Agent → Asisten Agen** dan tombol **Kerjakan dengan
 agen** di Approval (docs/AI-AGENT.md §22–§23). Di server berjalan sebagai service `hermes` (profile `agent`), **tanpa port
-publik**: backend memanggil `http://hermes:8642`, Hermes memanggil MCP LifeOS di `http://lifeos-api:4000/api/v1/mcp` (alias
+publik**: backend memanggil `http://hermes:8642`, Hermes memanggil MCP Akasha di `http://akasha-api:4000/api/v1/mcp` (alias
 jaringan service backend).
 
-1. `.env`: `COMPOSE_PROFILES=…,agent`, `HERMES_API_KEY` (`openssl rand -hex 32`), `HERMES_OWNER_EMAIL` (akun LifeOS Anda),
+1. `.env`: `COMPOSE_PROFILES=…,agent`, `HERMES_API_KEY` (`openssl rand -hex 32`), `HERMES_OWNER_EMAIL` (akun Akasha Anda),
    opsional `HERMES_MEM_LIMIT` (bawaan 1536m) dan `HERMES_TAG`.
 2. `docker compose -f docker-compose.prod.yml up -d` (image `nousresearch/hermes-agent` diunduh).
-3. Konfigurasi Hermes sekali (tanpa rahasia — model lewat LifeOS, MCP LifeOS; aman diulang):
+3. Konfigurasi Hermes sekali (tanpa rahasia — model lewat Akasha, MCP Akasha; aman diulang):
    ```bash
    docker compose -f docker-compose.prod.yml exec -u 0 hermes chown 10000:10000 /opt/data/skills
-   docker compose -f docker-compose.prod.yml exec hermes sh /opt/lifeos/configure.sh
+   docker compose -f docker-compose.prod.yml exec hermes sh /opt/akasha/configure.sh
    docker compose -f docker-compose.prod.yml restart hermes
    ```
-4. Di LifeOS (akun `HERMES_OWNER_EMAIL`): API key model di **Pengaturan → Model AI** (baris **Agen (Hermes)** di Pembagian
+4. Di Akasha (akun `HERMES_OWNER_EMAIL`): API key model di **Pengaturan → Model AI** (baris **Agen (Hermes)** di Pembagian
    tugas bila ingin provider khusus), lalu **Asisten Agen → Status & Skill → Siapkan agen**. Ketiga langkah di kartu hijau.
    API key model **tidak** disimpan di Hermes (docs/AI-AGENT.md §23.1); mengganti `HERMES_API_KEY` → tekan Siapkan agen lagi.
 5. **Backup**: volume `hermes-data` (config, memori, sesi) **tidak** ikut image backup bawaan —
-   cadangkan berkala (mis. `docker run --rm -v lifeos-prod_hermes-data:/d -v $PWD/backups:/b alpine tar czf
+   cadangkan berkala (mis. `docker run --rm -v akasha-prod_hermes-data:/d -v $PWD/backups:/b alpine tar czf
    /b/hermes-$(date +%F).tgz -C /d .`) dan simpan terenkripsi; isinya rahasia.
 6. **RAM**: dengan ONLYOFFICE + robot + Hermes sekaligus, gunakan VPS **8 GB**.
 7. Telegram (opsional, asisten pribadi dari HP): `docker compose … run --rm hermes gateway setup`. WhatsApp **tidak** lewat
-   Hermes — bot WhatsApp tetap di LifeOS (§12).
+   Hermes — bot WhatsApp tetap di Akasha (§12).
 8. Pembaruan: ganti `HERMES_TAG` ke versi stabil ≥ 2 minggu, `up -d`; cek ulang daftar skill (`/v1/skills` sempat rusak di
    0.22.x) dan log `docker compose logs hermes`.
 
@@ -538,13 +538,13 @@ jaringan service backend).
 Service `converter` (profile `converter`, Tools → **Markdown Converter**, docs/ARCHITECTURE.md §3.14) mengubah berkas yang
 diunggah menjadi Markdown di server sendiri — MarkItDown untuk dokumen teks, Docling (OCR Tesseract bahasa Indonesia) untuk gambar
 & PDF scan/bergambar — sehingga fitur AI tidak memakai token untuk membaca berkas. Tanpa port publik & tanpa data; backend
-memanggil `http://converter:4200`. Tanpa service ini LifeOS tetap berjalan (pembaca bawaan + OCR AI).
+memanggil `http://converter:4200`. Tanpa service ini Akasha tetap berjalan (pembaca bawaan + OCR AI).
 
 1. `.env`: `COMPOSE_PROFILES=…,converter`, `CONVERTER_TOKEN` (`openssl rand -hex 32`; `CONVERTER_URL` terisi otomatis), opsional
    `CONVERTER_MAX_MB` (bawaan 50), `CONVERTER_MEM_LIMIT` (bawaan 2048m), `DOCLING_THREADS` (bawaan 2 = jumlah vCPU yang dipakai).
 2. `docker compose -f docker-compose.prod.yml up -d --build` — build pertama ± 10–15 menit (torch CPU + model Docling di dalam image,
    ± 5 GB disk). Saat jalan tidak butuh internet.
-3. Cek: `docker compose -f docker-compose.prod.yml exec converter curl -s localhost:4200/health` → `"ready": true`. Di LifeOS:
+3. Cek: `docker compose -f docker-compose.prod.yml exec converter curl -s localhost:4200/health` → `"ready": true`. Di Akasha:
    Tools → Markdown Converter → status **Aktif**. Berkas lama bisa dibaca ulang dari kartu **Berkas tersimpan**.
 4. **RAM & CPU**: Docling ± 1,2 GB saat diam; membaca scan memakai CPU penuh ± 1–5 dtk per halaman (satu berkas sekaligus). Dengan
    ONLYOFFICE + robot + Hermes + converter sekaligus gunakan VPS **8 GB**; di VPS 4 GB nyalakan converter hanya bila ONLYOFFICE mati.

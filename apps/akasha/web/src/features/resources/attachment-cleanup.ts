@@ -2,7 +2,7 @@ import type { AttachedResource, Resource } from "@/types/entities";
 
 /**
  * Aturan pembersihan berkas lampiran saat item (agenda, task, project, ...) atau lampirannya dihapus — dipakai bersama
- * Planner & Productivity agar perilakunya seragam:
+ * Planner & Working Space agar perilakunya seragam:
  * - Hanya lampiran **berkas milik item** (punya `uploadId`, bukan rujukan "Resource Global" / `existing`) yang diproses.
  * - Berkas yang **masih dipakai** di tempat lain (Resource global atau lampiran item lain) tidak pernah dihapus.
  * - Berkas yang dipilih user untuk **dipertahankan** dipindah menjadi Resource global; sisanya dihapus dari storage

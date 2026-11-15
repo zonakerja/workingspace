@@ -6,9 +6,9 @@ import { officeApi } from "@/lib/api/endpoints";
 import type { OfficeConfigResult } from "@/types/api";
 
 /**
- * Editor ONLYOFFICE untuk satu berkas LifeOS. Config ditandatangani backend (`POST /office/config`) dan dipakai apa
+ * Editor ONLYOFFICE untuk satu berkas Akasha. Config ditandatangani backend (`POST /office/config`) dan dipakai apa
  * adanya — hanya `events` yang ditambahkan (bukan bagian token). Komponen ini dimuat malas (chunk sendiri).
- * Perubahan disimpan ONLYOFFICE ke LifeOS lewat callback: tombol Simpan (Ctrl+S) langsung, sisanya saat editor ditutup.
+ * Perubahan disimpan ONLYOFFICE ke Akasha lewat callback: tombol Simpan (Ctrl+S) langsung, sisanya saat editor ditutup.
  */
 
 interface DocEditorInstance {
@@ -51,7 +51,7 @@ export interface OfficeEditorProps {
   mode?: "edit" | "view";
   /** Config berhasil dibuat (hak akses efektif, versi, judul) */
   onLoaded?: (result: OfficeConfigResult) => void;
-  /** Ada perubahan yang belum disimpan ke LifeOS (indikator "Menyimpan…") */
+  /** Ada perubahan yang belum disimpan ke Akasha (indikator "Menyimpan…") */
   onDirtyChange?: (dirty: boolean) => void;
   /** Dokumen selesai dimuat */
   onReady?: () => void;
@@ -105,7 +105,7 @@ export default function OfficeEditor({ uploadId, mode, onLoaded, onDirtyChange, 
     })();
     return () => {
       cancelled = true;
-      // Menutup editor = ONLYOFFICE menyimpan perubahan ke LifeOS (callback) beberapa detik kemudian
+      // Menutup editor = ONLYOFFICE menyimpan perubahan ke Akasha (callback) beberapa detik kemudian
       try {
         editor?.destroyEditor();
       } catch {

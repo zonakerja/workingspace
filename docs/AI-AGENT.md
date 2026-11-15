@@ -1,10 +1,10 @@
 # AI Agent — Riset & Rencana Integrasi
 
-Status: **tahap 1, 2 & 3 (token akses + MCP) selesai 2026-10-24 — hasil di §17–§18**; rencana terkini §9–§16 (revisi 2026-10-24 §16: data SIMAN & MyIntress dari OnTrack, bukan robot LifeOS) (kajian RAG, Obsidian, Hermes vs OpenClaw,
+Status: **tahap 1, 2 & 3 (token akses + MCP) selesai 2026-10-24 — hasil di §17–§18**; rencana terkini §9–§16 (revisi 2026-10-24 §16: data SIMAN & MyIntress dari OnTrack, bukan robot Akasha) (kajian RAG, Obsidian, Hermes vs OpenClaw,
 tiga pekerjaan yang didelegasikan, konektor SRIKANDI/SIMAN/e-Kinerja, tahapan & to-do revisi). §1–§8 = riset awal
 2026-10-17 (tetap berlaku sebagai latar; urutan tahap & to-do di §5–§7 digantikan §14–§15). Belum ada kode/infra yang
 diubah. Dokumen ini
-menjadi acuan thread integrasi AI Agent: penjelasan istilah, hasil riset OpenClaw / Hermes Agent / n8n, kondisi LifeOS,
+menjadi acuan thread integrasi AI Agent: penjelasan istilah, hasil riset OpenClaw / Hermes Agent / n8n, kondisi Akasha,
 pilihan arsitektur, rekomendasi, dan daftar tugas (user & Claude). Kebutuhan dari user:
 1. **Agen SRIKANDI** (mengambil PDF final bertanda tangan elektronik lalu menautkannya ke konsep) dan **agen pembuat
    dokumen bertemplat**, dikelompokkan di menu **Tools** ([ONLYOFFICE.md §3.7](ONLYOFFICE.md)).
@@ -18,13 +18,13 @@ pilihan arsitektur, rekomendasi, dan daftar tugas (user & Claude). Kebutuhan dar
 
 ## 1. Istilah singkat (untuk yang belum familier)
 
-| Istilah | Arti sederhana | Contoh di LifeOS |
+| Istilah | Arti sederhana | Contoh di Akasha |
 |---|---|---|
 | **AI biasa (chat/generate)** | Model menjawab satu pertanyaan. Tidak bisa melakukan apa pun di luar teks. | `POST /ai/generate` saat ini: ringkas berkas, sarankan ikon. |
 | **AI Agent** | Model yang diberi **alat (tools)** — mis. "cari catatan", "buat todo", "unggah berkas" — lalu memutuskan sendiri alat mana dipanggil, berulang sampai tugas selesai. | "Buat nota dinas undangan rapat dari templat, isi dari agenda besok, simpan ke Project X." |
-| **Tool calling / function calling** | Fitur API Gemini/Claude/OpenAI tempat model menjawab "panggil fungsi X dengan argumen Y". Dasar teknis semua agent. | Belum dipakai LifeOS (klien provider hanya teks + lampiran). |
-| **MCP (Model Context Protocol)** | Standar terbuka "colokan USB" antara agent dan aplikasi: aplikasi membuka **MCP server** berisi daftar tools; agent apa pun (Claude Desktop, Hermes, OpenClaw, n8n, …) bisa memakainya tanpa integrasi khusus. | Usulan: **MCP server LifeOS** (§5). |
-| **Workflow automation** | Alur kerja berupa kotak-kotak tersambung yang berjalan otomatis (pemicu → langkah → langkah). Deterministik: selalu sama, mudah diaudit. Bisa memuat langkah AI. | n8n: "setiap pagi jam 7 ambil berkas dari folder/email → unggah ke LifeOS". |
+| **Tool calling / function calling** | Fitur API Gemini/Claude/OpenAI tempat model menjawab "panggil fungsi X dengan argumen Y". Dasar teknis semua agent. | Belum dipakai Akasha (klien provider hanya teks + lampiran). |
+| **MCP (Model Context Protocol)** | Standar terbuka "colokan USB" antara agent dan aplikasi: aplikasi membuka **MCP server** berisi daftar tools; agent apa pun (Claude Desktop, Hermes, OpenClaw, n8n, …) bisa memakainya tanpa integrasi khusus. | Usulan: **MCP server Akasha** (§5). |
+| **Workflow automation** | Alur kerja berupa kotak-kotak tersambung yang berjalan otomatis (pemicu → langkah → langkah). Deterministik: selalu sama, mudah diaudit. Bisa memuat langkah AI. | n8n: "setiap pagi jam 7 ambil berkas dari folder/email → unggah ke Akasha". |
 | **Gateway / channel** | Agent pribadi berjalan terus di server dan diajak bicara lewat Telegram/WhatsApp/Discord. | OpenClaw & Hermes. |
 | **Skill** | Paket instruksi/skrip yang menambah kemampuan agent. Dari marketplace = kode pihak ketiga (risiko). | ClawHub (OpenClaw), skill Hermes (standar agentskills.io). |
 | **Prompt injection** | Teks berbahaya di dokumen/web yang "menyuruh" agent melakukan hal lain (mis. mengirim data). Risiko utama agent. | Dokumen yang dibaca agent harus dianggap data, bukan perintah. |
@@ -45,23 +45,23 @@ pilihan arsitektur, rekomendasi, dan daftar tugas (user & Claude). Kebutuhan dar
 | MCP | **Ya, dua arah**: *MCP Server Trigger* (n8n menjadi MCP server, SSE/HTTP) dan *MCP Client Tool* (agent n8n memakai MCP server lain) | **Ya (klien)**: `mcp_servers` di `config.yaml` (stdio / HTTP + header), filter tools per server; katalog resmi (`hermes mcp install n8n`) | Lewat plugin/skill (tidak menonjol di dokumentasi utama) |
 | Browser otomatis | Tidak bawaan (butuh node komunitas / layanan luar) | **Ya** (image memuat Chromium) | **Ya** (varian `-browser`, Playwright) |
 | Kekuatan | Alur terjadwal yang pasti & mudah diaudit; ratusan integrasi (email, Google Drive, HTTP, DB) | Memori jangka panjang, cron bahasa alami, belajar skill sendiri, dashboard berautentikasi | Paling populer, banyak channel, ekosistem skill besar |
-| Risiko / catatan | Lisensi membatasi bila LifeOS kelak dijual sebagai layanan; fitur enterprise (SSO, audit log) berbayar | Proyek muda & cepat berubah; SQLite **bisa rusak di bind mount VM** (`/mnt/d` WSL = 9p) → pakai named volume | **Catatan keamanan berat 2026**: ratusan skill berbahaya di ClawHub (pencuri kredensial), CVE-2026-25253 (CVSS 8.8), puluhan ribu instance terbuka tanpa autentikasi; agent bisa menjalankan perintah shell |
+| Risiko / catatan | Lisensi membatasi bila Akasha kelak dijual sebagai layanan; fitur enterprise (SSO, audit log) berbayar | Proyek muda & cepat berubah; SQLite **bisa rusak di bind mount VM** (`/mnt/d` WSL = 9p) → pakai named volume | **Catatan keamanan berat 2026**: ratusan skill berbahaya di ClawHub (pencuri kredensial), CVE-2026-25253 (CVSS 8.8), puluhan ribu instance terbuka tanpa autentikasi; agent bisa menjalankan perintah shell |
 | RAM kira-kira | ± 0,5–1 GB (+ PostgreSQL bersama) | contoh compose resmi: batas 4 GB / 2 core (Chromium) | ± 1–2 GB (lebih dengan browser); build dari source ≥ 6 GB |
 
 ### 2.2 Posisi masing-masing (kesimpulan)
 
 - **n8n ≠ agent pribadi.** n8n adalah "ban berjalan" otomatisasi. Cocok untuk pekerjaan yang **langkahnya sudah jelas**
-  dan berulang (ambil berkas dari email/folder → unggah ke LifeOS → tautkan). Paling mudah diaudit dan paling kecil
+  dan berulang (ambil berkas dari email/folder → unggah ke Akasha → tautkan). Paling mudah diaudit dan paling kecil
   risikonya.
 - **Hermes & OpenClaw = asisten pribadi yang selalu menyala** (seperti "Jarvis" di Telegram). Cocok untuk perintah
-  bebas lewat chat ("tambahkan todo besok jam 9", "ringkas notulen kemarin"). Keduanya butuh **akses ke LifeOS** lewat
-  API/MCP — tanpa itu mereka tidak tahu apa pun tentang data LifeOS.
+  bebas lewat chat ("tambahkan todo besok jam 9", "ringkas notulen kemarin"). Keduanya butuh **akses ke Akasha** lewat
+  API/MCP — tanpa itu mereka tidak tahu apa pun tentang data Akasha.
 - **Hermes vs OpenClaw**: fungsinya mirip. Hermes lebih baru tetapi desain keamanannya lebih ketat secara default
   (dashboard wajib login di bind non-loopback, menolak berjalan sebagai root, hard-stop loop tool). OpenClaw lebih
   populer tetapi punya riwayat keamanan buruk 2026; bila dipilih: **tanpa skill ClawHub**, gateway hanya localhost,
   sandbox aktif, versi terbaru.
-- **Agen pembuat dokumen bertemplat tidak butuh ketiganya.** Semua bahan sudah ada di LifeOS (templat, ONLYOFFICE,
-  `AiService`, data agenda/project) → paling aman & rapi dibuat **di dalam backend LifeOS** (tool calling + pengisian
+- **Agen pembuat dokumen bertemplat tidak butuh ketiganya.** Semua bahan sudah ada di Akasha (templat, ONLYOFFICE,
+  `AiService`, data agenda/project) → paling aman & rapi dibuat **di dalam backend Akasha** (tool calling + pengisian
   templat), memakai provider & key milik user seperti fitur AI lain.
 
 ### 2.3 SRIKANDI
@@ -75,7 +75,7 @@ pilihan arsitektur, rekomendasi, dan daftar tugas (user & Claude). Kebutuhan dar
   2. **Otomasi browser** (Hermes/OpenClaw/Playwright login sebagai user lalu mengunduh PDF) — rapuh (tampilan berubah →
      rusak), butuh menyimpan kredensial SSO/akun pemerintah di server, mungkin terhalang CAPTCHA/OTP, dan **bisa
      melanggar ketentuan penggunaan sistem pemerintah**. Tidak disarankan sebelum ada izin tertulis dari pengelola.
-  3. **Semi-otomatis (aman, bisa langsung)** — user mengunduh PDF dari SRIKANDI seperti biasa, lalu LifeOS
+  3. **Semi-otomatis (aman, bisa langsung)** — user mengunduh PDF dari SRIKANDI seperti biasa, lalu Akasha
      mempermudah: unggah massal / folder pantau / alamat email masuk → agent **mencocokkan PDF dengan konsepnya**
      (nomor surat, perihal, tanggal dibaca dari teks PDF) lalu menautkan lewat `PUT /office/files/:id/draft`
      (endpoint sudah ada). Ini memberi ± 80% manfaat tanpa risiko kredensial.
@@ -86,13 +86,13 @@ Ada tiga cara membuat AI "tahu" pengetahuan khusus. Hasil riset:
 
 | Cara | Apa yang terjadi | Cocok untuk | Kendala |
 |---|---|---|---|
-| **Fine-tuning** ("melatih ulang model") | Model dilatih lagi dengan ratusan–ribuan contoh tanya-jawab → pengetahuan "tertanam" di model. | Gaya bahasa & format tetap (mis. gaya surat dinas). | **Gemini API sudah tidak menyediakan tuning** (pindah ke Vertex AI/Google Cloud), **Claude tidak menyediakan fine-tuning** di API publik, hanya OpenAI. Terikat satu provider (bertentangan dengan multi-provider LifeOS). Pengetahuan yang tertanam **tidak bisa diperbarui/dihapus** (aturan berubah → latih ulang), mahal, dan model tetap bisa mengarang fakta. Riset umum: fine-tuning membantu gaya, **jarang** memperbaiki pengetahuan faktual. |
-| **RAG** (pencarian pengetahuan) | Pengetahuan disimpan di database; setiap pertanyaan, potongan yang relevan dicari lalu diberikan ke AI bersama sumbernya. | Fakta, regulasi, SOP, data pekerjaan yang terus bertambah. | Kualitas bergantung pada kerapian sumber. **Sudah ada** di LifeOS (`ai_chunks`, pgvector, My Notebook bersitasi). |
+| **Fine-tuning** ("melatih ulang model") | Model dilatih lagi dengan ratusan–ribuan contoh tanya-jawab → pengetahuan "tertanam" di model. | Gaya bahasa & format tetap (mis. gaya surat dinas). | **Gemini API sudah tidak menyediakan tuning** (pindah ke Vertex AI/Google Cloud), **Claude tidak menyediakan fine-tuning** di API publik, hanya OpenAI. Terikat satu provider (bertentangan dengan multi-provider Akasha). Pengetahuan yang tertanam **tidak bisa diperbarui/dihapus** (aturan berubah → latih ulang), mahal, dan model tetap bisa mengarang fakta. Riset umum: fine-tuning membantu gaya, **jarang** memperbaiki pengetahuan faktual. |
+| **RAG** (pencarian pengetahuan) | Pengetahuan disimpan di database; setiap pertanyaan, potongan yang relevan dicari lalu diberikan ke AI bersama sumbernya. | Fakta, regulasi, SOP, data pekerjaan yang terus bertambah. | Kualitas bergantung pada kerapian sumber. **Sudah ada** di Akasha (`ai_chunks`, pgvector, My Notebook bersitasi). |
 | **Instruksi & memori tetap** | Profil + aturan kerja + memori yang disetujui user selalu ikut di setiap permintaan AI. | Hal yang harus selalu diingat: jabatan, unit, singkatan, preferensi, gaya. | Harus ringkas (masuk setiap prompt). |
 
 **Rekomendasi: "Basis Pengetahuan Saya" = gabungan RAG + instruksi/memori tetap + contoh gaya, bukan fine-tuning.**
 Bekerja dengan semua provider (Gemini/Claude/OpenAI), bisa diperbarui kapan saja, setiap jawaban menunjukkan sumbernya,
-dan data tetap di server LifeOS. Isinya (usulan):
+dan data tetap di server Akasha. Isinya (usulan):
 1. **Profil kerja & instruksi tetap** — jabatan, unit kerja, tugas pokok, istilah/singkatan instansi, gaya bahasa,
    aturan ("selalu rujuk KM terbaru", "format tanggal …"). Diisi user sekali, ikut di setiap fitur AI (chatbot, Notes AI,
    agen dokumen, My Notebook).
@@ -117,15 +117,15 @@ bisa diekspor menjadi set latih.
   pegawai Kemenhub). Ada juga aplikasi lama/terkait **AP2KP** (ap2kp.dephub.go.id: SKP, log harian, tukin).
 - **Tidak ditemukan API publik** untuk aplikasi pegawai. Integrasi resmi biasanya hanya antarsistem instansi (mis. ke
   BKN), bukan untuk aplikasi pribadi.
-- Data yang paling berguna: LifeOS **sudah mencatat** todo, action/task, agenda + hasil, notulen (Notes AI), dokumen →
+- Data yang paling berguna: Akasha **sudah mencatat** todo, action/task, agenda + hasil, notulen (Notes AI), dokumen →
   bahan **realisasi kinerja & bukti dukung**.
 - Pilihan:
-  1. **Asisten pengisian (aman, bisa langsung)** — LifeOS menyusun rekap realisasi per periode/rencana hasil kerja SKP
+  1. **Asisten pengisian (aman, bisa langsung)** — Akasha menyusun rekap realisasi per periode/rencana hasil kerja SKP
      (AI merangkum task & agenda selesai + tautan bukti dukung, berkas bukti siap unduh/ZIP) → user menyalin/mengunggah
-     sendiri ke e-Kinerja. **Ambil data**: user mengekspor/mengunduh SKP (PDF/Excel) → diimpor ke LifeOS (AI membaca,
+     sendiri ke e-Kinerja. **Ambil data**: user mengekspor/mengunduh SKP (PDF/Excel) → diimpor ke Akasha (AI membaca,
      membuat struktur Area/Kegiatan sesuai rencana hasil kerja) sehingga pekerjaan harian tertaut ke SKP.
   2. **Ekstensi browser "isi otomatis"** — berjalan di browser user yang **sudah login sendiri**; ekstensi mengisi
-     formulir dari data LifeOS, user memeriksa & menekan Simpan/Kirim sendiri. Kredensial tidak pernah disimpan LifeOS.
+     formulir dari data Akasha, user memeriksa & menekan Simpan/Kirim sendiri. Kredensial tidak pernah disimpan Akasha.
      Tetap rapuh bila tampilan e-Kinerja berubah.
   3. **Robot dengan akun tersimpan** (agent login sendiri memakai username/password SIK user, mengirim data otomatis) —
      **tidak direkomendasikan**: akun SIK adalah akun kepegawaian resmi (kemungkinan juga membuka data kepegawaian lain),
@@ -142,7 +142,7 @@ bisa diekspor menjadi set latih.
   satker) dan rencana tanda tangan digital (NADINE); ada aplikasi **SIMAN 2 Mobile** (sensus/inventarisasi BMN).
 - **Tidak ditemukan dokumentasi API** untuk pihak luar — integrasi yang ada hanya antarsistem Kemenkeu (SAKTI). Akun
   SIMAN adalah akun operator/pejabat satker → transaksi BMN berdampak hukum & laporan keuangan negara.
-- Pilihan sama dengan e-Kinerja: (1) **asisten** — LifeOS menyimpan/menyiapkan data pendukung (daftar barang, foto
+- Pilihan sama dengan e-Kinerja: (1) **asisten** — Akasha menyimpan/menyiapkan data pendukung (daftar barang, foto
   kondisi, BAST, dokumen penetapan status, jadwal pemeliharaan/sensus sebagai agenda, pengingat batas pelaporan), AI
   membaca ekspor SIMAN (Excel/PDF laporan) untuk rekap & pencarian, user menginput ke SIMAN sendiri; (2) ekstensi isi
   otomatis di browser user; (3) robot berakun tersimpan — **tidak direkomendasikan** (alasan sama, ditambah transaksi
@@ -152,20 +152,20 @@ bisa diekspor menjadi set latih.
 
 ### 2.7 Prinsip untuk agen yang terhubung ke aplikasi pemerintah (SRIKANDI, e-Kinerja, SIMAN)
 
-1. **API resmi dulu**; tanpa API → mode asisten (LifeOS menyiapkan, user mengirim).
-2. **LifeOS tidak menyimpan kata sandi akun pemerintah** (SIK, SSO ASN, SIMAN, SRIKANDI). Bila otomasi browser kelak
+1. **API resmi dulu**; tanpa API → mode asisten (Akasha menyiapkan, user mengirim).
+2. **Akasha tidak menyimpan kata sandi akun pemerintah** (SIK, SSO ASN, SIMAN, SRIKANDI). Bila otomasi browser kelak
    diizinkan, berjalan di browser/sesi user sendiri.
 3. **Manusia menekan tombol kirim** untuk data resmi (realisasi kinerja, transaksi BMN, naskah dinas).
 4. Data kantor yang dikirim ke provider AI mengikuti kebijakan instansi (klasifikasi informasi; pertimbangkan model
    lokal untuk data rahasia — di luar cakupan tahap awal).
 
-## 3. Kondisi LifeOS saat ini (titik sambung & yang belum ada)
+## 3. Kondisi Akasha saat ini (titik sambung & yang belum ada)
 
 | Sudah ada | Belum ada (dibutuhkan agent) |
 |---|---|
 | AI multi-provider di backend, key per user terenkripsi (`src/ai/`) | **Tool calling** di klien provider (Gemini/Claude/OpenAI hanya teks + lampiran) |
 | RAG: `AiIndexService.search` (vektor + kata) | **Token akses untuk program luar** — auth sekarang hanya JWT 15 menit + cookie browser; agent/n8n tidak bisa login dengan cara itu |
-| Records API seragam (`/records/:type`), uploads, ONLYOFFICE (`/office/documents { templateId }`, tautan konsep ↔ final) | **MCP server LifeOS** (daftar tools yang aman) |
+| Records API seragam (`/records/:type`), uploads, ONLYOFFICE (`/office/documents { templateId }`, tautan konsep ↔ final) | **MCP server Akasha** (daftar tools yang aman) |
 | Isolasi data per user + berbagi (`ShareAccessService`) | Log aktivitas agent + konfirmasi sebelum aksi yang mengubah data |
 | BullMQ + Redis (antrian job) | Penjadwal tugas agent per user |
 
@@ -189,21 +189,21 @@ semua"), API key AI tetap di backend, domain eksternal tidak dipanggil dari brow
 
 ## 5. Rekomendasi arsitektur (bertahap)
 
-Prinsipnya: **LifeOS menjadi "sumber kebenaran" + penyedia tools; agent luar hanya klien.** Dengan begitu pilihan
-agent bisa diganti kapan saja tanpa mengubah LifeOS.
+Prinsipnya: **Akasha menjadi "sumber kebenaran" + penyedia tools; agent luar hanya klien.** Dengan begitu pilihan
+agent bisa diganti kapan saja tanpa mengubah Akasha.
 
 | Tahap | Isi | Butuh agent luar? |
 |---|---|---|
-| **K. Basis Pengetahuan Saya** (§2.4) | Menu baru (Pengaturan → Model AI atau Tools → Pengetahuan): profil kerja & instruksi tetap, koleksi pengetahuan (dokumen + catatan pengetahuan, prioritas di RAG), memori usulan AI yang disetujui, contoh gaya, uji pengetahuan. Disuntikkan ke semua fitur AI LifeOS. | Tidak |
-| **A. Fondasi** | (1) **Token akses pribadi** (Pengaturan → Integrasi): dibuat user, cakupan dipilih (baca / tulis per modul), bisa dicabut, disimpan ter-hash, kedaluwarsa; (2) **MCP server LifeOS** `POST /api/v1/mcp` (HTTP streamable) berisi tools terbatas: cari pengetahuan (RAG), baca/buat todo & agenda, buat catatan, daftar templat, buat dokumen dari templat, unggah & tautkan berkas final; (3) **log aktivitas agent** per token. Semua lewat izin user pemilik token. | Tidak (bisa diuji dengan Claude Desktop / MCP Inspector) |
+| **K. Basis Pengetahuan Saya** (§2.4) | Menu baru (Pengaturan → Model AI atau Tools → Pengetahuan): profil kerja & instruksi tetap, koleksi pengetahuan (dokumen + catatan pengetahuan, prioritas di RAG), memori usulan AI yang disetujui, contoh gaya, uji pengetahuan. Disuntikkan ke semua fitur AI Akasha. | Tidak |
+| **A. Fondasi** | (1) **Token akses pribadi** (Pengaturan → Integrasi): dibuat user, cakupan dipilih (baca / tulis per modul), bisa dicabut, disimpan ter-hash, kedaluwarsa; (2) **MCP server Akasha** `POST /api/v1/mcp` (HTTP streamable) berisi tools terbatas: cari pengetahuan (RAG), baca/buat todo & agenda, buat catatan, daftar templat, buat dokumen dari templat, unggah & tautkan berkas final; (3) **log aktivitas agent** per token. Semua lewat izin user pemilik token. | Tidak (bisa diuji dengan Claude Desktop / MCP Inspector) |
 | **B. Agen dokumen bertemplat** (Tools → Agen Dokumen) | Di backend: user memilih templat + memberi instruksi/sumber (agenda, project, catatan) → AI (tool calling provider user) menyusun isi → templat diisi (placeholder DOCX atau ONLYOFFICE Document Builder) → dokumen baru dibuka di ONLYOFFICE untuk diperiksa. | Tidak |
 | **C. Agen dokumen final / "SRIKANDI semi-otomatis"** | Unggah massal PDF final → ekstraksi teks (sudah ada) → AI mencocokkan ke konsep (nomor/perihal/tanggal) → usulan tautan, user menyetujui → `PUT /office/files/:id/draft` + Resource Global + File Control. | Tidak |
-| **D. Otomasi n8n** (opsional) | n8n di profile `agent`, memakai token akses + MCP/REST LifeOS: mis. email masuk berisi PDF → tahap C; laporan mingguan otomatis. | n8n |
-| **E. Asisten chat pribadi** (opsional) | **Hermes Agent** (disarankan atas OpenClaw karena keamanan default) di Telegram, tersambung ke MCP LifeOS dengan token cakupan terbatas; aksi tulis butuh konfirmasi. | Hermes (atau OpenClaw) |
-| **G. Asisten e-Kinerja & SIMAN** (§2.5–§2.6) | Tautkan pekerjaan LifeOS ke rencana hasil kerja SKP (impor SKP dari ekspor e-Kinerja); rekap realisasi + bukti dukung per periode siap salin/unggah; untuk SIMAN: data pendukung BMN, pengingat, rekap dari ekspor. User mengirim sendiri. | Tidak |
+| **D. Otomasi n8n** (opsional) | n8n di profile `agent`, memakai token akses + MCP/REST Akasha: mis. email masuk berisi PDF → tahap C; laporan mingguan otomatis. | n8n |
+| **E. Asisten chat pribadi** (opsional) | **Hermes Agent** (disarankan atas OpenClaw karena keamanan default) di Telegram, tersambung ke MCP Akasha dengan token cakupan terbatas; aksi tulis butuh konfirmasi. | Hermes (atau OpenClaw) |
+| **G. Asisten e-Kinerja & SIMAN** (§2.5–§2.6) | Tautkan pekerjaan Akasha ke rencana hasil kerja SKP (impor SKP dari ekspor e-Kinerja); rekap realisasi + bukti dukung per periode siap salin/unggah; untuk SIMAN: data pendukung BMN, pengingat, rekap dari ekspor. User mengirim sendiri. | Tidak |
 | **F. SRIKANDI / e-Kinerja / SIMAN penuh** | Hanya bila ada API resmi atau izin tertulis; alternatif: ekstensi browser isi otomatis di sesi user sendiri (kredensial tidak disimpan). | Tergantung jalur |
 
-Rekomendasi urutan: **K → A → B → C → G** (semua di dalam LifeOS, tanpa layanan baru, aman di VPS), lalu putuskan
+Rekomendasi urutan: **K → A → B → C → G** (semua di dalam Akasha, tanpa layanan baru, aman di VPS), lalu putuskan
 D/E/F. K dikerjakan pertama karena dipakai semua agen dan **mengisinya butuh waktu dari user** (bisa mulai mengumpulkan
 dokumen sambil tahap lain dibangun). A adalah syarat untuk D, E, dan F.
 
@@ -216,8 +216,8 @@ dokumen sambil tahap lain dibangun). A adalah syarat untuk D, E, dan F.
 | AG-1 | Urutan tahap: **K (Basis Pengetahuan) → A (token + MCP) → B (agen dokumen) → C → G**? | Ya |
 | AG-7 | Knowledge AI memakai **RAG + instruksi/memori + contoh gaya** (bukan fine-tuning)? | Ya |
 | AG-8 | Memori otomatis: AI hanya **mengusulkan**, tersimpan setelah user setuju? | Ya |
-| AG-9 | e-Kinerja & SIMAN: mulai dari **mode asisten** (LifeOS menyiapkan, user mengirim), tanpa menyimpan kata sandi akun? | Ya |
-| AG-2 | Agen dokumen bertemplat dibuat **di dalam LifeOS** (bukan n8n/OpenClaw)? | Ya |
+| AG-9 | e-Kinerja & SIMAN: mulai dari **mode asisten** (Akasha menyiapkan, user mengirim), tanpa menyimpan kata sandi akun? | Ya |
+| AG-2 | Agen dokumen bertemplat dibuat **di dalam Akasha** (bukan n8n/OpenClaw)? | Ya |
 | AG-3 | SRIKANDI: jalur **semi-otomatis** (tahap C) dulu, sambil menanyakan API resmi? | Ya |
 | AG-4 | Asisten chat (tahap E): perlu? Bila ya, **Hermes** atau OpenClaw? Channel: Telegram / WhatsApp? | Hermes + Telegram, nanti |
 | AG-5 | n8n (tahap D): perlu sekarang? Ada kebutuhan otomasi konkret (email, Google Drive, WhatsApp)? | Tunda sampai ada kasus jelas |
@@ -246,7 +246,7 @@ dokumen sambil tahap lain dibangun). A adalah syarat untuk D, E, dan F.
 - [ ] (Bila tahap E) Bot Telegram dari **@BotFather** (gratis) + ID Telegram user untuk allowlist.
 - [ ] (Bila tahap D) n8n self-hosted **tidak perlu akun n8n** (pemilik dibuat saat pertama dibuka). Jangan memakai n8n
       Cloud bila data kantor tidak boleh keluar.
-- [ ] (Opsional) Claude Desktop / MCP Inspector untuk mencoba MCP server LifeOS.
+- [ ] (Opsional) Claude Desktop / MCP Inspector untuk mencoba MCP server Akasha.
 
 ## 7. To-do untuk Claude (setelah keputusan)
 
@@ -309,7 +309,7 @@ pencarian kata saja.
 
 | # | Temuan | Dampak | Usulan perbaikan |
 |---|---|---|---|
-| R-1 | **Chatbot melayang (global) tidak memakai indeks.** `floating-chatbot.tsx` menyusun konteks di browser dari data yang dipotong (`lifeos-context.ts`: ringkasan resource 250 karakter, judul Notes AI, dst.) lalu memanggil `/ai/generate`. Indeks hanya dipakai **My Notebook** dan `GET /ai/index/search`. | Chatbot tidak bisa menjawab dari **isi dokumen**/peraturan; prompt membengkak seiring data bertambah. | **RAG tahap 2**: `POST /ai/chat` di backend (pola `notebook-context.ts`: cari → potongan bersitasi → jawab), riwayat permanen. Endpoint ini juga dipakai bot WhatsApp & agen. |
+| R-1 | **Chatbot melayang (global) tidak memakai indeks.** `floating-chatbot.tsx` menyusun konteks di browser dari data yang dipotong (`akasha-context.ts`: ringkasan resource 250 karakter, judul Notes AI, dst.) lalu memanggil `/ai/generate`. Indeks hanya dipakai **My Notebook** dan `GET /ai/index/search`. | Chatbot tidak bisa menjawab dari **isi dokumen**/peraturan; prompt membengkak seiring data bertambah. | **RAG tahap 2**: `POST /ai/chat` di backend (pola `notebook-context.ts`: cari → potongan bersitasi → jawab), riwayat permanen. Endpoint ini juga dipakai bot WhatsApp & agen. |
 | R-2 | **Data yang dikirim ke Google**: setiap potongan teks record & berkas dikirim ke API embedding Gemini (sekali per perubahan), + OCR gambar/PDF scan, + teks pertanyaan. Menurut ketentuan Gemini API, **kuota gratis (unpaid)** boleh dipakai Google untuk memperbaiki produk dan **dibaca reviewer manusia**; **layanan berbayar** (billing Cloud aktif) tidak dipakai untuk melatih model. | Untuk surat dinas / data BMN / data satker, key Gemini **gratis tidak layak**. | User: aktifkan **billing** di project Google Cloud key tersebut (biaya embedding kecil) atau matikan indeks; opsi lanjut: embedding lokal di server (model embedding terbuka lewat Ollama) agar isi tidak keluar sama sekali. Tampilkan peringatan di Pengaturan → Model AI. |
 | R-3 | Embedding **hanya Gemini**. | User yang hanya punya key Claude/OpenAI tidak mendapat pencarian makna. | Abstraksi penyedia embedding (Gemini / OpenAI / lokal); ganti model = indeks ulang (dimensi kolom). |
 | R-4 | Tidak ada **koleksi / prioritas / metadata**: peraturan, catatan harian, dan todo bercampur dengan bobot sama; tidak ada status berlaku, nomor peraturan, tanggal. | Jawaban bisa merujuk catatan lama / aturan yang sudah dicabut. | Kolom `collection` (mis. `knowledge`, `workspace`) + `metadata` jsonb (jenis, nomor, status, berlaku sejak, dicabut oleh, tag) di `ai_chunks`; filter "hanya yang berlaku"; prioritas koleksi pengetahuan. |
@@ -327,8 +327,8 @@ di satu folder ("vault"). Kekuatannya: tautan antar-catatan `[[Nama Catatan]]`, 
 source, tetapi datanya Markdown terbuka → tidak terkunci.
 
 **Peran yang diusulkan**: **Obsidian = tempat Anda menulis & merawat pengetahuan** (peraturan, tafsir pasal, praktik
-lapangan, FAQ, contoh kasus, alur PSP/penghapusan/pemanfaatan). **LifeOS = mesin yang membaca vault, mengindeks, dan
-melayani** chatbot, agen, dan WhatsApp. Satu arah utama (vault → LifeOS) agar tidak ada konflik; LifeOS hanya menulis ke
+lapangan, FAQ, contoh kasus, alur PSP/penghapusan/pemanfaatan). **Akasha = mesin yang membaca vault, mengindeks, dan
+melayani** chatbot, agen, dan WhatsApp. Satu arah utama (vault → Akasha) agar tidak ada konflik; Akasha hanya menulis ke
 folder `00-Inbox/` (usulan pengetahuan baru dari pertanyaan yang belum terjawab / jawaban yang Anda setujui) untuk Anda
 kurasi di Obsidian.
 
@@ -341,11 +341,11 @@ kurasi di Obsidian.
 | **Obsidian Sync** + klien resmi **`obsidian-headless` (CLI `ob`)** di server (rilis Feb 2026) | Langganan Obsidian Sync | Paling mulus lintas perangkat, terenkripsi, resmi | Berbayar; data lewat server Obsidian |
 | **Self-hosted LiveSync** (plugin komunitas + CouchDB) | Gratis | Real-time, self-host | Paling rumit (CouchDB tambahan), klien headless masih komunitas |
 
-**Rekomendasi**: **Syncthing** untuk laptop ↔ HP ↔ server (mudah) **+ Git di server** (LifeOS meng-commit snapshot vault
+**Rekomendasi**: **Syncthing** untuk laptop ↔ HP ↔ server (mudah) **+ Git di server** (Akasha meng-commit snapshot vault
 setiap ada perubahan → riwayat/audit & backup). Bila kelak berlangganan Obsidian Sync, cukup ganti ke `ob` tanpa
-mengubah LifeOS. Plugin "Local REST API"/MCP Obsidian **tidak** dipakai di server (butuh aplikasi desktop menyala).
+mengubah Akasha. Plugin "Local REST API"/MCP Obsidian **tidak** dipakai di server (butuh aplikasi desktop menyala).
 
-### 10.2 Konektor Obsidian di LifeOS (rancangan)
+### 10.2 Konektor Obsidian di Akasha (rancangan)
 
 - Service pemantau folder vault (volume `obsidian-vault`, hanya-baca kecuali `00-Inbox/`) → setiap berkas `.md` berubah:
   baca properti YAML, judul, isi; potong per judul/Pasal (R-5); indeks ke `ai_chunks` dengan `sourceType = "obsidian"`,
@@ -363,7 +363,7 @@ mengubah LifeOS. Plugin "Local REST API"/MCP Obsidian **tidak** dipakai di serve
 
 ```
 Pengetahuan-BMN/
-├── 00-Inbox/                 usulan dari LifeOS/agen (Anda kurasi)
+├── 00-Inbox/                 usulan dari Akasha/agen (Anda kurasi)
 ├── 10-Peraturan/             satu catatan per peraturan (+ PDF); properti: jenis, nomor, tahun, status, mencabut
 │   └── Pasal/                catatan per pasal penting (tafsir Anda, tertaut ke peraturan)
 ├── 20-Topik/                 PSP, Penghapusan, Pemanfaatan (Sewa, KSP, KSPI, BGS/BSG, Pinjam Pakai), Pemindahtanganan…
@@ -400,20 +400,20 @@ diperbarui: 2026-10-18
 | Lisensi | MIT | MIT |
 
 **Kenapa tidak keduanya**: fungsinya tumpang-tindih (sama-sama gateway chat + agen), dua kali biaya RAM, pembaruan, dan
-permukaan serangan, tanpa kemampuan tambahan yang berarti. Karena **semua pengetahuan & aksi ada di LifeOS (MCP)**,
+permukaan serangan, tanpa kemampuan tambahan yang berarti. Karena **semua pengetahuan & aksi ada di Akasha (MCP)**,
 mengganti Hermes ke OpenClaw kelak cukup mengganti klien.
 
 **Catatan penting — "memory poisoning"**: studi arXiv 2606.04329 (2026) menemukan Hermes **lebih mudah diracuni lewat
 memori** (tingkat keberhasilan serangan ± 67% vs 34% OpenClaw) karena memorinya selalu disuntikkan ke prompt. Artinya:
 pesan dari orang luar (satker) **tidak boleh** bisa menulis memori agen. Mitigasi wajib (§12.1): dua instans terpisah —
 bot publik tanpa memori tulis & tanpa alat berbahaya; asisten pribadi (memori aktif) hanya untuk Anda. Pengetahuan
-"resmi" tetap di Obsidian/LifeOS (dikurasi Anda), bukan di memori agen — memori Hermes cukup untuk preferensi kerja &
+"resmi" tetap di Obsidian/Akasha (dikurasi Anda), bukan di memori agen — memori Hermes cukup untuk preferensi kerja &
 konteks percakapan.
 
 ## 12. Rancangan tiga pekerjaan
 
-Prinsip: **LifeOS = sumber kebenaran + antrian kerja + alat (MCP); Hermes = antarmuka chat & otak agen; Anda = pemeriksa
-akhir.** Setiap keluaran agen yang bersifat resmi masuk **Antrian Verifikasi** di LifeOS (baru → diproses → menunggu
+Prinsip: **Akasha = sumber kebenaran + antrian kerja + alat (MCP); Hermes = antarmuka chat & otak agen; Anda = pemeriksa
+akhir.** Setiap keluaran agen yang bersifat resmi masuk **Antrian Verifikasi** di Akasha (baru → diproses → menunggu
 verifikasi → disetujui → dikirim), tercatat di log aktivitas.
 
 ```
@@ -421,7 +421,7 @@ Satker --WhatsApp (Cloud API resmi)--> Hermes "publik" --MCP (baca pengetahuan p
 Anda   --WhatsApp/Telegram----------> Hermes "pribadi" (memori) --MCP (penuh, aksi tulis dikonfirmasi)-----+
 Obsidian (laptop/HP) --Syncthing--> vault di server --> Konektor Obsidian --> indeks pengetahuan            |
                                                                                                             v
-                         LifeOS: /ai/chat (RAG) · Pengajuan · Mesin templat -> ONLYOFFICE · Antrian Verifikasi
+                         Akasha: /ai/chat (RAG) · Pengajuan · Mesin templat -> ONLYOFFICE · Antrian Verifikasi
                                  · (nanti) Robot SRIKANDI / SIMAN / e-Kinerja
 ```
 
@@ -432,19 +432,19 @@ Obsidian (laptop/HP) --Syncthing--> vault di server --> Konektor Obsidian --> in
   nomor bisa diblokir. **Kebijakan Meta sejak 15 Jan 2026 melarang asisten AI serba-guna** di WhatsApp Business API, tetapi
   bot **khusus tugas** (layanan informasi/konsultasi BMN, penerimaan pengajuan) tetap diizinkan → bot dibatasi topik
   (menolak pertanyaan di luar BMN/kedinasan). Perhatikan jendela 24 jam (di luar itu hanya pesan templat berbayar).
-- **Hermes publik**: allowlist nomor satker terdaftar, toolset hanya MCP LifeOS `knowledge.search` (koleksi `publik: true`,
+- **Hermes publik**: allowlist nomor satker terdaftar, toolset hanya MCP Akasha `knowledge.search` (koleksi `publik: true`,
   `status: berlaku`), `request.create`, `request.status`; tanpa shell, browser, berkas lokal, cron; **memori tulis mati**;
   aturan menjawab: selalu sebut dasar hukum + tanggal pembaruan, jawab "akan dikonfirmasi" bila tidak yakin.
-- Pertanyaan yang tidak terjawab / ragu → tiket ke Anda (LifeOS + notifikasi ke Hermes pribadi) → jawaban Anda dikirim ke
+- Pertanyaan yang tidak terjawab / ragu → tiket ke Anda (Akasha + notifikasi ke Hermes pribadi) → jawaban Anda dikirim ke
   satker **dan** diusulkan menjadi catatan FAQ baru di `00-Inbox/` (lingkaran belajar tanpa input berulang).
-- Riwayat percakapan per satker disimpan di LifeOS (audit), bukan hanya di Hermes.
+- Riwayat percakapan per satker disimpan di Akasha (audit), bukan hanya di Hermes.
 
 ### 12.2 Pengajuan dokumen bertemplat (PSP, SK Panitia Penghapusan, SK Pemanfaatan — sewa, KSP, …)
 
-> **Revisi 2026-10-31**: alur ini kini dikerjakan **agen Hermes lewat skill/workflow**, LifeOS menyediakan alat MCP &
+> **Revisi 2026-10-31**: alur ini kini dikerjakan **agen Hermes lewat skill/workflow**, Akasha menyediakan alat MCP &
 > Approval — lihat §22.
 
-1. Satker mengirim surat permohonan + lampiran via WhatsApp → Hermes publik `request.create` → LifeOS modul baru
+1. Satker mengirim surat permohonan + lampiran via WhatsApp → Hermes publik `request.create` → Akasha modul baru
    **Pengajuan** (jenis, satker, nomor & tanggal surat, berkas; berkas masuk Asset → ekstraksi teks).
 2. Agen membaca berkas → mengisi **formulir terstruktur per jenis** (mis. PSP: daftar BMN, kode barang, NUP, nilai
    perolehan, dasar perolehan) → **cek kelengkapan** memakai checklist `50-Persyaratan/` → bila kurang, membalas satker
@@ -468,14 +468,14 @@ Obsidian (laptop/HP) --Syncthing--> vault di server --> Konektor Obsidian --> in
 ## 13. Sketsa konektor SRIKANDI / SIMAN / e-Kinerja (dibahas detail nanti)
 
 Kebutuhan dari user (dicatat apa adanya):
-1. **SRIKANDI** — robot mengisi isian & mengunggah dokumen; tujuan dan penandatangan diisi di LifeOS lalu diteruskan ke
+1. **SRIKANDI** — robot mengisi isian & mengunggah dokumen; tujuan dan penandatangan diisi di Akasha lalu diteruskan ke
    SRIKANDI.
 2. **SIMAN** — **hanya mengambil data** aset secara berkala (harian/mingguan), bukan pengajuan. **Revisi 2026-10-24:
-   tidak lagi dikerjakan robot LifeOS — data diambil dari OnTrack Data Hub lewat API/MCP (§16).**
+   tidak lagi dikerjakan robot Akasha — data diambil dari OnTrack Data Hub lewat API/MCP (§16).**
 3. **e-Kinerja** — SKP awal ditetapkan & diisi sendiri di e-Kinerja; yang diotomasi tiap bulan: **rincian rencana aksi,
-   jumlah dokumen, link dokumen**. SKP dimasukkan juga ke LifeOS; agen memetakan pekerjaan LifeOS ke tiap RHK/kegiatan,
+   jumlah dokumen, link dokumen**. SKP dimasukkan juga ke Akasha; agen memetakan pekerjaan Akasha ke tiap RHK/kegiatan,
    lalu robot mengisikannya ke e-Kinerja.
-4. SRIKANDI & SIMAN memakai **MFA authenticator**; di komputer/server yang sama kode diminta ± sebulan sekali → LifeOS
+4. SRIKANDI & SIMAN memakai **MFA authenticator**; di komputer/server yang sama kode diminta ± sebulan sekali → Akasha
    butuh **konektor sesi** yang mendeteksi login kedaluwarsa dan meminta pembaruan.
 
 Arah teknis awal:
@@ -484,13 +484,13 @@ Arah teknis awal:
   satu job per sistem, jeda wajar), bukan di proses backend.
 - **Konektor sesi**: profil browser **persisten** per user per sistem (cookie/penanda "perangkat tepercaya" ikut tersimpan,
   dienkripsi seperti key AI) → cek sesi sebelum tiap job → kedaluwarsa = job ditunda + notifikasi → Anda membuka
-  **Pengaturan → Konektor → Perbarui login**: LifeOS menampilkan **browser jarak jauh** (tayangan langsung browser robot)
+  **Pengaturan → Konektor → Perbarui login**: Akasha menampilkan **browser jarak jauh** (tayangan langsung browser robot)
   tempat Anda mengetik sendiri username, password, dan kode authenticator → sesi tersimpan, status "aktif s.d. …".
-  **LifeOS tidak menyimpan kata sandi dan tidak menyimpan rahasia TOTP** (menyimpan rahasia TOTP = MFA tidak berarti).
+  **Akasha tidak menyimpan kata sandi dan tidak menyimpan rahasia TOTP** (menyimpan rahasia TOTP = MFA tidak berarti).
 - Batas tindakan: SRIKANDI berhenti pada **simpan konsep / kirim ke pemeriksa** dengan konfirmasi Anda — **robot tidak
   pernah menandatangani** (TTE tetap oleh pejabat di SRIKANDI). ~~SIMAN hanya baca (unduh ekspor → tabel snapshot aset +
   perubahan)~~ (diganti OnTrack, §16). e-Kinerja: pemetaan RHK diusulkan agen, Anda setujui, baru robot mengisi; tangkapan layar tiap langkah di log.
-- **Link dokumen e-Kinerja** harus bisa dibuka atasan/penilai → LifeOS perlu **tautan publik bertoken** (baca-saja,
+- **Link dokumen e-Kinerja** harus bisa dibuka atasan/penilai → Akasha perlu **tautan publik bertoken** (baca-saja,
   kedaluwarsa, bisa dicabut) — fitur ini belum ada (tercatat "Belum: tautan publik").
 - Server robot sebaiknya **VPS di Indonesia** dengan IP tetap (situs pemerintah sering menolak IP luar negeri; IP
   berubah dapat memicu MFA ulang).
@@ -501,15 +501,15 @@ Arah teknis awal:
 
 | Tahap | Isi | Hasil yang bisa dicoba |
 |---|---|---|
-| **1. Fondasi pengetahuan** | R-1 `POST /ai/chat` RAG backend + riwayat; R-4/R-5 koleksi, metadata, pemotongan sadar struktur; peringatan data Gemini (R-2); profil kerja & instruksi tetap (§2.4) | Chatbot LifeOS menjawab dari isi dokumen/peraturan dengan sitasi |
-| **2. Konektor Obsidian** | Volume vault + pemantau + indeks `obsidian` + `knowledge_links` + halaman Pengetahuan + `00-Inbox` | Menulis di Obsidian → beberapa detik kemudian bisa ditanyakan di LifeOS |
-| **3. Token akses + MCP LifeOS** | Token pribadi bercakupan, MCP server (`knowledge.search`, `request.*`, `document.*`, `task.*`), log aktivitas | Hermes / Claude Desktop bisa memakai LifeOS |
-| **4. Pengajuan + mesin templat + Antrian Verifikasi** ✅ 2026-10-24 (§19) | Modul Pengajuan (PSP / penghapusan / pemanfaatan), ekstraksi field, cek kelengkapan, placeholder templat → ONLYOFFICE, telaah & konsep jawaban surat | Use case 2 & 3 bisa dikerjakan lewat UI LifeOS (unggah manual) sebelum WhatsApp |
-| **5. Bot WhatsApp + Hermes pribadi** ✅ bot 2026-10-24 (§20; Hermes publik diganti bot bawaan LifeOS) — sebelumnya: **5. Hermes** | Compose profile `agent`: `hermes-private` (memori, Telegram/WhatsApp Anda) + `hermes-public` (WhatsApp Cloud API, terkunci) | Use case 1 lewat WhatsApp; pengajuan masuk otomatis |
-| **5b. Konektor OnTrack** (revisi 2026-10-24, §16) | Klien REST API OnTrack (API key) di backend + OnTrack sebagai server MCP kedua untuk Hermes; data SIMAN & MyIntress untuk pengajuan, telaah, dan chatbot | Agen bisa mencocokkan NUP/kode barang & data keuangan tanpa robot di LifeOS |
+| **1. Fondasi pengetahuan** | R-1 `POST /ai/chat` RAG backend + riwayat; R-4/R-5 koleksi, metadata, pemotongan sadar struktur; peringatan data Gemini (R-2); profil kerja & instruksi tetap (§2.4) | Chatbot Akasha menjawab dari isi dokumen/peraturan dengan sitasi |
+| **2. Konektor Obsidian** | Volume vault + pemantau + indeks `obsidian` + `knowledge_links` + halaman Pengetahuan + `00-Inbox` | Menulis di Obsidian → beberapa detik kemudian bisa ditanyakan di Akasha |
+| **3. Token akses + MCP Akasha** | Token pribadi bercakupan, MCP server (`knowledge.search`, `request.*`, `document.*`, `task.*`), log aktivitas | Hermes / Claude Desktop bisa memakai Akasha |
+| **4. Pengajuan + mesin templat + Antrian Verifikasi** ✅ 2026-10-24 (§19) | Modul Pengajuan (PSP / penghapusan / pemanfaatan), ekstraksi field, cek kelengkapan, placeholder templat → ONLYOFFICE, telaah & konsep jawaban surat | Use case 2 & 3 bisa dikerjakan lewat UI Akasha (unggah manual) sebelum WhatsApp |
+| **5. Bot WhatsApp + Hermes pribadi** ✅ bot 2026-10-24 (§20; Hermes publik diganti bot bawaan Akasha) — sebelumnya: **5. Hermes** | Compose profile `agent`: `hermes-private` (memori, Telegram/WhatsApp Anda) + `hermes-public` (WhatsApp Cloud API, terkunci) | Use case 1 lewat WhatsApp; pengajuan masuk otomatis |
+| **5b. Konektor OnTrack** (revisi 2026-10-24, §16) | Klien REST API OnTrack (API key) di backend + OnTrack sebagai server MCP kedua untuk Hermes; data SIMAN & MyIntress untuk pengajuan, telaah, dan chatbot | Agen bisa mencocokkan NUP/kode barang & data keuangan tanpa robot di Akasha |
 | **6. Robot & konektor sesi** — 6a mesin ✅ 2026-10-25 (§21), 6b alur pengisian menunggu eksplor halaman | Service Playwright + profil persisten + browser jarak jauh; **hanya e-Kinerja (bulanan) → SRIKANDI** (SIMAN pindah ke OnTrack) | Detail dibahas setelah tahap 4–5 |
 
-Kebutuhan server (perkiraan): LifeOS + ONLYOFFICE ± 8 GB; + 2 instans Hermes + robot Playwright → **VPS 12–16 GB**, lokasi
+Kebutuhan server (perkiraan): Akasha + ONLYOFFICE ± 8 GB; + 2 instans Hermes + robot Playwright → **VPS 12–16 GB**, lokasi
 Indonesia, domain HTTPS (wajib untuk webhook WhatsApp Cloud API).
 
 ## 15. Keputusan & to-do (revisi, menggantikan §6–§7)
@@ -519,7 +519,7 @@ Indonesia, domain HTTPS (wajib untuk webhook WhatsApp Cloud API).
 | ID | Pertanyaan | Rekomendasi |
 |---|---|---|
 | AG-10 | Urutan tahap §14 (1 → 6)? | Ya |
-| AG-11 | Obsidian sebagai sumber pengetahuan, LifeOS hanya membaca (+ folder `00-Inbox`)? | Ya |
+| AG-11 | Obsidian sebagai sumber pengetahuan, Akasha hanya membaca (+ folder `00-Inbox`)? | Ya |
 | AG-12 | Sinkron vault: Syncthing (+ Git di server) / Obsidian Sync / Git saja? | Syncthing + Git di server |
 | AG-13 | Agen: **Hermes saja**, dua instans (pribadi & publik)? | Ya |
 | AG-14 | WhatsApp satker lewat **Cloud API resmi** (nomor khusus) — bukan nomor pribadi/Baileys? | Ya |
@@ -572,10 +572,10 @@ kata sandi) tetap berlaku; AG-9 diperjelas oleh §13 (robot boleh, kata sandi & 
 
 ## 16. Revisi 2026-10-24 — Data SIMAN & MyIntress dari OnTrack Data Hub
 
-**Keputusan user**: robot pengambil data SIMAN **tidak dibuat di LifeOS**. Data master aset SIMAN (DJKN) dan data
+**Keputusan user**: robot pengambil data SIMAN **tidak dibuat di Akasha**. Data master aset SIMAN (DJKN) dan data
 keuangan MyIntress (DJPb) diambil dari aplikasi milik user sendiri, **OnTrack Data Hub** (`D:\Development\Application\OnTrack`),
 yang memang dirancang untuk scraping + vault kredensial + penyedia data. Robot/agen **pengisian e-Kinerja dan SRIKANDI
-tetap** direncanakan di LifeOS (§13, tahap 6).
+tetap** direncanakan di Akasha (§13, tahap 6).
 
 ### 16.1 Yang dimiliki OnTrack (dibaca dari `ARCHITECTURE.md`, `PRD.md`, kode `apps/api` per 2026-10-24)
 
@@ -589,19 +589,19 @@ tetap** direncanakan di LifeOS (§13, tahap 6).
 | MCP (`/api/mcp`, SSE / Streamable HTTP) | Tools `query_siman_assets`, `query_myintress_data`, `trigger_scraping_job`, `get_job_status`; resources skema & ringkasan | ⏳ modul `mcp-server` **belum ada** |
 | Peran | `SUPERADMIN` (orkestrasi, vault, penerbitan key MCP) · `USER` (lihat data, akun akses MCP) | Modul `auth`/`users` ✅ |
 
-Artinya integrasi LifeOS ↔ OnTrack **bergantung pada penyelesaian modul siman/myintress/API/MCP di OnTrack** (dikerjakan
+Artinya integrasi Akasha ↔ OnTrack **bergantung pada penyelesaian modul siman/myintress/API/MCP di OnTrack** (dikerjakan
 di thread/proyek OnTrack).
 
 ### 16.2 Pilihan cara menyambung
 
 | Cara | Penilaian |
 |---|---|
-| **A. MCP + REST API** (direkomendasikan) | Agen (Hermes) memakai **OnTrack sebagai server MCP kedua** di samping MCP LifeOS; backend LifeOS memanggil **REST API OnTrack** dengan API key milik akun `USER` OnTrack (fitur non-agen: validasi NUP/kode barang di form Pengajuan, panel data aset di telaah surat, chatbot). Satu sumber kebenaran, hak akses & audit tetap di OnTrack, kontrak data jelas (API terdokumentasi Swagger). |
-| B. Baca database OnTrack langsung | Cepat tapi rapuh: perubahan skema OnTrack langsung merusak LifeOS, melewati auth & audit OnTrack. Hanya bila suatu saat perlu laporan berat — itu pun lewat **user DB baca-saja + view** yang disepakati. |
-| C. Clone (menyalin kode scraper ke LifeOS) | Tidak disarankan: dua scraper & dua vault kredensial akun yang sama → dua kali perawatan saat portal berubah, risiko sesi saling menendang. |
-| D. Salin data ke LifeOS (cache) | Hanya bila perlu: tabel snapshot ringan (mis. daftar BMN per satker) yang diisi dari API OnTrack terjadwal, untuk pencarian cepat / RAG. Sumber tetap OnTrack. |
+| **A. MCP + REST API** (direkomendasikan) | Agen (Hermes) memakai **OnTrack sebagai server MCP kedua** di samping MCP Akasha; backend Akasha memanggil **REST API OnTrack** dengan API key milik akun `USER` OnTrack (fitur non-agen: validasi NUP/kode barang di form Pengajuan, panel data aset di telaah surat, chatbot). Satu sumber kebenaran, hak akses & audit tetap di OnTrack, kontrak data jelas (API terdokumentasi Swagger). |
+| B. Baca database OnTrack langsung | Cepat tapi rapuh: perubahan skema OnTrack langsung merusak Akasha, melewati auth & audit OnTrack. Hanya bila suatu saat perlu laporan berat — itu pun lewat **user DB baca-saja + view** yang disepakati. |
+| C. Clone (menyalin kode scraper ke Akasha) | Tidak disarankan: dua scraper & dua vault kredensial akun yang sama → dua kali perawatan saat portal berubah, risiko sesi saling menendang. |
+| D. Salin data ke Akasha (cache) | Hanya bila perlu: tabel snapshot ringan (mis. daftar BMN per satker) yang diisi dari API OnTrack terjadwal, untuk pencarian cepat / RAG. Sumber tetap OnTrack. |
 
-### 16.3 Rancangan di LifeOS (tahap 5b)
+### 16.3 Rancangan di Akasha (tahap 5b)
 
 - Env baru backend: `ONTRACK_API_URL`, `ONTRACK_API_KEY` (opsional; kosong = fitur OnTrack tersembunyi) — atau per user di
   Pengaturan → Integrasi (key terenkripsi seperti key AI) bila nanti ada lebih dari satu pengguna OnTrack.
@@ -609,11 +609,11 @@ di thread/proyek OnTrack).
 - Dipakai: (1) **Pengajuan PSP / penghapusan / pemanfaatan**: agen mencocokkan daftar BMN dari surat satker dengan master
   SIMAN (kode barang, NUP, nilai perolehan, status) dan menandai yang tidak cocok; (2) **telaah surat**: data aset &
   anggaran satker sebagai konteks; (3) **chatbot** (pribadi): pertanyaan data ("berapa aset tanah satker X?").
-- Hermes: `mcp_servers` = `lifeos` + `ontrack`. **Hermes publik (satker) tidak diberi akses OnTrack** — data keuangan &
+- Hermes: `mcp_servers` = `akasha` + `ontrack`. **Hermes publik (satker) tidak diberi akses OnTrack** — data keuangan &
   aset bukan untuk dijawab ke pihak luar tanpa verifikasi; cukup lewat agen pengajuan yang hasilnya Anda periksa.
-- Tidak ada scraping, vault SIMAN, maupun penjadwal SIMAN di LifeOS.
+- Tidak ada scraping, vault SIMAN, maupun penjadwal SIMAN di Akasha.
 
-### 16.4 Lingkungan dev: bentrok port LifeOS ↔ OnTrack
+### 16.4 Lingkungan dev: bentrok port Akasha ↔ OnTrack
 
 Kedua aplikasi mengunci port yang sama (**5173, 5432, 6379**; OnTrack juga 3000) dan sama-sama `restart: unless-stopped`
 → hanya satu yang bisa menyala (kejadian 2026-10-24, CLAUDE.md §15). Untuk menguji integrasi, keduanya harus menyala
@@ -621,28 +621,28 @@ bersamaan. Pilihan:
 
 | Pilihan | Catatan |
 |---|---|
-| **OnTrack pindah port host saat dev** (mis. web 5174, PostgreSQL 5433, Redis 6380; API tetap 3000) — direkomendasikan | Perubahan kecil di repo OnTrack (`docker-compose.yml`, `.env`, `ARCHITECTURE.md` §2.2); LifeOS tidak berubah. |
-| OnTrack memakai PostgreSQL & Redis milik LifeOS (DB `ontrack_db` terpisah, Redis DB index lain) | Hemat RAM, tetapi versi PostgreSQL berbeda (OnTrack 16, LifeOS 18) dan dua proyek jadi saling bergantung. |
+| **OnTrack pindah port host saat dev** (mis. web 5174, PostgreSQL 5433, Redis 6380; API tetap 3000) — direkomendasikan | Perubahan kecil di repo OnTrack (`docker-compose.yml`, `.env`, `ARCHITECTURE.md` §2.2); Akasha tidak berubah. |
+| OnTrack memakai PostgreSQL & Redis milik Akasha (DB `ontrack_db` terpisah, Redis DB index lain) | Hemat RAM, tetapi versi PostgreSQL berbeda (OnTrack 16, Akasha 18) dan dua proyek jadi saling bergantung. |
 | Bergantian (salah satu dimatikan) | Tidak bisa menguji integrasi. |
 
-Produksi (VPS yang sama): kedua stack di jaringan Docker bersama, LifeOS memanggil `http://ontrack-api:3000` (tanpa port
+Produksi (VPS yang sama): kedua stack di jaringan Docker bersama, Akasha memanggil `http://ontrack-api:3000` (tanpa port
 publik); bila VPS berbeda → HTTPS + API key + allowlist IP.
 
 ### 16.5 Keputusan & to-do tambahan
 
 | ID | Pertanyaan | Rekomendasi |
 |---|---|---|
-| AG-18 | Cara sambung LifeOS ↔ OnTrack: MCP (agen) + REST API (fitur LifeOS)? | ✅ Ya |
+| AG-18 | Cara sambung Akasha ↔ OnTrack: MCP (agen) + REST API (fitur Akasha)? | ✅ Ya |
 | AG-19 | Bentrok port dev: OnTrack pindah ke 5174/5433/6380? | ✅ Ya |
 | AG-20 | Hermes publik (satker) tanpa akses OnTrack; hanya Hermes pribadi & agen pengajuan? | ✅ Ya + data satker sendiri untuk nomor terverifikasi (lihat bawah) |
-| AG-21 | Robot e-Kinerja & SRIKANDI dibangun di LifeOS, atau memanfaatkan mesin Playwright + vault + dialog OTP OnTrack (pola sama, sudah ada)? | Diputuskan saat tahap 6 — memakai ulang mesin OnTrack layak dipertimbangkan |
+| AG-21 | Robot e-Kinerja & SRIKANDI dibangun di Akasha, atau memanfaatkan mesin Playwright + vault + dialog OTP OnTrack (pola sama, sudah ada)? | Diputuskan saat tahap 6 — memakai ulang mesin OnTrack layak dipertimbangkan |
 
 **Keputusan user (2026-10-24)**:
-- **AG-18 ✅** MCP (agen) + REST API (fitur LifeOS).
+- **AG-18 ✅** MCP (agen) + REST API (fitur Akasha).
 - **AG-19 ✅** OnTrack pindah port host saat dev (dikerjakan user lewat Antigravity di repo OnTrack; aturan "satu port
   satu komponen, tanpa dualisme" tetap berlaku di kedua proyek). Matriks port gabungan laptop:
 
-  | Komponen | LifeOS | OnTrack |
+  | Komponen | Akasha | OnTrack |
   |---|---|---|
   | Frontend (Vite) | 5173 | **5174** |
   | Backend / API | 4000 | 3000 (+ MCP `/api/mcp`) |
@@ -652,22 +652,22 @@ publik); bila VPS berbeda → HTTPS + API key + allowlist IP.
 
 - **AG-20 ✅ dengan perluasan**: Hermes publik **tidak** mendapat MCP OnTrack mentah. Namun pengguna WhatsApp yang
   **terverifikasi** dan di-assign user ke **satker tertentu** boleh menanyakan **data satkernya sendiri**. Rancangan: tabel
-  `wa_contacts` di LifeOS (nomor WA, nama, satker, status verifikasi, di-assign user), MCP LifeOS menyediakan tool
+  `wa_contacts` di Akasha (nomor WA, nama, satker, status verifikasi, di-assign user), MCP Akasha menyediakan tool
   `satker.assets` / `satker.budget` yang **mengambil `satkerCode` dari pemetaan nomor pengirim di server** (tidak pernah
   dari isi pesan/argumen model) lalu memanggil REST API OnTrack dengan filter satker itu → model tidak bisa diakali untuk
   membuka satker lain. Nomor belum terverifikasi = hanya pengetahuan publik. Setiap akses tercatat di log.
-- **AG-21 ✅ 2026-10-25 — mesin robot dibangun di LifeOS** (OnTrack belum punya mesin Playwright; detail §21). Catatan
-  awal: robot e-Kinerja & SRIKANDI akan dibangun di LifeOS; keputusan memakai ulang mesin Playwright/vault
+- **AG-21 ✅ 2026-10-25 — mesin robot dibangun di Akasha** (OnTrack belum punya mesin Playwright; detail §21). Catatan
+  awal: robot e-Kinerja & SRIKANDI akan dibangun di Akasha; keputusan memakai ulang mesin Playwright/vault
   OnTrack diambil setelah prototipe OnTrack selesai (finishing OnTrack akan diserahkan user ke Claude). Catatan untuk saat
   itu: e-Kinerja dan SRIKANDI adalah **dua sistem berbeda** → tetap butuh skrip/alur per sistem; yang bisa dipakai bersama
   hanya "mesin" (pool browser, vault sesi terenkripsi, dialog OTP human-in-the-loop, antrian & log). Untung memakai mesin
-  yang sama: satu kode keamanan sesi, satu cara memperbarui login, satu tempat memantau. Konsekuensi: LifeOS bergantung pada
+  yang sama: satu kode keamanan sesi, satu cara memperbarui login, satu tempat memantau. Konsekuensi: Akasha bergantung pada
   OnTrack untuk pengisian, dan data yang diisi (konsep surat, realisasi kinerja) harus dikirim ke OnTrack.
 
 To-do user (proyek OnTrack): selesaikan modul `siman`, `myintress`, REST API (`/api/v1/siman/assets`, …) dan
-`mcp-server`; terbitkan **API key akun `USER`** untuk LifeOS; (bila AG-19 disetujui) pindahkan port dev OnTrack.
+`mcp-server`; terbitkan **API key akun `USER`** untuk Akasha; (bila AG-19 disetujui) pindahkan port dev OnTrack.
 
-To-do Claude (LifeOS, setelah API OnTrack tersedia): klien `src/integrations/ontrack/` + env + uji kontrak (smoke dengan
+To-do Claude (Akasha, setelah API OnTrack tersedia): klien `src/integrations/ontrack/` + env + uji kontrak (smoke dengan
 OnTrack menyala), pemakaian di Pengajuan/telaah/chatbot, konfigurasi `mcp_servers` Hermes.
 
 ---
@@ -686,7 +686,7 @@ produksi: [DEPLOYMENT.md §10](DEPLOYMENT.md).
 - R-4 ✅ `ai_chunks.collection` + `metadata`; status `dicabut`/templat tidak dipakai menjawab.
 - R-5 ✅ pemotongan sadar struktur (judul, BAB, Bagian, Pasal) untuk berkas, sumber notebook, dan catatan vault.
 - Profil kerja & instruksi tetap (§2.4 poin 1) ✅ `users.ai_profile`, diisi di Tools → Basis Pengetahuan, ikut di chat
-  LifeOS & My Notebook.
+  Akasha & My Notebook.
 - Belum (tahap berikut): R-3 embedding selain Gemini, R-6 reranking, R-8 uji pengetahuan, memori usulan AI (AG-8),
   contoh gaya terstruktur (sementara: folder `60-Gaya-Surat` di vault).
 
@@ -712,7 +712,7 @@ chatbot, sitasi, Simpan ke Inbox, riwayat percakapan).
 **Langkah user berikutnya**: (1) Tools → Basis Pengetahuan → **Buat vault baru dari templat** (mis. `Pengetahuan-BMN`)
 → buka folder `infra/knowledge-vaults/Pengetahuan-BMN` di Obsidian (*Open folder as vault*) → mulai menulis;
 (2) isi Profil kerja; (3) Tools → Indeks Pengetahuan → **Indeks ulang** sekali (aturan pemotongan baru); (4) aktifkan billing
-Gemini untuk data kantor. Berikutnya: tahap 3 (token akses + MCP LifeOS).
+Gemini untuk data kantor. Berikutnya: tahap 3 (token akses + MCP Akasha).
 
 ---
 
@@ -721,7 +721,7 @@ Gemini untuk data kantor. Berikutnya: tahap 3 (token akses + MCP LifeOS).
 User menerima semua rekomendasi (key yang dimiliki: **Gemini & OpenAI**) lalu lanjut tahap 3.
 
 **Pembagian tugas AI** (Pengaturan → Model AI → *Pembagian tugas AI*, kolom `users.ai_routing`):
-- **Chat & telaah** (asisten LifeOS, My Notebook chat & ringkasan), **Fitur AI lain** (ringkasan resource, Notes AI,
+- **Chat & telaah** (asisten Akasha, My Notebook chat & ringkasan), **Fitur AI lain** (ringkasan resource, Notes AI,
   ikon, tulisan tangan, AI di ONLYOFFICE), **OCR** (gambar & PDF scan; urutan pilihan → Gemini → OpenAI → Claude, kuota
   habis → provider berikutnya), **Embedding** (Gemini `gemini-embedding-2` atau OpenAI `text-embedding-3-small`, keduanya
   768 dimensi → tanpa migrasi kolom; pencarian hanya membandingkan vektor model yang sama; ganti provider = indeks
@@ -781,10 +781,10 @@ paragraf `[…]` seperti templat Surat Dinas. **Berikutnya**: tahap 5 (Hermes + 
 
 ## 20. Hasil 2026-10-24: tahap 5 (bot WhatsApp satker) + dokumen to-do pemilik
 
-**Keputusan desain (revisi §12.1)**: bot untuk satker dibangun **di dalam LifeOS**, bukan instans "Hermes publik".
+**Keputusan desain (revisi §12.1)**: bot untuk satker dibangun **di dalam Akasha**, bukan instans "Hermes publik".
 Alasan: AG-20 mensyaratkan satker pengirim ditentukan server dari nomor terdaftar. Di Hermes, nomor pengirim hanya
 sampai ke MCP lewat argumen yang ditulis model — bisa dimanipulasi lewat pesan (prompt injection). Dengan webhook
-Cloud API langsung ke LifeOS, nomor dijamin tanda tangan Meta dan satkernya dibaca dari tabel kontak; sekaligus tidak
+Cloud API langsung ke Akasha, nomor dijamin tanda tangan Meta dan satkernya dibaca dari tabel kontak; sekaligus tidak
 ada memori agen yang bisa diracuni penanya (studi memory poisoning §11) dan tidak perlu container/RAM tambahan.
 **Hermes tetap dipakai sebagai asisten pribadi** Anda (Telegram/WhatsApp pribadi) lewat MCP (tahap 3); langkah
 pemasangan ada di [TODO-USER.md](TODO-USER.md) A7/B7.
@@ -839,9 +839,9 @@ pelayanan. Intinya: **grup yang di-assign ke kontak menentukan data yang boleh d
 
 Permintaan user: "siapkan teknologi untuk integrasi ke e-Kinerja dan SRIKANDI" (pengujian dilakukan user nanti).
 
-**Keputusan AG-21**: mesin robot dibangun **di LifeOS**. Repo OnTrack per 2026-10-25 baru berisi modul auth, users,
+**Keputusan AG-21**: mesin robot dibangun **di Akasha**. Repo OnTrack per 2026-10-25 baru berisi modul auth, users,
 vault, audit — belum ada mesin Playwright untuk dipakai ulang. Kebutuhan kedua sistem sama (sesi login manusia + MFA,
-robot tidak menyimpan kata sandi), jadi satu mesin di LifeOS; OnTrack kelak bisa memakai pola yang sama.
+robot tidak menyimpan kata sandi), jadi satu mesin di Akasha; OnTrack kelak bisa memakai pola yang sama.
 
 **Temuan uji nyata**: robot membuka https://srikandi.arsip.go.id → diarahkan ke `/auth/login` yang memakai **CAPTCHA** (selain
 nama pengguna & kata sandi). Ini menguatkan rancangan: robot **tidak pernah** mengisi/menebak CAPTCHA atau OTP — pengguna
@@ -851,7 +851,7 @@ Yang dibangun (teknis: [ARCHITECTURE.md §3.10](ARCHITECTURE.md), operasional: [
 1. **Service robot** (`services/robot/`, Playwright 1.63 + Chromium, container terpisah tanpa penyimpanan): browser jarak jauh,
    cek sesi, eksplor halaman (tangkapan layar + struktur halaman), batas host & tombol.
 2. **Tools → Konektor Robot**: kartu SRIKANDI & e-Kinerja — alamat sistem (+ host SSO, penanda login), **Login (browser
-   jarak jauh)** = tayangan langsung browser robot di dalam LifeOS (klik, ketik, tempel, gulir; ketikan dikirim
+   jarak jauh)** = tayangan langsung browser robot di dalam Akasha (klik, ketik, tempel, gulir; ketikan dikirim
    berurutan), **Selesai & simpan sesi** (sesi terenkripsi), **Cek sesi**, **Lupakan sesi**, **Eksplor halaman** (rekam
    halaman sistem untuk memetakan formulir), riwayat robot + detail rekaman (gambar + struktur yang bisa disalin).
 3. **Tautan publik berkas** (prasyarat link dokumen e-Kinerja): tombol **Tautan publik** di pratinjau berkas — masa
@@ -860,7 +860,7 @@ Yang dibangun (teknis: [ARCHITECTURE.md §3.10](ARCHITECTURE.md), operasional: [
 **Belum** (tahap 6b, butuh Anda): alur pengisian. Langkahnya — Anda login lewat browser jarak jauh → buka halaman
 yang ingin diotomasi (form konsep naskah SRIKANDI, form realisasi e-Kinerja) → **Rekam halaman** → beri tahu Claude;
 Claude memetakan kolom dari rekaman lalu menulis alurnya (robot berhenti di "simpan konsep" / "kirim ke pemeriksa" dengan
-konfirmasi Anda; tidak pernah TTE). Untuk e-Kinerja juga dibutuhkan data SKP/rencana aksi di LifeOS (pemetaan pekerjaan →
+konfirmasi Anda; tidak pernah TTE). Untuk e-Kinerja juga dibutuhkan data SKP/rencana aksi di Akasha (pemetaan pekerjaan →
 RHK) — dirancang bersama saat halaman e-Kinerja sudah direkam. Tetap perlu **izin pengelola sistem** (admin SRIKANDI
 instansi, Biro SDM untuk e-Kinerja).
 
@@ -868,7 +868,7 @@ Diuji: unit robot (5) + backend (4) + frontend (3); smoke (+28: tautan publik �
 hanya pemilik, hitung akses, cabut; konektor — katalog, validasi alamat, sistem tak dikenal, browser jarak jauh terhadap
 situs uji publik: tayangan, isolasi sesi antar-user, alamat di luar konektor ditolak, tombol terlarang ditolak, klik,
 simpan sesi terenkripsi, cek sesi, eksplor + tangkapan layar, riwayat, lupakan, batal); UI desktop: tayangan login SRIKANDI
-sungguhan di dalam LifeOS, klik & ketik diteruskan (kata uji, tanpa login), batal menutup sesi robot.
+sungguhan di dalam Akasha, klik & ketik diteruskan (kata uji, tanpa login), batal menutup sesi robot.
 
 ### 21.1 Revisi 2026-10-25: brankas kredensial + login otomatis (CAPTCHA & OTP diketik pengguna)
 
@@ -876,10 +876,10 @@ Permintaan user: SRIKANDI memakai CAPTCHA + Authenticator (OTP hanya saat login 
 e-Kinerja memakai CAPTCHA; simpan kredensial dengan teknologi yang aman; contoh OnTrack (OCR CAPTCHA MyIntress +
 dialog OTP SIMAN).
 
-**Keputusan (revisi prinsip "LifeOS tidak menyimpan kata sandi")**: kredensial sistem **boleh disimpan** atas permintaan
+**Keputusan (revisi prinsip "Akasha tidak menyimpan kata sandi")**: kredensial sistem **boleh disimpan** atas permintaan
 user, di brankas terenkripsi. **CAPTCHA tidak dibaca mesin (tanpa OCR)**: CAPTCHA dipasang SRIKANDI/e-Kinerja khusus untuk
 menolak login otomatis — menembusnya berarti mengakali pengamanan sistem pemerintah. Gantinya pola *human-in-the-loop*
-OnTrack: robot mengisi nama pengguna & kata sandi, LifeOS menampilkan potongan gambar CAPTCHA, user mengetik ± 5 detik.
+OnTrack: robot mengisi nama pengguna & kata sandi, Akasha menampilkan potongan gambar CAPTCHA, user mengetik ± 5 detik.
 Kode OTP selalu diketik user; **rahasia TOTP tetap tidak disimpan** (menyimpannya = MFA tidak berarti). Karena sesi
 dipakai ulang (Session Reuse First, sama dengan OnTrack), langkah ini hanya saat sesi habis.
 
@@ -887,23 +887,23 @@ dipakai ulang (Session Reuse First, sama dengan OnTrack), langkah ini hanya saat
   terpisah dari `AI_ENCRYPTION_KEY`, **tanpa kunci bawaan** — berbeda dari OnTrack yang punya kunci cadangan di kode), IV
   acak per nilai, AAD = `user + sistem + kolom` (ciphertext tidak bisa dipindah ke user/sistem/kolom lain), kolom
   `robot_connectors.username_enc/password_enc` + `credential_hint` tersamar. Menyimpan/mengganti wajib **kata sandi akun
-  LifeOS** (argon2 verify). Tidak ada endpoint untuk membaca kembali kredensial; nilai hanya didekripsi saat login
+  Akasha** (argon2 verify). Tidak ada endpoint untuk membaca kembali kredensial; nilai hanya didekripsi saat login
   otomatis dan dikirim ke robot lewat jaringan internal; robot mengisinya dengan `fill` (tidak dicatat).
 - **Login otomatis** (`POST /robot/connectors/:system/auto-login` → `POST /robot/sessions/:id/answer`): robot memindai formulir
   (`services/robot/src/login-form.ts`: kolom nama pengguna/NIP, kata sandi, CAPTCHA, OTP satu kolom atau kotak per digit, tombol
   Masuk/Verifikasi, pesan galat situs), mengisi kredensial, lalu berhenti di tahap `captcha` (gambar dipotong dari elemen
   bertanda captcha / terdekat di atas kolomnya) atau `otp`; kata sandi diisi ulang bila situs mengosongkannya setelah CAPTCHA
   salah; `done` = sesi disimpan. Formulir tak dikenali → **Buka tayangan** (browser jarak jauh dengan sesi yang sama).
-- UI: kartu konektor → **Simpan kredensial** (nama pengguna, kata sandi, konfirmasi kata sandi LifeOS) / Ganti / Hapus,
+- UI: kartu konektor → **Simpan kredensial** (nama pengguna, kata sandi, konfirmasi kata sandi Akasha) / Ganti / Hapus,
   **Login otomatis** (dialog gambar CAPTCHA atau kotak OTP 6 digit + pesan dari situs + Ulangi + Buka tayangan),
   **Login manual (tayangan)**.
 - Diuji: unit robot (+7 pengenalan formulir) & backend (+4 brankas: AAD, kunci salah, ciphertext diubah), smoke (+10:
-  konfirmasi kata sandi LifeOS, kredensial tidak pernah dikembalikan, isolasi user, jawaban tidak valid, login otomatis
+  konfirmasi kata sandi Akasha, kredensial tidak pernah dikembalikan, isolasi user, jawaban tidak valid, login otomatis
   tanpa formulir login, hapus); uji nyata halaman login SRIKANDI dengan **nilai palsu** — robot mengisi formulir dan berhenti
   di CAPTCHA tanpa mengirim (tidak ada percobaan login), gambar CAPTCHA terpotong rapi, penyerahan ke tayangan berfungsi.
   **Login sungguhan dengan akun user belum diuji** — dilakukan user (TODO-USER A8).
 
-- **Revisi 2026-10-25 (lanjutan)**: user sudah login SRIKANDI & e-Kinerja lewat LifeOS. Modal "berhasil" setelah login e-Kinerja kini
+- **Revisi 2026-10-25 (lanjutan)**: user sudah login SRIKANDI & e-Kinerja lewat Akasha. Modal "berhasil" setelah login e-Kinerja kini
   ditutup robot (`dismissInfoDialog` + aturan murni `infoDialogButton`: hanya modal berteks berhasil/sukses/selamat datang dengan
   tombol OK/Tutup; modal keputusan — kirim, hapus, setujui, tanda tangan, "yakin" — tidak pernah disentuh). Kartu Konektor Robot
   ditata ulang menjadi blok berjarak (Sesi & login, Pengaturan alamat, Eksplor, Alur, Riwayat). Alur pengisian (tahap 6b) akan
@@ -927,15 +927,15 @@ ini** di browser jarak jauh (`POST /robot/sessions/:id/capture`, robot `captureS
 aksesibilitas halaman yang sedang tampil, tanpa klik apa pun; sesi tetap terbuka). Rekaman yang ditunggu dari user:
 TODO-USER A8 (contoh Rencana Aksi SKP 2025 yang sudah disetujui + formulirnya, Detail SKP 2026).
 
-### 21.3 Renaksi dari Productivity (2026-10-25)
+### 21.3 Renaksi dari Working Space (2026-10-25)
 
-Keputusan user: rencana aksi diisi **setiap bulan** dari data Productivity (action, task, kegiatan, agenda), tetapi **user
+Keputusan user: rencana aksi diisi **setiap bulan** dari data Working Space (action, task, kegiatan, agenda), tetapi **user
 memilih** item yang masuk — tidak semua. Data yang dibutuhkan e-Kinerja: **pemetaan ke RHK**, **uraian kegiatan**, **link
 dokumen**. Robot menerima produk jadi dan hanya mengisikannya (draf, tanpa kirim).
 
-- Productivity → tombol **Renaksi** (ikon papan klip) di Action/Task, Agenda, Kegiatan/Sub Kegiatan → dialog bulan + RHK +
-  uraian + link dokumen (lampiran web link / berkas LifeOS → tautan publik tanpa kedaluwarsa / ketik sendiri).
-- Tab **Productivity → Renaksi**: entri per bulan dikelompokkan per RHK, status *Belum lengkap* / *Siap diisikan* /
+- Working Space → tombol **Renaksi** (ikon papan klip) di Action/Task, Agenda, Kegiatan/Sub Kegiatan → dialog bulan + RHK +
+  uraian + link dokumen (lampiran web link / berkas Akasha → tautan publik tanpa kedaluwarsa / ketik sendiri).
+- Tab **Working Space → Renaksi**: entri per bulan dikelompokkan per RHK, status *Belum lengkap* / *Siap diisikan* /
   *Terisi di e-Kinerja*, kartu RHK tahun itu.
 - Data: record type `skp_target` (RHK per tahun) & `action_plan_entry` (`period`, `targetId`, `description`,
   `documentUrl`, asal item, `status`). Robot 6b nanti: buka `/skp` → SKP periode itu → `/skp/renaksi/<id>` → untuk tiap entri
@@ -955,7 +955,7 @@ dokumen**. Robot menerima produk jadi dan hanya mengisikannya (draf, tanpa kirim
   (ditandai `stale`).
 - **Beberapa SKP dalam setahun** (SKP dipecah karena mutasi/jabatan berubah): entri memilih SKP dari bulannya; bila SKP
   berganti di tengah bulan, dialog meminta memilih SKP.
-- Tab Productivity **Renaksi → Laporan Kinerja**. Uji 2026-10-25: tahun 2025 → 7 SKP terbaca, RHK dari 2 SKP (Jan–Apr &
+- Tab Working Space **Renaksi → Laporan Kinerja**. Uji 2026-10-25: tahun 2025 → 7 SKP terbaca, RHK dari 2 SKP (Jan–Apr &
   Mei–Des, masing-masing 3 RHK × 2 indikator), entri September 2025 otomatis memakai SKP Mei–Des.
 
 ### 21.5 Grup menu AI Agent (2026-10-25)
@@ -975,12 +975,12 @@ RHK menyimpan RHK pimpinan yang diintervensi + indikatornya. Pada SKP berstatus 
   `/naskah-keluar/detail?id=<terenkripsi>`). Detail: metadata, penampil PDF (Unduh PDF), lampiran, verifikator, penandatangan,
   linimasa.
 - **SRIKANDI → Naskah Keluar → Ambil dari SRIKANDI**: robot membaca daftar; naskah dengan status penandatanganan selesai
-  (`isSigned`) yang belum ada di LifeOS dibuka detailnya dan PDF yang dimuat penampil ditangkap dari respons jaringan (tidak
-  mengklik apa pun) → berkas LifeOS (context `srikandi`, ikut ekstraksi teks & indeks) + record `srikandi_letter`.
+  (`isSigned`) yang belum ada di Akasha dibuka detailnya dan PDF yang dimuat penampil ditangkap dari respons jaringan (tidak
+  mengklik apa pun) → berkas Akasha (context `srikandi`, ikut ekstraksi teks & indeks) + record `srikandi_letter`.
 - Uji 2026-10-25: 182/SDJ.KEU/X/2026 (1 Okt 2026, TERKIRIM) → PDF 2 halaman 785 KB dengan nomor, tanggal, QR & keterangan TTE
   BSrE; ambil ulang tidak mengunduh ganda.
 - Lampiran (2026-10-25, permintaan user): robot mengklik hanya "Lihat" pada butir daftar lampiran (melihat, bukan mengubah),
-  menangkap berkasnya (respons, unduhan sementara, atau ambil ulang dari `s3.arsip.go.id`) → berkas LifeOS context `srikandi`.
+  menangkap berkasnya (respons, unduhan sementara, atau ambil ulang dari `s3.arsip.go.id`) → berkas Akasha context `srikandi`.
   Diuji: Laporan_Hasil_Studi_Akhir…Merge.pdf (4,7 MB) & Tesis_Mohammad_Yusuf.pdf (4,6 MB, 232 halaman), teks terbaca.
 - Belum: halaman berikutnya bila naskah > 10, tautan naskah final ↔ Approval /
   Resource Global + File Control (menunggu keputusan user), naskah masuk.
@@ -995,7 +995,7 @@ Keputusan user: naskah ber-TTD beserta lampirannya otomatis masuk **Resource Glo
   pengajuan; status pengajuan tidak diubah (Disetujui/Dikirim tetap keputusan user);
 - halaman Naskah Keluar menampilkan "Resource Global · File Control"; detail Approval menandai konsep yang punya final.
 - **Revisi user (hari yang sama)**: naskah final ditautkan ke **dokumen mentah yang di-push ke SRIKANDI**, yang wajib melewati
-  gerbang **Register Naskah Keluar** (sumbernya Approval AI Agent *atau* konsep Productivity) — bukan ditebak dari isi dokumen
+  gerbang **Register Naskah Keluar** (sumbernya Approval AI Agent *atau* konsep Working Space) — bukan ditebak dari isi dokumen
   Approval. Pencocokan otomatis dicabut; tautan dibuat saat Register dibangun.
 Diuji: 182/SDJ.KEU/X/2026 → 3 resource (naskah + 2 lampiran) berstatus Gantung; pengajuan uji berkonsep Nota Dinas dengan
 hal sama → tertaut otomatis (data uji dihapus). Naskah 182 sendiri tidak punya konsep di Approval (dibuat sebelum fitur ini).
@@ -1003,7 +1003,7 @@ hal sama → tertaut otomatis (data uji dihapus). Naskah 182 sendiri tidak punya
 ### 21.8 Referensi SRIKANDI & rencana Register Naskah Keluar (2026-10-25)
 
 - Tab SRIKANDI: **Daftar Naskah Keluar** (dulu "Naskah Keluar") · **Referensi** · **Connector**. Berikutnya (dipandu user):
-  **Register Naskah Keluar** = gerbang LifeOS sebelum naskah di-push ke SRIKANDI (dari Approval atau konsep Productivity);
+  **Register Naskah Keluar** = gerbang Akasha sebelum naskah di-push ke SRIKANDI (dari Approval atau konsep Working Space);
   naskah final dari Daftar Naskah Keluar ditautkan ke entri register.
 - **Referensi** (menu Pengguna SRIKANDI, direkam & diambil robot, hanya membaca): Daftar Penandatangan (nama, jabatan, unit,
   pangkat, status), Daftar Tujuan Naskah (jenis internal/eksternal, kepada), Grup Tujuan Naskah, Daftar Verifikator, Daftar
@@ -1032,7 +1032,7 @@ Pola isian user Jan–Sep 2026 (contoh gaya):
 - Bukti Data Dukung = tautan folder Google Drive per bulan.
 - Bulan September diajukan 26-10-2026 dan masih menunggu feedback.
 
-Dampak ke Laporan Kinerja LifeOS (perlu disesuaikan, menunggu formulir): entri harus menyimpan **Renaksi** dan **Realisasi**
+Dampak ke Laporan Kinerja Akasha (perlu disesuaikan, menunggu formulir): entri harus menyimpan **Renaksi** dan **Realisasi**
 terpisah (kini satu "uraian"), dipetakan ke **indikator** (otomatis semua indikator RHK, realisasi indikator waktu bawaan
 "Penyampaian tepat waktu"), dan satu link bukti bisa dipakai bersama.
 
@@ -1043,7 +1043,7 @@ waktu/target, RHK 4–8 hanya kuantitas, mis. "Jumlah Laporan BMN Tingkat Eselon
 Bulanan / Triwulanan / Semesteran. Isian Renaksi/Realisasi/Bukti Data Dukung kemungkinan muncul **setelah Simpan** (langkah
 2) — belum dilihat karena Simpan membuat baris bulan itu di e-Kinerja (butuh keputusan user).
 
-**Uji pengisian Oktober 2026 (2026-10-30, izin user: centang sesuai pemetaan LifeOS, narasi & link dummy, dihapus setelahnya,
+**Uji pengisian Oktober 2026 (2026-10-30, izin user: centang sesuai pemetaan Akasha, narasi & link dummy, dihapus setelahnya,
 tidak boleh "Kirim Penilaian Ke Atasan"):**
 1. **Isi Rencana Aksi Kerja Bulan <bulan>** → modal *Pilih Indikator Kinerja* → centang indikator (uji: 8, 9, 10) → **Simpan**
    → halaman dimuat ulang; bulan itu kini berisi satu baris per indikator terpilih (RHK + Indikator, Renaksi/Realisasi/
@@ -1063,7 +1063,7 @@ tidak boleh "Kirim Penilaian Ke Atasan"):**
    ("Belum diisi"), tidak ada teks/tautan uji tersisa, tidak diajukan. Setelah Oktober dibuat, tombol "Isi Rencana Aksi Kerja
    Bulan november" ikut muncul.
 
-Rancangan robot pengisian (6b): untuk bulan B, indikator = gabungan indikator RHK dari entri `ready` LifeOS bulan itu →
+Rancangan robot pengisian (6b): untuk bulan B, indikator = gabungan indikator RHK dari entri `ready` Akasha bulan itu →
 centang di modal → Simpan → per indikator: Isi Rencana Aksi (renaksi), Isi Realisasi (realisasi; indikator aspek WAKTU
 bawaan "Penyampaian tepat waktu"), Isi Bukti Data Dukung (tautan) → berhenti; user memeriksa lalu menekan Kirim sendiri.
 Karena tiap Simpan menambah butir dan butir tidak bisa diubah, robot wajib membaca isi bulan dulu dan **tidak menambah butir
@@ -1071,7 +1071,7 @@ yang sama dua kali** (idempoten), serta berhenti bila bulan sudah diajukan.
 
 ### 21.10 Robot pengisian Rencana Aksi e-Kinerja (tahap 6b, 2026-10-31)
 
-- **Model LifeOS** (Laporan Kinerja): satu entri = item Productivity yang dipilih user → bulan, SKP, RHK, **indikator** yang
+- **Model Akasha** (Laporan Kinerja): satu entri = item Working Space yang dipilih user → bulan, SKP, RHK, **indikator** yang
   dicentang (bawaan semua indikator RHK), **Rencana aksi**, **Realisasi** (indikator kuantitas/kualitas), **Realisasi
   indikator waktu** (bawaan "Penyampaian tepat waktu"), **Bukti data dukung**. Lengkap = siap diisikan.
 - **Isi ke e-Kinerja** (tombol per bulan, dengan konfirmasi) → backend menyusun baris per indikator per SKP (butir sama dari
@@ -1084,7 +1084,7 @@ yang sama dua kali** (idempoten), serta berhenti bila bulan sudah diajukan.
   5. baca ulang → entri yang semua butirnya ada = **Terisi di e-Kinerja**; tangkapan layar disimpan di riwayat run Connector.
 - Pengaman: `safeClick` menolak tombol berteks kirim/ajukan/hapus; "Kirim Penilaian Ke Atasan" tidak pernah diklik oleh pengisian (sejak 2026-11-15 hanya lewat tombol Kirim Penilaian + PIN, §21.16); tombol
   Isi harus menyebut nama bulan itu. `dryRun: true` = baca + rencana langkah tanpa klik.
-- Uji 2026-10-30 (Oktober 2026, data dummy `[UJI LifeOS]`, izin user): 2 entri (indikator 9 = baris yang sudah ada, indikator 8
+- Uji 2026-10-30 (Oktober 2026, data dummy `[UJI Akasha]`, izin user): 2 entri (indikator 9 = baris yang sudah ada, indikator 8
   = dicentang robot) → 1 indikator dicentang, 6 butir ditambah, isi di e-Kinerja sesuai; jalankan ulang → 0 butir, 2 entri
   terisi (idempoten). Ditemukan & diperbaiki: blok bulan terbaca "sudah diajukan" (templat rating tersembunyi & nama bulan
   berupa teks lepas) dan butir tidak terbaca (label bagian tidak bersaudara langsung dengan `<ol>`) — yang terakhir akan
@@ -1092,12 +1092,12 @@ yang sama dua kali** (idempoten), serta berhenti bila bulan sudah diajukan.
 - **Pembersihan data uji**: menghapus butir uji = Edit Rencana Aksi Kerja (lepas centang indikator 9 → simpan; lalu centang 9
   & lepas 8 → simpan) sampai Oktober kembali "indikator 9 kosong". Klik Edit lewat tayangan robot sempat ditahan pengaman otomatis
   Claude → dilakukan setelah izin user ("Izinkan robot"). Selesai 2026-10-31: Oktober kembali "indikator 9 kosong", tidak ada
-  teks/tautan uji, tidak diajukan; entri uji LifeOS `uji-renaksi-1/2` dihapus.
+  teks/tautan uji, tidak diajukan; entri uji Akasha `uji-renaksi-1/2` dihapus.
 
 ### 21.10a Pemantauan & sinkron dua arah Rencana Aksi e-Kinerja (2026-10-31)
 
-Permintaan user: isian renaksi yang sudah diinput ke e-Kinerja (belum dikirim ke atasan) terpantau di LifeOS sampai
-penilaian dikirim; data LifeOS dan e-Kinerja tidak boleh berbeda (bisa saja user sudah mengirim tgl 15); isian yang sudah
+Permintaan user: isian renaksi yang sudah diinput ke e-Kinerja (belum dikirim ke atasan) terpantau di Akasha sampai
+penilaian dikirim; data Akasha dan e-Kinerja tidak boleh berbeda (bisa saja user sudah mengirim tgl 15); isian yang sudah
 ada di e-Kinerja bisa diubah lalu dikirim ulang dengan **pengenal perubahan**.
 
 **Keadaan bulan** (dibaca dari `/skp/renaksi/<SKP>`, `monthSummary`): `rated` (ada Rating Hasil Kerja/Perilaku, Predikat,
@@ -1106,7 +1106,7 @@ Tunkin), `submitted` ("Tanggal Pengajuan Penilaiaan : dd-mm-yyyy ( Hari Kerja Ke
 Uji 2026-10-31: Jan–Agu dinilai (Baik, 60%), Sep diajukan 26-10-2026 (hari kerja ke-18, "Belum ada feedback"), Okt draf, Nov
 kosong, Des belum dibuka. Feedback dibaca dari kolom berjudul "Feedback" (👍 / "Belum ada feedback").
 
-**Model LifeOS**:
+**Model Akasha**:
 - Record type baru `action_plan_month` (migrasi `20261031130000_action_plan_months`, ID `apm-<nomor SKP>-<YYYY-MM>`):
   period, skpId, status, submittedAt (+ `extra`: workday, ratings, rows = isi per indikator + feedback).
 - Entri `action_plan_entry` + `pushedSignature` (tanda tangan isi saat terakhir terisi: RHK, renaksi, realisasi, realisasi
@@ -1124,14 +1124,14 @@ kosong, Des belum dibuka. Feedback dibaca dari kolom berjudul "Feedback" (👍 /
   terisi + tanda tangan dasar.
 - **Periksa** (dryRun) & **Kirim perubahan** (`POST /robot/ekinerja/renaksi/fill { period, dryRun? }`): backend membaca bulan dulu
   (impor) → isian lengkap bulan (`buildSyncPlan`: semua entri tidak ber-tanda hapus) → robot `mode: "sync"`: `syncPlan` =
-  indikator baru dicentang, indikator berisi yang tidak diminta lagi dilepas, baris yang memuat butir di luar isian LifeOS
+  indikator baru dicentang, indikator berisi yang tidak diminta lagi dilepas, baris yang memuat butir di luar isian Akasha
   **ditulis ulang** (e-Kinerja tidak punya ubah/hapus per butir: lepas centang = baris & butirnya terhapus → centang lagi → isi
   ulang). Bulan minimal 1 indikator: bila lintasan pertama mengosongkan bulan, satu indikator sementara dicentang lalu dilepas di
   lintasan kedua (`modalPasses`). Semua isian dihapus → baris berisi dikosongkan (`emptyRows`), baris indikator tetap. Baris
   e-Kinerja yang **kosong** tidak pernah dilepas. Selesai: entri yang butirnya terbaca → terisi + `pushedSignature` baru, entri
   ber-tanda hapus dihapus. Bulan diajukan/dinilai tidak disentuh. Tetap tidak pernah menekan "Kirim Penilaiaan Ke Atasan".
 
-**Uji 2026-10-31** (izin user, draf Oktober, data `[UJI LifeOS]`): (1) entri baru → 3 butir terisi, entri terisi + tanda
+**Uji 2026-10-31** (izin user, draf Oktober, data `[UJI Akasha]`): (1) entri baru → 3 butir terisi, entri terisi + tanda
 tangan; (2) realisasi diubah → status Berubah → Kirim → baris satu-satunya ditulis ulang lewat indikator sementara, realisasi
 lama hilang, tetap 1 indikator; (3) entri dihapus → baris dikosongkan, entri terhapus. Pantau ulang: Oktober kembali **draf, 1
 indikator "Mengikuti workshop… – Jumlah Laporan" kosong**, tanpa data uji. Impor dari e-Kinerja hanya diuji unit (belum ada butir
@@ -1164,15 +1164,15 @@ halaman brankas.
 - **Asal pembuka (2026-11-12, tahap 1 pembatasan tautan)**: permintaan user = tautan hanya bisa dibuka dari e-Kinerja, bukan ditempel.
   Status login e-Kinerja di browser pembuka **tidak bisa** diperiksa (cookie situs lain, tanpa API). Yang bisa = situs asal klik (referer),
   tetapi belum diketahui apakah e-Kinerja mengirimnya dan apakah atasan melihat bukti sebagai tautan yang diklik; referer juga bisa
-  dipalsukan. Maka tahap 1 hanya **mencatat** asal pembuka di log akses (e-Kinerja / LifeOS / situs lain / tanpa asal), tanpa memblokir.
+  dipalsukan. Maka tahap 1 hanya **mencatat** asal pembuka di log akses (e-Kinerja / Akasha / situs lain / tanpa asal), tanpa memblokir.
   Tahap 2 (sakelar per brankas "Hanya dari e-Kinerja" + izin sementara dari server) baru dibangun bila log produksi menunjukkan e-Kinerja
-  konsisten mengirim asalnya. Uji: smoke (origin saja, path dibuang; ditempel = tanpa asal) + browser (klik dari LifeOS = LifeOS,
+  konsisten mengirim asalnya. Uji: smoke (origin saja, path dibuang; ditempel = tanpa asal) + browser (klik dari Akasha = Akasha,
   ditempel = tanpa asal). Di laptop tautan berawalan localhost, jadi bukti dari e-Kinerja sungguhan baru ada setelah VPS.
 
 ### 21.11 Riset Register Naskah Keluar SRIKANDI (2026-10-31)
 
 Sumber: *Buku Panduan SRIKANDI V3 Kemenko PMK 2026* bab 4 (teks + tangkapan layar formulir), tutorial kumparan (V3), dan
-rekaman LifeOS 2026-10-25. **Formulir Registrasi di akun user belum direkam** — rekaman 25 Okt hanya Daftar/Detail Naskah
+rekaman Akasha 2026-10-25. **Formulir Registrasi di akun user belum direkam** — rekaman 25 Okt hanya Daftar/Detail Naskah
 Keluar & menu Pengguna (submenu Naskah Keluar tertutup). Aplikasi SRIKANDI sama secara nasional, tetapi isi pilihan (unit,
 jenis naskah, klasifikasi, penomoran) diatur per instansi → wajib dipastikan dengan rekaman dari akun user.
 
@@ -1199,19 +1199,19 @@ Naskah Keluar / Registrasi Naskah Keluar" → alamat kemungkinan `/pembuatan-nas
 | Verifikator & Penandatangan (hanya tipe Naskah Keluar) | Verifikator* (multi) · Penandatangan* · Tipe Tanda Tangan* (Elektronik / Konvensional) · Visual TTE* (QR Code / Spesimen Gambar) |
 | Tombol | **SIMPAN** (→ modal "Berhasil — Data berhasil diinput", masuk Log Naskah Keluar, **belum terkirim**) · RESET |
 
-Prasyarat: penandatangan, verifikator, dan tujuan harus sudah ada di menu Pengguna — daftar ini **sudah diambil LifeOS**
+Prasyarat: penandatangan, verifikator, dan tujuan harus sudah ada di menu Pengguna — daftar ini **sudah diambil Akasha**
 (tab Referensi, §21.8). Pilihan Jenis/Sifat/Klasifikasi/Unit belum diambil.
 
 **Titik aman robot**: SIMPAN hanya membuat draf di Log Naskah Keluar (bisa diubah dengan ikon kertas-pena → Perbarui Naskah).
 *Kirim Konsep* (ke verifikator) dan *Kirim Naskah* (ke tujuan) = tindakan keluar → **hanya user** (atau robot dengan
 konfirmasi eksplisit per naskah — diputuskan user). TTE/passphrase tidak pernah disentuh robot.
 
-**Dibangun 2026-10-31 (bagian LifeOS, tanpa robot)** — tab **SRIKANDI → Register Naskah Keluar** (tab pertama):
+**Dibangun 2026-10-31 (bagian Akasha, tanpa robot)** — tab **SRIKANDI → Register Naskah Keluar** (tab pertama):
 - Record type `srikandi_outgoing` (migrasi `20261031120000_srikandi_outgoing`; kolom `form_type, subject, number, status,
   upload_id, source_type, source_id, letter_id, submitted_at`, sisanya di `extra`). Isian = formulir SRIKANDI di atas; tujuan,
   tembusan, verifikator, penandatangan dipilih dari **Referensi** (disalin `{id,label}`, penanda kuning bila referensi hilang);
   Jenis/Sifat/Klasifikasi/Unit diketik dengan saran (pilihan instansi belum diambil robot).
-- File naskah & lampiran: dokumen pengajuan **Approval**, **berkas LifeOS** (100 terbaru), atau **unggah** (context
+- File naskah & lampiran: dokumen pengajuan **Approval**, **berkas Akasha** (100 terbaru), atau **unggah** (context
   `srikandi-register`, `owned` → ikut terhapus bersama entri; batal = dibuang). Validasi: PDF/DOCX, lampiran ≤ 5 MB / total
   ≤ 20 MB / format SRIKANDI; nama berkas bertitik/koma/simbol hanya peringatan (`cleanAttachmentName` untuk robot nanti).
 - Status: Belum lengkap → Siap didaftarkan (dihitung `registerIssues`) → **Terdaftar di SRIKANDI** (sementara ditandai
@@ -1223,9 +1223,9 @@ konfirmasi eksplisit per naskah — diputuskan user). TTE/passphrase tidak perna
 - Belum: robot pendaftaran (menunggu rekaman), pilihan Jenis/Sifat/Klasifikasi/Unit dari SRIKANDI, berkas register belum
   dihitung "Dipakai" oleh dialog hapus lampiran fitur lain.
 
-**Rancangan Register Naskah Keluar di LifeOS** (usulan awal):
-1. Entri register (record type baru, mis. `srikandi_outgoing`) dibuat dari **dokumen Approval** atau **konsep Productivity**
-   (berkas `uploadId`) → isian di atas dipilih dari Referensi + pilihan formulir yang diambil robot; validasi LifeOS (wajib,
+**Rancangan Register Naskah Keluar di Akasha** (usulan awal):
+1. Entri register (record type baru, mis. `srikandi_outgoing`) dibuat dari **dokumen Approval** atau **konsep Working Space**
+   (berkas `uploadId`) → isian di atas dipilih dari Referensi + pilihan formulir yang diambil robot; validasi Akasha (wajib,
    ukuran & nama lampiran, PDF/DOCX). Penanda `${nomor_naskah}`/`${tanggal_naskah}`/`${ttd*}` dari templat dibiarkan.
 2. Status: draf → siap → **tersimpan di SRIKANDI** (robot SIMPAN, menyimpan id detail log + tangkapan layar) → dikirim konsep
    (oleh user) → ditandatangani/terkirim (dibaca dari Daftar Naskah Keluar).
@@ -1263,7 +1263,7 @@ formulir di akun user dipetakan lewat browser jarak jauh, lalu robot pendaftaran
 **Program** (robot + backend + UI):
 - Robot `POST /jobs/srikandi/register` (`services/robot/src/srikandi-register.ts` logika murni + test, `BrowserPool.srikandiRegister`):
   cek Log dulu (draf berhal sama & belum terkirim → `exists`, tidak dibuat ulang) → buka formulir → tipe naskah → tiap pilihan:
-  label → kolom react-select berikutnya (penanda `data-lifeos-select`), ketik `searchTerm` (bagian sebelum " - " / koma gelar),
+  label → kolom react-select berikutnya (penanda `data-akasha-select`), ketik `searchTerm` (bagian sebelum " - " / koma gelar),
   tunggu opsi, klik opsi `pickOption` (persis → nama/kode sama, dibedakan jabatan → satu-satunya yang memuat) → nomor (ketik /
   Ambil Nomor) → hal & isi ringkas → `setInputFiles` file naskah & lampiran (nama lampiran dibersihkan) → tujuan, tembusan,
   verifikator, penandatangan, tipe TTD, visual TTE → `dryRun` berhenti (tangkapan layar halaman penuh) atau **Simpan** (pesan
@@ -1275,10 +1275,10 @@ formulir di akun user dipetakan lewat browser jarak jauh, lalu robot pendaftaran
 - UI tab Register: baris **Siap didaftarkan** → **Daftarkan ke SRIKANDI** (konfirmasi; toast + "Lihat" tangkapan layar);
   menu ⋯ → **Periksa di SRIKANDI (tanpa simpan)** (dialog rekaman `RunDialog`) dan **Tandai terdaftar (manual)**.
 
-**Uji 2026-10-31** (entri `[UJI LifeOS]`, PDF 1 halaman, Nota Dinas, KU.204, Ambil Nomor, tujuan/verifikator Enie Kurniawati,
+**Uji 2026-10-31** (entri `[UJI Akasha]`, PDF 1 halaman, Nota Dinas, KU.204, Ambil Nomor, tujuan/verifikator Enie Kurniawati,
 penandatangan Arif Priyo Utomo): dryRun 20 dtk (9 isian sesuai) → simpan 23 dtk → draf `XXX/KEU/ND/2026` status BELUM di Log →
-jalankan ulang: LifeOS menolak, robot mengenali draf (`exists`, tidak ganda) → **konsep dihapus** dari Log (aksi Hapus +
-konfirmasi, lewat browser jarak jauh; Log kembali hanya naskah 182) → entri & berkas uji di LifeOS dihapus. Kirim Konsep tidak
+jalankan ulang: Akasha menolak, robot mengenali draf (`exists`, tidak ganda) → **konsep dihapus** dari Log (aksi Hapus +
+konfirmasi, lewat browser jarak jauh; Log kembali hanya naskah 182) → entri & berkas uji di Akasha dihapus. Kirim Konsep tidak
 pernah diklik. Belum: tipe Naskah Banyak & E-Form, Nomor Referensi, Diberkaskan Oleh Unit Pengolah, ukuran QR (bawaan 3x3).
 
 **Klasifikasi arsip sebagai referensi** (permintaan user 2026-10-31): halaman `/klasifikasi-arsip/klasifikasi` (Daftar
@@ -1296,10 +1296,10 @@ formulir ("KU.204 - Laporan Keuangan", "AJ - ANGKUTAN JALAN").
 ### 21.13 Edit register: perbarui konsep di Log Naskah Keluar (2026-11-13)
 
 **Permintaan user**: Register Naskah Keluar harus bisa mengakomodasi **edit register** (menu Edit di Log Naskah Keluar SRIKANDI);
-boleh mencoba robot ke SRIKANDI asal **tidak Kirim Konsep**. Sebelumnya entri yang sudah terdaftar terkunci: perubahan di LifeOS
+boleh mencoba robot ke SRIKANDI asal **tidak Kirim Konsep**. Sebelumnya entri yang sudah terdaftar terkunci: perubahan di Akasha
 tidak pernah sampai ke konsep di SRIKANDI.
 
-**Peta halaman Edit** (direkam lewat browser jarak jauh pada konsep uji `[UJI LifeOS]`): tautan Edit hanya ada pada konsep yang belum
+**Peta halaman Edit** (direkam lewat browser jarak jauh pada konsep uji `[UJI Akasha]`): tautan Edit hanya ada pada konsep yang belum
 dikirim (`/pembuatan-naskah-keluar/log-naskah-keluar/form?id=<acak>&formode=Ubah&is_forward=false&editor=true&from=log`; naskah yang sudah
 disetujui hanya punya "Lihat Status Saat Ini"). Judul "Ubah Log Naskah Keluar"; **Tipe Form terkunci**.
 
@@ -1324,13 +1324,13 @@ disetujui hanya punya "Lihat Status Saat Ini"). Judul "Ubah Log Naskah Keluar"; 
   terdaftar; berhasil / sudah sama → `pushedSubject`, `pushedSignature` (`outgoingSignature`, FNV-1a isian yang dikirim; salinan frontend
   `register-logic.ts`), `pushedFileId`, `updatedInSrikandiAt`. Pendaftaran baru juga mencatat ketiganya. Run + tangkapan layar di
   Riwayat Connector.
-- UI tab Register: entri terdaftar yang diubah di LifeOS → penanda **"Berubah — perlu diperbarui di SRIKANDI"** + tombol **Perbarui di
+- UI tab Register: entri terdaftar yang diubah di Akasha → penanda **"Berubah — perlu diperbarui di SRIKANDI"** + tombol **Perbarui di
   SRIKANDI** (konfirmasi); menu ⋯ **Periksa perubahan di SRIKANDI (tanpa simpan)** (toast berisi rencana + "Lihat" tangkapan layar).
   Entri yang ditandai terdaftar manual tidak punya pengenal → tidak ditandai, tetapi tetap bisa Perbarui dari menu ⋯.
 - Agen (§26.4): `srikandi_check_register` atas entri terdaftar = rencana Edit; `srikandi_request_register` atas entri terdaftar yang
   berubah = permintaan **perbarui konsep** (`after.mode = "update"`, judul "Perbarui di SRIKANDI: …"); tanpa perubahan / final tertaut ditolak.
 
-**Uji ke SRIKANDI sungguhan 2026-11-13** (konsep uji `[UJI LifeOS] Uji edit register v2 - abaikan`, tidak pernah Kirim Konsep): baca halaman
+**Uji ke SRIKANDI sungguhan 2026-11-13** (konsep uji `[UJI Akasha] Uji edit register v2 - abaikan`, tidak pernah Kirim Konsep): baca halaman
 Edit = cocok dengan entri ("sudah sama") → ubah Hal, Isi Ringkas, Sifat (Biasa → Terbatas, Klasifikasi & Ambil Nomor diisi ulang otomatis),
 tambah lampiran, tambah tembusan, tambah verifikator kedua → hapus lampiran, tembusan, verifikator kedua, Sifat kembali Biasa → Periksa
 akhir "sudah sama". Ditemukan & diperbaiki selama uji: Perbarui Naskah kembali ke Log, pilihan berantai & nomor kosong, dialog lain
@@ -1340,7 +1340,7 @@ Diberkaskan Oleh Unit Pengolah, Ukuran QR, ubah urutan verifikator, tujuan Ekste
 
 ### 21.14 Riset Naskah Masuk SRIKANDI (2026-11-13, belum dibangun)
 
-**Permintaan user**: melihat naskah masuk di LifeOS — surat yang ditujukan ke kita, disposisi, arahan, dan sejenisnya. Dipetakan lewat
+**Permintaan user**: melihat naskah masuk di Akasha — surat yang ditujukan ke kita, disposisi, arahan, dan sejenisnya. Dipetakan lewat
 browser jarak jauh, **hanya halaman daftar** (detail surat tidak dibuka agar Status Baca di SRIKANDI tidak berubah).
 
 | Menu (Penciptaan Arsip → Naskah Masuk) | Alamat `/penerimaan-naskah-masuk/…` | Kolom daftar |
@@ -1364,7 +1364,7 @@ melihatnya), sehingga robot sebaiknya hanya membaca daftar, atau hanya mengambil
   (diselaraskan dari kanan seperti referensi), baris filter/"tidak ada data" dibuang. **Detail tidak pernah dibuka.**
 - Backend record type `srikandi_inbox` (migrasi `20261113120000_srikandi_inbox`; kolom kind, date, sent_date, number, subject, origin,
   read_status, follow_up_status, synced_at; sisanya di `extra`), `POST /robot/srikandi/inbox/sync` → `RobotService.syncSrikandiInbox`
-  (logika murni + test `apps/akasha/api/src/robot/srikandi-inbox.ts`): ID `si-<hash isi>` (ID detail SRIKANDI acak), kolom robot ditimpa, kolom LifeOS
+  (logika murni + test `apps/akasha/api/src/robot/srikandi-inbox.ts`): ID `si-<hash isi>` (ID detail SRIKANDI acak), kolom robot ditimpa, kolom Akasha
   (`todoId`, `firstSeenAt`) tetap, tanpa perubahan = tidak ditulis ulang, butir yang hilang dari SRIKANDI tidak dihapus. Jenis otomasi
   `srikandi_inbox` (bawaan tiap jam kerja menit ke-15, nonaktif), MCP `srikandi_sync_inbox` (izin `srikandi:robot`), baca-saja untuk agen
   (`AGENT_READONLY_TYPES`), diindeks RAG ("Naskah Masuk SRIKANDI").
@@ -1374,20 +1374,20 @@ melihatnya), sehingga robot sebaiknya hanya membaca daftar, atau hanya mengambil
   tembusan bernomor → Register baru `?register=new&reply=<id>`: Nomor Referensi + "Tanggapan atas …", `SrikandiOutgoing.replyTo`), tombol ke
   halaman daftar di SRIKANDI. Lonceng: bagian **Naskah Masuk Belum Dibaca** (maks. 5 + tautan).
 - **Diuji**: unit robot +3, backend +4, frontend +3, smoke +4; sinkron sungguhan ke SRIKANDI (kelima daftar terbaca, 0 butir = sesuai akun);
-  UI dengan 3 naskah dummy LifeOS (daftar, filter, Jadikan to-do, Buat balasan terisi, lonceng; data uji dihapus).
+  UI dengan 3 naskah dummy Akasha (daftar, filter, Jadikan to-do, Buat balasan terisi, lonceng; data uji dihapus).
 - **Belum**: isi baris & detail sungguhan belum terlihat (akun kosong); PDF/lampiran naskah masuk (butuh keputusan status baca); Log
   Disposisi/Koordinasi/Arahan (yang dikirim user, berisi Batas Waktu) & Agenda; robot Register belum mengisi kolom Nomor Referensi (isian
-  balasan baru tersimpan di LifeOS); menindaklanjuti / mendisposisikan di SRIKANDI (tahap 2, menulis).
+  balasan baru tersimpan di Akasha); menindaklanjuti / mendisposisikan di SRIKANDI (tahap 2, menulis).
 
 ### 21.15 Kirim Konsep dengan PIN (2026-11-15)
 
-**Permintaan user**: fitur PIN dipakai untuk **Kirim Konsep** — pemilik bisa mengirim konsep ke verifikator dari LifeOS, wajib memasukkan PIN.
+**Permintaan user**: fitur PIN dipakai untuk **Kirim Konsep** — pemilik bisa mengirim konsep ke verifikator dari Akasha, wajib memasukkan PIN.
 Saat membangun: **jangan pernah mengirim konsep**, pakai data dummy, dan Playwright hanya untuk mengidentifikasi elemen. Ini merevisi titik aman
 §21.11 / AG-27 ("Kirim Konsep hanya user") menjadi "Kirim Konsep hanya atas klik pemilik + PIN" — agen, Kebijakan Otomatis, dan jadwal tetap tidak
 pernah mengirim.
 
 **Peta halaman** (direkam 2026-11-15 lewat `POST /robot/connectors/srikandi/capture` = buka alamat + ariaSnapshot, **tanpa klik**, pada konsep uji
-`[UJI LifeOS] Uji edit register v2 - abaikan`):
+`[UJI Akasha] Uji edit register v2 - abaikan`):
 - **Log Naskah Keluar**: hanya konsep yang belum dikirim punya **kotak centang** (untuk "Kirim Banyak Konsep", tidak dipakai robot) dan aksi
   Edit · Lihat · Status · Hapus; naskah yang sudah disetujui/dikirim hanya Lihat · Status. Tautan Lihat = `…/log-naskah-keluar/detail?id=<acak>`.
 - **Detail Log Naskah Keluar**: judul "Detail Log Naskah Keluar", tombol **KIRIM KONSEP** (`button` "Kirim Konsep", ikon pesawat) + **KEMBALI**,
@@ -1430,8 +1430,8 @@ dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu. **Belum diketahui**:
 
 **Dibangun**:
 - Robot `POST /jobs/ekinerja/renaksi/submit` (`services/robot/src/ekinerja-submit.ts` logika murni + test, `BrowserPool.ekinerjaSubmit`; `renaksiBlock` kini
-  menandai tombol `data-lifeos-renaksi=submit` / `canSubmit`). Urutan: buka Rencana Aksi SKP → blok bulan → sudah diajukan/dinilai = `already_submitted`
-  → tanpa tombol = `not_ready` → baris e-Kinerja **sama persis** dengan kunci baris dari LifeOS (`expectedKeys`, `rowDifference`) atau `mismatch` →
+  menandai tombol `data-akasha-renaksi=submit` / `canSubmit`). Urutan: buka Rencana Aksi SKP → blok bulan → sudah diajukan/dinilai = `already_submitted`
+  → tanpa tombol = `not_ready` → baris e-Kinerja **sama persis** dengan kunci baris dari Akasha (`expectedKeys`, `rowDifference`) atau `mismatch` →
   setiap baris punya renaksi, realisasi, bukti (`incompleteRows`) atau `incomplete` → teks tombol dicek ulang (`isSubmitButton`). **Tanpa
   `confirm: "KIRIM_PENILAIAN"` server robot selalu dryRun** (apa pun isi `dryRun`): tombol diberi garis merah, tangkapan layar, berhenti (`ready`).
   Kirim: klik → dialog baru disetujui **hanya** bila teksnya memuat kirim/ajukan **dan** penilaian/atasan/renaksi, tombolnya persetujuan
@@ -1441,7 +1441,7 @@ dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu. **Belum diketahui**:
   4/menit): `dryRun` bawaan true, tanpa PIN. Penjaga `submitBlockers` (`ekinerja-renaksi.ts` + test; salinan frontend `submitBlocker`): potret bulan draf,
   ada isian, semua isian terisi sama dengan e-Kinerja (tidak ada siap/berubah/akan dihapus); bulan dengan > 1 SKP ditolak. Lalu **`PinService.confirmAction`**
   (PIN setiap kali; hanya sesi login ber-`sid` → token agen/MCP 403) → robot. Terkirim → potret bulan `submitted` (+ `submittedAt` hari ini,
-  `submittedFromLifeos`) sampai Pantau membaca tanggal resmi. Tidak ada alat MCP, aksi agen, aturan kebijakan, atau jadwal yang memanggilnya.
+  `submittedFromAkasha`) sampai Pantau membaca tanggal resmi. Tidak ada alat MCP, aksi agen, aturan kebijakan, atau jadwal yang memanggilnya.
 - UI (revisi hari yang sama, permintaan user): tab baru **Penilaian** (`/kinerja/assessment`) berisi bulan draf / diajukan / dinilai per tahun (rating,
   feedback, isi, tautan ke Rencana Aksi bulan itu); tombol **Kirim Penilaian** pada bulan draf (nonaktif + alasan di tooltip bila `submitBlocker`) — tidak lagi
   di toolbar Rencana Aksi. Dialog `submit-assessment-dialog.tsx`:
@@ -1452,7 +1452,7 @@ dd-mm-yyyy ( Hari Kerja Ke-n )" dan tidak punya tombol itu. **Belum diketahui**:
 container robot, `services/robot/test/dummy-ekinerja.mjs`, cara menjalankan di kepala berkas) → tanpa confirm = `ready` & tidak terkirim, isi beda = `mismatch`, baris kosong = `incomplete`, bulan
 diajukan = `already_submitted`, dialog asing ("Pilih atasan penilai … OK") = `unconfirmed` tanpa klik (ditemukan saat uji: aturan awal menyetujuinya karena
 memuat kata "atasan" → kini wajib kata kirim/ajukan), dialog konfirmasi dummy → `sent`. Unit robot +6, backend +1, frontend +1; smoke +3 (tidak ada alat
-agen, tanpa sesi, periode salah); UI dengan akun uji `user@lifeos.com` + data dummy (tombol aktif, tanpa PIN → Atur PIN, PIN uji → server menolak
+agen, tanpa sesi, periode salah); UI dengan akun uji `user@workingspace.id` + data dummy (tombol aktif, tanpa PIN → Atur PIN, PIN uji → server menolak
 sebelum robot, PIN dikosongkan; data & PIN uji dihapus). **Belum**: klik → dialog konfirmasi e-Kinerja sungguhan → hasil belum pernah dijalankan (TODO-USER A39).
 
 ### 21.17 Instansi Pengirim, Register dari ONLYOFFICE, Tautkan final (2026-11-15)
@@ -1472,35 +1472,35 @@ referensi itu (`senderUnitChoices`: yang pernah dipakai didahulukan, nilai lama 
 
 **Register dari ONLYOFFICE**: header editor punya tombol **Register naskah** (`features/srikandi/register-from-office.tsx`, dimuat malas dari
 `office-editor-host.tsx`) untuk berkas DOCX/PDF: simpan paksa dokumen → modal Register Naskah Keluar di atas editor dengan file naskah = dokumen
-ini, hal = nama berkas, asal "berkas LifeOS" (tidak ikut terhapus bersama entri). Dokumen yang sudah punya entri (`registerEntryForFile`) membuka
+ini, hal = nama berkas, asal "berkas Akasha" (tidak ikut terhapus bersama entri). Dokumen yang sudah punya entri (`registerEntryForFile`) membuka
 entri itu ("Register naskah (sudah ada)"). Setelah disimpan: notifikasi + **Buka Register** (menutup editor, membuka entri di tab Register).
 `RegisterDialog` mendapat prop `onSaved`.
 
 **Tautkan final**: menautkan **naskah final** (PDF ber-TTE dari Daftar Naskah Keluar, diambil "Ambil dari SRIKANDI") ke entri register, sehingga
 entri berstatus "Naskah final tertaut" dan konsep DOCX ↔ PDF final tertaut (`assets.draft_id`). Naskah final baru ada setelah konsep dikirim,
-disetujui, dan ditandatangani, jadi tombolnya kini tampil di baris hanya setelah **Kirim Konsep** lewat LifeOS (`draftSentAt`); sebelum itu tersedia di
+disetujui, dan ditandatangani, jadi tombolnya kini tampil di baris hanya setelah **Kirim Konsep** lewat Akasha (`draftSentAt`); sebelum itu tersedia di
 menu ⋯ ("Tautkan naskah final (setelah ditandatangani)") untuk konsep yang dikirim langsung di SRIKANDI.
 
 ## 22. Revisi 2026-10-31 — Dokumen bertemplat ditangani agen (Hermes: skill & workflow), Approval kembali ke Workspace
 
 **Keputusan user (2026-10-31)**:
-1. Menu **Approval** kembali ke kelompok **Workspace** (setelah Productivity). Kelompok **AI Agent** hanya berisi modul
+1. Menu **Approval** kembali ke kelompok **Workspace** (setelah Working Space). Kelompok **AI Agent** hanya berisi modul
    agen: **Laporan Kinerja** (robot e-Kinerja) dan **SRIKANDI** (robot SRIKANDI). Sudah diterapkan di `navigation.ts`.
 2. Penanganan permintaan **dokumen bertemplat** (Penetapan PSP, Penetapan Panitia Penghapusan, pelaksanaan pemanfaatan BMN,
-   dsb.) yang pada tahap 4 (§19) dibangun sebagai **fitur dengan alur tetap** di LifeOS (jenis pengajuan tetap, tombol
+   dsb.) yang pada tahap 4 (§19) dibangun sebagai **fitur dengan alur tetap** di Akasha (jenis pengajuan tetap, tombol
    Analisis/Telaah dengan prompt bawaan, formulir templat) **diubah menjadi pekerjaan agen**: **Hermes** menangani
-   permintaan lewat **skill dan/atau workflow**; LifeOS cukup menyediakan data, alat (MCP), dan tempat verifikasi.
+   permintaan lewat **skill dan/atau workflow**; Akasha cukup menyediakan data, alat (MCP), dan tempat verifikasi.
 3. **OnTrack Data Hub** menyediakan **MCP** dan **API Service** sebagai **sumber kebenaran** data **SIMAN** (master aset —
-   terutama untuk PSP) dan **MyIntress** (akuntansi & laporan keuangan). LifeOS & Hermes tersambung lewat keduanya (sesuai
+   terutama untuk PSP) dan **MyIntress** (akuntansi & laporan keuangan). Akasha & Hermes tersambung lewat keduanya (sesuai
    AG-18, §16).
 
 ### 22.1 Pembagian peran (arsitektur baru)
 
 ```
-Pemohon --WhatsApp--> bot LifeOS (Cloud API, §20) --+--> Approval: pengajuan "baru" + berkas pemohon
+Pemohon --WhatsApp--> bot Akasha (Cloud API, §20) --+--> Approval: pengajuan "baru" + berkas pemohon
 Anda ----Telegram/WA/chat--> Hermes pribadi --------+
                                                     v
-Hermes (skill per jenis dokumen) --MCP lifeos---> baca pengajuan & teks berkas, cari persyaratan/peraturan di basis
+Hermes (skill per jenis dokumen) --MCP akasha---> baca pengajuan & teks berkas, cari persyaratan/peraturan di basis
         |                                         pengetahuan, ambil templat + isiannya, buat dokumen, catat telaah,
         |                                         ubah status → menunggu verifikasi
         +--MCP ontrack (atau API)--> master aset SIMAN (NUP, kode barang, nilai, status), data MyIntress
@@ -1510,12 +1510,12 @@ Anda: Approval (Workspace) → periksa telaah & dokumen di ONLYOFFICE → Setuju
 
 | Bagian | Tugas |
 |---|---|
-| **Hermes (agen)** | Otak & alur kerja: memahami permintaan, memilih skill per jenis dokumen, memanggil alat, menyusun telaah & isian templat. Logika "cara membuat SK PSP" ditulis sebagai **skill** (teks prosedur + contoh), bukan kode LifeOS → bisa diubah tanpa rilis aplikasi. |
-| **LifeOS** | Sumber kebenaran dokumen & pengetahuan + **alat MCP** (pengajuan, berkas, basis pengetahuan, templat & mesin templat, ONLYOFFICE) + **Approval** = antrian verifikasi manusia + log aktivitas agen. Tidak lagi menyimpan alur tetap per jenis dokumen. |
-| **OnTrack** | Sumber kebenaran data SIMAN & MyIntress lewat **MCP** (untuk agen) dan **API Service** (untuk fitur LifeOS). |
+| **Hermes (agen)** | Otak & alur kerja: memahami permintaan, memilih skill per jenis dokumen, memanggil alat, menyusun telaah & isian templat. Logika "cara membuat SK PSP" ditulis sebagai **skill** (teks prosedur + contoh), bukan kode Akasha → bisa diubah tanpa rilis aplikasi. |
+| **Akasha** | Sumber kebenaran dokumen & pengetahuan + **alat MCP** (pengajuan, berkas, basis pengetahuan, templat & mesin templat, ONLYOFFICE) + **Approval** = antrian verifikasi manusia + log aktivitas agen. Tidak lagi menyimpan alur tetap per jenis dokumen. |
+| **OnTrack** | Sumber kebenaran data SIMAN & MyIntress lewat **MCP** (untuk agen) dan **API Service** (untuk fitur Akasha). |
 | **Anda** | Pemeriksa akhir: hanya Anda yang menyetujui/menandai dikirim. Agen tidak pernah menyetujui, menandatangani, atau mengirim. |
 
-Aturan tetap berlaku: pengajuan dari WhatsApp tetap diterima **bot LifeOS** (AG-20 — kelompok/hak akses diambil server dari
+Aturan tetap berlaku: pengajuan dari WhatsApp tetap diterima **bot Akasha** (AG-20 — kelompok/hak akses diambil server dari
 nomor bertanda tangan Meta, bukan dari agen); Hermes publik tetap tidak ada. Agen bekerja atas pengajuan yang sudah tercatat.
 
 ### 22.2 Rancangan skill Hermes (draf, dikerjakan setelah keputusan §22.4)
@@ -1532,10 +1532,10 @@ Satu skill per jenis dokumen (format `SKILL.md` yang dipakai Hermes — dicek ul
    (`nomor_naskah`, `tanggal_naskah`, `ttd*`) dibiarkan.
 5. **Contoh**: satu contoh telaah & dokumen yang sudah Anda setujui (gaya Anda).
 
-Skill disimpan di repo/vault (diusulkan `apps/akai/agent/skills/` di repo LifeOS atau folder vault `70-Agen/`) lalu disalin /
+Skill disimpan di repo/vault (diusulkan `apps/akai/agent/skills/` di repo Akasha atau folder vault `70-Agen/`) lalu disalin /
 disinkronkan ke `~/.hermes/skills/` — agar ikut versi & cadangan.
 
-### 22.3 Dampak ke LifeOS (rencana, belum dikerjakan — dokumentasi dulu)
+### 22.3 Dampak ke Akasha (rencana, belum dikerjakan — dokumentasi dulu)
 
 | Bagian sekarang (§19, ARCHITECTURE §3.8) | Arah |
 |---|---|
@@ -1545,16 +1545,16 @@ disinkronkan ke `~/.hermes/skills/` — agar ikut versi & cadangan.
 | Mesin templat (`template-engine.ts`), `GET /requests/templates/:id/fields`, `POST /:id/documents` | **Tetap** — diekspos sebagai **tool MCP** agar agen bisa mengisi templat; "Isi dengan AI" di UI tetap untuk pemakaian manual. |
 | Tool MCP yang perlu ditambah | `list_templates`, `get_template_fields`, `create_request_document` (isian → DOCX), `read_request_file` (teks ekstraksi berkas pemohon), `update_request` (data surat, telaah, kekurangan, status → menunggu verifikasi; **tidak** bisa disetujui/dikirim), cakupan token yang sesuai. |
 | Detail Approval di UI | Menampilkan hasil agen (telaah, kelengkapan, dokumen, log aktivitas agen) + tombol keputusan Anda. |
-| Integrasi OnTrack (§16.3) | Hermes: `mcp_servers` = `lifeos` + `ontrack`. LifeOS: klien REST `src/integrations/ontrack/` untuk fitur non-agen (mis. panel data aset di detail Approval). |
+| Integrasi OnTrack (§16.3) | Hermes: `mcp_servers` = `akasha` + `ontrack`. Akasha: klien REST `src/integrations/ontrack/` untuk fitur non-agen (mis. panel data aset di detail Approval). |
 
 ### 22.4 Keputusan & to-do
 
 | ID | Pertanyaan | Rekomendasi |
 |---|---|---|
-| AG-22 | Skill Hermes disimpan di mana? | Repo LifeOS `apps/akai/agent/skills/` (ikut git & review), disalin ke Hermes saat pasang |
+| AG-22 | Skill Hermes disimpan di mana? | Repo Akasha `apps/akai/agent/skills/` (ikut git & review), disalin ke Hermes saat pasang |
 | AG-23 | Tombol Analisis/Telaah bawaan + `analyze_request` dihapus setelah skill teruji? | Ya, setelah 2–3 pengajuan nyata berhasil lewat skill |
 | AG-24 | Hermes berjalan di mana untuk alur ini? | Laptop (WSL) untuk uji; VPS (B7) untuk harian |
-| AG-25 | Urutan kerja | (1) tool MCP templat & `update_request` di LifeOS → (2) skill `penetapan-psp` tanpa OnTrack → (3) sambung MCP OnTrack setelah tersedia → (4) skill jenis lain |
+| AG-25 | Urutan kerja | (1) tool MCP templat & `update_request` di Akasha → (2) skill `penetapan-psp` tanpa OnTrack → (3) sambung MCP OnTrack setelah tersedia → (4) skill jenis lain |
 
 **Keputusan user (2026-10-31): AG-22 … AG-25 disetujui sesuai rekomendasi** (skill di repo `apps/akai/agent/skills/`; tombol
 Analisis/Telaah bawaan dihapus setelah 2–3 pengajuan nyata berhasil lewat skill; Hermes di laptop untuk uji, VPS untuk
@@ -1582,27 +1582,27 @@ selesaikan MCP/API OnTrack (C1). To-do Claude: setelah keputusan, kerjakan langk
 
 **Pertanyaan user**: bisakah Hermes punya UI/UX, haruskah dikelola langsung lewat Hermes, apa yang dipasang di laptop & VPS?
 
-**Keputusan**: pemakaian harian lewat **UI LifeOS**; Hermes = mesin agen di belakang. Dashboard bawaan Hermes
+**Keputusan**: pemakaian harian lewat **UI Akasha**; Hermes = mesin agen di belakang. Dashboard bawaan Hermes
 (`HERMES_DASHBOARD`, port 9119) dan Open WebUI tidak dipakai (login terpisah, tidak tahu konteks Approval). Pengaturan teknis
-sesekali: model & API key (wizard Hermes), skill (berkas repo), MCP (`apps/akai/agent/hermes/lifeos-mcp.yaml`).
+sesekali: model & API key (wizard Hermes), skill (berkas repo), MCP (`apps/akai/agent/hermes/akasha-mcp.yaml`).
 
 | Bagian | Isi |
 |---|---|
-| Container | `nousresearch/hermes-agent:v0.22.2` (profile `agent`, `gateway run`, `API_SERVER_ENABLED`), port dev `127.0.0.1:8642`, volume `lifeos-hermes-data` → `/opt/data`; produksi tanpa port publik |
-| Skrip | `apps/akai/agent/hermes/up.sh` (hitung IP Windows → `lifeos-api`, nyalakan, perbaiki pemilik folder skill, jalankan `configure.sh`). `setup.sh` (wizard interaktif) dihapus 2026-10-31 — lihat §23.1 |
-| Skill | `apps/akai/agent/skills/` → `/opt/data/skills/lifeos` (kategori lifeos). Skill uji `telaah-pengajuan` (kelengkapan, telaah bersitasi, konsep jawaban → `update_request` + `submitForReview`) |
+| Container | `nousresearch/hermes-agent:v0.22.2` (profile `agent`, `gateway run`, `API_SERVER_ENABLED`), port dev `127.0.0.1:8642`, volume `akasha-hermes-data` → `/opt/data`; produksi tanpa port publik |
+| Skrip | `apps/akai/agent/hermes/up.sh` (hitung IP Windows → `akasha-api`, nyalakan, perbaiki pemilik folder skill, jalankan `configure.sh`). `setup.sh` (wizard interaktif) dihapus 2026-10-31 — lihat §23.1 |
+| Skill | `apps/akai/agent/skills/` → `/opt/data/skills/akasha` (kategori akasha). Skill uji `telaah-pengajuan` (kelengkapan, telaah bersitasi, konsep jawaban → `update_request` + `submitForReview`) |
 | Backend | `src/agent/` — status, skill, chat, jalankan skill atas pengajuan, pantau & hentikan run; hanya `HERMES_OWNER_EMAIL` |
 | UI | **AI Agent → Asisten Agen** (Chat, Status & Skill) + **Kerjakan dengan agen** di detail Approval |
 
 Diuji 2026-10-31: Hermes menyala (`/health` ok, 58 skill bawaan + `telaah-pengajuan` terbaca `hermes skills list`), container →
-backend Windows lewat `lifeos-api` = 200, MCP tanpa token = 401, UI Status & Skill + panel Approval tampil, unit +6, smoke +4.
+backend Windows lewat `akasha-api` = 200, MCP tanpa token = 401, UI Status & Skill + panel Approval tampil, unit +6, smoke +4.
 Ditemukan: `/v1/skills` Hermes 0.22.2–0.22.5 error 500 (bug argumen) → daftar skill dari repo; mount skill membuat folder
 `skills` milik root → `up.sh` memperbaikinya. **Belum diuji**: run agen sungguhan — menunggu user menjalankan `setup.sh`
-(memilih model & mengetik API key, menempel token LifeOS). Pengajuan uji `[UJI] Permohonan PSP laptop Satker Contoh` dibuat
+(memilih model & mengetik API key, menempel token Akasha). Pengajuan uji `[UJI] Permohonan PSP laptop Satker Contoh` dibuat
 di akun admin dev untuk percobaan pertama (boleh dihapus).
 
 **Persiapan VPS** (DEPLOYMENT §14): service `hermes` di `docker-compose.prod.yml` (profile `agent`, batas memori 1,5 GB),
-backend beralias `lifeos-api` (konfigurasi MCP sama dengan dev), env `HERMES_API_KEY` / `HERMES_OWNER_EMAIL`, volume
+backend beralias `akasha-api` (konfigurasi MCP sama dengan dev), env `HERMES_API_KEY` / `HERMES_OWNER_EMAIL`, volume
 `hermes-data` dicadangkan terpisah (berisi rahasia), VPS 8 GB bila ONLYOFFICE + robot + Hermes menyala bersama.
 
 Berikutnya: user menjalankan setup → uji run `telaah-pengajuan` → skill `penetapan-psp` (C5) → MCP OnTrack.
@@ -1614,17 +1614,17 @@ Google Cloud). **Keputusan**: "satu pintu" seperti AI di ONLYOFFICE — Hermes t
 
 | Bagian | Isi |
 |---|---|
-| Model | `config.yaml` Hermes: `model.provider: custom`, `base_url: http://lifeos-api:4000/api/v1/agent/llm/v1`, `default: lifeos-agent`, `api_key: "${API_SERVER_KEY}"` (ditulis `apps/akai/agent/hermes/configure.sh`, idempoten, tanpa rahasia). Backend `AgentLlmController` (`GET models`, `POST chat/completions`) meneruskan ke endpoint OpenAI-compatible resmi provider user (Gemini `…/v1beta/openai`, OpenAI) dengan key tersimpan; **Claude** diterjemahkan ke Messages API native (lihat di bawah); model = Pembagian tugas → **Agen (Hermes)** (`ai_routing.agent`, kosong = provider aktif). Streaming diteruskan apa adanya; error provider diteruskan dengan status aslinya (Hermes mencoba ulang 503/429 sendiri). Logika murni + test `agent-llm.ts`, `agent-claude.ts`. |
+| Model | `config.yaml` Hermes: `model.provider: custom`, `base_url: http://akasha-api:4000/api/v1/agent/llm/v1`, `default: akasha-agent`, `api_key: "${API_SERVER_KEY}"` (ditulis `apps/akai/agent/hermes/configure.sh`, idempoten, tanpa rahasia). Backend `AgentLlmController` (`GET models`, `POST chat/completions`) meneruskan ke endpoint OpenAI-compatible resmi provider user (Gemini `…/v1beta/openai`, OpenAI) dengan key tersimpan; **Claude** diterjemahkan ke Messages API native (lihat di bawah); model = Pembagian tugas → **Agen (Hermes)** (`ai_routing.agent`, kosong = provider aktif). Streaming diteruskan apa adanya; error provider diteruskan dengan status aslinya (Hermes mencoba ulang 503/429 sendiri). Logika murni + test `agent-llm.ts`, `agent-claude.ts`. |
 | Izin | Satu kunci bersama `HERMES_API_KEY` (= `API_SERVER_KEY` container) di dua arah. Tombol **Siapkan agen** membuat token akses "Agen Hermes (otomatis)" milik `HERMES_OWNER_EMAIL` dengan hash kunci itu + cakupan pilihan (bawaan semua, termasuk `ai:model` baru) → MCP & model memakai isolasi/log token biasa; dicabut di Pengaturan → Integrasi. Kunci harus 24–128 huruf/angka/`_`/`-` (`openssl rand -hex 32`). |
 | UI | Kartu **Siapkan agen** di Asisten Agen → Status & Skill: Hermes menyala, model (provider · model, tautan Pengaturan → Model AI), izin agen (dialog cakupan), panggilan model terakhir. |
 
 Diuji 2026-10-31: `configure.sh` dua kali (idempoten, kunci tidak tertulis ke berkas), Siapkan agen (token + izin), `GET
-models` dengan kunci agen = 200, JWT login = 401, Hermes → proxy LifeOS terbukti (log Hermes: `provider=custom
+models` dengan kunci agen = 200, JWT login = 401, Hermes → proxy Akasha terbukti (log Hermes: `provider=custom
 base_url=…/agent/llm/v1`), MCP Hermes ditolak sebelum Siapkan agen lalu tersambung sendiri setelahnya. Jawaban model
 sungguhan belum terlihat: Gemini (`gemini-3.8-flash`) sedang 503 "high demand" — jalur native (Uji di Pengaturan) juga 503,
 jadi bukan masalah proxy; Hermes mencoba ulang otomatis.
 
-**Claude lewat API native (2026-11-05)**: Hermes tetap berbicara format OpenAI ke LifeOS; `agent-claude.ts` menerjemahkannya ke
+**Claude lewat API native (2026-11-05)**: Hermes tetap berbicara format OpenAI ke Akasha; `agent-claude.ts` menerjemahkannya ke
 Messages API. Alasan: endpoint kompatibel OpenAI milik Anthropic tanpa prompt caching dan menolak beberapa parameter pada model
 terbaru; `api_mode: anthropic_messages` di Hermes mengharuskan konfigurasi Hermes diubah setiap ganti provider (kembali ke
 terminal). Yang aktif: cache otomatis (`cache_control` tingkat atas), effort `medium` (atau `reasoning_effort` dari permintaan),
@@ -1639,9 +1639,9 @@ tiruan (alat → hasil → jawaban, pemikiran terkirim balik); **Claude sungguha
 **Permintaan user**: beberapa tugas agen boleh **disetujui otomatis**. Contoh **Generasi PSP**: dokumen masuk lewat WhatsApp →
 dokumen dibaca → daftar aset di lampiran diambil → dicocokkan dengan master aset SIMAN (OnTrack) → bila **≥ 75% benar**,
 dokumen PSP dibuat dari templat lalu dikirim ke SRIKANDI; bila tidak, dibuat **Telaah Staf** tentang data aset yang tidak sesuai.
-Skill dibuat di Hermes, dan LifeOS harus mendukung alurnya.
+Skill dibuat di Hermes, dan Akasha harus mendukung alurnya.
 
-**Prinsip**: yang menyetujui adalah **LifeOS berdasarkan aturan yang ditulis user**, bukan model AI. Agen hanya menyerahkan
+**Prinsip**: yang menyetujui adalah **Akasha berdasarkan aturan yang ditulis user**, bukan model AI. Agen hanya menyerahkan
 data terstruktur. Server memeriksa ulang data itu ke sumber kebenaran (OnTrack), menghitung skor sendiri, lalu memutuskan
 menurut kebijakan. Akibatnya:
 - angka "75%" tidak bisa dikarang model, dan tidak bisa dimanipulasi isi dokumen pemohon (*prompt injection*);
@@ -1650,7 +1650,7 @@ menurut kebijakan. Akibatnya:
 
 ### 24.1 Kondisi sekarang vs kebutuhan (hasil kajian kode)
 
-| Langkah alur PSP | Kondisi LifeOS | Yang perlu dibuat |
+| Langkah alur PSP | Kondisi Akasha | Yang perlu dibuat |
 |---|---|---|
 | Dokumen dikirim lewat WhatsApp | ✅ bot → `RequestsService.create` (source `whatsapp`, berkas context `request`) | — |
 | Agen jalan sendiri saat pengajuan masuk | ❌ hanya tombol **Kerjakan dengan agen** (`AgentService.runSkill`); run dicatat di memori (hilang saat restart) | **Pemicu** + tabel `agent_runs` |
@@ -1670,10 +1670,10 @@ WhatsApp → pengajuan "baru" (jenis psp, grup X)
    v
 Hermes: read_request_files → ambil daftar aset → submit_asset_check([{nup, kode_barang, nama, nilai, …}])
    v
-LifeOS (server, deterministik): ambil master aset per NUP dari OnTrack → bandingkan per kolom → skor
+Akasha (server, deterministik): ambil master aset per NUP dari OnTrack → bandingkan per kolom → skor
    ├─ skor ≥ ambang & semua syarat kebijakan terpenuhi
    │     → Hermes membuat dokumen PSP (create_request_document; aset sesuai keputusan AG-26)
-   │     → LifeOS: status "disetujui · otomatis (kebijakan <nama>)" + riwayat (skor, rincian, versi kebijakan)
+   │     → Akasha: status "disetujui · otomatis (kebijakan <nama>)" + riwayat (skor, rincian, versi kebijakan)
    │     → entri Register Naskah Keluar dibuat → masa tunda (bisa dibatalkan) → robot simpan KONSEP di SRIKANDI
    │     → kabar WhatsApp ke pemohon
    └─ skor < ambang / data tidak lengkap / OnTrack tak terjangkau
@@ -1684,7 +1684,7 @@ LifeOS (server, deterministik): ambil master aset per NUP dari OnTrack → bandi
 Hasil verifikasi server diserahkan kembali ke agen (respons `submit_asset_check`). Hermes lalu memilih cabang PSP atau Telaah
 Staf. Meski begitu, **status akhir tetap ditetapkan server**: agen yang memanggil cabang PSP padahal skor kurang akan ditolak.
 
-### 24.3 Komponen LifeOS yang dibangun
+### 24.3 Komponen Akasha yang dibangun
 
 | Komponen | Isi |
 |---|---|
@@ -1757,24 +1757,24 @@ mode auto dipakai sungguhan), sumber master OnTrack.
 
 | No | Pekerjaan | Status | Catatan |
 |---|---|---|---|
-| 1 | Komunikasi Hermes ↔ Obsidian ↔ LifeOS | ✅ termasuk jawaban model sungguhan (2026-11-09) | Hasil di §25.1 |
+| 1 | Komunikasi Hermes ↔ Obsidian ↔ Akasha | ✅ termasuk jawaban model sungguhan (2026-11-09) | Hasil di §25.1 |
 | 2 | Hermes membentuk skill & bekerja otomatis tanpa Approval; **Kirim Konsep di SRIKANDI tetap di tangan user** | 🚧 tahap 1 ✅ 2026-11-06 (§24.6) | Uji model sungguhan ✅ 2026-11-09 (§24.6). Sisa: skill `penetapan-psp` (A23, A24, C5), draf skill dari Hermes, pembatasan toolset Hermes, uji robot dengan data/robot dummy (ditunda atas keputusan user) |
-| 3 | Fitur Hermes seperti di aplikasi desktopnya, di dalam LifeOS | Belum; arah 2026-11-09: AI Agent selayaknya Claude web/desktop, termasuk riwayat percakapan | Dikerjakan setelah proses PSP diajarkan |
-| 4 | Antarmuka Obsidian di LifeOS (Graph View, dsb.) | ✅ 2026-11-06, lanjutan K1–K11 ✅ 2026-11-09 | Menu **Knowledge** (dulu Pengetahuan) — rencana §25.2, hasil §25.4, lanjutan §25.6 & §25.7 |
+| 3 | Fitur Hermes seperti di aplikasi desktopnya, di dalam Akasha | Belum; arah 2026-11-09: AI Agent selayaknya Claude web/desktop, termasuk riwayat percakapan | Dikerjakan setelah proses PSP diajarkan |
+| 4 | Antarmuka Obsidian di Akasha (Graph View, dsb.) | ✅ 2026-11-06, lanjutan K1–K11 ✅ 2026-11-09 | Menu **Knowledge** (dulu Pengetahuan) — rencana §25.2, hasil §25.4, lanjutan §25.6 & §25.7 |
 | 5 | Pembagian model: penalaran agen Claude dengan cadangan OpenAI; tugas biasa, RAG, chatbot dengan Gemini | ✅ 2026-11-06 | Cadangan per tugas di Pembagian tugas AI + cadangan di proxy agen (§25.3). Uji Claude sungguhan menunggu key/router user |
 
 ### 25.1 Hasil nomor 1 (2026-11-05)
 
 ```
-Obsidian ⇄ berkas vault → LifeOS (pemantau → knowledge_notes + knowledge_links → ai_chunks)
+Obsidian ⇄ berkas vault → Akasha (pemantau → knowledge_notes + knowledge_links → ai_chunks)
                               ↑ MCP + kunci agen (18 alat)        ↑ proxy model
                             Hermes ────────────────────────────────┘
 ```
 
-Obsidian dan Hermes tidak saling memanggil: **LifeOS adalah satu-satunya perantara**. Hermes membaca vault lewat
+Obsidian dan Hermes tidak saling memanggil: **Akasha adalah satu-satunya perantara**. Hermes membaca vault lewat
 `search_knowledge` / `read_knowledge_note` dan menulis lewat `add_knowledge_inbox` (hanya folder `00-Inbox`, status draf).
 
-**Terbukti sungguhan**: berkas baru di vault terbaca ± 3 detik dan bisa dicari; `hermes mcp test lifeos` dari dalam container
+**Terbukti sungguhan**: berkas baru di vault terbaca ± 3 detik dan bisa dicari; `hermes mcp test akasha` dari dalam container
 = tersambung, 18 alat; lewat MCP dengan kunci agen: cari → baca → ikuti tautan & backlink → tulis Inbox → berkas muncul di disk.
 
 **Diperbaiki**:
@@ -1789,9 +1789,9 @@ berhasil 31 Okt), jadi run agen berhenti di panggilan model pertama. Menunggu ke
 
 **Temuan untuk nomor 2**: Hermes menyalakan toolset bawaan `terminal`, `file`, `browser`, `web`, `code_execution`, `cronjob`,
 `delegation`, dan `computer_use` di container (backend terminal `local`, tanpa sandbox). Sebelum agen dibuat otomatis, toolset
-perlu dibatasi ke yang dipakai skill LifeOS.
+perlu dibatasi ke yang dipakai skill Akasha.
 
-### 25.2 Rencana nomor 4 — menu **Knowledge** (antarmuka Obsidian di LifeOS, riset 2026-11-06)
+### 25.2 Rencana nomor 4 — menu **Knowledge** (antarmuka Obsidian di Akasha, riset 2026-11-06)
 
 Keputusan user: menu baru **Pengetahuan** di sidebar (Tools → Basis Pengetahuan tetap untuk pengaturan vault & profil kerja),
 "full feature": Graph View, penjelajah vault, pencarian, sunting catatan + fitur lain yang berguna. Riset: fitur inti Obsidian
@@ -1800,9 +1800,9 @@ Search beroperator, Quick switcher, Page preview, Bookmarks, Bases = tampilan ta
 untuk basis pengetahuan BMN, bukan meniru Obsidian utuh (Canvas, plugin, tema tidak dibawa).
 
 **Prinsip**
-- Vault di disk tetap **sumber kebenaran**; LifeOS membaca dari `knowledge_notes`/`knowledge_links` dan menulis ke berkas
+- Vault di disk tetap **sumber kebenaran**; Akasha membaca dari `knowledge_notes`/`knowledge_links` dan menulis ke berkas
   (pemantau vault yang sudah ada membaca ulang ± 3 detik → indeks RAG & graf ikut).
-- Menulis dari LifeOS **aman terhadap Obsidian/Syncthing**: setiap simpan membawa `hash` versi yang dibuka; bila berkas di disk
+- Menulis dari Akasha **aman terhadap Obsidian/Syncthing**: setiap simpan membawa `hash` versi yang dibuka; bila berkas di disk
   sudah berubah → 409 + pilihan "Muat versi terbaru / Simpan sebagai salinan" (tidak pernah menimpa diam-diam). Tulis atomik
   (berkas sementara → rename), hanya `.md`, path dijaga tetap di dalam vault, ukuran ≤ `MAX_NOTE_BYTES`.
 - Hapus = pindah ke folder `.trash` vault (sama dengan Obsidian), bukan hapus permanen.
@@ -1883,16 +1883,16 @@ WEBP/BMP dan tidak ikut diindeks; Canvas, plugin, dan tema Obsidian memang tidak
 
 ### 25.5 Lanjutan nomor 4: cermin hasil kerja, graf ala Obsidian, Tools dirapikan (2026-11-06)
 
-Permintaan user: hasil kerja LifeOS (catatan, My Notebook, Productivity) harus tampil di Obsidian; graf seperti aplikasi
+Permintaan user: hasil kerja Akasha (catatan, My Notebook, Working Space) harus tampil di Obsidian; graf seperti aplikasi
 Obsidian; tumpang tindih menu Knowledge vs Tools → Basis Pengetahuan diselesaikan.
 
-- **Cermin `80-LifeOS/`** (`KnowledgeExportService`, `vault-export.ts`): satu arah LifeOS → vault, diperbarui ± 1 menit setelah
+- **Cermin `80-Akasha/`** (`KnowledgeExportService`, `vault-export.ts`): satu arah Akasha → vault, diperbarui ± 1 menit setelah
   data berubah (sidik jari jumlah + waktu ubah per tabel) atau lewat **Sinkronkan sekarang**. Isi: `Catatan Bebas/`,
-  `List Bebas/`, `Notes AI/` (tanggal + judul), `My Notebook/<notebook>.md` + `Catatan/` + `Riwayat Chat - …`, `Productivity/`
+  `List Bebas/`, `Notes AI/` (tanggal + judul), `My Notebook/<notebook>.md` + `Catatan/` + `Riwayat Chat - …`, `Working Space/`
   `Project/` (Action berbobot sebagai checklist, Dasar Pelaksanaan, Agenda), `Area/` (struktur Sub Area → Kegiatan → Sub Kegiatan
-  + task), `Agenda/` (yang punya hasil / induk / Notes AI), `Resource/`; indeks `LifeOS.md`. Frontmatter `sumber: lifeos`, `jenis:
-  lifeos-…`, `lifeos_id`, alamat Buka di LifeOS. Tautan memakai path lengkap sehingga tidak ambigu.
-- Aman: hanya berkas bertanda `sumber: lifeos` yang ditimpa/dihapus (catatan user di folder itu tidak disentuh); tidak diindeks
+  + task), `Agenda/` (yang punya hasil / induk / Notes AI), `Resource/`; indeks `Akasha.md`. Frontmatter `sumber: akasha`, `jenis:
+  akasha-…`, `akasha_id`, alamat Buka di Akasha. Tautan memakai path lengkap sehingga tidak ambigu.
+- Aman: hanya berkas bertanda `sumber: akasha` yang ditimpa/dihapus (catatan user di folder itu tidak disentuh); tidak diindeks
   ulang sebagai pengetahuan; baca saja di menu Knowledge (server menolak sunting/pindah/hapus); hanya data milik sendiri;
   berkas lampiran tidak disalin. Pengaturan per user di `knowledge_prefs.export` (bawaan mati).
 - **Graf**: panel Filter / Grup / Tampilan / Gaya + tombol Animasi mengikuti Graph view Obsidian; tag bisa menjadi node; posisi
@@ -1902,38 +1902,38 @@ Obsidian; tumpang tindih menu Knowledge vs Tools → Basis Pengetahuan diselesai
 
 Uji: unit backend +4 (`vault-export.spec.ts`, termasuk "semua tautan terselesaikan") & frontend +3 (`graph-settings.test.ts`),
 smoke +7 (aktifkan, sinkron, berkas ada, baca saja 400, hapus berkas, matikan), vault dev 47 berkas dicerminkan tanpa potongan
-indeks, UI (Tools, graf + tag + animasi, catatan cermin → Buka di LifeOS).
+indeks, UI (Tools, graf + tag + animasi, catatan cermin → Buka di Akasha).
 
 ### 25.6 Lanjutan: fitur Obsidian di menu Knowledge (riset 2026-11-06, K1–K11 selesai 2026-11-09)
 
 Menu **Pengetahuan** berganti label menjadi **Knowledge** (permintaan user; path `/knowledge` & kode tetap). Pembanding: daftar
 core plugin Obsidian & changelog 1.12–1.15 (Bases dengan toolbar cari, Group menu di semua tampilan, kanban, impor berkas,
-Obsidian CLI). Yang **sudah ada** di LifeOS: penjelajah + seret-lepas, pembaca (`[[tautan]]`, pratinjau hover, sematan gambar,
+Obsidian CLI). Yang **sudah ada** di Akasha: penjelajah + seret-lepas, pembaca (`[[tautan]]`, pratinjau hover, sematan gambar,
 callout, KaTeX, GFM), editor CodeMirror, properti, garis besar, backlink, sebutan tanpa tautan, graf global & lokal (filter, grup,
 gaya, animasi), tabel properti, cari dengan operator, tag, penanda, templat, pembuka cepat Ctrl+O, Inbox, kesehatan, sampah, Tanya AI.
 
 Usulan (urut manfaat untuk pekerjaan user; nomor = usulan, bukan keputusan):
 
-| No | Fitur Obsidian | Bentuk di LifeOS | Nilai | Ukuran |
+| No | Fitur Obsidian | Bentuk di Akasha | Nilai | Ukuran |
 |---|---|---|---|---|
-| K1 ✅ | **Daily notes** (+ periodic) | Tombol "Catatan hari ini" → `Harian/YYYY-MM-DD.md` dari templat, otomatis memuat tautan agenda, to-do, dan task hari itu (berkas cermin `80-LifeOS`) | Tinggi — jembatan Planner ↔ Obsidian | Kecil |
+| K1 ✅ | **Daily notes** (+ periodic) | Tombol "Catatan hari ini" → `Harian/YYYY-MM-DD.md` dari templat, otomatis memuat tautan agenda, to-do, dan task hari itu (berkas cermin `80-Akasha`) | Tinggi — jembatan Planner ↔ Obsidian | Kecil |
 | K2 ✅ | **Bases** (tampilan tersimpan) | Tab Tabel menjadi tampilan tersimpan yang dibaca/ditulis sebagai berkas `.base` (format YAML Obsidian) — filter, urut, kelompokkan, rumus sederhana, tampilan Tabel, Kartu & Daftar; tampilan yang sama terlihat di Obsidian | Tinggi | Besar |
 | K3 ✅ | **Tugas lintas vault** (pola plugin Tasks) | Kumpulkan `- [ ]` dari semua catatan (tenggat `📅 2026-11-10`), tampil di Knowledge & opsional di Planner Harian; centang = tulis balik ke berkas (cek hash) | Tinggi | Sedang |
 | K4 ✅ | **Catatan serupa** (pola Smart Connections) | Panel info "Mirip dengan catatan ini" dari embedding `ai_chunks` yang sudah ada — tanpa biaya AI tambahan | Sedang–tinggi | Kecil |
 | K5 ✅ | **Command palette** (Ctrl+P) + perintah `/` di editor | Semua aksi menu Knowledge (catatan baru, pindah, templat, sisip tautan/callout/tabel) dari satu palet | Sedang | Kecil |
 | K6 ✅ | **Sematan catatan & blok** | `![[catatan]]`, `![[catatan#Judul]]`, `[[catatan#^id]]` dirender (sekarang hanya gambar); pelengkap `^id` di editor | Sedang | Sedang |
-| K7 ✅ | **File recovery** | Riwayat versi per catatan untuk tulisan dari LifeOS (snapshot sebelum menimpa, maks. n) + bandingkan & pulihkan | Sedang (pengaman) | Sedang |
+| K7 ✅ | **File recovery** | Riwayat versi per catatan untuk tulisan dari Akasha (snapshot sebelum menimpa, maks. n) + bandingkan & pulihkan | Sedang (pengaman) | Sedang |
 | K8 ✅ | **Canvas** (JSON Canvas, format terbuka) | Tahap 1 penampil `.canvas` (kartu catatan, teks, tautan, panah); tahap 2 sunting | Sedang | Besar |
 | K9 ✅ | **Note composer** (§25.7) | Ekstrak pilihan teks ke catatan baru (diganti tautan) & gabung dua catatan | Rendah–sedang | Sedang |
 | K10 ✅ | Mermaid, catatan kaki, jumlah kata, catatan acak, ganti nama tag se-vault (+ sorotan `==teks==`, komentar `%%…%%`) | Pelengkap pembaca & penjelajah | Rendah | Kecil masing-masing |
 | K11 ✅ | Tab/belah tampilan beberapa catatan | Membuka 2 catatan berdampingan (≥ 1280 px) | Rendah | Sedang |
 
 Tidak disarankan: Publish (publik sudah lewat bot WhatsApp & penanda `publik: true`), Sync (sudah Syncthing), audio recorder &
-Slides (sudah ada Notes AI / ONLYOFFICE), plugin komunitas di LifeOS (LifeOS bukan Obsidian; fitur dibangun langsung).
+Slides (sudah ada Notes AI / ONLYOFFICE), plugin komunitas di Akasha (Akasha bukan Obsidian; fitur dibangun langsung).
 Rekomendasi urutan bila disetujui user: K1 → K4 → K5 → K3 → K6 → K2 → K7 → K8.
 
 **K1 & K4 selesai 2026-11-06**: `POST /knowledge/daily` (`Harian/YYYY-MM-DD.md`, templat `90-Templat/Harian.md` dengan penanda
-`{{lifeos}}`, ringkasan agenda/to-do/task/terlambat bertaut ke cermin 80-LifeOS; tombol di header Knowledge & ikon di Planner Harian)
+`{{akasha}}`, ringkasan agenda/to-do/task/terlambat bertaut ke cermin 80-Akasha; tombol di header Knowledge & ikon di Planner Harian)
 dan `GET /knowledge/notes/:id/similar` (panel Info **Catatan serupa**). Diuji: unit +4, smoke +6, UI (catatan uji topik BMN 85% vs
 resep 66%, data uji dihapus).
 
@@ -1945,7 +1945,7 @@ pindai ulang, pengaturan; buka tab) + perintah **`/`** di editor (judul, daftar,
 **K3 selesai 2026-11-07**: tab **Tugas** di menu Knowledge (semua `- [ ]` vault: Terlambat / Hari ini / 7 hari / Nanti / Tanpa
 tanggal / Selesai atau per catatan, cari & `#tag`) + bagian **Dari vault Knowledge** di kartu To-Do Planner Harian. Format plugin
 Tasks (📅 ⏳ 🛫 ✅, prioritas, 🔁, `[due:: ]`); centang ditulis balik (`[x]` + `✅ tanggal`, tugas berulang membuat kejadian
-berikutnya), baris yang sudah berubah di Obsidian → 409. Templat, cermin 80-LifeOS, blok kode, dan ringkasan LifeOS di catatan
+berikutnya), baris yang sudah berubah di Obsidian → 409. Templat, cermin 80-Akasha, blok kode, dan ringkasan Akasha di catatan
 harian tidak ikut. Diuji: unit backend +8 & frontend +4, smoke +5, UI desktop & HP (catatan uji dihapus).
 
 **K6 selesai 2026-11-07**: pembaca merender `![[catatan#Judul]]` (bagian), `![[catatan#^id]]` (blok), penanda `^id` tidak terlihat,
@@ -1961,7 +1961,7 @@ diberi peringatan & diabaikan, berkas tidak berubah. Penulisan memakai hash (ber
 Lanjutan K2 (hari yang sama): sematan `![[x.base#Tampilan]]` di catatan, ringkasan kaki tabel (Average, Sum, Unique, …), sunting
 nilai properti langsung di sel tabel (unit +2, UI diuji: nilai 10 → 50, rata-rata 20 → 40).
 
-**K7 selesai 2026-11-07**: **Riwayat versi** di menu ⋯ catatan & palet perintah — isi catatan sebelum LifeOS menimpanya (editor,
+**K7 selesai 2026-11-07**: **Riwayat versi** di menu ⋯ catatan & palet perintah — isi catatan sebelum Akasha menimpanya (editor,
 properti, tugas, tautan, pindah, pulihkan) + versi terpantau saat pindai (perubahan dari Obsidian, per 5 menit), maks. 30 versi per
 catatan, ikut saat catatan/folder dipindah; dialog Perubahan (diff baris) / Isi versi, **Pulihkan** (isi sekarang disimpan dulu).
 Diuji: unit backend +2 & frontend +3, smoke +6, UI desktop & HP (catatan uji dihapus).
@@ -1992,7 +1992,7 @@ sengaja tidak dibuat karena Bases Obsidian tidak punya Kanban. Diuji: unit backe
 | Ekstrak | Teks terpilih di editor dipindah ke tujuan; di tempat asal diganti tautan (bawaan), sematan, atau tidak ada |
 | Posisi | Akhir tujuan, awal tujuan, atau catatan baru |
 | Templat | `{{content}}` (tanpa penanda = di bawah templat), `{{fromTitle}}`, `{{newTitle}}`, `{{date:FORMAT}}` |
-| Pemulihan | Lewat File recovery (di LifeOS: K7 + `.trash`) |
+| Pemulihan | Lewat File recovery (di Akasha: K7 + `.trash`) |
 
 Dokumentasi **tidak menyebut** penanganan frontmatter, pemilihan heading tujuan, dan pembaruan tautan saat ekstrak, jadi bagian itu
 keputusan kita, bukan tiruan Obsidian. Pengguna Obsidian meminta target heading karena belum ada dan melaporkan `[[Apple]]` menjadi
@@ -2011,7 +2011,7 @@ pecah per heading.
 5. **Editor menyimpan otomatis ber-hash**: ekstrak harus menulis tujuan **dulu**, baru mengganti pilihan di editor (lewat simpan otomatis biasa).
    Gagal di tengah = teks ganda, tidak pernah hilang. Gabung juga: tulis tujuan → perbarui perujuk → sumber ke `.trash` paling akhir.
 6. **Penanda** (`prefs.bookmarks`) sumber dialihkan ke tujuan tanpa ganda. Sumber & tujuan wajib `baseHash` (409 bila berubah di Obsidian), tulisan
-   lewat `writeNoteFile` dengan alasan baru `before_merge`. `80-LifeOS` ditolak lewat `findEditable`. Sumber dan tujuan tidak boleh sama.
+   lewat `writeNoteFile` dengan alasan baru `before_merge`. `80-Akasha` ditolak lewat `findEditable`. Sumber dan tujuan tidak boleh sama.
 7. **Ekstrak memutus perujuk ke bagian yang dipindah**: `[[Asal#Judul]]` / `[[Asal#^id]]` dan `[[#…]]` di dalam teks terpilih. Tautan masuk ikut
    diarahkan ke tujuan; tautan `[[#…]]` di teks terpilih ditulis lengkap ke catatan asal.
 
@@ -2043,7 +2043,7 @@ memakai dialog yang sama, belum diklik satu per satu.
 
 | Fitur native | Boleh dilakukan Hermes |
 |---|---|
-| Overview, Planner, Notes Space, Productivity, File Control, e-Kinerja (data renaksi), SRIKANDI (data Register) | Membaca & menulis data kerja lewat `list_records` / `create_record` / `update_record` (bisa dibatalkan pemilik); hapus hanya `request_delete_record` yang menunggu persetujuan di Approval → Usulan Agen, lalu masuk Sampah. Fitur tidak bisa diubah |
+| Overview, Planner, Notes Space, Working Space, File Control, e-Kinerja (data renaksi), SRIKANDI (data Register) | Membaca & menulis data kerja lewat `list_records` / `create_record` / `update_record` (bisa dibatalkan pemilik); hapus hanya `request_delete_record` yang menunggu persetujuan di Approval → Usulan Agen, lalu masuk Sampah. Fitur tidak bisa diubah |
 | Knowledge | Membaca, dan menulis usulan hanya ke `00-Inbox` |
 | AI Agent | Chat, menjalankan skill dan workflow yang disetujui |
 | Approval | Mencatat pengajuan & hasil kerja. Menyetujui, menolak, dan mengirim tetap oleh pemilik |
@@ -2064,12 +2064,12 @@ memakai dialog yang sama, belum diklik satu per satu.
 
 | Lapisan | Sebelum | Sesudah |
 |---|---|---|
-| Alat bawaan Hermes | terminal, file, code_execution, browser, web, dll. menyala | Hanya `skills`, `memory`, `todo`, `session_search` + MCP LifeOS (`configure.sh`) |
+| Alat bawaan Hermes | terminal, file, code_execution, browser, web, dll. menyala | Hanya `skills`, `memory`, `todo`, `session_search` + MCP Akasha (`configure.sh`) |
 | Jaringan | Satu jaringan dengan PostgreSQL, Redis, storage, robot (terjangkau, terbukti) | Jaringan `agent` sendiri; hanya backend yang terjangkau di produksi |
 | Kode aplikasi | Tidak terpasang di container (skill & infra baca saja) | Tetap |
 | API | Hanya alat MCP berizin | Tetap + `agent:menus` |
 
-Keterbatasan di laptop: port yang dipublikasikan WSL (mis. 5432) masih terjangkau lewat gateway jaringan container, tetapi agen tidak lagi punya alat untuk memakainya. Hermes tidak bisa membuka situs web, jadi skill yang butuh web harus lewat LifeOS. Compose produksi baru divalidasi konfigurasinya, belum dijalankan.
+Keterbatasan di laptop: port yang dipublikasikan WSL (mis. 5432) masih terjangkau lewat gateway jaringan container, tetapi agen tidak lagi punya alat untuk memakainya. Hermes tidak bisa membuka situs web, jadi skill yang butuh web harus lewat Akasha. Compose produksi baru divalidasi konfigurasinya, belum dijalankan.
 
 **PSP & SIMAN**: tiket masuk di SIMAN berisi lampiran Excel dari satker → koneksi SIMAN mengecek tiket → agen memproses di AI Agent & Approval (verifikasi ke master aset, dokumen) → setelah produk jadi, surat keputusan dimasukkan lewat koneksi SIMAN. Caranya akan diajarkan user. Konektor robot SIMAN baru login + Jaga sesi; ini merevisi keputusan 2026-10-24 sebatas koneksi, data master tetap OnTrack. Sejak 2026-11-13 SIMAN fitur terbuka (§26.5): proses tiket & SK menjadi workflow agen di menu SIMAN.
 
@@ -2077,7 +2077,7 @@ Keterbatasan di laptop: port yang dipublikasikan WSL (mis. 5432) masih terjangka
 
 **Diuji**: unit, smoke, UI; Hermes dengan Claude Opus 5.5 sungguhan: usulan workflow bermodal jadi draf, nama "Approval" ditolak, disetujui, modal menolak kirim tanpa isian wajib, dijalankan dengan isian terkirim, data uji dihapus.
 
-**Keterbatasan**: modal belum bisa menerima berkas. Halaman fitur masih umum (belum ada tampilan khusus seperti tabel hasil verifikasi). `apps/akai/agent/skills` baca saja, jadi skill yang ditulis Hermes tersimpan di volumenya dan belum tampil di daftar skill LifeOS. Riwayat chat AI Agent belum disimpan.
+**Keterbatasan**: modal belum bisa menerima berkas. Halaman fitur masih umum (belum ada tampilan khusus seperti tabel hasil verifikasi). `apps/akai/agent/skills` baca saja, jadi skill yang ditulis Hermes tersimpan di volumenya dan belum tampil di daftar skill Akasha. Riwayat chat AI Agent belum disimpan.
 
 **Knowledge lintas bidang (dibangun 2026-11-09)**: satu vault untuk semua bidang; tiap catatan berproperti `bidang` (teks atau daftar, tanpa peka huruf besar/kecil). Pilihan **bidang aktif** di banner Knowledge berlaku per akun.
 
@@ -2181,9 +2181,9 @@ menunggu pemilik.
 | Memakai alat aplikasi | `list_app_tools` → `call_app_tool` | Tidak berubah: hanya koneksi yang diizinkan, alat ubah bila `allowWrite`, alat hapus tidak pernah |
 | Menambah aplikasi | `request_app_connection { preset? | name+url+authType, reason }` | `agent_actions` kind `mcp_connect` (pending, satu per alamat; alamat yang sudah ada ditolak; https publik). Disetujui = koneksi dibuat seperti "Tambah aplikasi" (status baru, izin agen **mati**); masuk OAuth / token tetap diisi pemilik |
 | Mengubah izin agen | `request_app_access { connection, agentEnabled?, allowWrite?, allowTools?, reason }` | kind `mcp_access` (pending, satu per koneksi; hanya nilai yang berbeda; aksi tulis ikut menyalakan izin agen). `allowTools` = alat bertanda Hapus yang diperlukan (mis. `commit-editing-transaction` Canva), ikut menyalakan aksi tulis. Disetujui = sakelar di halaman aplikasi diubah |
-| Menyimpan hasil aplikasi ke LifeOS | `save_app_file { connection, url, name?, title?, description? }` | Tautan https di domain aplikasi itu saja (`fileHosts`), tanpa jaringan lokal, maks. 50 MB → berkas + Resource Global tag **Hasil Agen**; tercatat di Riwayat Aksi dan bisa dibatalkan. Koneksi wajib diizinkan untuk agen |
+| Menyimpan hasil aplikasi ke Akasha | `save_app_file { connection, url, name?, title?, description? }` | Tautan https di domain aplikasi itu saja (`fileHosts`), tanpa jaringan lokal, maks. 50 MB → berkas + Resource Global tag **Hasil Agen**; tercatat di Riwayat Aksi dan bisa dibatalkan. Koneksi wajib diizinkan untuk agen |
 
-Menghapus koneksi / mengganti alamat / mengisi token tetap hanya oleh pemilik (aplikasi luar tidak punya Sampah LifeOS). Logika murni + test
+Menghapus koneksi / mengganti alamat / mengisi token tetap hanya oleh pemilik (aplikasi luar tidak punya Sampah Akasha). Logika murni + test
 `mcp-connections/mcp-agent-logic.ts`; persetujuan di `AgentActionsService.approveMcpConnect|approveMcpAccess`. Frontend: menu
 `/mcp/:tab` (Aplikasi | Workflow), kartu `McpRequestsCard` di tab Aplikasi dan Approval → Usulan Agen. Callback OAuth yang gagal kini
 kembali ke `/mcp/apps`. Tanpa migrasi (kind `agent_actions` berupa teks).
@@ -2194,7 +2194,7 @@ typecheck, format, UI. **Belum**: Hermes sungguhan memakai alat baru (izin token
 
 **Lanjutan 2026-11-13 — Canva tanpa membuka Canva**: alat bertanda Hapus kini bisa diizinkan **satu per satu** oleh pemilik (Canva menandai
 `commit-editing-transaction` dan `autofill-design` sebagai merusak walau hanya menyimpan suntingan/mengisi templat), dan `save_app_file` membawa
-hasil ekspor ke LifeOS. Alur yang disarankan untuk skill `desain-canva` (belum dibuat): `search-brand-templates` → `create-design-from-brand-template`
+hasil ekspor ke Akasha. Alur yang disarankan untuk skill `desain-canva` (belum dibuat): `search-brand-templates` → `create-design-from-brand-template`
 / `autofill-design` (atau `create-design` dari brief) → `get-design-thumbnail` untuk memeriksa → `export-design` → `save_app_file` → laporkan
 `resourceId`. Diuji 2026-11-13: tautan ekspor Canva asli (PNG) tersimpan lewat MCP.
 
@@ -2204,13 +2204,13 @@ menghasilkan koneksi yang memakai client Google yang sudah ada. Agen tetap tidak
 
 ### 26.2 Renaksi ditarik oleh e-Kinerja, dipetakan Hermes (2026-11-12)
 
-**Arahan user**: Productivity harus terisolasi, jadi tombol papan klip "kirim ke renaksi" di Action/Task, Agenda, dan Kegiatan dihapus. Menu
+**Arahan user**: Working Space harus terisolasi, jadi tombol papan klip "kirim ke renaksi" di Action/Task, Agenda, dan Kegiatan dihapus. Menu
 e-Kinerja yang menarik kegiatan, Hermes memetakan ke RHK dan menyusun narasi, dan pemilik yang memutuskan (centang, ubah rincian, abaikan).
 Satu RHK boleh berisi banyak butir renaksi/realisasi.
 
 | Langkah | Di mana | Keterangan |
 |---|---|---|
-| Kegiatan bulan ini | e-Kinerja → Rencana Aksi → "Kegiatan … dari Productivity" | Action/Task selesai (tanggal selesai WIB) atau jatuh tempo, Agenda yang beririsan dengan bulan, Kegiatan & Sub Kegiatan bertenggat; milik sendiri. Dihitung saat dibuka, tidak disalin |
+| Kegiatan bulan ini | e-Kinerja → Rencana Aksi → "Kegiatan … dari Working Space" | Action/Task selesai (tanggal selesai WIB) atau jatuh tempo, Agenda yang beririsan dengan bulan, Kegiatan & Sub Kegiatan bertenggat; milik sendiri. Dihitung saat dibuka, tidak disalin |
 | Generate usulan (dulu "Usulkan dengan Hermes") | tombol di daftar itu → `POST /agent/ekinerja/renaksi { period }` | Run skill `renaksi-ekinerja` (izin token agen `ekinerja:robot`). Hermes memanggil `ekinerja_renaksi_context` lalu `ekinerja_propose_renaksi` |
 | Usulan | entri `action_plan_entry` `proposed: true` | Renaksi = nama kegiatan / rencana aksi, Realisasi = output pekerjaan, catatan alasan. Server memeriksa kegiatan & RHK bulan itu; kegiatan yang sudah diputuskan pemilik ditolak; usulan ulang mengganti usulan lama kegiatan itu. Tidak tampil di daftar RHK dan tidak pernah diisikan robot |
 | Keputusan pemilik | centang / lepas / Ubah usulan / Abaikan / + butir | Centang = masuk e-Kinerja, bukti bawaan brankas dari lampiran berkas kegiatan (atau web link). Lepas = usulan agen kembali menjadi usulan; butir yang sudah terkirim ditandai hapus |

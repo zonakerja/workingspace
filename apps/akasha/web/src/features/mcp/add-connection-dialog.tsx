@@ -148,7 +148,7 @@ function AddConnectionForm({
               placeholder="Tempel token dari aplikasi"
             />
             <p className="text-xs text-muted-foreground">
-              Disimpan terenkripsi di LifeOS dan tidak pernah ditampilkan lagi atau dikirim ke agen.
+              Disimpan terenkripsi di Akasha dan tidak pernah ditampilkan lagi atau dikirim ke agen.
             </p>
           </div>
         )}

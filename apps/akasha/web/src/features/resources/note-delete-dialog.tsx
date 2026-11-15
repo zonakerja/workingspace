@@ -16,7 +16,7 @@ import { useNotebookUsage } from "@/data/use-notebooks";
 import { useLatchedWhileOpen } from "@/hooks/use-retained";
 import { type NoteReference, noteReferences } from "./note-references";
 
-/** Rujukan lampiran ke satu catatan dari semua koleksi (Planner, Productivity, Resource Global). */
+/** Rujukan lampiran ke satu catatan dari semua koleksi (Planner, Working Space, Resource Global). */
 export function useNoteReferences() {
   const { items: schedules } = useSchedules();
   const { items: projects } = useProjects();

@@ -1,9 +1,9 @@
 ---
 name: telaah-pengajuan
-description: Menelaah satu pengajuan di LifeOS (Approval) — membaca surat & berkas pemohon, memeriksa kelengkapan terhadap persyaratan di basis pengetahuan, menyusun telaah bersitasi dan konsep jawaban, lalu menyerahkannya ke pemilik untuk diverifikasi. Pakai bila diminta menelaah/memproses pengajuan LifeOS tertentu (ID pengajuan disebut).
+description: Menelaah satu pengajuan di Akasha (Approval) — membaca surat & berkas pemohon, memeriksa kelengkapan terhadap persyaratan di basis pengetahuan, menyusun telaah bersitasi dan konsep jawaban, lalu menyerahkannya ke pemilik untuk diverifikasi. Pakai bila diminta menelaah/memproses pengajuan Akasha tertentu (ID pengajuan disebut).
 ---
 
-# Telaah pengajuan LifeOS
+# Telaah pengajuan Akasha
 
 Tujuan: menyiapkan bahan keputusan untuk pemilik. Anda **tidak** memutuskan, menyetujui, atau mengirim apa pun.
 
@@ -28,10 +28,10 @@ Tujuan: menyiapkan bahan keputusan untuk pemilik. Anda **tidak** memutuskan, men
    nomor/tanggal naskah dan tanpa tanda tangan.
 7. **Simpan** — `update_request` dengan `notes` (ringkasan kelengkapan + kekurangan), `review` (telaah), `draftReply`
    (konsep jawaban), `submitForReview: true`, `note: "Telaah disusun agen (skill telaah-pengajuan)"`.
-8. **Laporkan** ke pengguna: rekomendasi singkat + jumlah kekurangan + ajakan memeriksa di LifeOS → Approval.
+8. **Laporkan** ke pengguna: rekomendasi singkat + jumlah kekurangan + ajakan memeriksa di Akasha → Approval.
 
 ## Batas
 
-- Hanya alat MCP `lifeos`. Tidak membuat to-do, catatan Inbox, atau pengajuan baru kecuali diminta.
+- Hanya alat MCP `akasha`. Tidak membuat to-do, catatan Inbox, atau pengajuan baru kecuali diminta.
 - Tidak mengarang nomor peraturan, nilai aset, NUP, atau nama pejabat.
 - Bila alat gagal, laporkan pesan errornya apa adanya; jangan mengulang lebih dari 3 kali.

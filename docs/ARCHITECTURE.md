@@ -1,4 +1,4 @@
-# Arsitektur LifeOS
+# Arsitektur Akasha
 
 Dokumen fondasi: arsitektur, tech stack beserta versinya, dan aturan yang wajib diikuti. **Versi komponen hanya
 dicatat di §2** (dokumen lain merujuk ke sini). Rencana & kajian upgrade ada di [UPGRADE-PLAN.md](UPGRADE-PLAN.md).
@@ -66,7 +66,7 @@ Sumber kebenaran versi: `package-lock.json` (root workspace: apps/akasha/api, ap
 | | Redis | **8.10** (`redis:8.10-alpine`) | Antrian BullMQ; cache/rate-limit/sesi chat (rencana) |
 | | SeaweedFS | 4.48 | S3-compatible self-host (dev & default produksi) |
 | Edge | Caddy / nginx | 2.11 / 1.30 (stable) | HTTPS otomatis + reverse proxy / sajian SPA + CSP |
-| Agen | Hermes Agent (`nousresearch/hermes-agent:v0.22.2`, image resmi, amd64+arm64) | 0.22.2 | Service `hermes` (profile `agent`): API server OpenAI-compatible + MCP klien ke LifeOS; skill di `apps/akai/agent/skills/` (§3.11) |
+| Agen | Hermes Agent (`nousresearch/hermes-agent:v0.22.2`, image resmi, amd64+arm64) | 0.22.2 | Service `hermes` (profile `agent`): API server OpenAI-compatible + MCP klien ke Akasha; skill di `apps/akai/agent/skills/` (§3.11) |
 | Sinkron vault | Syncthing (`syncthing/syncthing:2.1.6`, image resmi, amd64+arm64) | 2.1.6 | Service `syncthing` (profile `sync`, produksi saja): vault Obsidian laptop/HP ↔ `./knowledge-vaults` VPS (DEPLOYMENT §10); Obsidian tidak berjalan di server |
 | Robot | Playwright + Chromium (`mcr.microsoft.com/playwright:v1.63.0-noble`, paket `playwright` **1.63.0** — versi keduanya wajib sama) | 1.63 | Service `services/robot/` (TypeScript, Node bawaan image): browser jarak jauh & eksplor halaman konektor SRIKANDI/e-Kinerja (§3.10) |
 | Converter | MarkItDown **0.1.9** + Docling **2.142.1** (Python 3.12, torch CPU 2.14.1, Tesseract `ind`+`eng`, FastAPI/uvicorn; image `services/converter/`, ± 5 GB, amd64+arm64; transitif dikunci `uv --exclude-newer`) | 0.1.9 / 2.142 | Service `converter` (profile `converter`): berkas → Markdown untuk semua fitur AI (§3.14) |
@@ -162,7 +162,7 @@ unduhan disensor; health check tidak dicatat.
 - **Lampiran**: maks. 5 berkas / 20 MB total, diterima di memori lalu dikirim inline. PDF, gambar (png/jpeg/gif/webp),
   teks (dikirim sebagai teks) untuk semua provider; audio hanya Gemini.
 - **Pembagian tugas** (`users.ai_routing`, logika murni `ai-routing.ts` + test): provider per tugas `chat` (asisten
-  LifeOS & My Notebook), `general` (fitur lain, bawaan `generate`), `ocr` (urutan pilihan → Gemini → OpenAI → Claude,
+  Akasha & My Notebook), `general` (fitur lain, bawaan `generate`), `ocr` (urutan pilihan → Gemini → OpenAI → Claude,
   kuota/tak terjangkau → berikutnya), `embedding` (Gemini | OpenAI, `index/embedding.ts`, 768 dimensi; pencarian hanya
   membandingkan vektor model yang sama, ganti provider ⇒ indeks dibangun ulang). Kosong = provider aktif / urutan bawaan.
   `generate(userId, prompt, files, task)`; `GET /ai/settings` mengembalikan `routing` + `effective`. **Cadangan per tugas**
@@ -193,12 +193,12 @@ unduhan disensor; health check tidak dicatat.
     sesuai tarif model (contoh per 1 jt token input/output dalam juta kredit: Opus 5.5 53/264, Sonnet 5.5 26/132, Haiku 5.5 11/33,
     `gemini-3.8-flash` 14/56, `gpt-6-sol` 34/110, `deepseek-v4-flash` 7,7/31, `kimi-k3` 20/99, `glm-5.3` 13/62; 1 jt kredit ≈ Rp150–240
     tergantung paket kredit). Cache ditagih 50 %. Request gagal tidak ditagih.
-  - Opus 5.5 setelah token paket habis **tetap jalan memakai kredit** (tarif kredit ± 2–3× harga paket) tanpa galat — LifeOS tidak
+  - Opus 5.5 setelah token paket habis **tetap jalan memakai kredit** (tarif kredit ± 2–3× harga paket) tanpa galat — Akasha tidak
     bisa melihat sisa paket (router membuang angka usage/cache); pantau di dasbor Classai.
   - Format: OpenAI Chat Completions, Anthropic Messages, `/v1/embeddings`, `GET /v1/models`; ID model huruf kecil bertitik
     (`claude-opus-5.5`, `gemini-3.8-flash`, `deepseek-v4-flash`, `kimi-k3`). Batas 60 permintaan/menit per key, 180 per akun (429 +
-    `Retry-After` → LifeOS menganggapnya kuota → cadangan otomatis). Router = pihak ketiga yang melihat isi permintaan.
-  - **Memakai kredit di LifeOS tanpa kode baru**: key Classai yang sama boleh dipasang di kartu Gemini dan/atau OpenAI Pengaturan →
+    `Retry-After` → Akasha menganggapnya kuota → cadangan otomatis). Router = pihak ketiga yang melihat isi permintaan.
+  - **Memakai kredit di Akasha tanpa kode baru**: key Classai yang sama boleh dipasang di kartu Gemini dan/atau OpenAI Pengaturan →
     Model AI → **Lewat router** (format OpenAI, ID model diisi bebas). Slot OpenAI lewat router bisa memuat model mana pun yang
     berformat OpenAI (mis. `deepseek-v4-flash`, `kimi-k3`) — labelnya tetap "OpenAI". Batasan jalur router (bukan Classai): transkrip
     audio Notes AI wajib key Gemini langsung; jalur OpenAI-compatible tanpa audio; embedding lewat router butuh ID model embedding yang
@@ -262,7 +262,7 @@ muat ulang web/hapus), `/:id/chat` + `/:id/messages` (riwayat permanen), `/:id/s
   potongan dikirim (mode `full`); lebih besar → 14 potongan terbaik (mode `rag`) dari gabungan RRF pencarian indeks
   (vektor + kata, dibatasi ke sumber notebook lewat `search(…, { only })`) dan peringkat kata kunci di memori (tetap jalan
   bila indeks dimatikan / tanpa embedding). Sumber dipotong dengan `chunkSource` — aturan yang sama dengan indeks AI
-  (berkas & teks/web sadar struktur per judul/BAB/Pasal, item LifeOS dipotong biasa) sehingga hasil vektor cocok per potongan. Potongan
+  (berkas & teks/web sadar struktur per judul/BAB/Pasal, item Akasha dipotong biasa) sehingga hasil vektor cocok per potongan. Potongan
   bernomor `[n]`; AI wajib menjawab hanya dari sumber dengan sitasi; nomor yang dikutip disimpan sebagai `citations`
   (sumber + cuplikan). 8 pesan terakhir ikut sebagai riwayat; **profil kerja** user (`users.ai_profile`) ikut sebagai
   penyesuai gaya, bukan sumber fakta. Chat & ringkasan Studio memakai provider tugas **`chat`** (Pembagian tugas AI).
@@ -274,7 +274,7 @@ muat ulang web/hapus), `/:id/chat` + `/:id/messages` (riwayat permanen), `/:id/s
 - **Dipakai notebook**: `GET /notebooks/usage` (item & berkas sumber milik user); `DELETE /uploads/:id` menolak (409)
   berkas yang masih menjadi sumber notebook agar tidak terhapus dari fitur lain (mis. dokumen Notes AI diganti).
 - **Kepemilikan berkas sumber**: berkas yang diunggah lewat notebook (context `notebook`) ikut terhapus bersama sumber /
-  notebook; berkas LifeOS lain yang dipilih sebagai sumber hanya dirujuk dan tidak pernah dihapus notebook.
+  notebook; berkas Akasha lain yang dipilih sebagai sumber hanya dirujuk dan tidak pernah dihapus notebook.
 - **Studio**: ringkasan JSON (`overview`, `keyPoints`, `questions`) dengan sidik jari sumber → `summaryStale` bila sumber
   ditambah/diubah/dinonaktifkan. Hapus sumber unggahan / notebook → berkasnya ikut dihapus dari storage.
 
@@ -318,7 +318,7 @@ muat ulang web/hapus), `/:id/chat` + `/:id/messages` (riwayat permanen), `/:id/s
 ### 3.5 Editor dokumen ONLYOFFICE (`src/office/`, menu Tools → ONLYOFFICE)
 
 Riset, keputusan user, dan tahapan: [ONLYOFFICE.md](ONLYOFFICE.md). Server ONLYOFFICE Docs = container terpisah; berkas
-tetap Asset LifeOS di object storage.
+tetap Asset Akasha di object storage.
 
 | Endpoint | Fungsi |
 |---|---|
@@ -353,8 +353,8 @@ tetap Asset LifeOS di object storage.
   dibuat ulang ONLYOFFICE sehingga checksum berbeda walau isi sama) hanya masuk **riwayat** tepat di bawah versi saat ini;
   isi saat ini (hasil pemulihan) tidak pernah diganti.
 - **AI di editor (satu pintu)**: sakelar mati → `customization.ai.disabled`; aktif → tab AI plugin resmi (dipasang di image
-  `infra/onlyoffice/Dockerfile` bersama jembatan `lifeos-ai-bridge.js`) dengan `editorConfig.plugins.options[GUID AI] =
-  { lifeos: { token, proxy, url, … } }`; jembatan mengisi mode pengaturan server plugin (provider "AI LifeOS", tanpa tombol
+  `infra/onlyoffice/Dockerfile` bersama jembatan `akasha-ai-bridge.js`) dengan `editorConfig.plugins.options[GUID AI] =
+  { akasha: { token, proxy, url, … } }`; jembatan mengisi mode pengaturan server plugin (provider "AI Akasha", tanpa tombol
   Settings) sehingga semua permintaan lewat `/office/ai/proxy` memakai provider & key Pengaturan → Model AI. Detail: ONLYOFFICE.md §3.4.
 - **Ruang kerja dokumen** (2026-11-15, Tools → ONLYOFFICE → sub-tab **Dokumen**): dokumen dibuat (kosong / templat / impor) dengan
   context `office-workspace` (`OFFICE_WORKSPACE_CONTEXT`) dan **tidak** menjadi Resource Global / File Control. `GET /office/workspace`
@@ -369,7 +369,7 @@ tetap Asset LifeOS di object storage.
 - **Alamat backend untuk ONLYOFFICE** (`ONLYOFFICE_BACKEND_URL`): `auto` (dev) = IPv4 antarmuka Windows `vEthernet (WSL…)`
   dibaca setiap membuat config; produksi `http://backend:4000`. Logika murni + test: `office-logic.ts`.
 
-### 3.6 Chatbot LifeOS & basis pengetahuan (`src/ai/chat/`, `src/knowledge/`)
+### 3.6 Chatbot Akasha & basis pengetahuan (`src/ai/chat/`, `src/knowledge/`)
 
 > Tambahan 2026-11-06: catatan harian `POST /knowledge/daily` (`KnowledgeDailyService`, `vault-daily.ts`) dan catatan serupa
 > `GET /knowledge/notes/:id/similar` (rata-rata vektor `ai_chunks` koleksi `knowledge`, tanpa panggilan AI) — detail CLAUDE.md §8.
@@ -377,7 +377,7 @@ tetap Asset LifeOS di object storage.
 > Tasks; tulis balik dicocokkan dengan baris asli, berubah → 409) — detail CLAUDE.md §8.
 > Tambahan 2026-11-07: Bases `GET|POST /knowledge/bases`, `GET|PUT|DELETE /knowledge/bases/file` (`vault-bases.ts`, berkas `.base`
 > Obsidian; filter dievaluasi frontend `base-engine.ts`) — detail CLAUDE.md §8 & §8b.
-> Tambahan 2026-11-07: riwayat versi catatan vault — tabel `knowledge_note_versions` (isi sebelum LifeOS menimpa + versi terpantau
+> Tambahan 2026-11-07: riwayat versi catatan vault — tabel `knowledge_note_versions` (isi sebelum Akasha menimpa + versi terpantau
 > saat pindai, maks. 30 per path), `GET /knowledge/notes/:id/versions[/:vid]`, `POST …/:vid/restore` — detail CLAUDE.md §8.
 > Tambahan 2026-11-07: Canvas `GET|POST /knowledge/canvases`, `GET|PUT|DELETE /knowledge/canvases/file` (`vault-canvas.ts`, JSON
 > Canvas 1.0; tampilan & sunting di frontend `canvas-tab.tsx`) — detail CLAUDE.md §8 & §8b. Isi canvas diindeks RAG sebagai sumber
@@ -387,7 +387,7 @@ tetap Asset LifeOS di object storage.
 Rencana & keputusan: [AI-AGENT.md](AI-AGENT.md) §9–§17 (tahap 1 "fondasi pengetahuan" & tahap 2 "konektor Obsidian").
 
 **Cermin hasil kerja → vault** (`knowledge-export.service.ts`, logika murni `vault-export.ts`): satu arah ke folder
-`80-LifeOS/` (catatan, List, Notes AI, My Notebook, Productivity) bertanda `sumber: lifeos`; dipicu sidik jari tabel tiap menit /
+`80-Akasha/` (catatan, List, Notes AI, My Notebook, Working Space) bertanda `sumber: akasha`; dipicu sidik jari tabel tiap menit /
 tombol; hanya berkas bertanda yang ditimpa/dihapus; folder ini tidak diindeks ulang (`noteDocument`) dan baca saja di menu
 Pengetahuan (`findEditable`). Pengaturan di `users.knowledge_prefs.export`. Endpoint `GET/PUT /knowledge/export`,
 `POST /knowledge/export/run`, `DELETE /knowledge/export/files`.
@@ -416,13 +416,13 @@ data bukan perintah) → `AiService.generate` (provider & cadangan user) → sit
 `ai_conversations` + `ai_messages` (riwayat permanen). Gagal di AI ⇒ tidak ada yang tersimpan. Endpoint lain:
 `GET /ai/chat/conversations` (30 terbaru), `GET /ai/chat/conversations/:id/messages?take=`, `DELETE
 /ai/chat/conversations/:id`, `GET/PUT /ai/profile` (**profil kerja & instruksi tetap** `users.ai_profile`, maks. 6.000
-karakter; ikut di chat LifeOS & chat My Notebook). Logika murni + test: `ai-chat-context.ts`.
+karakter; ikut di chat Akasha & chat My Notebook). Logika murni + test: `ai-chat-context.ts`.
 
 **Menu Pengetahuan** (antarmuka Obsidian, [AI-AGENT.md](AI-AGENT.md) §25.2): endpoint `/knowledge/tree|graph|search|health|prefs|
 attachment`, `notes/:id/source`, `PUT notes/:id`, `PATCH notes/:id/properties`, `POST notes`, `notes/:id/move`, `DELETE notes/:id`,
 `notes/:id/unlinked|link-mention`, `folders`, `folders/move`, `DELETE folders`. Setiap tulisan membawa `baseHash` (SHA-256 isi
 berkas saat dibuka); berkas berubah di disk → 409 berisi `currentHash` (tidak pernah menimpa perubahan Obsidian/Syncthing). Tulis
-atomik (berkas `*.lifeos-tmp` → rename), lalu `scanNow` → id catatan dibaca ulang dari path (pindah = id baru). Properti diubah
+atomik (berkas `*.akasha-tmp` → rename), lalu `scanNow` → id catatan dibaca ulang dari path (pindah = id baru). Properti diubah
 lewat dokumen YAML (`updateFrontmatter`, komentar & urutan tetap). Ganti nama memperbarui `[[tautan]]` di catatan perujuk
 (`renameWikilinks`). Hapus = pindah ke `.trash` (folder bertitik tidak dipindai). Gambar sematan dibaca langsung dari disk
 (`attachment`, ≤ 10 MB, `CSP: sandbox`, tanpa OCR). Preferensi `users.knowledge_prefs` (penanda path ikut pindah/hapus, grup warna
@@ -447,21 +447,21 @@ Logika murni + test: `vault-parser.ts`.
 
 ### 3.7 Integrasi agen: token akses pribadi + MCP server (`src/integrations/`)
 
-Tahap 3 [AI-AGENT.md](AI-AGENT.md) §18. Agen AI luar (Hermes, Claude Desktop, n8n, OnTrack, …) memakai LifeOS lewat
+Tahap 3 [AI-AGENT.md](AI-AGENT.md) §18. Agen AI luar (Hermes, Claude Desktop, n8n, OnTrack, …) memakai Akasha lewat
 **Model Context Protocol** atas nama satu user.
 
-- **Token akses pribadi** (`api_tokens`, migrasi `20261024140000_api_tokens_mcp`): `lifeos_pat_<32 byte base64url>`,
+- **Token akses pribadi** (`api_tokens`, migrasi `20261024140000_api_tokens_mcp`): `akasha_pat_<32 byte base64url>`,
   disimpan sebagai SHA-256 (`token_hash` unik) + `prefix` untuk dikenali, `scopes` (`knowledge:read`,
   `knowledge:write`, `workspace:read`, `workspace:write`, `ai:chat`, `requests:read`, `requests:write`), `expires_at` opsional, `last_used_at` (diperbarui
   maks. tiap 5 menit). Maks. 20 token per user. Endpoint (login aplikasi): `GET /integrations/scopes`,
   `GET/POST /integrations/tokens` (token utuh hanya di respons POST), `DELETE /integrations/tokens/:id`,
   `GET /integrations/activity?take=`. Logika murni + test: `api-token-logic.ts`.
 - **MCP server** `POST /api/v1/mcp` (`McpController`, Streamable HTTP **stateless** — server & transport baru per
-  permintaan, `enableJsonResponse`; GET/DELETE → 405), header `Authorization: Bearer lifeos_pat_…` (JWT login biasa
-  ditolak 401 + `WWW-Authenticate`), 120 permintaan/menit. `LifeosMcpService` mendaftarkan **hanya tool yang diizinkan
+  permintaan, `enableJsonResponse`; GET/DELETE → 405), header `Authorization: Bearer akasha_pat_…` (JWT login biasa
+  ditolak 401 + `WWW-Authenticate`), 120 permintaan/menit. `AkashaMcpService` mendaftarkan **hanya tool yang diizinkan
   cakupan token**: `search_knowledge`, `read_knowledge_note` (knowledge:read), `add_knowledge_inbox` (knowledge:write),
   `search_workspace`, `list_agenda` (maks. 62 hari), `list_open_tasks` (workspace:read), `create_todo`
-  (workspace:write, lewat `RecordsService.upsert` → indeks & audit sama dengan aplikasi), `ask_lifeos` (ai:chat →
+  (workspace:write, lewat `RecordsService.upsert` → indeks & audit sama dengan aplikasi), `ask_akasha` (ai:chat →
   `AiChatService.chat`, memakai provider & kuota user), `list_requests`, `get_request` (requests:read),
   `list_whatsapp_followups` (requests:read), `create_request` (status Baru, sumber `mcp`), `analyze_request` (analisis +
   telaah) (requests:write). Tanggal default = hari ini WIB. Instruksi server: isi
@@ -469,17 +469,17 @@ Tahap 3 [AI-AGENT.md](AI-AGENT.md) §18. Agen AI luar (Hermes, Claude Desktop, n
 - **Log aktivitas agen** (`agent_activity_logs`): setiap pemanggilan tool (token, argumen diringkas, ok/error, pesan);
   token dicabut → log tetap (`token_id` SetNull, `token_name` tersimpan).
 - Paket: `@modelcontextprotocol/sdk` (CJS `dist/cjs` lewat subpath `…/server/mcp.js`) + `zod` 4 (peer SDK).
-- **Arah sebaliknya: LifeOS sebagai klien MCP** (`src/mcp-connections/`, 2026-11-10). User menyambungkan aplikasi luar (Canva,
+- **Arah sebaliknya: Akasha sebagai klien MCP** (`src/mcp-connections/`, 2026-11-10). User menyambungkan aplikasi luar (Canva,
   Notion, Linear, GitHub, alamat lain) dari menu Connection & MCP → Aplikasi MCP. Kredensial (token / OAuth dengan pendaftaran
   klien dinamis + PKCE) disimpan terenkripsi di `mcp_connections` dan hanya dipakai backend; daftar alat disalin dari `tools/list`.
-  Agen memakai aplikasi lewat alat LifeOS `list_app_tools` / `call_app_tool` (cakupan `mcp:apps`) dengan izin per aplikasi: baca
+  Agen memakai aplikasi lewat alat Akasha `list_app_tools` / `call_app_tool` (cakupan `mcp:apps`) dengan izin per aplikasi: baca
   selalu, ubah bila diizinkan, hapus (`destructiveHint`) tidak pernah, karena aksi di aplikasi luar tidak bisa dipulihkan dari
   Sampah. Sejak 2026-11-13 Aplikasi MCP = fitur terbuka: agen juga bisa **meminta** koneksi baru / perubahan izin agen
   (`request_app_connection`, `request_app_access` → `agent_actions` pending) dan menambah workflow `placement: mcp`
   (docs/AI-AGENT.md §26.6). Server OAuth tanpa pendaftaran klien dinamis (Google Workspace — server MCP resmi Google `*mcp.googleapis.com`,
   Developer Preview; GitHub OAuth App) memakai **OAuth client milik pemilik** (Client ID + secret terenkripsi + scope di `mcp_connections`), satu
   client dipakai bersama layanan sekelompok. Alat bertanda Hapus bisa diizinkan pemilik satu per satu (`agent_tools`), dan hasil aplikasi
-  (tautan ekspor) disimpan agen ke LifeOS lewat `save_app_file` — unduhan hanya dari domain aplikasi itu, tanpa jaringan lokal, maks. 50 MB.
+  (tautan ekspor) disimpan agen ke Akasha lewat `save_app_file` — unduhan hanya dari domain aplikasi itu, tanpa jaringan lokal, maks. 50 MB.
   Rincian: CLAUDE.md §8 "Koneksi aplikasi MCP luar".
 
 ### 3.8 Pengajuan satker, mesin templat & Antrian Verifikasi (`src/requests/`, menu Pengajuan)
@@ -518,7 +518,7 @@ manual (UI) atau oleh agen (MCP), dikerjakan AI, lalu **diputuskan user** — se
 
 ### 3.9 Bot WhatsApp (`src/whatsapp/`, menu Pengajuan → Percakapan WA / Grup & Kontak)
 
-Tahap 5 [AI-AGENT.md](AI-AGENT.md) §20. Bot **di dalam LifeOS** (bukan Hermes publik) lewat **WhatsApp Business Cloud
+Tahap 5 [AI-AGENT.md](AI-AGENT.md) §20. Bot **di dalam Akasha** (bukan Hermes publik) lewat **WhatsApp Business Cloud
 API resmi** — agar identitas pengirim (nomor, dijamin tanda tangan Meta) dan **grupnya** (tabel kontak) ditentukan server,
 tidak pernah oleh model/isi pesan (AG-20). Grup bersifat umum: satker, instansi, masyarakat umum, internal, lainnya —
 bot bisa dipakai untuk layanan apa pun (profil layanan per user).
@@ -557,7 +557,7 @@ bot bisa dipakai untuk layanan apa pun (profil layanan per user).
 
 ### 3.10 Konektor robot SRIKANDI & e-Kinerja (`services/robot/`, `src/robot/`, tab Connector di Laporan Kinerja & SRIKANDI) + tautan publik
 
-Tahap 6 [AI-AGENT.md](AI-AGENT.md) §21. Mesin robot dibangun di LifeOS (keputusan AG-21): OnTrack belum punya mesin
+Tahap 6 [AI-AGENT.md](AI-AGENT.md) §21. Mesin robot dibangun di Akasha (keputusan AG-21): OnTrack belum punya mesin
 Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sistem.
 
 - **Service robot** (`services/robot/`, container `robot`, profile `robot`, port dev `127.0.0.1:4100`, produksi hanya jaringan
@@ -581,7 +581,7 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   Status juga melaporkan `vault` (brankas aktif).
 - **Brankas kredensial & login otomatis** (§21.1 AI-AGENT): `credential-vault.ts` (AES-256-GCM, kunci
   `CREDENTIAL_ENCRYPTION_KEY` khusus, AAD user+sistem+kolom), kolom `username_enc`/`password_enc`/`credential_hint`;
-  `POST /robot/connectors/:system/credentials` (wajib `accountPassword` LifeOS), `DELETE …/credentials`,
+  `POST /robot/connectors/:system/credentials` (wajib `accountPassword` Akasha), `DELETE …/credentials`,
   `POST …/auto-login`, `POST /robot/sessions/:id/answer` (`captcha | otp`). Robot: `POST /sessions/:id/autofill` &
   `/answer` + `login-form.ts` (pengenalan kolom & tombol). CAPTCHA/OTP **tidak pernah** dibaca mesin; rahasia TOTP tidak
   disimpan. Modal informasi setelah login ("berhasil" + OK) ditutup otomatis (`dismissInfoDialog`, aturan `infoDialogButton`);
@@ -593,8 +593,8 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   | Sistem | Job robot | Endpoint backend | Isi |
   |---|---|---|---|
   | e-Kinerja | `/jobs/ekinerja/skp` | `POST /robot/ekinerja/skp/sync` | baca SKP & RHK → record `skp`, `skp_target` |
-  | e-Kinerja | `/jobs/ekinerja/renaksi` (`mode: add \| sync`) | `POST /robot/ekinerja/renaksi/fill` | samakan Rencana Aksi bulanan dengan LifeOS: baca & impor dulu, tambah butir, tulis ulang baris yang berubah (`dryRun` = Periksa); tidak pernah Kirim Penilaian |
-  | e-Kinerja | `/jobs/ekinerja/renaksi/submit` (tanpa `confirm: "KIRIM_PENILAIAN"` selalu dryRun) | `POST /robot/ekinerja/renaksi/submit` | Kirim Penilaian Ke Atasan satu bulan: isi e-Kinerja wajib sama dengan LifeOS & lengkap; `dryRun` (bawaan) = tandai tombol tanpa klik; kirim wajib PIN setiap kali, hanya sesi login (bukan agen/jadwal) — `docs/AI-AGENT.md` §21.16 |
+  | e-Kinerja | `/jobs/ekinerja/renaksi` (`mode: add \| sync`) | `POST /robot/ekinerja/renaksi/fill` | samakan Rencana Aksi bulanan dengan Akasha: baca & impor dulu, tambah butir, tulis ulang baris yang berubah (`dryRun` = Periksa); tidak pernah Kirim Penilaian |
+  | e-Kinerja | `/jobs/ekinerja/renaksi/submit` (tanpa `confirm: "KIRIM_PENILAIAN"` selalu dryRun) | `POST /robot/ekinerja/renaksi/submit` | Kirim Penilaian Ke Atasan satu bulan: isi e-Kinerja wajib sama dengan Akasha & lengkap; `dryRun` (bawaan) = tandai tombol tanpa klik; kirim wajib PIN setiap kali, hanya sesi login (bukan agen/jadwal) — `docs/AI-AGENT.md` §21.16 |
   | e-Kinerja | `/jobs/ekinerja/renaksi/read` | `POST /robot/ekinerja/renaksi/sync` | baca semua bulan (status draf/diajukan/dinilai, tanggal pengajuan, rating, isi, feedback) → `action_plan_month` + impor |
   | SRIKANDI | `/jobs/srikandi/outgoing` | `POST /robot/srikandi/letters/sync` | Daftar Naskah Keluar + PDF ber-TTD & lampiran → `srikandi_letter`, Resource Global |
   | SRIKANDI | `/jobs/srikandi/inbox` | `POST /robot/srikandi/inbox/sync` | daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya halaman daftar; detail tidak dibuka agar status baca tetap) → `srikandi_inbox` ([AI-AGENT.md](AI-AGENT.md) §21.14) |
@@ -624,7 +624,7 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
   SIMAN, rekam struktur teks tanpa klik; alamat keluar/hapus/kirim/unggah ditolak) di latar belakang, dibaca lewat `siman_status`. Belum ada
   jalur tulis ke SIMAN. Workflow agen `placement: "siman"` → tab SIMAN → Workflow.
 - **Usulan renaksi** (`src/robot/renaksi-proposals.service.ts`, logika murni + test `renaksi-candidates.ts`, [AI-AGENT.md](AI-AGENT.md) §26.2):
-  kegiatan bulan itu dari Productivity (task/agenda/kegiatan) + SKP & RHK → MCP `ekinerja_renaksi_context`; `ekinerja_propose_renaksi` menyimpan
+  kegiatan bulan itu dari Working Space (task/agenda/kegiatan) + SKP & RHK → MCP `ekinerja_renaksi_context`; `ekinerja_propose_renaksi` menyimpan
   `action_plan_entry` bertanda `proposed: true` yang tidak pernah diisikan robot sampai pemilik mencentangnya. Run Hermes dari tombol:
   `POST /agent/ekinerja/renaksi { period }` (skill `renaksi-ekinerja`, tombol "Generate usulan"). **Filter cakupan**: `GET|PUT /robot/ekinerja/renaksi/scope`
   = daftar pengecualian `area:`/`project:`/`loose` di `users.ekinerja_prefs.renaksiExcluded`, disaring di server untuk daftar & agen (§26.3 AI-AGENT).
@@ -658,12 +658,12 @@ Playwright, dan pola "sesi tersimpan + login manusia" dipakai bersama kedua sist
 ### 3.11 Asisten Agen — Hermes (`src/agent/`, `features/agent/`, service `hermes`)
 
 [AI-AGENT.md](AI-AGENT.md) §22–§23. Hermes (Nous Research) berjalan sebagai container (profile `agent`) dengan API server
-OpenAI-compatible (port 8642, Bearer `API_SERVER_KEY` = `HERMES_API_KEY` backend) dan klien MCP ke LifeOS (`lifeos-api:4000`,
+OpenAI-compatible (port 8642, Bearer `API_SERVER_KEY` = `HERMES_API_KEY` backend) dan klien MCP ke Akasha (`akasha-api:4000`,
 token akses pribadi pemilik di `/opt/data/.env`). Backend `AgentService`: status (`/health`), skill (folder repo
 `HERMES_SKILLS_DIR` + skill bawaan dari `/v1/skills` bila berfungsi), chat & skill sebagai **run** asinkron (`POST /v1/runs`
 { input, session_id } → `GET /v1/runs/:id`), hanya untuk `HERMES_OWNER_EMAIL`. Agen bekerja lewat alat MCP (§3.7) sehingga
 isolasi data, log aktivitas, dan aturan "agen tidak memutuskan" berlaku sama. Data Hermes (model, memori, sesi) di volume
-`hermes-data`, bukan database LifeOS.
+`hermes-data`, bukan database Akasha.
 
 ### 3.12 Otomasi terjadwal (`src/automation/`, tab Connector Laporan Kinerja & SRIKANDI)
 
@@ -698,7 +698,7 @@ Keluar, referensi, klasifikasi arsip). Pengisian Renaksi & pendaftaran naskah **
 ### Keamanan
 - **Access token** JWT 15 menit, dikirim via header `Authorization`, hanya disimpan di memori frontend.
 - **Refresh token** JWT (`jti` = `refresh_tokens.id`, DB hanya menyimpan hash SHA-256) dikirim sebagai cookie
-  `lifeos_rt` — `httpOnly`, `Secure` (production), `SameSite=Strict`, path `/api/v1/auth`. Saat aplikasi dibuka,
+  `akasha_rt` — `httpOnly`, `Secure` (production), `SameSite=Strict`, path `/api/v1/auth`. Saat aplikasi dibuka,
   frontend memulihkan sesi lewat `POST /auth/refresh`.
 - Rotasi setiap refresh; token hasil rotasi yang dipakai lagi setelah 30 detik (toleransi multi-tab) dianggap
   pencurian → semua sesi user dihapus. Logout, ganti password (sesi lain), dan perubahan password/role oleh admin
@@ -854,7 +854,7 @@ enkripsi**: data tetap tersimpan polos di database & indeks RAG (syarat agar bis
   berkas terkunci tidak dibaca chat/ringkasan saat terkunci.
 - **RAG**: isi tetap terindeks. `AiIndexService.search` membuang sumber terkunci secara bawaan (`includeLocked` = status sesi; dipakai
   chatbot, uji indeks, Notebook) — MCP, agen, bot WhatsApp, Approval tidak pernah. Pencarian Pintar menyertakan item terkunci dengan
-  cuplikan kosong + `locked: true`. Cermin 80-LifeOS & catatan harian/berkala vault melewati item terkunci sama sekali. Riwayat chatbot
+  cuplikan kosong + `locked: true`. Cermin 80-Akasha & catatan harian/berkala vault melewati item terkunci sama sekali. Riwayat chatbot
   (`GET /ai/chat/conversations/:id/messages`) mengganti jawaban yang bersitasi sumber terkunci dengan keterangan, dan jawaban itu tidak
   ikut riwayat yang dikirim ke model, selama sesi terkunci.
 - **Arsip PARA**: snapshot menyimpan salinan isi, jadi `RecordsService` menandai `data.locked = true` pada `para_archive` yang item asalnya
@@ -912,7 +912,7 @@ dengan `ON DELETE CASCADE`, soft delete `deleted_at` pada tabel domain.
 | `para_archive_log` | `para_archive_logs` | action (archived/restored), original_type, original_id, archive_id, title, summary, actor_name, at — riwayat arsip & pemulihan PARA (append-only) |
 | `skp` | `skps` | external_id (nomor SKP e-Kinerja), start_date, end_date, status, approach, appraiser, synced_at — SKP diambil robot (beberapa per tahun) |
 | `skp_target` | `skp_targets` | year, skp_id, name, section (UTAMA/TAMBAHAN), leader, indicators, order — RHK milik SKP (robot) atau manual per tahun |
-| `action_plan_entry` | `action_plan_entries` | period (YYYY-MM), skp_id, target_id, description, document_url, source_type/id/title, status (draft/ready/filled), filled_at — rencana aksi e-Kinerja yang dipilih user dari Productivity (di `extra`: realization, time_realization, indicators, pushedSignature + pushed = pengenal perubahan, deleted = hapus tertunda) |
+| `action_plan_entry` | `action_plan_entries` | period (YYYY-MM), skp_id, target_id, description, document_url, source_type/id/title, status (draft/ready/filled), filled_at — rencana aksi e-Kinerja yang dipilih user dari Working Space (di `extra`: realization, time_realization, indicators, pushedSignature + pushed = pengenal perubahan, deleted = hapus tertunda) |
 | `action_plan_month` | `action_plan_months` | period, skp_id, status (empty/unavailable/draft/submitted/rated), submitted_at, synced_at — potret bulan Rencana Aksi e-Kinerja (di `extra`: workday, ratings, rows + feedback) |
 | `srikandi_reference` | `srikandi_references` | category (signer/recipient/recipient_group/verifier/cc/cc_group/disposition_group/classification/sender_unit), label, fields, order, synced_at — referensi SRIKANDI diambil robot (klasifikasi: label "KODE - Nama", fields.Status) |
 | `srikandi_letter` | `srikandi_letters` | number, date, subject, origin, sign_status, send_status, upload_id, imported_at — naskah keluar ber-TTD dari Daftar Naskah Keluar (di `extra`: attachments, resources) |
@@ -977,7 +977,7 @@ src/
   stores/       auth-store, ui-store
   hooks/        useSearchParam, useToday, usePermissions, useRetained
   components/   ui/ (shadcn), layout/ (AppShell, ModulePage), common/ (komponen bersama)
-  features/     overview, planner, notes, productivity, resources, file-control, tools (ONLYOFFICE), settings, assistant,
+  features/     overview, planner, notes, working-space, resources, file-control, tools (ONLYOFFICE), settings, assistant,
                 focus, auth
 ```
 

@@ -253,12 +253,12 @@ function BaseView({ path, onDeleted }: { path: string; onDeleted: () => void }) 
       {file.error && (
         <p className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-          <span>YAML base tidak terbaca ({file.error}). Perbaiki berkasnya di Obsidian — LifeOS tidak menimpanya.</span>
+          <span>YAML base tidak terbaca ({file.error}). Perbaiki berkasnya di Obsidian — Akasha tidak menimpanya.</span>
         </p>
       )}
       {file.readOnly && (
         <p className="rounded-xl border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Base di folder 80-LifeOS dikelola LifeOS — hanya dibaca.
+          Base di folder 80-Akasha dikelola Akasha — hanya dibaca.
         </p>
       )}
 
@@ -293,7 +293,7 @@ function BaseView({ path, onDeleted }: { path: string; onDeleted: () => void }) 
 
       {result.errors.length > 0 && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
-          <p className="font-semibold">Sebagian ekspresi tidak dikenali LifeOS (diabaikan):</p>
+          <p className="font-semibold">Sebagian ekspresi tidak dikenali Akasha (diabaikan):</p>
           <ul className="mt-1 list-disc pl-4">
             {result.errors.slice(0, 5).map((e) => (
               <li key={e} className="break-all font-mono">
@@ -421,7 +421,7 @@ function GroupTitle({ value, count }: { value: BaseValue; count: number }) {
 /** Kolom pertama yang berupa nama → tautan pembuka catatan. */
 const isNameColumn = (id: string) => ["file.name", "file.basename", "file.title"].includes(id);
 
-/** Sel properti catatan yang bisa disunting langsung (bukan properti berkas/rumus/tag, bukan berkas cermin 80-LifeOS). */
+/** Sel properti catatan yang bisa disunting langsung (bukan properti berkas/rumus/tag, bukan berkas cermin 80-Akasha). */
 const canEditCell = (row: BaseRow, id: string) =>
   id.startsWith("note.") && id !== "note.tags" && row.note.kind === "note" && !isMirrorNote(row.note);
 

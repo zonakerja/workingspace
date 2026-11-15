@@ -299,7 +299,7 @@ export function outgoingSignature(entry: Partial<SrikandiOutgoing>) {
 }
 
 /**
- * Entri terdaftar (konsep di SRIKANDI) yang diubah di LifeOS sejak terakhir dikirim robot → perlu "Perbarui di SRIKANDI".
+ * Entri terdaftar (konsep di SRIKANDI) yang diubah di Akasha sejak terakhir dikirim robot → perlu "Perbarui di SRIKANDI".
  * Entri yang ditandai terdaftar manual / didaftarkan sebelum fitur ini tidak punya pengenal → tidak ditandai.
  */
 export const changedSinceRegister = (entry: SrikandiOutgoing) =>
@@ -309,7 +309,7 @@ export const changedSinceRegister = (entry: SrikandiOutgoing) =>
   entry.pushedSignature !== outgoingSignature(entry);
 
 /**
- * Kirim Konsep dari LifeOS (dengan PIN): konsep terdaftar, belum dikirim, belum punya naskah final, dan tidak ada perubahan
+ * Kirim Konsep dari Akasha (dengan PIN): konsep terdaftar, belum dikirim, belum punya naskah final, dan tidak ada perubahan
  * yang belum diperbarui ke SRIKANDI (salinan aturan backend `sendBlockers`).
  */
 export const canSendDraft = (entry: SrikandiOutgoing) =>

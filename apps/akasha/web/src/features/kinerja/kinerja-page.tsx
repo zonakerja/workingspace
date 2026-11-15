@@ -9,7 +9,7 @@ import { EkinerjaFillRequestsCard } from "./fill-requests-card";
 import { KinerjaWorkflowTab } from "./kinerja-workflow-tab";
 
 /**
- * Connection & MCP → e-Kinerja: rencana aksi bulanan e-Kinerja (produk jadi dari Productivity) + SKP & RHK dari robot.
+ * Connection & MCP → e-Kinerja: rencana aksi bulanan e-Kinerja (produk jadi dari Working Space) + SKP & RHK dari robot.
  * Fitur terbuka untuk agen: workflow buatan agen (tab Workflow) dan permintaan isi dari agen (kartu di Rencana Aksi).
  */
 export function Component() {

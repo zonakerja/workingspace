@@ -8,7 +8,7 @@ import { AuthUser } from "../common/types/auth-user";
 import { PinService } from "./pin.service";
 
 class SetPinDto {
-  @ApiProperty({ description: "Kata sandi akun LifeOS" })
+  @ApiProperty({ description: "Kata sandi akun Akasha" })
   @IsString()
   @MinLength(1)
   @MaxLength(200)

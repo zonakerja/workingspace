@@ -1,5 +1,5 @@
 # ============================================================================
-# LifeOS — deployment PRODUKSI (VPS). Panduan lengkap: docs/DEPLOYMENT.md
+# Akasha — deployment PRODUKSI (VPS). Panduan lengkap: docs/DEPLOYMENT.md
 #
 #   cp .env.example .env        # isi domain, secret, password
 #   docker compose -f docker-compose.prod.yml up -d --build
@@ -11,7 +11,7 @@
 # (docs/DEPLOYMENT.md §9).
 # ============================================================================
 
-name: lifeos-prod
+name: akasha-prod
 
 # Batas memori default untuk VPS 4 GB (total ± 3,3 GB). VPS 2 GB: lihat docs/DEPLOYMENT.md §1.1.
 x-logging: &logging
@@ -45,7 +45,7 @@ services:
     build:
       context: .
       dockerfile: apps/akasha/web/Dockerfile
-    image: lifeos-frontend:${APP_VERSION:-latest}
+    image: akasha-web:${APP_VERSION:-latest}
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 64m } } }
     logging: *logging
@@ -54,7 +54,7 @@ services:
     build:
       context: .
       dockerfile: apps/akasha/api/Dockerfile
-    image: lifeos-backend:${APP_VERSION:-latest}
+    image: akasha-api:${APP_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
@@ -67,7 +67,7 @@ services:
       PORT: 4000
       LOG_LEVEL: ${LOG_LEVEL:-info}
       GEOIP_PROVIDER: ${GEOIP_PROVIDER:-}
-      DATABASE_URL: postgresql://lifeos:${POSTGRES_PASSWORD}@postgres:5432/lifeos?schema=public
+      DATABASE_URL: postgresql://akasha:${POSTGRES_PASSWORD}@postgres:5432/akasha?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET di .env}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET di .env}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
@@ -85,7 +85,7 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID di .env}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY di .env}
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
-      ASSET_BUCKET: ${ASSET_BUCKET:-lifeos-assets}
+      ASSET_BUCKET: ${ASSET_BUCKET:-akasha-assets}
       UPLOAD_MAX_MB: ${UPLOAD_MAX_MB:-300}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
@@ -126,8 +126,8 @@ services:
     networks:
       default:
       agent:
-        # Alamat backend yang dipakai MCP Hermes (sama dengan dev: apps/akai/agent/hermes/lifeos-mcp.yaml)
-        aliases: [lifeos-api]
+        # Alamat backend yang dipakai MCP Hermes (sama dengan dev: apps/akai/agent/hermes/akasha-mcp.yaml)
+        aliases: [akasha-api]
     deploy: { resources: { limits: { memory: "${BACKEND_MEM_LIMIT:-768m}" } } }
     logging: *logging
 
@@ -136,8 +136,8 @@ services:
     image: pgvector/pgvector:0.8.7-pg18
     restart: unless-stopped
     environment:
-      POSTGRES_DB: lifeos
-      POSTGRES_USER: lifeos
+      POSTGRES_DB: akasha
+      POSTGRES_USER: akasha
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD di .env}
     # Tuning untuk VPS kecil (default PostgreSQL mengasumsikan RAM sangat sedikit). Sesuaikan dengan POSTGRES_MEM_LIMIT.
     command:
@@ -157,7 +157,7 @@ services:
       # Image 18+: mount ke /var/lib/postgresql (PGDATA = /var/lib/postgresql/18/docker)
       - postgres18-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lifeos -d lifeos"]
+      test: ["CMD-SHELL", "pg_isready -U akasha -d akasha"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -193,7 +193,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >-
-        printf '{"identities":[{"name":"lifeos","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","List","Tagging","Write"]}]}'
+        printf '{"identities":[{"name":"akasha","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","List","Tagging","Write"]}]}'
         "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" > /tmp/s3.json &&
         exec weed server -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=1024 -volume.max=0
         -s3 -s3.port=8333 -s3.config=/tmp/s3.json
@@ -209,10 +209,10 @@ services:
     logging: *logging
 
   onlyoffice:
-    # Editor dokumen ONLYOFFICE Docs Community + plugin AI yang memakai AI LifeOS (infra/onlyoffice/Dockerfile).
+    # Editor dokumen ONLYOFFICE Docs Community + plugin AI yang memakai AI Akasha (infra/onlyoffice/Dockerfile).
     # Opsional: hanya menyala dengan COMPOSE_PROFILES=office. Disajikan Caddy di https://<APP_DOMAIN>/office/.
     build: ./infra/onlyoffice
-    image: lifeos-onlyoffice:${APP_VERSION:-latest}
+    image: akasha-onlyoffice:${APP_VERSION:-latest}
     restart: unless-stopped
     profiles: ["office"]
     environment:
@@ -242,7 +242,7 @@ services:
     build:
       context: .
       dockerfile: services/robot/Dockerfile
-    image: lifeos-robot:${APP_VERSION:-latest}
+    image: akasha-robot:${APP_VERSION:-latest}
     restart: unless-stopped
     profiles: ["robot"]
     environment:
@@ -257,7 +257,7 @@ services:
     # Markdown Converter (Tools → Markdown Converter, docs/ARCHITECTURE.md §3.14): MarkItDown + Docling (OCR Tesseract).
     # Opsional: COMPOSE_PROFILES=converter. Tanpa port publik & tanpa data; model Docling ada di image (tidak perlu internet).
     build: ./services/converter
-    image: lifeos-converter:${APP_VERSION:-latest}
+    image: akasha-converter:${APP_VERSION:-latest}
     restart: unless-stopped
     profiles: ["converter"]
     environment:
@@ -272,9 +272,9 @@ services:
     logging: *logging
 
   hermes:
-    # Agen AI Hermes (Asisten Agen LifeOS, skill dokumen bertemplat; docs/AI-AGENT.md §23, DEPLOYMENT §14).
+    # Agen AI Hermes (Asisten Agen Akasha, skill dokumen bertemplat; docs/AI-AGENT.md §23, DEPLOYMENT §14).
     # Opsional: COMPOSE_PROFILES=agent. Tanpa port publik — hanya backend yang memanggil API server-nya, dan Hermes
-    # memanggil MCP & model LifeOS lewat http://lifeos-api:4000 (configure.sh; API key model tetap di LifeOS, §14).
+    # memanggil MCP & model Akasha lewat http://akasha-api:4000 (configure.sh; API key model tetap di Akasha, §14).
     image: nousresearch/hermes-agent:${HERMES_TAG:-v0.22.2}
     restart: unless-stopped
     profiles: ["agent"]
@@ -282,13 +282,13 @@ services:
     environment:
       API_SERVER_ENABLED: "true"
       API_SERVER_HOST: 0.0.0.0
-      # = HERMES_API_KEY backend (openssl rand -hex 32); juga kunci Hermes → LifeOS (MCP + model)
+      # = HERMES_API_KEY backend (openssl rand -hex 32); juga kunci Hermes → Akasha (MCP + model)
       API_SERVER_KEY: ${HERMES_API_KEY:-}
     volumes:
       # config.yaml, memori, sesi — dicadangkan terpisah (DEPLOYMENT §14)
       - hermes-data:/opt/data
-      - ./apps/akai/agent/skills:/opt/data/skills/lifeos:ro
-      - ./apps/akai/agent/hermes:/opt/lifeos:ro
+      - ./apps/akai/agent/skills:/opt/data/skills/akasha:ro
+      - ./apps/akai/agent/hermes:/opt/akasha:ro
     # Jaringan sendiri: agen hanya menjangkau backend, bukan database, Redis, storage, atau robot (docs/AI-AGENT.md §26)
     networks: [agent]
     shm_size: 1g
@@ -297,12 +297,12 @@ services:
 
   syncthing:
     # Sinkron vault Obsidian laptop/HP ↔ VPS ke ./knowledge-vaults (dibaca backend; DEPLOYMENT §10).
-    # Opsional: COMPOSE_PROFILES=sync. Obsidian sendiri tidak berjalan di server — LifeOS hanya membaca berkas Markdown.
+    # Opsional: COMPOSE_PROFILES=sync. Obsidian sendiri tidak berjalan di server — Akasha hanya membaca berkas Markdown.
     # UID/GID 1000 = user node backend, agar backend tetap bisa menulis 00-Inbox dan Syncthing membaca hasilnya.
     image: syncthing/syncthing:${SYNCTHING_TAG:-2.1.6}
     restart: unless-stopped
     profiles: ["sync"]
-    hostname: lifeos-vps
+    hostname: akasha-vps
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -324,15 +324,15 @@ services:
     # ke S3 luar server (opsional), heartbeat pemantauan. Panduan: docs/DEPLOYMENT.md §4.
     # Base image infra/backup/Dockerfile HARUS sama dengan image service postgres (versi pg_dump = versi server).
     build: ./infra/backup
-    image: lifeos-backup:${APP_VERSION:-latest}
+    image: akasha-backup:${APP_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
       storage: { condition: service_healthy }
     environment:
       PGHOST: postgres
-      PGUSER: lifeos
-      PGDATABASE: lifeos
+      PGUSER: akasha
+      PGDATABASE: akasha
       PGPASSWORD: ${POSTGRES_PASSWORD}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
@@ -343,7 +343,7 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
-      ASSET_BUCKET: ${ASSET_BUCKET:-lifeos-assets}
+      ASSET_BUCKET: ${ASSET_BUCKET:-akasha-assets}
       # Salinan luar server (kosongkan OFFSITE_S3_BUCKET untuk menonaktifkan)
       OFFSITE_S3_PROVIDER: ${OFFSITE_S3_PROVIDER:-Other}
       OFFSITE_S3_ENDPOINT: ${OFFSITE_S3_ENDPOINT:-}
@@ -351,7 +351,7 @@ services:
       OFFSITE_S3_ACCESS_KEY_ID: ${OFFSITE_S3_ACCESS_KEY_ID:-}
       OFFSITE_S3_SECRET_ACCESS_KEY: ${OFFSITE_S3_SECRET_ACCESS_KEY:-}
       OFFSITE_S3_BUCKET: ${OFFSITE_S3_BUCKET:-}
-      OFFSITE_S3_PREFIX: ${OFFSITE_S3_PREFIX:-lifeos}
+      OFFSITE_S3_PREFIX: ${OFFSITE_S3_PREFIX:-akasha}
       OFFSITE_RETENTION_DAYS: ${OFFSITE_RETENTION_DAYS:-30}
       BACKUP_ENCRYPTION_PASSWORD: ${BACKUP_ENCRYPTION_PASSWORD:-}
     volumes:

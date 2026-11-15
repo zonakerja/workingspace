@@ -172,17 +172,17 @@ export class LinkMentionDto {
   sourceId: string;
 }
 
-/** Jenis data cermin 80-LifeOS (sama dengan `EXPORT_KINDS`). */
+/** Jenis data cermin 80-Akasha (sama dengan `EXPORT_KINDS`). */
 export class ExportKindsDto {
   @IsOptional() @IsBoolean() notes?: boolean;
   @IsOptional() @IsBoolean() lists?: boolean;
   @IsOptional() @IsBoolean() aiNotes?: boolean;
   @IsOptional() @IsBoolean() notebooks?: boolean;
-  @IsOptional() @IsBoolean() productivity?: boolean;
+  @IsOptional() @IsBoolean() workingSpace?: boolean;
 }
 
 export class ExportSettingsDto {
-  @ApiPropertyOptional({ description: "Nyalakan cermin hasil kerja LifeOS ke folder 80-LifeOS di vault" })
+  @ApiPropertyOptional({ description: "Nyalakan cermin hasil kerja Akasha ke folder 80-Akasha di vault" })
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;

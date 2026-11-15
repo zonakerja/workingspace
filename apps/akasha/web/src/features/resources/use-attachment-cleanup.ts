@@ -51,7 +51,7 @@ const toGlobalResource = (att: AttachedResource, contextTag: string, ownerId?: s
 });
 
 /**
- * Pembersihan berkas lampiran (dipakai bersama Planner & Productivity, aturan di `attachment-cleanup.ts`).
+ * Pembersihan berkas lampiran (dipakai bersama Planner & Working Space, aturan di `attachment-cleanup.ts`).
  * - `referenced(exclude, excludeResourceIds?)` → `uploadId` yang masih dipakai di luar lampiran `exclude` (dan di luar
  *   Resource global `excludeResourceIds`, mis. resource yang sedang dihapus) — untuk menandai berkas "dipakai di tempat
  *   lain" di dialog.

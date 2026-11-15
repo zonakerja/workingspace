@@ -62,7 +62,7 @@ Prisma, build image Docker; untuk perubahan infra juga stack produksi lokal + ce
   lagi membaca `schema.prisma`, tidak ada `generate`/`migrate dev`/`db push`, paket per database
   (`@prisma/orm-postgres`), butuh Node ≥ 22.18 & TS ≥ 5.9. Fitur yang **belum ada**: `$extends`, `increment` atomik,
   dan kode error gaya `P2002`.
-- Dampak ke LifeOS: `PrismaExceptionFilter` bergantung pada P2002/P2025/P2003; generator model domain
+- Dampak ke Akasha: `PrismaExceptionFilter` bergantung pada P2002/P2025/P2003; generator model domain
   (`generate-domain-models.mts`) menulis `schema.prisma`; alur migrasi & cek drift (docs/SETUP.md §10, CI) berubah total.
 - Dukungan: Prisma 7 tetap menerima bug fix & patch keamanan **18 bulan setelah Prisma 8 GA**.
 - Rekomendasi: **tetap di Prisma 7**. Evaluasi 3–6 bulan setelah GA ketika fitur & kode error setara; kerjakan

@@ -22,7 +22,7 @@
 		reverse_proxy backend:4000
 	}
 
-	# Halaman bawaan ONLYOFFICE yang tidak dipakai LifeOS (contoh, admin panel, info, selamat datang) ditutup
+	# Halaman bawaan ONLYOFFICE yang tidak dipakai Akasha (contoh, admin panel, info, selamat datang) ditutup
 	@officeBlocked path /office/welcome* /office/example* /office/admin* /office/info*
 	handle @officeBlocked {
 		respond 404

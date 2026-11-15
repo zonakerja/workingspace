@@ -13,14 +13,14 @@ import { agentApi } from "@/lib/api/endpoints";
 const DEFAULT_SKILL = "telaah-pengajuan";
 
 /**
- * Detail Approval → "Kerjakan dengan agen": Hermes menjalankan skill LifeOS atas pengajuan ini (baca berkas, cek
+ * Detail Approval → "Kerjakan dengan agen": Hermes menjalankan skill Akasha atas pengajuan ini (baca berkas, cek
  * kelengkapan, telaah, isi templat) lalu menyimpan hasil ke pengajuan untuk diperiksa. Hanya tampil bila agen siap.
  */
 export function AgentRunPanel({ requestId, decided }: { requestId: string; decided: boolean }) {
   const ready = useAgentReady();
   const { data: skills } = useAgentSkills(ready);
   const client = useQueryClient();
-  const lifeos = (skills ?? []).filter((s) => s.lifeos);
+  const akasha = (skills ?? []).filter((s) => s.akasha);
   const [skill, setSkill] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -31,8 +31,8 @@ export function AgentRunPanel({ requestId, decided }: { requestId: string; decid
     else toast.error(r.error ?? `Tugas agen berakhir (${r.status}).`);
   });
 
-  if (!ready || !lifeos.length) return null;
-  const chosen = skill ?? (lifeos.some((s) => s.name === DEFAULT_SKILL) ? DEFAULT_SKILL : lifeos[0].name);
+  if (!ready || !akasha.length) return null;
+  const chosen = skill ?? (akasha.some((s) => s.name === DEFAULT_SKILL) ? DEFAULT_SKILL : akasha[0].name);
   const running = !!runId && !run?.done;
 
   const start = async () => {
@@ -57,7 +57,7 @@ export function AgentRunPanel({ requestId, decided }: { requestId: string; decid
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {lifeos.map((s) => (
+            {akasha.map((s) => (
               <SelectItem key={s.name} value={s.name}>
                 {s.name}
               </SelectItem>

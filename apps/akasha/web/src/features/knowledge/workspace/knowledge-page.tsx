@@ -47,7 +47,7 @@ const CanvasTab = lazy(() => import("./canvas-tab").then((m) => ({ default: m.Ca
 import { NotePaneContext, openWorkspaceDialog, useOpenNote, useWorkspaceStore } from "./workspace-store";
 
 /**
- * Menu Knowledge: antarmuka vault Obsidian di LifeOS (docs/AI-AGENT.md §25.2). Berkas vault tetap sumber kebenaran —
+ * Menu Knowledge: antarmuka vault Obsidian di Akasha (docs/AI-AGENT.md §25.2). Berkas vault tetap sumber kebenaran —
  * setiap perubahan ditulis ke berkas dan dibaca ulang pemantau vault (indeks RAG & graf ikut).
  */
 export function Component() {

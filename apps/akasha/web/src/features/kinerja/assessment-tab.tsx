@@ -41,7 +41,7 @@ import { SubmitAssessmentDialog } from "./submit-assessment-dialog";
 /**
  * e-Kinerja → Penilaian: bulan yang renaksinya sudah ada di e-Kinerja (draf belum dikirim, sudah diajukan, sudah dinilai)
  * dipisah dari tab Rencana Aksi (tempat menyiapkan isian). Isi, tanggal pengajuan, rating, dan feedback atasan dibaca robot
- * lewat Pantau; bulan draf yang isiannya sudah sama dengan LifeOS bisa di-Kirim Penilaian Ke Atasan (wajib PIN).
+ * lewat Pantau; bulan draf yang isiannya sudah sama dengan Akasha bisa di-Kirim Penilaian Ke Atasan (wajib PIN).
  */
 export function AssessmentTab() {
   const today = useToday();
@@ -67,7 +67,7 @@ export function AssessmentTab() {
     .map((m) => m.syncedAt ?? "")
     .sort()
     .at(-1);
-  // Isian LifeOS bulan & SKP itu (tanpa usulan agen) → status gabungan untuk syarat Kirim Penilaian
+  // Isian Akasha bulan & SKP itu (tanpa usulan agen) → status gabungan untuk syarat Kirim Penilaian
   const entriesOf = (m: ActionPlanMonth) =>
     entries.filter(
       (e) =>

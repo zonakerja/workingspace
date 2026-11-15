@@ -1,5 +1,5 @@
 /**
- * Status selesai todo/task/action (dipakai bersama Planner & Productivity).
+ * Status selesai todo/task/action (dipakai bersama Planner & Working Space).
  * `completedAt` dipakai Planner untuk menandai item yang diselesaikan terlambat; data tanpa `completedAt` dianggap
  * selesai di tanggal tenggatnya.
  */

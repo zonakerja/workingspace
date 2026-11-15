@@ -120,7 +120,7 @@ function AiIndexCard({ settings }: { settings: AiSettings }) {
     <SectionCard
       icon={DatabaseZap}
       title={<label htmlFor="ai-index">Indeks Pengetahuan (RAG)</label>}
-      description="Mesin pencari makna untuk semua fitur AI: chatbot LifeOS, My Notebook, Approval, dan bot WhatsApp."
+      description="Mesin pencari makna untuk semua fitur AI: chatbot Akasha, My Notebook, Approval, dan bot WhatsApp."
       action={
         <Switch
           id="ai-index"

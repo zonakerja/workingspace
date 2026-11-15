@@ -9,7 +9,7 @@ import type {
 
 export const SOURCE_KIND_META: Record<NotebookSourceKind, { label: string; icon: LucideIcon }> = {
   upload: { label: "Berkas", icon: FileText },
-  record: { label: "Item LifeOS", icon: NotebookPen },
+  record: { label: "Item Akasha", icon: NotebookPen },
   text: { label: "Teks", icon: Type },
   web: { label: "Halaman web", icon: Globe },
 };

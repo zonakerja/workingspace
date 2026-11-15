@@ -510,7 +510,7 @@ function RegisterForm({ initial, onUploaded, onCancel, onSave }: FormProps) {
         )}
 
         <Field>
-          <FieldLabel htmlFor="reg-notes">Catatan (hanya di LifeOS)</FieldLabel>
+          <FieldLabel htmlFor="reg-notes">Catatan (hanya di Akasha)</FieldLabel>
           <Textarea id="reg-notes" rows={2} value={draft.notes ?? ""} onChange={(e) => set("notes", e.target.value)} />
         </Field>
       </div>

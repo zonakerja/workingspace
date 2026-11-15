@@ -351,7 +351,7 @@ function PropertiesPanel({ id, notes }: { id: string; notes: KnowledgeNoteListIt
   if (item && isMirrorNote(item)) {
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-[11px] text-muted-foreground">Cermin LifeOS — properti dibuat otomatis (baca saja).</p>
+        <p className="text-[11px] text-muted-foreground">Cermin Akasha — properti dibuat otomatis (baca saja).</p>
         {entries.map(([key, value]) => (
           <p key={key} className="flex min-w-0 gap-2 text-xs">
             <span className="w-24 shrink-0 truncate font-mono text-muted-foreground">{key}</span>

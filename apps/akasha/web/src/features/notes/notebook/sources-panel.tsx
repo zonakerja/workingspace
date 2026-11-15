@@ -49,7 +49,7 @@ function StatusBadge({ source }: { source: NotebookSource }) {
   return null;
 }
 
-/** Tautan item LifeOS di menu asalnya (Catatan, Notes AI, List, Resource). */
+/** Tautan item Akasha di menu asalnya (Catatan, Notes AI, List, Resource). */
 const recordPath = (source: NotebookSource) => {
   const id = source.recordId ?? "";
   switch (source.recordType) {
@@ -94,7 +94,7 @@ export function SourcesPanel({
   }, [highlightId]);
 
   /**
-   * Klik sumber = buka dokumen aslinya: berkas → modal pratinjau, halaman web → tab baru, item LifeOS → menu asalnya
+   * Klik sumber = buka dokumen aslinya: berkas → modal pratinjau, halaman web → tab baru, item Akasha → menu asalnya
    * (resource berkas/link langsung dibuka). Hanya sumber teks tempelan yang ditampilkan isinya di sini.
    */
   const openSource = (source: NotebookSource) => {
@@ -156,7 +156,7 @@ export function SourcesPanel({
         >
           <Plus className="size-6" />
           <span className="font-semibold">Tambahkan sumber pertama</span>
-          <span className="text-xs">Berkas, catatan LifeOS, teks, atau halaman web</span>
+          <span className="text-xs">Berkas, catatan Akasha, teks, atau halaman web</span>
         </button>
       ) : (
         // Digulir di dalam panel sumber (HP: maks. ± 5 sumber terlihat)
@@ -216,7 +216,7 @@ export function SourcesPanel({
                             ? "Buka berkas"
                             : source.kind === "web"
                               ? "Buka halaman"
-                              : `Buka di ${source.recordType ? RECORD_TYPE_LABEL[source.recordType] : "LifeOS"}`}
+                              : `Buka di ${source.recordType ? RECORD_TYPE_LABEL[source.recordType] : "Akasha"}`}
                         </DropdownMenuItem>
                       )
                     )}
@@ -278,7 +278,7 @@ export function SourcesPanel({
           deleting?.kind === "upload" && deleting.ownedByNotebook
             ? "Sumber dan berkas yang diunggah ke notebook ini ikut dihapus. Riwayat chat & catatan tetap ada."
             : deleting?.kind === "upload" || deleting?.kind === "record"
-              ? "Sumber dilepas dari notebook. Berkas/item aslinya di LifeOS tidak terhapus."
+              ? "Sumber dilepas dari notebook. Berkas/item aslinya di Akasha tidak terhapus."
               : "Sumber dihapus dari notebook. Riwayat chat & catatan tetap ada."
         }
         itemName={deleting?.title}

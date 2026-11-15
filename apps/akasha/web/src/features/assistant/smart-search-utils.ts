@@ -7,7 +7,7 @@ import type { SmartModule, SmartSearchResult } from "@/types/api";
 export const MODULE_INFO: Record<SmartModule, { label: string; tone: string }> = {
   planner: { label: "Planner", tone: "text-mod-planner" },
   notes: { label: "Notes", tone: "text-mod-notes" },
-  productivity: { label: "Working Space", tone: "text-mod-productivity" },
+  "working-space": { label: "Working Space", tone: "text-mod-working-space" },
   file_control: { label: "File Control", tone: "text-mod-files" },
   files: { label: "Berkas", tone: "text-info" },
   knowledge: { label: "Knowledge", tone: "text-mod-knowledge" },
@@ -18,7 +18,7 @@ export const MODULE_INFO: Record<SmartModule, { label: string; tone: string }> =
 export const MODULE_ORDER: SmartModule[] = [
   "planner",
   "notes",
-  "productivity",
+  "working-space",
   "file_control",
   "files",
   "knowledge",
@@ -71,7 +71,7 @@ export type SmartTarget =
 
 const fileControlTab = (status?: string | null) => (status === "physical" || status === "digital" ? status : "pending");
 
-/** Ke mana hasil dibuka: catatan vault (dialog), berkas (pratinjau), atau halaman item LifeOS. */
+/** Ke mana hasil dibuka: catatan vault (dialog), berkas (pratinjau), atau halaman item Akasha. */
 export function smartTarget(result: SmartSearchResult): SmartTarget {
   const { sourceType, sourceId } = result;
   switch (sourceType) {
@@ -93,7 +93,7 @@ export function smartTarget(result: SmartSearchResult): SmartTarget {
         ? { kind: "page", path: links.archive(sourceId, fileControlTab(result.archivalStatus)) }
         : { kind: "page", path: links.resource(sourceId) };
     case "para_archive":
-      return { kind: "page", path: "/productivity/archives" };
+      return { kind: "page", path: "/working-space/archives" };
     case "archive_classification":
     case "archive_jra":
     case "archive_physical_reference":

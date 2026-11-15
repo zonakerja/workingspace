@@ -98,7 +98,7 @@ class StoredOAuthProvider implements OAuthClientProvider {
 
   get clientMetadata(): OAuthClientMetadata {
     return {
-      client_name: "LifeOS",
+      client_name: "Akasha",
       redirect_uris: [this.redirect],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
@@ -155,9 +155,9 @@ class StoredOAuthProvider implements OAuthClientProvider {
 }
 
 /**
- * Koneksi ke server MCP aplikasi luar (Canva, Notion, GitHub, …). LifeOS = klien MCP: menyimpan kredensial terenkripsi,
+ * Koneksi ke server MCP aplikasi luar (Canva, Notion, GitHub, …). Akasha = klien MCP: menyimpan kredensial terenkripsi,
  * menguji sambungan, menyimpan daftar alat, dan meneruskan pemanggilan alat (dari halaman atau dari agen lewat MCP
- * LifeOS) — kredensial tidak pernah sampai ke browser maupun agen.
+ * Akasha) — kredensial tidak pernah sampai ke browser maupun agen.
  */
 @Injectable()
 export class McpConnectionsService {
@@ -171,7 +171,7 @@ export class McpConnectionsService {
     config: ConfigService,
   ) {
     const key = createHmac("sha256", Buffer.from(config.getOrThrow<string>("AI_ENCRYPTION_KEY"), "hex"))
-      .update("lifeos:mcp-connection:v1")
+      .update("akasha:mcp-connection:v1")
       .digest("hex");
     this.crypto = new AiCrypto(key);
     this.production = config.get<string>("NODE_ENV") === "production";
@@ -351,7 +351,7 @@ export class McpConnectionsService {
     return { success: true };
   }
 
-  /** Domain tempat aplikasi ini menaruh berkas hasil yang boleh disimpan ke LifeOS (`save_app_file`). */
+  /** Domain tempat aplikasi ini menaruh berkas hasil yang boleh disimpan ke Akasha (`save_app_file`). */
   fileHosts(row: Pick<McpConnection, "url" | "preset">) {
     return fileHostsFor(row.url, findPreset(row.preset)?.fileHosts);
   }
@@ -384,7 +384,7 @@ export class McpConnectionsService {
     const token = row.authType === "token" && row.tokenEnc ? this.crypto.decrypt(row.tokenEnc) : null;
     const requestInit = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
     const authProvider = row.authType === "oauth" ? this.provider(row) : undefined;
-    let client = new Client({ name: "lifeos", version: "1.0.0" });
+    let client = new Client({ name: "akasha", version: "1.0.0" });
     try {
       await withTimeout(
         client.connect(new StreamableHTTPClientTransport(url, { requestInit, authProvider })),
@@ -393,7 +393,7 @@ export class McpConnectionsService {
       );
     } catch (error) {
       if (isAuthError(error)) throw error;
-      client = new Client({ name: "lifeos", version: "1.0.0" });
+      client = new Client({ name: "akasha", version: "1.0.0" });
       await withTimeout(
         client.connect(new SSEClientTransport(url, { requestInit, authProvider })),
         CONNECT_TIMEOUT_MS,

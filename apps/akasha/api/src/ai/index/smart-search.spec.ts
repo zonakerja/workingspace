@@ -15,9 +15,9 @@ describe("smart search", () => {
   it("maps sources to modules, archived resources to File Control", () => {
     expect(moduleOf("schedule")).toBe("planner");
     expect(moduleOf("ai_note")).toBe("notes");
-    expect(moduleOf("para_task")).toBe("productivity");
-    expect(moduleOf("para_resource", null)).toBe("productivity");
-    expect(moduleOf("para_resource", "none")).toBe("productivity");
+    expect(moduleOf("para_task")).toBe("working-space");
+    expect(moduleOf("para_resource", null)).toBe("working-space");
+    expect(moduleOf("para_resource", "none")).toBe("working-space");
     expect(moduleOf("para_resource", "pending")).toBe("file_control");
     expect(moduleOf("archive_jra")).toBe("file_control");
     expect(moduleOf("asset")).toBe("files");

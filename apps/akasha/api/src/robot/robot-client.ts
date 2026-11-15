@@ -28,7 +28,7 @@ export interface LoginState extends PageInfo {
 
 /**
  * Klien HTTP ke service robot (container `robot`, docs/AI-AGENT.md §21). Service tidak aktif / gagal dihubungi →
- * 422 dengan petunjuk (bukan ≥ 502 yang di frontend berarti "server LifeOS tidak dapat dihubungi").
+ * 422 dengan petunjuk (bukan ≥ 502 yang di frontend berarti "server Akasha tidak dapat dihubungi").
  */
 @Injectable()
 export class RobotClient {
@@ -269,7 +269,7 @@ export class RobotClient {
         message: string;
         month: string;
         incomplete: { key: string; missing: string[] }[];
-        difference: { onlyEkinerja: string[]; onlyLifeos: string[] } | null;
+        difference: { onlyEkinerja: string[]; onlyAkasha: string[] } | null;
         screenshot: string | null;
       }
     >("/jobs/ekinerja/renaksi/submit", target, "POST", 300_000);

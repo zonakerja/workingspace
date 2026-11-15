@@ -49,7 +49,7 @@ export const useFreeNotes = () => useCollection<FreeNote>("free_note");
 export const useAiNotes = () => useCollection<AiNote>("ai_note");
 export const useLists = () => useCollection<FreeList>("list");
 
-// Productivity (PARA)
+// Working Space (PARA)
 export const useProjects = () => useCollection<Project>("para_project");
 export const useAreas = () => useCollection<Area>("para_area");
 export const useProjectTasks = () => useCollection<ProjectTask>("para_task");

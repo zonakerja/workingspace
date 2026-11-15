@@ -2,7 +2,7 @@
   "name": "@workingspace/robot",
   "version": "0.1.0",
   "private": true,
-  "description": "Service robot browser LifeOS (Playwright): login jarak jauh, cek sesi, eksplor halaman untuk konektor SRIKANDI & e-Kinerja",
+  "description": "Service robot browser Akasha (Playwright): login jarak jauh, cek sesi, eksplor halaman untuk konektor SRIKANDI & e-Kinerja",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",

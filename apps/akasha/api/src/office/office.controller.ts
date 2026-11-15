@@ -172,7 +172,7 @@ export class OfficeController {
     try {
       body = (typeof raw === "string" ? JSON.parse(raw) : (raw ?? {})) as Record<string, unknown>;
     } catch {
-      res.status(400).json({ error: { message: "Isi permintaan AI tidak valid.", type: "lifeos_error" } });
+      res.status(400).json({ error: { message: "Isi permintaan AI tidak valid.", type: "akasha_error" } });
       return;
     }
     const result = await this.office.aiProxy(body);

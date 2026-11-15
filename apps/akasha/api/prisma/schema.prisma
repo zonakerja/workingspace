@@ -1,5 +1,5 @@
 // ============================================================================
-// LifeOS — skema database
+// Akasha — skema database
 // Konvensi: model PascalCase, tabel & kolom snake_case (@@map/@map), timestamp
 // timestamptz(3), soft delete via deleted_at pada tabel domain.
 // Model domain di antara marker <generated:domain-models> DIBUAT OTOMATIS dari
@@ -90,7 +90,7 @@ model User {
   aiFallback      Boolean     @default(true) @map("ai_fallback")
   // Indeks pengetahuan (RAG): data user di-embed dengan Gemini; dimatikan = indeks dihapus & tidak ada data dikirim
   aiIndexEnabled  Boolean     @default(true) @map("ai_index_enabled")
-  // AI di editor ONLYOFFICE (tab AI memakai provider & key LifeOS); default mati agar isi dokumen tidak terkirim tanpa disadari
+  // AI di editor ONLYOFFICE (tab AI memakai provider & key Akasha); default mati agar isi dokumen tidak terkirim tanpa disadari
   officeAi        Boolean     @default(false) @map("office_ai")
   // Pembagian tugas AI: { chat, general, ocr: provider; embedding: gemini|openai } — kosong = ikuti provider aktif
   aiRouting       Json?       @map("ai_routing")
@@ -230,13 +230,13 @@ model AiCredential {
 
 model AppSettings {
   id           String   @id @default("global")
-  name         String   @default("LifeOS")
+  name         String   @default("Akasha")
   navSub       String   @default("Integrated Edition") @map("nav_sub")
-  loginSub     String   @default("Ultimate") @map("login_sub")
-  motto        String   @default("Design Your Life, Manage Your Resources")
+  loginSub     String   @default("Ruang Kerja") @map("login_sub")
+  motto        String   @default("Ruang untuk pekerjaan, kehidupan, dan sumber daya")
   welcomeTitle String   @default("Selamat Datang") @map("welcome_title")
   welcomeSub   String   @default("Silakan masuk menggunakan User ID dan Password Anda.") @map("welcome_sub")
-  footerText   String   @default("© 2026 LifeOS System") @map("footer_text")
+  footerText   String   @default("© 2026 workingspace.id") @map("footer_text")
   // Logo aplikasi sebagai data URL (maks ~1 MB); disajikan lewat GET /settings/app/logo
   appLogo      String?  @map("app_logo")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -252,7 +252,7 @@ model AppSettings {
 enum NotebookSourceKind {
   /// Berkas yang diunggah (asset; teks dari asset_extractions)
   upload
-  /// Item LifeOS milik user (record_type + record_id)
+  /// Item Akasha milik user (record_type + record_id)
   record
   /// Teks yang ditempel user
   text
@@ -369,9 +369,9 @@ model AiChunk {
   @@map("ai_chunks")
 }
 
-// ---------------------------------------------------------------- Chat AI (asisten LifeOS) & basis pengetahuan
+// ---------------------------------------------------------------- Chat AI (asisten Akasha) & basis pengetahuan
 
-/// Percakapan chatbot LifeOS (riwayat permanen, satu user).
+/// Percakapan chatbot Akasha (riwayat permanen, satu user).
 model AiConversation {
   id        String      @id @default(cuid())
   userId    String      @map("user_id")
@@ -429,7 +429,7 @@ model KnowledgeNote {
   @@map("knowledge_notes")
 }
 
-/// Riwayat versi catatan vault (K7): isi berkas sebelum LifeOS menimpanya + versi terpantau saat pindai. Dikunci per path
+/// Riwayat versi catatan vault (K7): isi berkas sebelum Akasha menimpanya + versi terpantau saat pindai. Dikunci per path
 /// (diperbarui saat catatan/folder dipindah), maks. sekian versi terbaru per catatan.
 model KnowledgeNoteVersion {
   id        String   @id @default(cuid())
@@ -1350,7 +1350,7 @@ model ApiToken {
   name       String
   /// SHA-256 token utuh
   tokenHash  String             @unique @map("token_hash")
-  /// Awal token untuk dikenali user (mis. "lifeos_pat_ab12")
+  /// Awal token untuk dikenali user (mis. "akasha_pat_ab12")
   prefix     String
   /// Cakupan izin: knowledge:read | knowledge:write | workspace:read | workspace:write | ai:chat
   scopes     Json
@@ -1705,7 +1705,7 @@ model AgentPolicy {
   id               String   @id @default(cuid())
   userId           String   @map("user_id")
   name             String
-  /// Skill LifeOS yang dijalankan (folder apps/akai/agent/skills)
+  /// Skill Akasha yang dijalankan (folder apps/akai/agent/skills)
   skill            String
   /// Jenis pengajuan yang memicu (psp | penghapusan | …)
   requestKind      String   @map("request_kind")
@@ -1854,8 +1854,8 @@ model AgentAction {
   @@map("agent_actions")
 }
 
-/// Koneksi ke server MCP aplikasi luar (Canva, Notion, GitHub, …): LifeOS menjadi klien MCP. Kredensial (token / OAuth)
-/// terenkripsi dan tidak pernah dikirim ke browser maupun ke agen; agen memakai alatnya lewat MCP LifeOS bila diizinkan.
+/// Koneksi ke server MCP aplikasi luar (Canva, Notion, GitHub, …): Akasha menjadi klien MCP. Kredensial (token / OAuth)
+/// terenkripsi dan tidak pernah dikirim ke browser maupun ke agen; agen memakai alatnya lewat MCP Akasha bila diizinkan.
 model McpConnection {
   id                   String    @id @default(cuid())
   userId               String    @map("user_id")

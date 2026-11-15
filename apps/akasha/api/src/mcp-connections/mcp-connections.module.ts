@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { McpConnectionsController } from "./mcp-connections.controller";
 import { McpConnectionsService } from "./mcp-connections.service";
 
-/** Koneksi aplikasi MCP luar (LifeOS sebagai klien MCP). */
+/** Koneksi aplikasi MCP luar (Akasha sebagai klien MCP). */
 @Module({
   controllers: [McpConnectionsController],
   providers: [McpConnectionsService],

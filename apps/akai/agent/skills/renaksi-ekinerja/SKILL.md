@@ -1,13 +1,13 @@
 ---
 name: renaksi-ekinerja
-description: Memetakan kegiatan satu bulan dari Productivity LifeOS ke RHK SKP e-Kinerja dan menyusun narasi Renaksi + Realisasi sebagai usulan yang diputuskan pemilik. Pakai bila diminta menyusun / mengusulkan rencana aksi (renaksi) e-Kinerja untuk bulan tertentu.
+description: Memetakan kegiatan satu bulan dari Working Space Akasha ke RHK SKP e-Kinerja dan menyusun narasi Renaksi + Realisasi sebagai usulan yang diputuskan pemilik. Pakai bila diminta menyusun / mengusulkan rencana aksi (renaksi) e-Kinerja untuk bulan tertentu.
 ---
 
 # Usulan renaksi e-Kinerja
 
 Tujuan: menyiapkan **usulan** isian Rencana Aksi bulanan e-Kinerja. Anda **tidak** memutuskan apa yang masuk e-Kinerja,
 tidak meminta pengisian, dan tidak menjalankan robot. Pemilik mencentang, mengubah, atau mengabaikan setiap usulan di
-LifeOS → e-Kinerja → Rencana Aksi.
+Akasha → e-Kinerja → Rencana Aksi.
 
 ## Langkah
 
@@ -29,7 +29,7 @@ LifeOS → e-Kinerja → Rencana Aksi.
      tanda di `note` ("output perlu dicek").
    - `indicators` hanya bila butir jelas mendukung sebagian indikator; selain itu kosongkan (= semua indikator RHK).
    - `note` = alasan pemetaan satu kalimat untuk pemilik.
-   Bukti data dukung **tidak** diisi agen: LifeOS membuatkan brankas dari lampiran saat pemilik mencentang usulan.
+   Bukti data dukung **tidak** diisi agen: Akasha membuatkan brankas dari lampiran saat pemilik mencentang usulan.
 5. **Simpan** — `ekinerja_propose_renaksi { period, items }` (maks. 60 butir sekali kirim). Periksa `rejected` dan
    perbaiki bila alasannya bisa diperbaiki (mis. ID RHK salah).
 6. **Laporkan** singkat: jumlah usulan per RHK, kegiatan yang dilewati dan alasannya, serta butir yang perlu dicek.

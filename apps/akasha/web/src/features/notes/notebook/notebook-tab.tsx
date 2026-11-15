@@ -195,7 +195,7 @@ function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
         open={!!deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Hapus Notebook?"
-        description="Notebook beserta riwayat chat, catatan, dan berkas yang diunggah langsung ke notebook (termasuk lampiran chat) dipindah ke Sampah dan bisa dipulihkan selama 30 hari. Item LifeOS dan berkas LifeOS yang dipakai sebagai sumber (catatan, Notes AI, resource, PDF, dsb.) tetap utuh."
+        description="Notebook beserta riwayat chat, catatan, dan berkas yang diunggah langsung ke notebook (termasuk lampiran chat) dipindah ke Sampah dan bisa dipulihkan selama 30 hari. Item Akasha dan berkas Akasha yang dipakai sebagai sumber (catatan, Notes AI, resource, PDF, dsb.) tetap utuh."
         itemName={deleting?.title}
         confirmLabel="Hapus"
         onConfirm={() => {

@@ -24,7 +24,7 @@ export interface McpPreset {
   /** Scope bawaan (dipisah spasi); kosong = semua scope yang diumumkan server */
   scope?: string;
   /**
-   * Domain tempat aplikasi menaruh berkas hasil (tautan ekspor/unduh) yang boleh disimpan agen ke LifeOS
+   * Domain tempat aplikasi menaruh berkas hasil (tautan ekspor/unduh) yang boleh disimpan agen ke Akasha
    * (`save_app_file`). Kosong = domain dasar alamat server MCP.
    */
   fileHosts?: string[];

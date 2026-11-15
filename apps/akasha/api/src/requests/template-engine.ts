@@ -9,7 +9,7 @@ import PizZip from "pizzip";
  */
 
 /**
- * Penanda yang diisi SRIKANDI dari formulir registrasi, penomoran, & tanda tangan elektronik — tidak pernah diisi LifeOS.
+ * Penanda yang diisi SRIKANDI dari formulir registrasi, penomoran, & tanda tangan elektronik — tidak pernah diisi Akasha.
  * Akhiran angka = penandatangan / tujuan ke-n (`nama_pengirim2`).
  */
 export const isSrikandiTag = (tag: string) =>

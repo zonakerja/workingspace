@@ -41,8 +41,8 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: [version-update:semver-major]
-      # Image yang dibangun sendiri (lifeos-backend, lifeos-onlyoffice, …) tidak ada di registry mana pun
-      - dependency-name: "lifeos-*"
+      # Image yang dibangun sendiri (akasha-api, akasha-onlyoffice, …) tidak ada di registry mana pun
+      - dependency-name: "akasha-*"
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

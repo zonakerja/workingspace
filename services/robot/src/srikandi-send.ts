@@ -9,7 +9,7 @@ import { normalizeOption } from "./srikandi-register.js";
  * Banyak Konsep — tidak pernah dipakai robot).
  *
  * Kirim Konsep = tindakan resmi (naskah sampai ke verifikator). Robot hanya menjalankannya atas permintaan pemilik yang
- * dibuktikan dengan PIN di LifeOS (diperiksa backend), dan hanya pada konsep berhal sama dengan entri Register. Dialog
+ * dibuktikan dengan PIN di Akasha (diperiksa backend), dan hanya pada konsep berhal sama dengan entri Register. Dialog
  * konfirmasi setelah tombol diklik **belum pernah direkam** (atas perintah pemilik konsep uji tidak pernah dikirim), jadi
  * robot hanya menyetujui dialog yang jelas meminta konfirmasi pengiriman; dialog lain dibatalkan dan dilaporkan.
  */

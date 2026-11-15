@@ -81,7 +81,7 @@ import {
 
 /** Templat kosong (A4, locale id-ID) dari image ONLYOFFICE: `backend/templates/office/new.<format>`. */
 const TEMPLATE_DIR = join(__dirname, "..", "..", "templates", "office");
-/** Header JWT dari ONLYOFFICE (`JWT_HEADER` di container) — terpisah dari Bearer milik LifeOS. */
+/** Header JWT dari ONLYOFFICE (`JWT_HEADER` di container) — terpisah dari Bearer milik Akasha. */
 export const ONLYOFFICE_JWT_HEADER = "authorizationjwt";
 /** Konteks berkas templat dokumen yang diunggah user di Tools → ONLYOFFICE. */
 export const OFFICE_TEMPLATE_CONTEXT = "office-template";
@@ -108,7 +108,7 @@ const FILE_TOKEN_TTL = "1d";
 const CALLBACK_TOKEN_TTL = "30d";
 const DOWNLOAD_TIMEOUT_MS = 120_000;
 const FORCESAVE_WAIT_MS = 15_000;
-// Token sesi plugin AI LifeOS (selama editor terbuka); bukan API key provider
+// Token sesi plugin AI Akasha (selama editor terbuka); bukan API key provider
 const AI_TOKEN_TTL = "12h";
 /** Batas ukuran templat yang disalin/dikonversi. */
 const MAX_TEMPLATE_BYTES = 50 * 1024 * 1024;
@@ -121,7 +121,7 @@ type OfficeTokenPayload = {
 };
 
 /**
- * Editor dokumen ONLYOFFICE Docs (menu Tools → ONLYOFFICE). Berkas tetap Asset LifeOS di object storage; ONLYOFFICE
+ * Editor dokumen ONLYOFFICE Docs (menu Tools → ONLYOFFICE). Berkas tetap Asset Akasha di object storage; ONLYOFFICE
  * mengunduhnya lewat link bertoken dan mengirim hasil edit lewat callback. Hak akses mengikuti pemilik/berbagi berkas.
  * Detail alur & keputusan: docs/ONLYOFFICE.md.
  */
@@ -310,7 +310,7 @@ export class OfficeService {
 
   /**
    * Font baru dari admin → folder bersama. Isi divalidasi (TTF/OTF/TTC); nama sama = diganti. Pemantau di container
-   * ONLYOFFICE (`infra/onlyoffice/lifeos-entrypoint.sh`) membuat ulang daftar font ± 30 detik kemudian.
+   * ONLYOFFICE (`infra/onlyoffice/akasha-entrypoint.sh`) membuat ulang daftar font ± 30 detik kemudian.
    */
   async uploadFont(file: { originalname: string; buffer: Buffer; size: number }) {
     const dir = this.ensureFontsDir();
@@ -492,7 +492,7 @@ export class OfficeService {
 
   // ---------------------------------------------------------------- Preferensi & AI di editor
 
-  /** Sakelar AI di editor milik user + provider/model AI LifeOS yang akan menjawab (null = belum diatur). */
+  /** Sakelar AI di editor milik user + provider/model AI Akasha yang akan menjawab (null = belum diatur). */
   async preferences(user: AuthUser) {
     const profile = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
@@ -535,9 +535,9 @@ export class OfficeService {
     }
 
     const target = officeAiTarget(body.target);
-    if (target === "models") return { status: 200, json: modelList("AI LifeOS") };
+    if (target === "models") return { status: 200, json: modelList("AI Akasha") };
     if (target !== "chat") {
-      return { status: 400, json: openAiError("Fitur ini belum didukung AI LifeOS (hanya teks & gambar masukan).") };
+      return { status: 400, json: openAiError("Fitur ini belum didukung AI Akasha (hanya teks & gambar masukan).") };
     }
     let data: Record<string, unknown>;
     try {
@@ -663,7 +663,7 @@ export class OfficeService {
         enabled: aiOn,
         guid: ONLYOFFICE_AI_PLUGIN_GUID,
         pluginOptions: aiToken
-          ? officeAiPluginOptions({ appOrigin: this.appOrigin(dto.appOrigin), token: aiToken, modelName: "AI LifeOS" })
+          ? officeAiPluginOptions({ appOrigin: this.appOrigin(dto.appOrigin), token: aiToken, modelName: "AI Akasha" })
           : undefined,
       },
     });
@@ -969,7 +969,7 @@ export class OfficeService {
     const response = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS), redirect: "error" });
     if (!response.ok || !response.body) throw new Error(`Unduh berkas dari ONLYOFFICE gagal (${response.status}).`);
     const maxBytes = this.config.getOrThrow<number>("UPLOAD_MAX_MB") * 1024 * 1024;
-    const dir = join(tmpdir(), "lifeos-office");
+    const dir = join(tmpdir(), "akasha-office");
     await mkdir(dir, { recursive: true });
     const path = join(dir, randomUUID());
     const hasher = createHash("sha256");

@@ -192,13 +192,13 @@ export function NoteView({
           <Badge className={cn("hidden @md:inline-flex", STATUS_TONE[statusValue])}>{STATUS_LABEL[statusValue]}</Badge>
         )}
         {mirror && (
-          <Badge variant="outline" className="hidden @md:inline-flex" title="Dikelola LifeOS — baca saja">
-            <FolderSync /> Cermin LifeOS
+          <Badge variant="outline" className="hidden @md:inline-flex" title="Dikelola Akasha — baca saja">
+            <FolderSync /> Cermin Akasha
           </Badge>
         )}
         {mirror && appPath && (
-          <Button size="sm" variant="outline" aria-label="Buka di LifeOS" onClick={() => void navigate(appPath)}>
-            <ExternalLink /> <span className="hidden @lg:inline">Buka di LifeOS</span>
+          <Button size="sm" variant="outline" aria-label="Buka di Akasha" onClick={() => void navigate(appPath)}>
+            <ExternalLink /> <span className="hidden @lg:inline">Buka di Akasha</span>
           </Button>
         )}
         {editable && (

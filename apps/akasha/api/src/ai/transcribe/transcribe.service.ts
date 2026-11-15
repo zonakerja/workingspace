@@ -26,7 +26,7 @@ export type TranscribeJob =
   | { status: "done"; startedAt: number; finishedAt: number; result: TranscribeResult }
   | { status: "failed"; startedAt: number; finishedAt: number; httpStatus: number; message: string };
 
-const TEMP_DIR = join(tmpdir(), "lifeos-transcribe");
+const TEMP_DIR = join(tmpdir(), "akasha-transcribe");
 /** Hasil disimpan sementara agar bisa diambil setelah tab ditutup / dibuka lagi tanpa membayar transkrip kedua. */
 const RESULT_TTL_MS = 24 * 60 * 60_000;
 

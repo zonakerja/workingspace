@@ -84,7 +84,7 @@ export class RobotInputDto {
   url?: string;
 }
 
-/** Kredensial sistem untuk brankas; `accountPassword` = kata sandi akun LifeOS (konfirmasi, tidak disimpan). */
+/** Kredensial sistem untuk brankas; `accountPassword` = kata sandi akun Akasha (konfirmasi, tidak disimpan). */
 export class CredentialsDto {
   @ApiProperty()
   @IsString()
@@ -98,7 +98,7 @@ export class CredentialsDto {
   @MaxLength(200)
   password: string;
 
-  @ApiProperty({ description: "Kata sandi akun LifeOS Anda (konfirmasi)" })
+  @ApiProperty({ description: "Kata sandi akun Akasha Anda (konfirmasi)" })
   @IsString()
   @MinLength(1)
   @MaxLength(200)

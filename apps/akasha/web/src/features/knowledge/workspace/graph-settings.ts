@@ -53,7 +53,7 @@ export const GRAPH_RANGES = {
   linkDistance: [10, 250, 5],
 } as const satisfies Partial<Record<keyof GraphSettings, readonly [number, number, number]>>;
 
-const STORAGE_KEY = "lifeos.knowledgeGraph";
+const STORAGE_KEY = "akasha.knowledgeGraph";
 
 /** Nilai tersimpan → pengaturan sah (kunci asing dibuang, angka dijepit ke rentang). */
 export function parseGraphSettings(value: unknown): GraphSettings {

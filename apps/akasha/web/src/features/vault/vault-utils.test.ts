@@ -13,7 +13,7 @@ describe("brankas digital", () => {
   it("jumlah IP berbeda & tautan lengkap", () => {
     const row = (ip: string | null) => ({ ip }) as VaultAccess;
     expect(distinctVisitors([row("1.1.1.1"), row("1.1.1.1"), row("2.2.2.2"), row(null)])).toBe(3);
-    expect(vaultUrl("/brankas/bv_abc", "https://lifeos.go.id")).toBe("https://lifeos.go.id/brankas/bv_abc");
+    expect(vaultUrl("/brankas/bv_abc", "https://akasha.go.id")).toBe("https://akasha.go.id/brankas/bv_abc");
   });
 });
 

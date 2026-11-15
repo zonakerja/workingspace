@@ -36,10 +36,10 @@ import { errorMessage } from "@/lib/api/client";
 import { formatDateTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { AiChatCitation, AiChatMessage } from "@/types/api";
-import { aiErrorMessage, buildLifeosContext, useLifeosData } from "./lifeos-context";
+import { aiErrorMessage, buildAkashaContext, useAkashaData } from "./akasha-context";
 
 const GREETING =
-  "Halo! Saya **LifeOS AI**. Saya menjawab dari **basis pengetahuan** Anda (vault Obsidian) dan **data kerja** " +
+  "Halo! Saya **Akasha AI**. Saya menjawab dari **basis pengetahuan** Anda (vault Obsidian) dan **data kerja** " +
   "(catatan, agenda, project, berkas) — lengkap dengan sumbernya. Ada yang bisa saya bantu?";
 
 /** Tanggal hari ini menurut perangkat, untuk konteks pertanyaan seperti "agenda besok". */
@@ -81,7 +81,7 @@ export function FloatingChatbot() {
                 <Sparkles className="size-5" />
               </span>
               <div className="min-w-0">
-                <h3 className="leading-tight font-bold">LifeOS AI</h3>
+                <h3 className="leading-tight font-bold">Akasha AI</h3>
                 <p className="flex items-center gap-1 text-[10px] opacity-85">
                   <Library className="size-3" /> Basis pengetahuan & data kerja
                 </p>
@@ -300,7 +300,7 @@ function AssistantBubble({
 
 function ChatBody({ conversationId, onCreated }: { conversationId: string | null; onCreated: (id: string) => void }) {
   const ai = useAi();
-  const data = useLifeosData();
+  const data = useAkashaData();
   const chat = useAiChat();
   const { data: page, isLoading } = useAiConversationMessages(conversationId);
   const { data: knowledge } = useKnowledgeStatus();
@@ -330,7 +330,7 @@ function ChatBody({ conversationId, onCreated }: { conversationId: string | null
       {
         conversationId: conversationId ?? undefined,
         message: text,
-        snapshot: buildLifeosContext(data),
+        snapshot: buildAkashaContext(data),
         today: todayLabel(),
       },
       {

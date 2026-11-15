@@ -3,7 +3,7 @@
  * mencentangnya, agar tidak ada panggilan penyedia AI (biaya/kuota) tanpa disadari. Ringkasan tetap bisa dibuat nanti
  * lewat ikon robot di tabel lampiran.
  */
-const KEY = "lifeos.attachments.aiSummary";
+const KEY = "akasha.attachments.aiSummary";
 
 export const readAiSummaryPreference = () => {
   try {

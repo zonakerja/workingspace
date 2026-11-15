@@ -60,7 +60,7 @@ export type CitationTarget =
   | { kind: "page"; path: string }
   | { kind: "none" };
 
-/** Ke mana sitasi chatbot dibuka: catatan vault (dialog), berkas (pratinjau), atau halaman item LifeOS. */
+/** Ke mana sitasi chatbot dibuka: catatan vault (dialog), berkas (pratinjau), atau halaman item Akasha. */
 export function citationTarget(citation: AiChatCitation): CitationTarget {
   if (citation.sourceType === "obsidian") return { kind: "knowledge", noteId: citation.sourceId };
   if (citation.sourceType === "obsidian_canvas")
@@ -89,7 +89,7 @@ export function filterKnowledgeNotes(
 /** Judul catatan Inbox dari pertanyaan pengguna (Obsidian: nama berkas, jadi dibuat pendek). */
 export function inboxTitle(question?: string) {
   const line = (question ?? "").replace(/\s+/g, " ").trim();
-  if (!line) return "Jawaban LifeOS AI";
+  if (!line) return "Jawaban Akasha AI";
   return line.length > 70 ? `${line.slice(0, 67).trimEnd()}…` : line;
 }
 

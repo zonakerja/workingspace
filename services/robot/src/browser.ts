@@ -419,10 +419,10 @@ export class BrowserPool {
 
   /**
    * e-Kinerja: isi Rencana Aksi satu bulan pada `/skp/renaksi/<id SKP>`.
-   * - `mode: "add"` (bawaan): centang indikator yang dipetakan LifeOS (tidak pernah melepas) lalu tambahkan butir yang
+   * - `mode: "add"` (bawaan): centang indikator yang dipetakan Akasha (tidak pernah melepas) lalu tambahkan butir yang
    *   belum ada (idempoten).
-   * - `mode: "sync"`: isi bulan disamakan dengan LifeOS (`rows` = seluruh isian bulan itu) — indikator yang tidak diminta
-   *   dilepas, baris yang memuat butir di luar LifeOS ditulis ulang (lepas centang → centang lagi → isi ulang), lalu butir
+   * - `mode: "sync"`: isi bulan disamakan dengan Akasha (`rows` = seluruh isian bulan itu) — indikator yang tidak diminta
+   *   dilepas, baris yang memuat butir di luar Akasha ditulis ulang (lepas centang → centang lagi → isi ulang), lalu butir
    *   yang kurang ditambahkan. Backend selalu membaca & mengimpor isi e-Kinerja lebih dulu sehingga tidak ada butir yang hilang.
    * Berhenti di draf: "Kirim Penilaian Ke Atasan" tidak pernah diklik, bulan yang sudah diajukan ditolak.
    */
@@ -534,7 +534,7 @@ export class BrowserPool {
         const row = block.rows.find((r) => r.key === step.key);
         if (!row) continue;
         const button = page
-          .locator(`tr[data-lifeos-row="${row.index}"] button`)
+          .locator(`tr[data-akasha-row="${row.index}"] button`)
           .filter({ hasText: BUTTON_LABELS[step.kind] });
         await this.safeClick(button.first());
         const modal = page
@@ -602,7 +602,7 @@ export class BrowserPool {
 
   /**
    * e-Kinerja: **Kirim Penilaian Ke Atasan** satu bulan draf. Tanpa konfirmasi (dryRun, bawaan server) robot hanya membaca
-   * blok bulan, memeriksa isinya sama dengan LifeOS & lengkap, lalu menandai tombol (garis merah di tangkapan layar) tanpa
+   * blok bulan, memeriksa isinya sama dengan Akasha & lengkap, lalu menandai tombol (garis merah di tangkapan layar) tanpa
    * mengklik. Kirim sungguhan hanya setelah backend memeriksa PIN pemilik.
    */
   async ekinerjaSubmit(target: Target & { request: SubmitRequest }) {
@@ -644,16 +644,16 @@ export class BrowserPool {
           screenshot: await this.jpeg(page),
         };
       }
-      // Isi e-Kinerja harus sama dengan LifeOS & lengkap: yang sampai ke atasan = yang dilihat pemilik di LifeOS
+      // Isi e-Kinerja harus sama dengan Akasha & lengkap: yang sampai ke atasan = yang dilihat pemilik di Akasha
       const difference = rowDifference(rows, req.expectedKeys);
-      if (difference.onlyEkinerja.length || difference.onlyLifeos.length) {
+      if (difference.onlyEkinerja.length || difference.onlyAkasha.length) {
         return { ...info, ...none, rows, difference, status: "mismatch" as const, screenshot: await this.jpeg(page) };
       }
       const incomplete = incompleteRows(rows);
       if (incomplete.length) {
         return { ...info, ...none, rows, incomplete, status: "incomplete" as const, screenshot: await this.jpeg(page) };
       }
-      const button = page.locator("[data-lifeos-renaksi=submit]").first();
+      const button = page.locator("[data-akasha-renaksi=submit]").first();
       const label = (await button.textContent({ timeout: 10_000 }).catch(() => "")) ?? "";
       if (!isSubmitButton(label) || !(await button.isEnabled().catch(() => false))) {
         return {
@@ -696,7 +696,7 @@ export class BrowserPool {
           .find((x) => x.label);
         if (confirm) {
           const b = confirm.d.buttons.find((x) => x.text === confirm.label)!;
-          await page.locator(`[data-lifeos-send-button="${b.id}"]`).click({ timeout: 10_000 });
+          await page.locator(`[data-akasha-send-button="${b.id}"]`).click({ timeout: 10_000 });
           before.add(confirm.d.text);
           continue;
         }
@@ -733,7 +733,7 @@ export class BrowserPool {
 
   /** Buka modal "Pilih Indikator Kinerja" (tombol Isi … Bulan / Edit Rencana Aksi Kerja) dan baca pilihannya. */
   private async openIndicatorModal(page: Page, block: { canFill: boolean; canEdit: boolean }) {
-    const opener = block.canFill ? "[data-lifeos-renaksi=fill]" : block.canEdit ? "[data-lifeos-renaksi=edit]" : null;
+    const opener = block.canFill ? "[data-akasha-renaksi=fill]" : block.canEdit ? "[data-akasha-renaksi=edit]" : null;
     if (!opener) throw new Error("Bulan ini belum bisa diisi (tombol Isi/Edit Rencana Aksi Kerja tidak ada).");
     await this.safeClick(page.locator(opener).first());
     const modal = page.locator(".modal.show, .modal.in, [role=dialog]").filter({ hasText: "Pilih Indikator Kinerja" });
@@ -744,7 +744,7 @@ export class BrowserPool {
         const input = tr.querySelector("input[type=checkbox]") as HTMLInputElement | null;
         const cell = (tr as HTMLTableRowElement).cells[1];
         if (!input || !cell) return [];
-        input.setAttribute("data-lifeos-pick", String(index));
+        input.setAttribute("data-akasha-pick", String(index));
         return [{ index, text: clean(cell.innerText || cell.textContent), checked: input.checked }];
       });
     });
@@ -769,9 +769,9 @@ export class BrowserPool {
       await page.waitForTimeout(500);
       return;
     }
-    for (const o of toCheck) await opened.modal.locator(`[data-lifeos-pick="${o.index}"]`).check({ timeout: 5_000 });
+    for (const o of toCheck) await opened.modal.locator(`[data-akasha-pick="${o.index}"]`).check({ timeout: 5_000 });
     for (const o of toUncheck) {
-      await opened.modal.locator(`[data-lifeos-pick="${o.index}"]`).uncheck({ timeout: 5_000 });
+      await opened.modal.locator(`[data-akasha-pick="${o.index}"]`).uncheck({ timeout: 5_000 });
     }
     await this.saveModal(page, opened.modal);
   }
@@ -814,15 +814,15 @@ export class BrowserPool {
 
   /**
    * Tandai blok bulan di halaman (urutan dokumen: judul bulan → tabel & tombol bulan itu) lalu baca barisnya. Elemen
-   * diberi penanda `data-lifeos-*` agar diklik lewat locator.
+   * diberi penanda `data-akasha-*` agar diklik lewat locator.
    */
   private async renaksiBlock(page: Page, month: string) {
     const raw = await page.evaluate(
       ({ month, months }) => {
         const clean = (t: string | null | undefined) => (t ?? "").replace(/\s+/g, " ").trim();
-        document.querySelectorAll("[data-lifeos-renaksi], [data-lifeos-row]").forEach((el) => {
-          el.removeAttribute("data-lifeos-renaksi");
-          el.removeAttribute("data-lifeos-row");
+        document.querySelectorAll("[data-akasha-renaksi], [data-akasha-row]").forEach((el) => {
+          el.removeAttribute("data-akasha-renaksi");
+          el.removeAttribute("data-akasha-row");
         });
         // Nama bulan bisa berupa node teks lepas di wadah bersama ("oktober", "juli Rating Hasil Kerja : …") →
         // telusuri node (elemen + teks) sesuai urutan dokumen; teks di dalam tabel/modal bukan judul bulan
@@ -864,14 +864,14 @@ export class BrowserPool {
         for (const b of buttons) {
           const label = clean(b.textContent);
           if (/^Isi Rencana Aksi Kerja Bulan/i.test(label) && label.toLowerCase().endsWith(month)) {
-            b.setAttribute("data-lifeos-renaksi", "fill");
+            b.setAttribute("data-akasha-renaksi", "fill");
             canFill = true;
           } else if (/^Edit Rencana Aksi Kerja/i.test(label)) {
-            b.setAttribute("data-lifeos-renaksi", "edit");
+            b.setAttribute("data-akasha-renaksi", "edit");
             canEdit = true;
           } else if (/kirim penilaia+n ke atasan/i.test(label)) {
             // Hanya ditandai; diklik semata oleh ekinerjaSubmit atas permintaan pemilik ber-PIN
-            b.setAttribute("data-lifeos-renaksi", "submit");
+            b.setAttribute("data-akasha-renaksi", "submit");
             canSubmit = true;
           }
         }
@@ -906,7 +906,7 @@ export class BrowserPool {
           for (const tr of Array.from(table.querySelectorAll("tbody tr"))) {
             const cells = (tr as HTMLTableRowElement).cells;
             if (cells.length < 3) continue;
-            tr.setAttribute("data-lifeos-row", String(index));
+            tr.setAttribute("data-akasha-row", String(index));
             const sections = sectionsOf(cells[2]);
             // Feedback atasan: "👍" / "Belum ada feedback"
             const feedback = hasFeedback && cells[3] ? clean((cells[3] as HTMLElement).innerText) : "";
@@ -1127,7 +1127,7 @@ export class BrowserPool {
    * tombol halaman berikutnya di navigasi tabel yang diklik — Tambah Baru / Edit / Sync / Hapus tidak pernah disentuh.
    */
   /**
-   * SRIKANDI: isi formulir Registrasi Naskah Keluar dari entri Register LifeOS lalu SIMPAN (draf di Log Naskah Keluar).
+   * SRIKANDI: isi formulir Registrasi Naskah Keluar dari entri Register Akasha lalu SIMPAN (draf di Log Naskah Keluar).
    * Pilihan react-select dipilih dengan mengklik opsinya (Enter di kotak cari tanpa opsi ikut mengirim formulir).
    * Draf berhal sama yang belum terkirim tidak dibuat ulang. Kirim Konsep / Kirim Naskah / TTE tidak pernah diklik.
    * `dryRun` = isi formulir lalu berhenti (tidak disimpan) untuk diperiksa.
@@ -1263,7 +1263,7 @@ export class BrowserPool {
             (el) => anchor.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
           );
           if (input) {
-            input.setAttribute("data-lifeos-select", key);
+            input.setAttribute("data-akasha-select", key);
             return true;
           }
         }
@@ -1272,7 +1272,7 @@ export class BrowserPool {
       { label, key },
     );
     if (!marked) throw new Error(`Kolom "${label}" tidak ditemukan di formulir.`);
-    await this.chooseOption(page, page.locator(`[data-lifeos-select="${key}"]`), value, label);
+    await this.chooseOption(page, page.locator(`[data-akasha-select="${key}"]`), value, label);
   }
 
   /** Ketik istilah cari di react-select lalu klik opsi yang cocok (Enter tidak pernah dipakai: bisa mengirim formulir). */
@@ -1588,8 +1588,8 @@ export class BrowserPool {
         return r.width > 0 && r.height > 0;
       };
       document
-        .querySelectorAll("[data-lifeos-edit-modal]")
-        .forEach((el) => el.removeAttribute("data-lifeos-edit-modal"));
+        .querySelectorAll("[data-akasha-edit-modal]")
+        .forEach((el) => el.removeAttribute("data-akasha-edit-modal"));
       const titles = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6,div,span,p"))
         .filter((el) => visible(el) && el.children.length <= 2 && /baru$/i.test(clean(el.textContent)))
         .reverse();
@@ -1600,7 +1600,7 @@ export class BrowserPool {
             /^simpan$/i.test(clean(b.textContent)),
           );
           if (hasSave) {
-            box.setAttribute("data-lifeos-edit-modal", "1");
+            box.setAttribute("data-akasha-edit-modal", "1");
             return clean(title.textContent);
           }
         }
@@ -1608,7 +1608,7 @@ export class BrowserPool {
       return null;
     });
     if (!marked) throw new Error(`Modal Tambah di bagian ${heading} tidak terbuka.`);
-    return page.locator("[data-lifeos-edit-modal]");
+    return page.locator("[data-akasha-edit-modal]");
   }
 
   /** Pilih nilai react-select di dalam modal Tambah. */
@@ -1846,7 +1846,7 @@ export class BrowserPool {
           .find((x) => x.label);
         if (confirm) {
           const b = confirm.d.buttons.find((x) => x.text === confirm.label)!;
-          await page.locator(`[data-lifeos-send-button="${b.id}"]`).click({ timeout: 10_000 });
+          await page.locator(`[data-akasha-send-button="${b.id}"]`).click({ timeout: 10_000 });
           before.add(confirm.d.text);
           continue;
         }
@@ -1896,7 +1896,7 @@ export class BrowserPool {
     return { subject: after("Hal"), number: after("Nomor Naskah"), unsent: UNSENT_MARK.test(text) };
   }
 
-  /** Dialog yang terlihat + tombolnya (ditandai `data-lifeos-send-button` agar bisa diklik tepat). */
+  /** Dialog yang terlihat + tombolnya (ditandai `data-akasha-send-button` agar bisa diklik tepat). */
   private async visibleDialogs(page: Page) {
     return page
       .evaluate(() => {
@@ -1918,7 +1918,7 @@ export class BrowserPool {
               .filter(visible)
               .map((el, index) => {
                 const id = `${d}-${index}`;
-                el.setAttribute("data-lifeos-send-button", id);
+                el.setAttribute("data-akasha-send-button", id);
                 return { id, text: clean((el as HTMLInputElement).value || el.textContent) };
               }),
           }))
@@ -2230,14 +2230,14 @@ export class BrowserPool {
           (el) => anchor.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
         );
         if (input) {
-          input.setAttribute("data-lifeos-sender", "1");
+          input.setAttribute("data-akasha-sender", "1");
           return true;
         }
       }
       return false;
     }, SENDER_UNIT_LABEL);
     if (!marked) throw new Error(`Kolom "${SENDER_UNIT_LABEL}" tidak ditemukan di formulir Registrasi.`);
-    const input = page.locator("[data-lifeos-sender='1']");
+    const input = page.locator("[data-akasha-sender='1']");
     await input.scrollIntoViewIfNeeded().catch(() => undefined);
     await input.click();
     await page
@@ -2298,10 +2298,10 @@ export class BrowserPool {
     }
   }
 
-  // ---------------------------------------------------------------- Login otomatis (kredensial dari brankas LifeOS)
+  // ---------------------------------------------------------------- Login otomatis (kredensial dari brankas Akasha)
 
   /**
-   * Pindai formulir yang terlihat: setiap input/tombol diberi penanda `data-lifeos-*` lalu dikenali oleh logika murni
+   * Pindai formulir yang terlihat: setiap input/tombol diberi penanda `data-akasha-*` lalu dikenali oleh logika murni
    * (`classifyFields`, `pickSubmit`). Pesan galat situs (alert/SweetAlert/toast) ikut dibaca.
    */
   private async scan(page: Page) {
@@ -2314,7 +2314,7 @@ export class BrowserPool {
       const clean = (t: string | null | undefined) => (t ?? "").replace(/\s+/g, " ").trim();
       const inputs = Array.from(document.querySelectorAll("input")).filter(visible);
       const fields = inputs.map((el, index) => {
-        el.setAttribute("data-lifeos-field", String(index));
+        el.setAttribute("data-akasha-field", String(index));
         const labels = el.labels ? Array.from(el.labels).map((l) => l.textContent) : [];
         const text = clean(
           [...labels, el.placeholder, el.name, el.id, el.getAttribute("aria-label"), el.autocomplete].join(" "),
@@ -2331,7 +2331,7 @@ export class BrowserPool {
         document.querySelectorAll("button, input[type=submit], input[type=button], [role=button]"),
       ).filter(visible);
       const buttons = buttonEls.map((el, index) => {
-        el.setAttribute("data-lifeos-button", String(index));
+        el.setAttribute("data-akasha-button", String(index));
         return {
           index,
           text: clean((el as HTMLInputElement).value || el.textContent || el.getAttribute("aria-label")),
@@ -2359,7 +2359,7 @@ export class BrowserPool {
   /** Gambar CAPTCHA: elemen img/canvas bertanda captcha, atau yang terdekat di atas kolom CAPTCHA (cadangan: area di atasnya). */
   private async captchaImage(page: Page, captchaIndex: number) {
     const clip = await page.evaluate((index) => {
-      const input = document.querySelector(`[data-lifeos-field="${index}"]`);
+      const input = document.querySelector(`[data-akasha-field="${index}"]`);
       if (!input) return null;
       const box = input.getBoundingClientRect();
       const candidates = Array.from(document.querySelectorAll("img, canvas, svg"))
@@ -2393,7 +2393,7 @@ export class BrowserPool {
           .map((el, index) => {
             const input = el as HTMLInputElement;
             const labels = input.labels ? Array.from(input.labels).map((l) => l.textContent) : [];
-            el.setAttribute("data-lifeos-check", String(index));
+            el.setAttribute("data-akasha-check", String(index));
             const box = input.getBoundingClientRect();
             return {
               index,
@@ -2408,7 +2408,7 @@ export class BrowserPool {
     for (const c of indexes) {
       if (!isRememberCheckbox(c.text)) continue;
       await page
-        .locator(`[data-lifeos-check="${c.index}"]`)
+        .locator(`[data-akasha-check="${c.index}"]`)
         .check({ force: true, timeout: 2_000 })
         .catch(() => undefined);
     }
@@ -2416,12 +2416,12 @@ export class BrowserPool {
 
   private async fill(page: Page, index: number | undefined, value: string) {
     if (index === undefined) return;
-    await page.locator(`[data-lifeos-field="${index}"]`).fill(value);
+    await page.locator(`[data-akasha-field="${index}"]`).fill(value);
   }
 
   private async submit(page: Page, submit: number | null, lastField: number | undefined) {
-    if (submit !== null) await page.locator(`[data-lifeos-button="${submit}"]`).click();
-    else if (lastField !== undefined) await page.locator(`[data-lifeos-field="${lastField}"]`).press("Enter");
+    if (submit !== null) await page.locator(`[data-akasha-button="${submit}"]`).click();
+    else if (lastField !== undefined) await page.locator(`[data-akasha-field="${lastField}"]`).press("Enter");
     await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
     await page.waitForTimeout(1_200);
   }
@@ -2451,7 +2451,7 @@ export class BrowserPool {
             buttons: Array.from(box.querySelectorAll("button, a.btn, input[type=button], input[type=submit]"))
               .filter(visible)
               .map((el, index) => {
-                el.setAttribute("data-lifeos-modal-button", `${d}-${index}`);
+                el.setAttribute("data-akasha-modal-button", `${d}-${index}`);
                 return { index, text: clean((el as HTMLInputElement).value || el.textContent) };
               }),
           }));
@@ -2462,7 +2462,7 @@ export class BrowserPool {
         .find((x) => x.button !== null);
       if (!target) return;
       await page
-        .locator(`[data-lifeos-modal-button="${target.d}-${target.button}"]`)
+        .locator(`[data-akasha-modal-button="${target.d}-${target.button}"]`)
         .click({ timeout: 3_000 })
         .catch(() => undefined);
       await page.waitForLoadState("networkidle", { timeout: 6_000 }).catch(() => undefined);
@@ -2493,7 +2493,7 @@ export class BrowserPool {
     let form = await this.scan(page);
     // Beranda dengan tombol "Login" yang mengalihkan ke SSO (mis. SIMAN → KemenkeuID): klik dulu, lalu pindai lagi
     if (form.fields.password === undefined && form.entry !== null) {
-      await page.locator(`[data-lifeos-button="${form.entry}"]`).click({ timeout: 5_000 });
+      await page.locator(`[data-akasha-button="${form.entry}"]`).click({ timeout: 5_000 });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
       await page.waitForTimeout(1_200);
       if ((await this.describe(page, markers)).loggedIn) return this.loginState(page, markers);
@@ -2519,7 +2519,7 @@ export class BrowserPool {
     if (kind === "captcha") {
       if (form.fields.captcha === undefined) return this.loginState(page, markers);
       if (credentials && form.fields.password !== undefined) {
-        const current = await page.locator(`[data-lifeos-field="${form.fields.password}"]`).inputValue();
+        const current = await page.locator(`[data-akasha-field="${form.fields.password}"]`).inputValue();
         if (!current) {
           await this.fill(page, form.fields.username, credentials.username);
           await this.fill(page, form.fields.password, credentials.password);
@@ -2530,7 +2530,7 @@ export class BrowserPool {
     } else {
       if (!form.fields.otp.length) return this.loginState(page, markers);
       if (form.fields.otp.length > 1) {
-        await page.locator(`[data-lifeos-field="${form.fields.otp[0]}"]`).click();
+        await page.locator(`[data-akasha-field="${form.fields.otp[0]}"]`).click();
         await page.keyboard.type(value, { delay: 60 });
       } else {
         await this.fill(page, form.fields.otp[0], value);

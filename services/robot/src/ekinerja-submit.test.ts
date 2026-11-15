@@ -22,7 +22,7 @@ describe("parseSubmitRequest", () => {
     expect(parseSubmitRequest({})).toEqual({ error: "Nomor SKP tidak valid." });
     expect(parseSubmitRequest({ skpExternalId: "1", period: "2026-13" })).toEqual({ error: "Periode tidak valid." });
     expect(parseSubmitRequest({ skpExternalId: "1", period: "2026-10" })).toEqual({
-      error: "Isian LifeOS bulan ini kosong.",
+      error: "Isian Akasha bulan ini kosong.",
     });
     const ok = parseSubmitRequest({
       skpExternalId: "545406",
@@ -46,8 +46,8 @@ describe("incompleteRows & rowDifference", () => {
     expect(incompleteRows(rows)).toEqual([{ key: "b", missing: ["Renaksi", "Bukti Data Dukung"] }]);
   });
   it("baris yang hanya ada di satu sisi", () => {
-    expect(rowDifference(rows, ["a", "c"])).toEqual({ onlyEkinerja: ["b"], onlyLifeos: ["c"] });
-    expect(rowDifference(rows, ["A", "b"])).toEqual({ onlyEkinerja: [], onlyLifeos: [] });
+    expect(rowDifference(rows, ["a", "c"])).toEqual({ onlyEkinerja: ["b"], onlyAkasha: ["c"] });
+    expect(rowDifference(rows, ["A", "b"])).toEqual({ onlyEkinerja: [], onlyAkasha: [] });
   });
 });
 

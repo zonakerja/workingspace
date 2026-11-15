@@ -27,7 +27,7 @@ export function providerCandidates(
 }
 
 /**
- * Pembagian tugas AI per user (`users.ai_routing`): provider untuk chat (asisten LifeOS & My Notebook), fitur AI umum
+ * Pembagian tugas AI per user (`users.ai_routing`): provider untuk chat (asisten Akasha & My Notebook), fitur AI umum
  * (ringkasan, Notes AI, ikon, AI di editor dokumen), model agen Hermes (lewat proxy `agent/llm`), OCR (gambar & PDF hasil
  * scan), rapikan Markdown hasil konversi berkas (Markdown Converter), dan embedding indeks pengetahuan.
  * Kosong = ikuti provider aktif (chat/umum) atau urutan bawaan (OCR, embedding).

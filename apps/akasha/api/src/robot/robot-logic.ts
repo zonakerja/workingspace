@@ -76,7 +76,7 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
       { label: "Jaga sesi login (perbarui cookie, deteksi sesi habis)", scheduled: true },
     ],
     limits:
-      "Hanya mengisi bulan yang belum diajukan. Kirim Penilaian Ke Atasan hanya lewat tombol Anda + PIN, pada bulan yang isinya sama dengan LifeOS & lengkap (tidak pernah oleh agen atau jadwal). Robot tidak menyetujui penilaian.",
+      "Hanya mengisi bulan yang belum diajukan. Kirim Penilaian Ke Atasan hanya lewat tombol Anda + PIN, pada bulan yang isinya sama dengan Akasha & lengkap (tidak pernah oleh agen atau jadwal). Robot tidak menyetujui penilaian.",
   },
   siman: {
     label: "SIMAN",
@@ -101,7 +101,7 @@ export const isRobotSystem = (value: string): value is RobotSystem =>
 
 /** Kunci AES sesi robot diturunkan dari `AI_ENCRYPTION_KEY` (tanpa env baru; tidak sama dengan kunci API key AI). */
 export const robotSessionKey = (aiEncryptionKeyHex: string) =>
-  createHmac("sha256", Buffer.from(aiEncryptionKeyHex, "hex")).update("lifeos:robot-session:v1").digest("hex");
+  createHmac("sha256", Buffer.from(aiEncryptionKeyHex, "hex")).update("akasha:robot-session:v1").digest("hex");
 
 /** Alamat sistem harus https (http hanya untuk localhost saat pengujian). Mengembalikan origin + path tanpa hash. */
 export function normalizeSystemUrl(input: string): string | null {

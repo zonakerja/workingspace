@@ -81,7 +81,7 @@ const COUNT_ORDER: DisplayStatus[] = ["ready", "changed", "deleted", "missing", 
 const SOURCE_LABELS = { task: "Action/Task", activity: "Kegiatan", schedule: "Agenda", ekinerja: "e-Kinerja" } as const;
 
 /**
- * Tab Rencana Aksi e-Kinerja: kegiatan bulan itu ditarik dari Productivity (`CandidatesSection`), Hermes mengusulkan
+ * Tab Rencana Aksi e-Kinerja: kegiatan bulan itu ditarik dari Working Space (`CandidatesSection`), Hermes mengusulkan
  * pemetaan RHK + narasi, dan pemilik mencentang yang masuk. Setiap entri = SKP bulan itu + RHK & indikator + renaksi + realisasi + bukti; yang lengkap diisikan
  * robot lewat "Kirim ke e-Kinerja" (bulan belum pernah dikirim) / "Kirim perubahan" (draf — robot tidak pernah mengirim
  * penilaian ke atasan).
@@ -134,7 +134,7 @@ export function ActionPlanBoard() {
       ),
     );
 
-  // Kirim perubahan: backend membaca e-Kinerja dulu (impor), lalu robot menyamakan bulan dengan LifeOS (draf)
+  // Kirim perubahan: backend membaca e-Kinerja dulu (impor), lalu robot menyamakan bulan dengan Akasha (draf)
   const fill = async (dryRun = false) => {
     setConfirmFill(false);
     setFilling(dryRun ? "check" : "push");
@@ -147,7 +147,7 @@ export function ActionPlanBoard() {
       const notes = [
         submitted ? "Bulan ini sudah dikirim ke atasan — tidak diubah." : "",
         missing ? `${missing} indikator tidak ditemukan di e-Kinerja.` : "",
-        r.imported ? `${r.imported} isian dari e-Kinerja dimasukkan ke LifeOS.` : "",
+        r.imported ? `${r.imported} isian dari e-Kinerja dimasukkan ke Akasha.` : "",
       ].filter(Boolean);
       if (dryRun) {
         const planned = r.results.reduce((n, x) => n + (x.planned ?? 0), 0);
@@ -178,7 +178,7 @@ export function ActionPlanBoard() {
       const r = await robotApi.syncRenaksi(year);
       await refresh();
       toast.success(`Rencana Aksi ${year} dibaca dari e-Kinerja (${r.months.length} bulan).`, {
-        description: r.imported ? `${r.imported} isian yang hanya ada di e-Kinerja dimasukkan ke LifeOS.` : undefined,
+        description: r.imported ? `${r.imported} isian yang hanya ada di e-Kinerja dimasukkan ke Akasha.` : undefined,
       });
     } catch (error) {
       toast.error(errorMessage(error));
@@ -347,7 +347,7 @@ export function ActionPlanBoard() {
         }
         description={
           sent
-            ? `Robot membaca e-Kinerja dulu (isian yang hanya ada di sana dimasukkan ke LifeOS), lalu menyamakan bulan ini dengan LifeOS: ${counts.ready} entri baru ditambahkan, ${counts.changed} entri berubah dan ${counts.deleted} entri dihapus ditulis ulang (e-Kinerja tidak punya ubah per butir: baris indikatornya dilepas, dicentang lagi, lalu diisi ulang dari LifeOS). Robot TIDAK menekan Kirim Penilaian Ke Atasan.`
+            ? `Robot membaca e-Kinerja dulu (isian yang hanya ada di sana dimasukkan ke Akasha), lalu menyamakan bulan ini dengan Akasha: ${counts.ready} entri baru ditambahkan, ${counts.changed} entri berubah dan ${counts.deleted} entri dihapus ditulis ulang (e-Kinerja tidak punya ubah per butir: baris indikatornya dilepas, dicentang lagi, lalu diisi ulang dari Akasha). Robot TIDAK menekan Kirim Penilaian Ke Atasan.`
             : `Robot mengisikan ${counts.ready} entri ke Rencana Aksi ${periodLabel(period)} di e-Kinerja sebagai draf: indikator RHK dicentang, lalu rencana aksi, realisasi, dan bukti data dukung diisi. Robot TIDAK menekan Kirim Penilaian Ke Atasan — periksa lalu Kirim Penilaian (dengan PIN) di tab Penilaian bila sudah sesuai.`
         }
         confirmLabel={sendLabel}
@@ -399,7 +399,7 @@ function EntryRow({
 
   const openSource = () => {
     if (!entry.sourceId) return;
-    // Item asal dibuka di menunya (Productivity / Planner)
+    // Item asal dibuka di menunya (Working Space / Planner)
     if (entry.sourceType === "task") navigate(links.task(entry.sourceId));
     else if (entry.sourceType === "schedule") navigate(links.schedule(entry.sourceId));
     else {

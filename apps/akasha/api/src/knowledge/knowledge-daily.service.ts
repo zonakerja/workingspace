@@ -29,7 +29,7 @@ import {
 type Row = Record<string, unknown> & { id: string };
 const MAX_OVERDUE = 20;
 
-/** Catatan harian (K1 docs/AI-AGENT.md §25.6): `Harian/YYYY-MM-DD.md` + ringkasan Planner/Productivity tanggal itu. */
+/** Catatan harian (K1 docs/AI-AGENT.md §25.6): `Harian/YYYY-MM-DD.md` + ringkasan Planner/Working Space tanggal itu. */
 @Injectable()
 export class KnowledgeDailyService {
   private readonly appUrl: string;
@@ -87,7 +87,7 @@ export class KnowledgeDailyService {
     return this.vault.createAt(userId, period.path, buildPeriodicNote({ period, section, template, now: new Date() }));
   }
 
-  /** Berkas cermin 80-LifeOS per `lifeos_id` (bila cermin menyala) → tautan wiki agar catatan ikut tergambar di graf. */
+  /** Berkas cermin 80-Akasha per `akasha_id` (bila cermin menyala) → tautan wiki agar catatan ikut tergambar di graf. */
   private async mirror(userId: string) {
     const mirrorNotes = await this.prisma.knowledgeNote.findMany({
       where: { userId, path: { startsWith: `${EXPORT_DIR}/` } },
@@ -96,7 +96,7 @@ export class KnowledgeDailyService {
     const mirror = new Map<string, string>();
     for (const n of mirrorNotes) {
       const fm = n.frontmatter as Record<string, unknown> | null;
-      if (fm?.sumber === "lifeos" && typeof fm.lifeos_id === "string") mirror.set(fm.lifeos_id, n.path);
+      if (fm?.sumber === "akasha" && typeof fm.akasha_id === "string") mirror.set(fm.akasha_id, n.path);
     }
     return mirror;
   }

@@ -272,7 +272,7 @@ export class AgentActionsService {
   }
 
   /**
-   * Simpan berkas hasil aplikasi MCP (mis. tautan dari `export-design` Canva) ke LifeOS: diunduh dari domain aplikasi itu
+   * Simpan berkas hasil aplikasi MCP (mis. tautan dari `export-design` Canva) ke Akasha: diunduh dari domain aplikasi itu
    * saja, disimpan sebagai berkas milik pemilik + Resource Global bertag "Hasil Agen" dan nama aplikasi. Resource dicatat
    * sebagai aksi "buat" agen, jadi bisa dibatalkan pemilik (masuk Sampah). Koneksi harus diizinkan untuk agen.
    */

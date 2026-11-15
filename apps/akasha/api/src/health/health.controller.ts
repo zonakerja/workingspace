@@ -45,7 +45,7 @@ export class HealthController {
     const status = Object.values(checks).every((c) => c === "up") ? "ok" : "degraded";
     const body = {
       status,
-      service: "lifeos-backend",
+      service: "akasha-api",
       checks,
       timestamp: new Date().toISOString(),
     };

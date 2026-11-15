@@ -187,7 +187,7 @@ export class LockService {
     for (const notebook of notebooks) {
       for (const source of notebook.sources) {
         notebookSources.add(source.id);
-        // Berkas yang diunggah ke notebook (bukan rujukan berkas LifeOS lain) ikut terkunci
+        // Berkas yang diunggah ke notebook (bukan rujukan berkas Akasha lain) ikut terkunci
         if (source.assetId) {
           const asset = await this.prisma.asset.findFirst({
             where: { id: source.assetId, userId: ownerId, context: "notebook" },

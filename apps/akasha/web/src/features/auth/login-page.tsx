@@ -70,7 +70,7 @@ function LoginPage() {
           <h2 className="relative text-2xl leading-snug font-bold md:text-3xl">{settings.motto}</h2>
 
           <div className="relative flex flex-wrap gap-2">
-            {(["planner", "notes", "productivity", "files"] as const).map((key) => (
+            {(["planner", "notes", "working-space", "files"] as const).map((key) => (
               <span key={key} data-module={key} className="h-1.5 w-10 rounded-full bg-module ring-1 ring-white/40" />
             ))}
           </div>

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-# LifeOS Frontend: build Vite → disajikan nginx (SPA statis + header keamanan). Dibangun dari root monorepo:
-#   docker build -f apps/akasha/web/Dockerfile -t lifeos-frontend .   (dipakai di docker-compose.prod.yml)
+# Akasha Frontend: build Vite → disajikan nginx (SPA statis + header keamanan). Dibangun dari root monorepo:
+#   docker build -f apps/akasha/web/Dockerfile -t akasha-web .   (dipakai di docker-compose.prod.yml)
 # ============================================================================
 
 FROM node:24-trixie-slim AS prune

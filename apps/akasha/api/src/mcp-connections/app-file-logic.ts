@@ -1,7 +1,7 @@
 /**
- * Logika murni "simpan berkas hasil aplikasi MCP ke LifeOS" (diuji di `app-file-logic.spec.ts`).
+ * Logika murni "simpan berkas hasil aplikasi MCP ke Akasha" (diuji di `app-file-logic.spec.ts`).
  *
- * Alat aplikasi (mis. `export-design` Canva) mengembalikan **tautan unduh**, bukan berkas. Agen meminta LifeOS mengunduh tautan
+ * Alat aplikasi (mis. `export-design` Canva) mengembalikan **tautan unduh**, bukan berkas. Agen meminta Akasha mengunduh tautan
  * itu dan menyimpannya sebagai berkas + Resource Global milik pemilik. Agar alat ini tidak menjadi pengunduh bebas (SSRF,
  * menyimpan sembarang berkas), hanya host milik aplikasi itu yang diterima, https saja, tanpa kredensial, dengan batas ukuran.
  */

@@ -18,7 +18,7 @@ import {
 describe("token", () => {
   it("bentuk token, hash, prefix, dan pembacaan header Bearer", () => {
     const token = generateToken();
-    expect(token.startsWith("lifeos_pat_")).toBe(true);
+    expect(token.startsWith("akasha_pat_")).toBe(true);
     expect(generateToken()).not.toBe(token);
     expect(hashToken(token)).toHaveLength(64);
     expect(tokenPrefix(token)).toBe(token.slice(0, 15));
@@ -27,7 +27,7 @@ describe("token", () => {
     expect(bearerToken("Bearer eyJhbGciOi.jwt.token")).toBeNull();
     expect(bearerToken(undefined)).toBeNull();
     // Kunci agen Hermes (HERMES_API_KEY) juga berbentuk token; terlalu pendek / berkarakter asing ditolak
-    expect(bearerToken("Bearer lifeos-dev-hermes-key-0123456789abcdef")).toBe("lifeos-dev-hermes-key-0123456789abcdef");
+    expect(bearerToken("Bearer akasha-dev-hermes-key-0123456789abcdef")).toBe("akasha-dev-hermes-key-0123456789abcdef");
     expect(bearerToken("Bearer pendek")).toBeNull();
     expect(bearerToken("Bearer abc+def/ghi=jkl+mno/pqr=stu")).toBeNull();
   });

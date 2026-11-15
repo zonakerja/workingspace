@@ -9,8 +9,8 @@ export interface AgentSkill {
   name: string;
   description: string;
   category: string;
-  /** Skill LifeOS (folder repo `apps/akai/agent/skills/`) */
-  lifeos: boolean;
+  /** Skill Akasha (folder repo `apps/akai/agent/skills/`) */
+  akasha: boolean;
 }
 
 export interface AgentRunView {
@@ -24,27 +24,27 @@ export interface AgentRunView {
 /** Nama skill: huruf kecil, angka, tanda hubung (sama dengan nama folder skill). */
 export const SKILL_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-/** Kategori skill LifeOS = nama folder mount di container Hermes (`/opt/data/skills/lifeos`). */
-export const LIFEOS_SKILL_CATEGORY = "lifeos";
+/** Kategori skill Akasha = nama folder mount di container Hermes (`/opt/data/skills/akasha`). */
+export const AKASHA_SKILL_CATEGORY = "akasha";
 
 /**
- * Perintah untuk Hermes agar menjalankan skill atas satu pengajuan. ID & judul pengajuan dari database LifeOS (bukan dari
+ * Perintah untuk Hermes agar menjalankan skill atas satu pengajuan. ID & judul pengajuan dari database Akasha (bukan dari
  * isi pesan pemohon); agen tetap membaca isi lewat MCP.
  */
 export function skillRunInput(skill: string, request: { id: string; title: string }) {
   return [
-    `Jalankan skill \`${skill}\` untuk pengajuan LifeOS berikut.`,
+    `Jalankan skill \`${skill}\` untuk pengajuan Akasha berikut.`,
     `- ID pengajuan: ${request.id}`,
     `- Judul: ${request.title.replace(/\s+/g, " ").slice(0, 200)}`,
     "",
-    "Gunakan alat MCP `lifeos`. Simpan hasil ke pengajuan lalu serahkan ke pemilik (submitForReview). Jangan menyetujui,",
+    "Gunakan alat MCP `akasha`. Simpan hasil ke pengajuan lalu serahkan ke pemilik (submitForReview). Jangan menyetujui,",
     "menolak, atau mengirim apa pun. Akhiri dengan ringkasan singkat dalam Bahasa Indonesia.",
   ].join("\n");
 }
 
 /**
  * Perintah tugas dari Kebijakan Otomatis: skill sama dengan tombol, ditambah kewajiban menyerahkan daftar aset ke server
- * (keputusan akhir diambil server LifeOS menurut aturan pemilik, bukan oleh agen).
+ * (keputusan akhir diambil server Akasha menurut aturan pemilik, bukan oleh agen).
  */
 export function policyRunInput(
   skill: string,
@@ -59,13 +59,13 @@ export function policyRunInput(
     ...(verifyAssets
       ? [
           "Bila berkas memuat daftar aset, serahkan semuanya lewat `submit_asset_check` sebelum membuat dokumen, lalu ikuti",
-          "`branch` pada responsnya. Keputusan akhir diambil server LifeOS — jangan meminta konfirmasi pengguna.",
+          "`branch` pada responsnya. Keputusan akhir diambil server Akasha — jangan meminta konfirmasi pengguna.",
         ]
       : ["Hasil kerja Anda akan diperiksa pemilik di Approval — jangan meminta konfirmasi pengguna."]),
   ].join("\n");
 }
 
-/** Respons `GET /v1/skills` (array, atau `{ data | skills: [...] }`) → daftar skill, skill LifeOS di atas. */
+/** Respons `GET /v1/skills` (array, atau `{ data | skills: [...] }`) → daftar skill, skill Akasha di atas. */
 export function parseSkills(body: unknown): AgentSkill[] {
   const list = Array.isArray(body)
     ? body
@@ -84,10 +84,10 @@ export function parseSkills(body: unknown): AgentSkill[] {
       name: s.name,
       description: typeof s.description === "string" ? s.description : "",
       category,
-      lifeos: category.toLowerCase() === LIFEOS_SKILL_CATEGORY,
+      akasha: category.toLowerCase() === AKASHA_SKILL_CATEGORY,
     });
   }
-  return skills.sort((a, b) => Number(b.lifeos) - Number(a.lifeos) || a.name.localeCompare(b.name));
+  return skills.sort((a, b) => Number(b.akasha) - Number(a.akasha) || a.name.localeCompare(b.name));
 }
 
 /** Respons `GET /v1/runs/{id}` → tampilan ringkas. Status tidak dikenal = belum selesai. */
@@ -129,10 +129,10 @@ export const isAgentOwner = (ownerEmail: string | undefined, email: string) =>
 
 /** ID sesi Hermes per user + percakapan (huruf/angka/tanda hubung, maks. 64). */
 export const sessionIdFor = (userId: string, conversation: string) =>
-  `lifeos-${userId}-${conversation.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40) || "utama"}`;
+  `akasha-${userId}-${conversation.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40) || "utama"}`;
 
 /**
- * Frontmatter `SKILL.md` (`name`, `description`) → skill LifeOS. Dipakai karena daftar skill API Hermes (`/v1/skills`)
+ * Frontmatter `SKILL.md` (`name`, `description`) → skill Akasha. Dipakai karena daftar skill API Hermes (`/v1/skills`)
  * bisa gagal (bug Hermes 0.22.x) dan repo adalah sumber kebenaran skill (AG-22).
  */
 export function parseSkillFile(text: string, folder: string): AgentSkill | null {
@@ -149,5 +149,5 @@ export function parseSkillFile(text: string, folder: string): AgentSkill | null 
   };
   const name = field("name") || folder;
   if (!SKILL_NAME.test(name)) return null;
-  return { name, description: field("description"), category: LIFEOS_SKILL_CATEGORY, lifeos: true };
+  return { name, description: field("description"), category: AKASHA_SKILL_CATEGORY, akasha: true };
 }

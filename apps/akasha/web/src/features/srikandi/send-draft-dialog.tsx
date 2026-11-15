@@ -117,7 +117,7 @@ function SendDraftForm({
         </DialogTitle>
         <DialogDescription>
           Robot membuka konsep ini di Log Naskah Keluar SRIKANDI lalu menekan <b>Kirim Konsep</b>. Naskah sampai ke
-          verifikator atas nama Anda dan tidak bisa ditarik kembali dari LifeOS; sesudahnya konsep tidak bisa diubah
+          verifikator atas nama Anda dan tidak bisa ditarik kembali dari Akasha; sesudahnya konsep tidak bisa diubah
           lewat Edit.
         </DialogDescription>
       </DialogHeader>

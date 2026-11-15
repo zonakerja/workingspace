@@ -24,13 +24,13 @@ describe("agent-logic", () => {
     expect(SKILL_NAME.test("Telaah")).toBe(false);
   });
 
-  it("daftar skill: skill LifeOS di atas, bentuk respons berbeda", () => {
+  it("daftar skill: skill Akasha di atas, bentuk respons berbeda", () => {
     const body = [
       { name: "github-pr-workflow", description: "x", category: "github" },
-      { name: "telaah-pengajuan", description: "Telaah", category: "lifeos" },
+      { name: "telaah-pengajuan", description: "Telaah", category: "akasha" },
       { description: "tanpa nama" },
     ];
-    expect(parseSkills(body).map((s) => [s.name, s.lifeos])).toEqual([
+    expect(parseSkills(body).map((s) => [s.name, s.akasha])).toEqual([
       ["telaah-pengajuan", true],
       ["github-pr-workflow", false],
     ]);
@@ -55,11 +55,11 @@ describe("agent-logic", () => {
   });
 
   it("pemilik & ID sesi", () => {
-    expect(isAgentOwner("Admin@LifeOS.com ", "admin@lifeos.com")).toBe(true);
-    expect(isAgentOwner(undefined, "admin@lifeos.com")).toBe(false);
+    expect(isAgentOwner("Admin@WorkingSpace.id ", "admin@workingspace.id")).toBe(true);
+    expect(isAgentOwner(undefined, "admin@workingspace.id")).toBe(false);
     expect(isAgentOwner("a@x.com", "b@x.com")).toBe(false);
-    expect(sessionIdFor("u1", "abc-1!")).toBe("lifeos-u1-abc-1");
-    expect(sessionIdFor("u1", "")).toBe("lifeos-u1-utama");
+    expect(sessionIdFor("u1", "abc-1!")).toBe("akasha-u1-abc-1");
+    expect(sessionIdFor("u1", "")).toBe("akasha-u1-utama");
   });
 });
 
@@ -69,8 +69,8 @@ describe("parseSkillFile", () => {
     expect(parseSkillFile(text, "x")).toEqual({
       name: "telaah-pengajuan",
       description: "Menelaah pengajuan.",
-      category: "lifeos",
-      lifeos: true,
+      category: "akasha",
+      akasha: true,
     });
     expect(parseSkillFile("---\ndescription: tanpa nama\n---", "folder-ku")?.name).toBe("folder-ku");
     expect(parseSkillFile("# tanpa frontmatter", "x")).toBeNull();

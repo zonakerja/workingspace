@@ -9,7 +9,7 @@ import { AuthUser } from "../common/types/auth-user";
 import { API_SCOPES, bearerToken, SCOPE_LABELS } from "./api-token-logic";
 import { ApiTokensService } from "./api-tokens.service";
 import { ActivityQueryDto, CreateApiTokenDto } from "./integrations.dto";
-import { LifeosMcpService } from "./lifeos-mcp.service";
+import { AkashaMcpService } from "./akasha-mcp.service";
 
 /** Pengaturan → Integrasi: token akses pribadi & log aktivitas agen (login aplikasi biasa). */
 @ApiTags("integrations")
@@ -50,7 +50,7 @@ const jsonRpcError = (res: Response, status: number, message: string) =>
   res.status(status).json({ jsonrpc: "2.0", error: { code: -32000, message }, id: null });
 
 /**
- * MCP server LifeOS (Streamable HTTP, stateless): `POST /api/v1/mcp` dengan `Authorization: Bearer lifeos_pat_…`.
+ * MCP server Akasha (Streamable HTTP, stateless): `POST /api/v1/mcp` dengan `Authorization: Bearer akasha_pat_…`.
  * Dipakai agen AI (Hermes, Claude Desktop, n8n, …). Setiap permintaan membuat server & transport baru.
  */
 @ApiTags("integrations")
@@ -58,7 +58,7 @@ const jsonRpcError = (res: Response, status: number, message: string) =>
 export class McpController {
   constructor(
     private readonly tokens: ApiTokensService,
-    private readonly mcp: LifeosMcpService,
+    private readonly mcp: AkashaMcpService,
   ) {}
 
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
@@ -69,7 +69,7 @@ export class McpController {
     const token = bearerToken(req.headers.authorization);
     const principal = token ? await this.tokens.authenticate(token) : null;
     if (!principal) {
-      res.setHeader("WWW-Authenticate", 'Bearer realm="LifeOS MCP"');
+      res.setHeader("WWW-Authenticate", 'Bearer realm="Akasha MCP"');
       return jsonRpcError(res, 401, "Token akses tidak valid atau sudah kedaluwarsa (Pengaturan → Integrasi).");
     }
     const server = this.mcp.createServer(principal);

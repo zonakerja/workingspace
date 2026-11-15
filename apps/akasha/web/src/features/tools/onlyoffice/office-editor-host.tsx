@@ -212,7 +212,7 @@ function EditorFrame({ doc }: { doc: OfficeDocumentRef }) {
           // Tahan input selama menyimpan agar tidak ada ketikan yang tertinggal
           <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
             <span className="flex items-center gap-2 rounded-xl border bg-card px-4 py-2 text-sm shadow-sm">
-              <Spinner /> Menyimpan dokumen ke LifeOS…
+              <Spinner /> Menyimpan dokumen ke Akasha…
             </span>
           </div>
         )}

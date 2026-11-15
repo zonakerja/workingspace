@@ -1,5 +1,5 @@
 import { addDays, diffInDays, formatLocalYMD, parseLocalYMD } from "@/lib/dates";
-import { projectTaskProgress } from "@/features/productivity/lib/progress";
+import { projectTaskProgress } from "@/features/working-space/lib/progress";
 import { compareSchedule, scheduleEnd, scheduleStart } from "@/features/planner/lib/planner-logic";
 import type { ShareEntry } from "@/types/api";
 import type { Project, ProjectTask, Schedule, Todo } from "@/types/entities";

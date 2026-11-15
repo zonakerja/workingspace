@@ -27,7 +27,7 @@ import { requestUnlock } from "@/features/security/pin-prompt";
 const MODULE_ICON: Record<SmartModule, LucideIcon> = {
   planner: CalendarDays,
   notes: StickyNote,
-  productivity: Layers,
+  "working-space": Layers,
   file_control: FolderArchive,
   files: FileText,
   knowledge: BookMarked,

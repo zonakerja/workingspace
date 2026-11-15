@@ -86,7 +86,7 @@ class EnvironmentVariables {
   S3_FORCE_PATH_STYLE = true;
 
   @IsString()
-  ASSET_BUCKET = "lifeos-assets";
+  ASSET_BUCKET = "akasha-assets";
 
   @Transform(({ value }) => Number(value))
   @IsInt()
@@ -199,7 +199,7 @@ class EnvironmentVariables {
   @MinLength(16)
   WHATSAPP_VERIFY_TOKEN?: string;
 
-  /** Akun LifeOS pemilik bot: basis pengetahuan, grup & kontak, AI, dan Antrian Pengajuannya yang dipakai. */
+  /** Akun Akasha pemilik bot: basis pengetahuan, grup & kontak, AI, dan Antrian Pengajuannya yang dipakai. */
   @Transform(emptyToUndefined)
   @IsOptional()
   @IsEmail()
@@ -272,7 +272,7 @@ class EnvironmentVariables {
   @MinLength(8)
   HERMES_API_KEY?: string;
 
-  /** Folder skill LifeOS (SKILL.md) — bawaan ../../akai/agent/skills dari folder apps/akasha/api; produksi: mount baca-saja. */
+  /** Folder skill Akasha (SKILL.md) — bawaan ../../akai/agent/skills dari folder apps/akasha/api; produksi: mount baca-saja. */
   @Transform(emptyToUndefined)
   @IsOptional()
   @IsString()

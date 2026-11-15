@@ -41,10 +41,10 @@ import {
 } from "@/features/planner/lib/planner-logic";
 import { TodoDialog } from "@/features/planner/components/planner-dialogs";
 import { ScheduleDialogs } from "@/features/planner/components/schedule-dialogs";
-import { CompleteTaskDialog } from "@/features/productivity/components/complete-task-dialog";
-import { ParaDetailDialogs } from "@/features/productivity/components/para-detail-dialogs";
-import { completionDefaults } from "@/features/productivity/lib/para";
-import { projectTaskProgress, projectTimeProgress } from "@/features/productivity/lib/progress";
+import { CompleteTaskDialog } from "@/features/working-space/components/complete-task-dialog";
+import { ParaDetailDialogs } from "@/features/working-space/components/para-detail-dialogs";
+import { completionDefaults } from "@/features/working-space/lib/para";
+import { projectTaskProgress, projectTimeProgress } from "@/features/working-space/lib/progress";
 import { useNow } from "@/hooks/use-now";
 import { useOpenSession } from "@/hooks/use-retained";
 import { useSearchParam } from "@/hooks/use-search-param";
@@ -155,7 +155,7 @@ export function Component() {
       return;
     }
     const task = entry.item;
-    // Sama dengan Planner & Productivity: centang → dialog Tandai Selesai; batal centang langsung
+    // Sama dengan Planner & Working Space: centang → dialog Tandai Selesai; batal centang langsung
     if (task.completed)
       setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...completionPatch(false) } : t)));
     else setCompleting({ task, isAction: parentOf(task).isAction });
@@ -433,7 +433,7 @@ export function Component() {
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* To-do hari ini: todo Planner + task/action yang jatuh tempo hari ini */}
-          <div data-module="productivity" className="min-w-0">
+          <div data-module="working-space" className="min-w-0">
             <SectionCard
               icon={CheckSquare}
               title="To-do Hari Ini"
@@ -491,7 +491,7 @@ export function Component() {
         </div>
 
         {/* Proyek berjalan: status aktif, deadline terdekat dulu */}
-        <div data-module="productivity" className="min-w-0">
+        <div data-module="working-space" className="min-w-0">
           <SectionCard
             icon={Layers}
             title="Proyek Berjalan"
@@ -502,7 +502,7 @@ export function Component() {
             }
             action={
               <Button variant="secondary" size="sm" asChild>
-                <Link to="/productivity/projects">Lihat Semua</Link>
+                <Link to="/working-space/projects">Lihat Semua</Link>
               </Button>
             }
           >

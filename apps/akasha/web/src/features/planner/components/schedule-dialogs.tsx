@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useActivities, useAiNotes, useProjects, useResources, useSchedules } from "@/data/collections";
-import { paraParentOf } from "@/features/productivity/lib/para";
+import { paraParentOf } from "@/features/working-space/lib/para";
 import { AddAttachmentButton, AttachmentForm } from "@/features/resources/attachment-form";
 import { AttachmentTable } from "@/features/resources/attachment-table";
 import { ResourceAiDialog } from "@/features/resources/resource-ai-dialog";
@@ -294,7 +294,7 @@ function ScheduleDetail({
   const linkedNotes = aiNotes.filter((n) => n.linkedScheduleId === schedule.id);
   // Notes AI terhubung tidak otomatis menjadi lampiran hasil (bisa catatan pribadi) — user memasukkannya bila perlu
   const resultNoteIds = new Set((schedule.results ?? []).map((r) => r.noteId).filter(Boolean));
-  // Agenda milik Project / item Area (Productivity)
+  // Agenda milik Project / item Area (Working Space)
   const { items: projects } = useProjects();
   const { items: activities } = useActivities();
   const parent = paraParentOf(schedule.projectId, projects, activities);

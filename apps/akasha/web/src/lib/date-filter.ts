@@ -1,6 +1,6 @@
 import { formatLocalYMD } from "@/lib/dates";
 
-/** Filter waktu standar (dipakai Productivity & File Control). */
+/** Filter waktu standar (dipakai Working Space & File Control). */
 export type DateFilterMode = "all" | "month" | "year" | "custom";
 
 export interface DateFilterValue {

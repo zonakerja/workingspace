@@ -161,7 +161,7 @@ export const RECORD_TABLES = {
     fields: [s("title"), f("archived", "bool"), f("items", "json")],
   },
 
-  // ---------------------------------------------------------- Productivity
+  // ---------------------------------------------------------- Working Space
   para_area: {
     model: "Area",
     table: "areas",
@@ -323,7 +323,7 @@ export const RECORD_TABLES = {
     ],
     indexes: [["year"], ["skpId"]],
   },
-  // Rencana aksi bulanan yang dipilih user dari Productivity (produk jadi untuk robot e-Kinerja)
+  // Rencana aksi bulanan yang dipilih user dari Working Space (produk jadi untuk robot e-Kinerja)
   action_plan_entry: {
     model: "ActionPlanEntry",
     table: "action_plan_entries",
@@ -344,7 +344,7 @@ export const RECORD_TABLES = {
   },
 
   // Potret satu bulan Rencana Aksi di e-Kinerja (dibaca robot): status draf/diajukan/dinilai, tanggal pengajuan, rating,
-  // isi per indikator + feedback (di `extra`) — pembanding isian LifeOS & penanda bulan terkunci
+  // isi per indikator + feedback (di `extra`) — pembanding isian Akasha & penanda bulan terkunci
   action_plan_month: {
     model: "ActionPlanMonth",
     table: "action_plan_months",
@@ -382,7 +382,7 @@ export const RECORD_TABLES = {
   },
 
   // Naskah Masuk SRIKANDI (hanya dibaca robot dari halaman daftar): naskah masuk, tembusan, disposisi, koordinasi, arahan.
-  // Kolom daftar lengkap di `extra.fields`; tindak lanjut LifeOS (to-do, balasan) dicatat di `extra`.
+  // Kolom daftar lengkap di `extra.fields`; tindak lanjut Akasha (to-do, balasan) dicatat di `extra`.
   srikandi_inbox: {
     model: "SrikandiInbox",
     table: "srikandi_inboxes",
@@ -402,8 +402,8 @@ export const RECORD_TABLES = {
     indexes: [["kind"], ["date"], ["number"]],
   },
 
-  // Register Naskah Keluar: gerbang LifeOS sebelum naskah didaftarkan ke SRIKANDI (isian formulir Registrasi Naskah
-  // Keluar + berkas mentah dari Approval / Productivity); naskah final dari Daftar Naskah Keluar ditautkan lewat `letterId`
+  // Register Naskah Keluar: gerbang Akasha sebelum naskah didaftarkan ke SRIKANDI (isian formulir Registrasi Naskah
+  // Keluar + berkas mentah dari Approval / Working Space); naskah final dari Daftar Naskah Keluar ditautkan lewat `letterId`
   srikandi_outgoing: {
     model: "SrikandiOutgoing",
     table: "srikandi_outgoings",

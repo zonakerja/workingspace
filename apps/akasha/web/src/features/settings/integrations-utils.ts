@@ -1,18 +1,18 @@
 /** Logika murni Pengaturan → Integrasi (diuji di `integrations-utils.test.ts`). */
 
-/** Alamat MCP server LifeOS dari origin aplikasi (dev: proxy Vite /api → backend; produksi: domain yang sama). */
+/** Alamat MCP server Akasha dari origin aplikasi (dev: proxy Vite /api → backend; produksi: domain yang sama). */
 export const mcpUrl = (origin: string) => `${origin.replace(/\/$/, "")}/api/v1/mcp`;
 
 /** Contoh konfigurasi klien MCP: Claude Desktop / klien JSON umum dan Hermes Agent (`config.yaml`). */
 export function mcpConfigSnippets(url: string, token: string) {
   const json = JSON.stringify(
-    { mcpServers: { lifeos: { type: "http", url, headers: { Authorization: `Bearer ${token}` } } } },
+    { mcpServers: { akasha: { type: "http", url, headers: { Authorization: `Bearer ${token}` } } } },
     null,
     2,
   );
   const hermes = [
     "mcp_servers:",
-    "  lifeos:",
+    "  akasha:",
     `    url: "${url}"`,
     "    headers:",
     `      Authorization: "Bearer ${token}"`,
@@ -35,7 +35,7 @@ export const TOOL_LABELS: Record<string, string> = {
   list_agenda: "Daftar agenda",
   list_open_tasks: "To-do & task terbuka",
   create_todo: "Buat to-do",
-  ask_lifeos: "Tanya asisten LifeOS",
+  ask_akasha: "Tanya asisten Akasha",
   list_requests: "Daftar pengajuan",
   get_request: "Buka pengajuan",
   create_request: "Catat pengajuan",

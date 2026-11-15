@@ -20,7 +20,7 @@ import { UploadsService } from "./uploads.service";
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         // Berkas ditulis ke disk sementara lalu di-stream ke object storage (hemat RAM)
-        storage: diskStorage({ destination: join(tmpdir(), "lifeos-uploads") }),
+        storage: diskStorage({ destination: join(tmpdir(), "akasha-uploads") }),
         limits: {
           fileSize: config.getOrThrow<number>("UPLOAD_MAX_MB") * 1024 * 1024,
         },

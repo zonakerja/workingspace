@@ -119,7 +119,7 @@ export function EkinerjaFillRequestsCard() {
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={approve}
         title="Isi Rencana Aksi ke e-Kinerja?"
-        description="Robot membuka e-Kinerja dengan sesi tersimpan lalu mengisi draf bulan ini dari entri LifeOS terkini (baris yang berubah ditulis ulang). Bulan yang sudah diajukan tidak diisi, dan penilaian tidak dikirim ke atasan."
+        description="Robot membuka e-Kinerja dengan sesi tersimpan lalu mengisi draf bulan ini dari entri Akasha terkini (baris yang berubah ditulis ulang). Bulan yang sudah diajukan tidak diisi, dan penilaian tidak dikirim ke atasan."
         itemName={confirm?.title}
         confirmLabel="Ya, isi sekarang"
       />

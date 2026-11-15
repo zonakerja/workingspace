@@ -19,7 +19,7 @@ type Payload = Record<string, unknown>;
 const MAX_TEXT = 1_000;
 
 /**
- * Usulan renaksi e-Kinerja oleh agen: konteks satu bulan (kegiatan Productivity + SKP & RHK + entri yang sudah ada) dan
+ * Usulan renaksi e-Kinerja oleh agen: konteks satu bulan (kegiatan Working Space + SKP & RHK + entri yang sudah ada) dan
  * penyimpanan usulan sebagai entri `action_plan_entry` bertanda `proposed: true`. Usulan tidak pernah diisikan robot;
  * pemilik mencentangnya di e-Kinerja → Rencana Aksi (atau mengubah / mengabaikannya).
  */

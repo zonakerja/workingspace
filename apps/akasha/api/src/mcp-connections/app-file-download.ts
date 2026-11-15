@@ -13,7 +13,7 @@ function get(url: URL): Promise<IncomingMessage> {
     // Tanpa kredensial aplikasi: tautan ekspor bertanda tangan sudah cukup; token koneksi tidak pernah dikirim ke sini
     const req = https.get(
       url,
-      { lookup: safeLookup, timeout: TIMEOUT_MS, headers: { "User-Agent": "LifeOS/1.0" } },
+      { lookup: safeLookup, timeout: TIMEOUT_MS, headers: { "User-Agent": "Akasha/1.0" } },
       resolve,
     );
     req.on("timeout", () => req.destroy(new AppFileError("Aplikasi terlalu lama mengirim berkas.")));

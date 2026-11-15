@@ -45,7 +45,7 @@ const SCOPE_SHORT: Record<ApiScope, string> = {
 
 /**
  * Pengaturan → Integrasi: token akses pribadi untuk agen AI (Hermes, Claude Desktop, n8n, …) yang memakai MCP server
- * LifeOS, beserta log aktivitas agen. Token bertindak atas nama Anda dengan cakupan terbatas (docs/AI-AGENT.md tahap 3).
+ * Akasha, beserta log aktivitas agen. Token bertindak atas nama Anda dengan cakupan terbatas (docs/AI-AGENT.md tahap 3).
  */
 export function IntegrationsTab() {
   return (
@@ -66,7 +66,7 @@ function TokensCard() {
     <SectionCard
       icon={KeyRound}
       title="Token akses agen AI (MCP)"
-      description="Hubungkan agen AI ke LifeOS lewat Model Context Protocol. Agen hanya bisa melakukan yang diizinkan token."
+      description="Hubungkan agen AI ke Akasha lewat Model Context Protocol. Agen hanya bisa melakukan yang diizinkan token."
       action={
         <Button size="sm" onClick={() => setCreating(true)}>
           <Plus /> Buat token
@@ -130,7 +130,7 @@ function TokensCard() {
         onOpenChange={(open) => !open && setRevoking(null)}
         title="Cabut token?"
         itemName={revoking?.name}
-        description="Agen yang memakai token ini langsung tidak bisa mengakses LifeOS lagi. Log aktivitasnya tetap tersimpan."
+        description="Agen yang memakai token ini langsung tidak bisa mengakses Akasha lagi. Log aktivitasnya tetap tersimpan."
         confirmLabel="Cabut token"
         destructive
         onConfirm={() =>

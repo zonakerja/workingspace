@@ -6,10 +6,10 @@ export const AGENDA_COLORS: Record<AgendaColor, { label: string; swatch: string;
   planner: { label: "Biru", swatch: "bg-mod-planner", badge: "bg-mod-planner text-white shadow-mod-planner/30" },
   notes: { label: "Oranye", swatch: "bg-mod-notes", badge: "bg-mod-notes text-white shadow-mod-notes/30" },
   overview: { label: "Ungu", swatch: "bg-mod-overview", badge: "bg-mod-overview text-white shadow-mod-overview/30" },
-  productivity: {
+  "working-space": {
     label: "Hijau",
-    swatch: "bg-mod-productivity",
-    badge: "bg-mod-productivity text-white shadow-mod-productivity/30",
+    swatch: "bg-mod-working-space",
+    badge: "bg-mod-working-space text-white shadow-mod-working-space/30",
   },
   files: { label: "Merah", swatch: "bg-mod-files", badge: "bg-mod-files text-white shadow-mod-files/30" },
   settings: { label: "Magenta", swatch: "bg-mod-settings", badge: "bg-mod-settings text-white shadow-mod-settings/30" },

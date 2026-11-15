@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-# LifeOS Robot (Playwright + Chromium) — browser otomatis untuk konektor SRIKANDI & e-Kinerja (docs/AI-AGENT.md §21).
-# Dibangun dari root monorepo:  docker build -f services/robot/Dockerfile -t lifeos-robot .
+# Akasha Robot (Playwright + Chromium) — browser otomatis untuk konektor SRIKANDI & e-Kinerja (docs/AI-AGENT.md §21).
+# Dibangun dari root monorepo:  docker build -f services/robot/Dockerfile -t akasha-robot .
 # Image dasar resmi Playwright (amd64 & arm64) sudah berisi Chromium yang cocok dengan versi paket `playwright`.
 # Versi image HARUS sama dengan versi `playwright` di package.json.
 # ============================================================================

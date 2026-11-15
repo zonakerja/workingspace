@@ -1,7 +1,7 @@
 // Uji Kirim Penilaian Ke Atasan TANPA e-Kinerja sungguhan (docs/AI-AGENT.md §21.16): halaman e-Kinerja tiruan berisi data
 // dummy di localhost DALAM container robot, lalu robot dipanggil langsung untuk 7 skenario (ready, mismatch, incomplete,
 // sudah diajukan, dialog asing dibatalkan, konfirmasi dummy → sent). Menjalankan (robot menyala):
-//   wsl -e sh -c "docker cp /mnt/d/Development/Application/LifeOS/robot/test/dummy-ekinerja.mjs lifeos-robot:/tmp/ && docker exec lifeos-robot node /tmp/dummy-ekinerja.mjs"
+//   wsl -e sh -c "docker cp /mnt/d/Development/Application/workingspace/robot/test/dummy-ekinerja.mjs akasha-robot:/tmp/ && docker exec akasha-robot node /tmp/dummy-ekinerja.mjs"
 
 import { createServer } from "node:http";
 
@@ -74,7 +74,7 @@ const call = async (skp, extra = {}) => {
 const results = {
   "1 tanpa confirm (dryRun: false diabaikan)": await call("1", { dryRun: false }),
   "1 sesudahnya masih draf (tidak terkirim)": sent.has("1") ? "TERKIRIM — SALAH" : "belum terkirim ✓",
-  "1 isi beda dengan LifeOS": await call("1", { expectedKeys: ["RHK Lain Indikator X"] }),
+  "1 isi beda dengan Akasha": await call("1", { expectedKeys: ["RHK Lain Indikator X"] }),
   "2 baris belum diisi": await call("2"),
   "4 sudah diajukan": await call("4"),
   "3 kirim + dialog tak dikenal": await call("3", { dryRun: false, confirm: "KIRIM_PENILAIAN" }),

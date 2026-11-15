@@ -13,7 +13,7 @@ import type { KnowledgePeriod } from "@/types/api";
 import { useOpenNote } from "./workspace/workspace-store";
 
 const HELP =
-  "Berkas Harian/YYYY-MM-DD.md dibuat sekali dari templat 90-Templat/Harian.md (bila ada) + ringkasan agenda, to-do, dan task tanggal itu. Mingguan (Mingguan/YYYY-Www.md) & bulanan (Bulanan/YYYY-MM.md) memakai templat Mingguan.md / Bulanan.md. Setelah dibuat, isinya milik Anda — LifeOS tidak menimpanya.";
+  "Berkas Harian/YYYY-MM-DD.md dibuat sekali dari templat 90-Templat/Harian.md (bila ada) + ringkasan agenda, to-do, dan task tanggal itu. Mingguan (Mingguan/YYYY-Www.md) & bulanan (Bulanan/YYYY-MM.md) memakai templat Mingguan.md / Bulanan.md. Setelah dibuat, isinya milik Anda — Akasha tidak menimpanya.";
 
 const PERIOD_LABEL: Record<KnowledgePeriod, string> = { day: "harian", week: "mingguan", month: "bulanan" };
 

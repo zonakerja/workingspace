@@ -48,7 +48,7 @@ import {
   targetOptions,
 } from "./lib/action-plan";
 
-/** Kegiatan Productivity yang ditarik menu e-Kinerja (Action/Task, Kegiatan, Agenda). */
+/** Kegiatan Working Space yang ditarik menu e-Kinerja (Action/Task, Kegiatan, Agenda). */
 export interface ActionPlanSource {
   type: ActionPlanSourceType;
   id: string;
@@ -73,7 +73,7 @@ export const STATUS_STYLE: Record<ActionPlanEntry["status"], string> = {
 interface DialogProps {
   open: boolean;
   onClose: () => void;
-  /** Entri baru dari item Productivity */
+  /** Entri baru dari item Working Space */
   source?: ActionPlanSource;
   /** Ubah entri yang sudah ada */
   entry?: ActionPlanEntry;
@@ -206,7 +206,7 @@ function ActionPlanForm({
     const option = options.find((o) => o.id === docChoice);
     if (!option) return { url: "" };
     if (option.kind === "url") return { url: option.url ?? "" };
-    // Berkas LifeOS → tautan publik baca-saja tanpa kedaluwarsa (bisa dicabut dari pratinjau berkas)
+    // Berkas Akasha → tautan publik baca-saja tanpa kedaluwarsa (bisa dicabut dari pratinjau berkas)
     const link = await publicLinksApi.create(option.uploadId!, { days: null, label: `Renaksi ${periodLabel(period)}` });
     return { url: `${window.location.origin}${link.path}` };
   };

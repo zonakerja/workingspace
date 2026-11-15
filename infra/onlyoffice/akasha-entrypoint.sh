@@ -1,11 +1,11 @@
 #!/bin/sh
-# Entrypoint image ONLYOFFICE LifeOS: menjalankan Document Server seperti biasa + pemantau folder font tambahan.
+# Entrypoint image ONLYOFFICE Akasha: menjalankan Document Server seperti biasa + pemantau folder font tambahan.
 # Admin mengunggah/menghapus font dari Tools → ONLYOFFICE (backend menulis ke folder bersama yang di-mount di sini);
 # setiap perubahan isi folder → daftar font dibuat ulang (documentserver-generate-allfonts.sh, ± 1–2 menit; editor yang
 # sedang terbuka tersambung ulang sebentar karena layanan dokumen di-restart oleh skrip itu).
 FONT_DIR=/usr/share/fonts/truetype/custom
-LOG=/var/log/onlyoffice/lifeos-fonts.log
-INTERVAL=${LIFEOS_FONT_WATCH_INTERVAL:-30}
+LOG=/var/log/onlyoffice/akasha-fonts.log
+INTERVAL=${AKASHA_FONT_WATCH_INTERVAL:-30}
 
 fingerprint() {
   # Nama + ukuran + waktu ubah berkas font (README & .gitignore diabaikan)

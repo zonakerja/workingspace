@@ -369,7 +369,7 @@ export class AiIndexService {
     content: string | null;
     frontmatter: unknown;
   }): SourceDocument | null {
-    // Templat = kerangka; cermin 80-LifeOS = data kerja yang sudah diindeks sendiri (tidak boleh ganda)
+    // Templat = kerangka; cermin 80-Akasha = data kerja yang sudah diindeks sendiri (tidak boleh ganda)
     if ([TEMPLATE_DIR, EXPORT_DIR].includes(note.path.split("/")[0])) return null;
     const frontmatter = (note.frontmatter as Record<string, unknown> | null) ?? null;
     const tags = Array.isArray(frontmatter?.tags)

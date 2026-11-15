@@ -14,7 +14,7 @@ interface ParaDetailDialogsProps {
 
 /**
  * Dialog detail Project & Area yang dikendalikan URL: `?project=<id>`, `?area=<id>`, `?task=<id>` (membuka project
- * pemilik task, atau area dari sub area/kegiatan pemiliknya). Dipasang di halaman Productivity dan Overview sehingga
+ * pemilik task, atau area dari sub area/kegiatan pemiliknya). Dipasang di halaman Working Space dan Overview sehingga
  * item bisa dibuka di halaman mana pun tanpa berpindah menu. Agenda di dalamnya memakai `ScheduleDialogs` halaman.
  */
 export function ParaDetailDialogs({ archivingArea, onArchivingAreaChange }: ParaDetailDialogsProps) {

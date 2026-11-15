@@ -359,7 +359,7 @@ export class PublicVaultsService {
     let geo: GeoInfo | null = null;
     try {
       const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
-        headers: { "User-Agent": "LifeOS-brankas/1.0" },
+        headers: { "User-Agent": "Akasha-brankas/1.0" },
         signal: AbortSignal.timeout(2500),
       });
       geo = res.ok ? parseGeo(await res.json()) : null;
@@ -502,7 +502,7 @@ export class PublicVaultsController {
     @Res({ passthrough: true }) res: Response,
   ) {
     res.set({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
-    // `ref` = document.referrer halaman brankas (Referer permintaan API ini selalu LifeOS sendiri); hanya dicatat
+    // `ref` = document.referrer halaman brankas (Referer permintaan API ini selalu Akasha sendiri); hanya dicatat
     return this.vaults.open(token, { ...visitorOf(req), referrer: referrerOrigin(ref) });
   }
 

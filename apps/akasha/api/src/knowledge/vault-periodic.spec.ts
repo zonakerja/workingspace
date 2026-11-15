@@ -37,12 +37,12 @@ describe("vault-periodic", () => {
         { title: "Laporan", dueDate: "2026-11-06", completed: true },
         { title: "Surat", dueDate: "2026-11-03" },
       ],
-      mirror: new Map([["schedule:b", "80-LifeOS/Agenda/2026-11-05 Rapat.md"]]),
+      mirror: new Map([["schedule:b", "80-Akasha/Agenda/2026-11-05 Rapat.md"]]),
     });
     expect(week).toContain("[[Harian/2026-11-02|Sen 2]]");
     expect(week).toContain("[[Harian/2026-11-08|Min 8]]");
     expect(week.indexOf("Apel")).toBeLessThan(week.indexOf("Rapat"));
-    expect(week).toContain("[[80-LifeOS/Agenda/2026-11-05 Rapat|Rapat]]");
+    expect(week).toContain("[[80-Akasha/Agenda/2026-11-05 Rapat|Rapat]]");
     expect(week).toContain("## Task jatuh tempo (1/2 selesai)");
     expect(week.indexOf("Surat")).toBeLessThan(week.indexOf("Laporan"));
 
@@ -58,7 +58,7 @@ describe("vault-periodic", () => {
     expect(month).toContain("_Tidak ada agenda._");
   });
 
-  it("isi bawaan berproperti & templat dengan {{lifeos}}", () => {
+  it("isi bawaan berproperti & templat dengan {{akasha}}", () => {
     const period = periodOf("month", "2026-11-07");
     const note = buildPeriodicNote({ period, section: "RINGKASAN", now: new Date(2026, 10, 7, 9, 5) });
     const parsed = parseNote(period.path, note);
@@ -68,7 +68,7 @@ describe("vault-periodic", () => {
     const templated = buildPeriodicNote({
       period,
       section: "RINGKASAN",
-      template: "# {{judul}}\n{{lifeos}}\n## Catatan",
+      template: "# {{judul}}\n{{akasha}}\n## Catatan",
       now: new Date(2026, 10, 7, 9, 5),
     });
     expect(templated).toBe("# November 2026\nRINGKASAN\n## Catatan");

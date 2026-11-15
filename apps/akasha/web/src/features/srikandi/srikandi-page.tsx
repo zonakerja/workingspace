@@ -48,7 +48,7 @@ export function Component() {
       module="srikandi"
       meta={
         <HeroStat>
-          <FileCheck2 className="size-3.5" /> {withPdf} naskah ber-TTD di LifeOS
+          <FileCheck2 className="size-3.5" /> {withPdf} naskah ber-TTD di Akasha
         </HeroStat>
       }
     >
@@ -130,8 +130,8 @@ function LettersBoard({ letters }: { letters: SrikandiLetter[] }) {
       title="Daftar Naskah Keluar"
       description={
         lastSync
-          ? `Diambil dari SRIKANDI ${formatDateTime(lastSync)}. Naskah yang sudah ditandatangani disimpan PDF-nya di LifeOS.`
-          : "Ambil daftar naskah keluar dari SRIKANDI. Naskah yang sudah ditandatangani beserta lampirannya disimpan di LifeOS dan masuk Resource Global (Dokumen Final) & File Control."
+          ? `Diambil dari SRIKANDI ${formatDateTime(lastSync)}. Naskah yang sudah ditandatangani disimpan PDF-nya di Akasha.`
+          : "Ambil daftar naskah keluar dari SRIKANDI. Naskah yang sudah ditandatangani beserta lampirannya disimpan di Akasha dan masuk Resource Global (Dokumen Final) & File Control."
       }
       action={
         <Button size="sm" onClick={() => void sync()} disabled={syncing}>
@@ -176,7 +176,7 @@ function LettersBoard({ letters }: { letters: SrikandiLetter[] }) {
                   {l.signStatus && <Badge variant="secondary">TTD: {l.signStatus}</Badge>}
                   {l.sendStatus && <Badge variant="secondary">{l.sendStatus}</Badge>}
                   {l.uploadId ? (
-                    <Badge className="bg-success/15 text-success">PDF ber-TTD di LifeOS</Badge>
+                    <Badge className="bg-success/15 text-success">PDF ber-TTD di Akasha</Badge>
                   ) : (
                     <Badge className="bg-muted text-muted-foreground">Belum ada PDF</Badge>
                   )}
@@ -197,7 +197,7 @@ function LettersBoard({ letters }: { letters: SrikandiLetter[] }) {
                       variant="ghost"
                       className="h-5 px-1.5 text-xs text-info"
                       title="Naskah & lampiran ada di Resource Global (tag Dokumen Final) dan File Control → Gantung"
-                      onClick={() => navigate("/productivity/resources")}
+                      onClick={() => navigate("/working-space/resources")}
                     >
                       <Library className="size-3" /> Resource Global · File Control
                     </Button>

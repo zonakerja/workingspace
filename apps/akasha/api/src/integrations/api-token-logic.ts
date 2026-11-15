@@ -5,7 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
  * argumen untuk log. Diuji di `api-token-logic.spec.ts`.
  */
 
-export const TOKEN_PREFIX = "lifeos_pat_";
+export const TOKEN_PREFIX = "akasha_pat_";
 /** Jumlah token aktif maksimal per user. */
 export const MAX_TOKENS_PER_USER = 20;
 
@@ -31,13 +31,13 @@ export const SCOPE_LABELS: Record<ApiScope, string> = {
   "knowledge:write": "Tulis usulan ke Inbox vault Obsidian",
   "workspace:read": "Baca data kerja (cari data, agenda, to-do & task)",
   "workspace:write": "Buat & ubah data kerja (bisa dibatalkan) dan ajukan hapus (menunggu persetujuan Anda)",
-  "ai:chat": "Tanya asisten LifeOS (memakai provider & kuota AI Anda)",
+  "ai:chat": "Tanya asisten Akasha (memakai provider & kuota AI Anda)",
   "requests:read": "Baca pengajuan & Antrian Verifikasi",
   "requests:write": "Catat pengajuan baru & jalankan analisis/telaah AI (persetujuan tetap oleh Anda)",
-  "ai:model": "Model AI agen lewat LifeOS (memakai provider, API key & kuota Anda — key tidak pernah keluar)",
+  "ai:model": "Model AI agen lewat Akasha (memakai provider, API key & kuota Anda — key tidak pernah keluar)",
   "agent:menus": "Usulkan fitur non-native: workflow & koneksi (tampil setelah Anda setujui di Approval)",
   "mcp:apps":
-    "Pakai alat aplikasi MCP yang Anda izinkan dan minta koneksi / izin baru (menunggu persetujuan; kredensial tetap di LifeOS)",
+    "Pakai alat aplikasi MCP yang Anda izinkan dan minta koneksi / izin baru (menunggu persetujuan; kredensial tetap di Akasha)",
   "ekinerja:robot":
     "e-Kinerja: usulkan pemetaan kegiatan ke RHK & narasi renaksi, jalankan robot baca (ambil SKP, pantau, periksa); pengisian hanya setelah Anda setujui",
   "srikandi:robot":
@@ -45,14 +45,14 @@ export const SCOPE_LABELS: Record<ApiScope, string> = {
   "siman:robot": "SIMAN: jalankan robot baca (jaga sesi, baca isi halaman tanpa klik) untuk mempelajari tiket",
 };
 
-/** Token baru: `lifeos_pat_` + 32 byte acak (base64url) — cukup acak sehingga hash SHA-256 tanpa salt aman. */
+/** Token baru: `akasha_pat_` + 32 byte acak (base64url) — cukup acak sehingga hash SHA-256 tanpa salt aman. */
 export const generateToken = () => `${TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 /** Awal token yang ditampilkan agar user mengenali token (bukan rahasia). */
 export const tokenPrefix = (token: string) => token.slice(0, TOKEN_PREFIX.length + 4);
 
 /**
- * Bentuk token yang diterima: token pribadi `lifeos_pat_…` atau kunci agen Hermes (`HERMES_API_KEY`, lihat
+ * Bentuk token yang diterima: token pribadi `akasha_pat_…` atau kunci agen Hermes (`HERMES_API_KEY`, lihat
  * `agent-setup.ts`) — huruf/angka/`_`/`-`. JWT login (bertitik) selalu ditolak. Keabsahan tetap ditentukan hash di database.
  */
 export const looksLikeToken = (value: string) => /^[A-Za-z0-9_-]{24,128}$/.test(value);
@@ -105,7 +105,7 @@ export const todayLabel = (now: Date, timeZone = "Asia/Jakarta") =>
     year: "numeric",
   }).format(now);
 
-/** YYYY-MM-DD → format tanggal to-do LifeOS (`Date.toDateString()`, mis. "Sat Oct 24 2026"). */
+/** YYYY-MM-DD → format tanggal to-do Akasha (`Date.toDateString()`, mis. "Sat Oct 24 2026"). */
 export function ymdToDateString(ymd: string) {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, m - 1, d).toDateString();

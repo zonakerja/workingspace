@@ -25,7 +25,7 @@ import type {
   Todo,
 } from "@/types/entities";
 
-export interface LifeosData {
+export interface AkashaData {
   routines: Routine[];
   schedules: Schedule[];
   todos: Todo[];
@@ -39,7 +39,7 @@ export interface LifeosData {
 }
 
 /** Semua data yang dipakai fitur pencarian/AI global (diambil dari cache TanStack Query). */
-export function useLifeosData(): LifeosData {
+export function useAkashaData(): AkashaData {
   return {
     routines: useRoutines().items,
     schedules: useSchedules().items,
@@ -61,7 +61,7 @@ const section = <T>(items: T[], line: (item: T) => string, limit: number) =>
  * Ringkasan data user yang dikirim chatbot melayang (`snapshot`), dengan ID `app:<type>:<id>` agar AI bisa
  * membuat link yang dapat diklik (lihat `resolveAppLink`).
  */
-export function buildLifeosContext(data: LifeosData) {
+export function buildAkashaContext(data: AkashaData) {
   const parts = [
     [
       "RESOURCES",
@@ -115,7 +115,7 @@ export function buildLifeosContext(data: LifeosData) {
     ],
   ];
 
-  return `[DATA APLIKASI LIFEOS USER]\n${parts.map(([title, body]) => `--- ${title} ---\n${body}`).join("\n")}`;
+  return `[DATA APLIKASI AKASHA USER]\n${parts.map(([title, body]) => `--- ${title} ---\n${body}`).join("\n")}`;
 }
 
 /** Pesan error AI untuk ditampilkan di chat (pesan dari backend sudah menjelaskan penyebab & tindakannya). */

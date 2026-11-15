@@ -52,7 +52,7 @@ export class NotebooksController {
     return this.notebooks.create(user.id, dto);
   }
 
-  /** Item LifeOS & berkas yang menjadi sumber notebook (cek sebelum menghapus catatan/berkas). */
+  /** Item Akasha & berkas yang menjadi sumber notebook (cek sebelum menghapus catatan/berkas). */
   @Get("usage")
   usage(@CurrentUser() user: AuthUser) {
     return this.notebooks.usage(user.id);

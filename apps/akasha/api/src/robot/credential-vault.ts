@@ -18,7 +18,7 @@ export class CredentialVault {
   }
 
   static aad(userId: string, system: string, field: "username" | "password") {
-    return Buffer.from(`lifeos:robot-credential:${userId}:${system}:${field}`, "utf8");
+    return Buffer.from(`akasha:robot-credential:${userId}:${system}:${field}`, "utf8");
   }
 
   encrypt(plaintext: string, aad: Buffer): string {

@@ -42,7 +42,7 @@ export function RegisterFromOfficeButton({
   const open = async () => {
     if (canEdit) {
       setSaving(true);
-      // Simpan isi terakhir editor ke LifeOS sebelum didaftarkan (gagal = tetap dibuka; ONLYOFFICE menyimpan otomatis)
+      // Simpan isi terakhir editor ke Akasha sebelum didaftarkan (gagal = tetap dibuka; ONLYOFFICE menyimpan otomatis)
       await officeApi.forceSave(uploadId).catch(() => undefined);
       setSaving(false);
     }

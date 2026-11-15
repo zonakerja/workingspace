@@ -101,7 +101,7 @@ class CallToolDto {
 export class McpConnectionsController {
   constructor(private readonly connections: McpConnectionsService) {}
 
-  /** Alamat tujuan halaman izin aplikasi luar; mengalihkan kembali ke halaman koneksi di LifeOS. */
+  /** Alamat tujuan halaman izin aplikasi luar; mengalihkan kembali ke halaman koneksi di Akasha. */
   @Get("oauth/callback")
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
   async callback(

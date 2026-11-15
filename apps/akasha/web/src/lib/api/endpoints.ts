@@ -353,7 +353,7 @@ export const officeApi = {
     uploadId: string;
     mode?: "edit" | "view";
     theme?: "light" | "dark";
-    /** Origin aplikasi: plugin AI LifeOS dimuat dari sini */
+    /** Origin aplikasi: plugin AI Akasha dimuat dari sini */
     appOrigin?: string;
   }) => request<OfficeConfigResult>("/office/config", { method: "POST", body: input }),
   versions: (uploadId: string) => request<OfficeVersions>(`/office/files/${uploadId}/versions`),
@@ -464,7 +464,7 @@ export const aiApi = {
   },
 };
 
-/** Chatbot LifeOS: RAG atas basis pengetahuan (vault Obsidian) + data kerja, riwayat permanen, profil kerja. */
+/** Chatbot Akasha: RAG atas basis pengetahuan (vault Obsidian) + data kerja, riwayat permanen, profil kerja. */
 export const aiChatApi = {
   send: (input: { conversationId?: string; message: string; snapshot?: string; today?: string }) =>
     request<AiChatResult>("/ai/chat", { method: "POST", body: input }),
@@ -503,7 +503,7 @@ export const knowledgeApi = {
   addToInbox: (input: { title: string; content: string; question?: string }) =>
     request<{ path: string }>("/knowledge/inbox", { method: "POST", body: input }),
   tree: () => request<KnowledgeTree>("/knowledge/tree"),
-  /** Cermin hasil kerja LifeOS → folder 80-LifeOS di vault */
+  /** Cermin hasil kerja Akasha → folder 80-Akasha di vault */
   exportSettings: () => request<KnowledgeExport>("/knowledge/export"),
   updateExport: (input: { enabled?: boolean; kinds?: Partial<Record<KnowledgeExportKind, boolean>> }) =>
     request<KnowledgeExport>("/knowledge/export", { method: "PUT", body: input }),
@@ -634,7 +634,7 @@ export const notebooksApi = {
   /** `take` pesan terbaru (urut lama → baru) + apakah masih ada pesan lebih lama. */
   messages: (id: string, take: number) =>
     request<NotebookMessagePage>(`/notebooks/${id}/messages`, { query: { take } }),
-  /** Item LifeOS & berkas yang menjadi sumber notebook milik user. */
+  /** Item Akasha & berkas yang menjadi sumber notebook milik user. */
   usage: () => request<NotebookUsage[]>("/notebooks/usage"),
   clearMessages: (id: string) => request<{ success: boolean }>(`/notebooks/${id}/messages`, { method: "DELETE" }),
   chat: (id: string, message: string, fileIds: string[] = []) =>
@@ -709,7 +709,7 @@ export const whatsappApi = {
 
 const authHeader = () => ({ Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` });
 
-/** Penyiapan agen tanpa terminal: izin (token "Agen Hermes"), model lewat LifeOS, panggilan model terakhir. */
+/** Penyiapan agen tanpa terminal: izin (token "Agen Hermes"), model lewat Akasha, panggilan model terakhir. */
 export interface AgentSetupState {
   /** HERMES_API_KEY di server berbentuk valid (huruf/angka/_/-, 24–128 karakter) */
   keyValid: boolean;
@@ -735,14 +735,14 @@ export interface AgentStatus {
   health?: string;
   model?: string | null;
   skills?: number;
-  lifeosSkills?: number;
+  akashaSkills?: number;
   error?: string;
 }
 export interface AgentSkill {
   name: string;
   description: string;
   category: string;
-  lifeos: boolean;
+  akasha: boolean;
 }
 export interface AgentRun {
   runId: string;
@@ -957,8 +957,8 @@ export const robotApi = {
       body: { year },
     }),
   /** Isi Rencana Aksi bulan itu ke e-Kinerja (draf; robot tidak pernah mengirim ke atasan). */
-  /** Samakan Rencana Aksi bulan itu dengan LifeOS (baca → impor → tambah / tulis ulang); `dryRun` = rencana saja. */
-  /** Cakupan Productivity yang dikecualikan dari renaksi: "area:<id>", "project:<id>", "loose" (berlaku juga untuk agen) */
+  /** Samakan Rencana Aksi bulan itu dengan Akasha (baca → impor → tambah / tulis ulang); `dryRun` = rencana saja. */
+  /** Cakupan Working Space yang dikecualikan dari renaksi: "area:<id>", "project:<id>", "loose" (berlaku juga untuk agen) */
   renaksiScope: () => request<{ excluded: string[] }>("/robot/ekinerja/renaksi/scope"),
   setRenaksiScope: (excluded: string[]) =>
     request<{ excluded: string[] }>("/robot/ekinerja/renaksi/scope", { method: "PUT", body: { excluded } }),

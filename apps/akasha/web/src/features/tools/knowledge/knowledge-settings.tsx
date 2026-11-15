@@ -44,7 +44,7 @@ const MAX_PROFILE = 6000;
 
 /**
  * Tools → Basis Pengetahuan = **pengaturan** (sekali atur): profil kerja & instruksi tetap, vault Obsidian, cermin hasil
- * kerja LifeOS ke vault (80-LifeOS), dan cara memakai. Bekerja dengan isi vault (daftar catatan, sunting, graf,
+ * kerja Akasha ke vault (80-Akasha), dan cara memakai. Bekerja dengan isi vault (daftar catatan, sunting, graf,
  * kesehatan) ada di menu Knowledge. Rencana & keputusan: docs/AI-AGENT.md §10, §14, §25.
  */
 export function KnowledgeSettings() {
@@ -67,7 +67,7 @@ function ProfileCard() {
     <SectionCard
       icon={UserRoundCog}
       title="Profil kerja & instruksi tetap"
-      description="Selalu ikut di setiap chat AI (chatbot LifeOS & My Notebook) — tulis sekali, tidak perlu diulang."
+      description="Selalu ikut di setiap chat AI (chatbot Akasha & My Notebook) — tulis sekali, tidak perlu diulang."
     >
       {isLoading || !data ? <Skeleton className="h-32 rounded-lg" /> : <ProfileForm initial={data.profile ?? ""} />}
     </SectionCard>
@@ -184,7 +184,7 @@ function VaultCard({ status }: { status: KnowledgeStatus }) {
         open={confirmRelease}
         onOpenChange={setConfirmRelease}
         title="Lepas vault Obsidian?"
-        description="Catatan & indeks pengetahuan dari vault ini dihapus dari LifeOS. Berkas di folder vault (dan di Obsidian) tidak disentuh — bisa dipilih lagi kapan saja."
+        description="Catatan & indeks pengetahuan dari vault ini dihapus dari Akasha. Berkas di folder vault (dan di Obsidian) tidak disentuh — bisa dipilih lagi kapan saja."
         confirmLabel="Lepas vault"
         onConfirm={() => setVault.mutate(null, { onSuccess: () => toast.success("Vault dilepas."), onError })}
       />
@@ -234,7 +234,7 @@ function WorkspaceLinks({ status }: { status: KnowledgeStatus }) {
   );
 }
 
-// ---------------------------------------------------------------- Cermin LifeOS → Obsidian
+// ---------------------------------------------------------------- Cermin Akasha → Obsidian
 
 const EXPORT_KIND_INFO: { kind: KnowledgeExportKind; label: string; detail: string }[] = [
   { kind: "notes", label: "Catatan Bebas", detail: "Teks catatan (tulisan tangan: hasil Ubah ke teks)" },
@@ -242,7 +242,7 @@ const EXPORT_KIND_INFO: { kind: KnowledgeExportKind; label: string; detail: stri
   { kind: "aiNotes", label: "Notes AI", detail: "Ringkasan AI, catatan kasar, transkrip" },
   { kind: "notebooks", label: "My Notebook", detail: "Ringkasan, sumber, catatan Studio, riwayat chat" },
   {
-    kind: "productivity",
+    kind: "workingSpace",
     label: "Working Space",
     detail: "Project + Action, Area + strukturnya, Agenda yang punya hasil, Resource Global",
   },
@@ -259,7 +259,7 @@ function MirrorCard() {
     <SectionCard
       icon={FolderSync}
       title="Cermin hasil kerja ke Obsidian"
-      description="Salinan otomatis satu arah (LifeOS → vault) di folder 80-LifeOS: catatan, My Notebook, dan hasil Working Space tampil di Obsidian & graf, saling bertaut."
+      description="Salinan otomatis satu arah (Akasha → vault) di folder 80-Akasha: catatan, My Notebook, dan hasil Working Space tampil di Obsidian & graf, saling bertaut."
       action={
         data && (
           <Switch
@@ -344,13 +344,13 @@ function MirrorCard() {
           )}
           <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-muted-foreground">
             <li>
-              Diperbarui otomatis ± 1 menit setelah data berubah. Berkas di <code>80-LifeOS</code>{" "}
-              <strong>ditimpa</strong> setiap sinkron — sunting di LifeOS; tulis catatan Anda sendiri di folder lain
+              Diperbarui otomatis ± 1 menit setelah data berubah. Berkas di <code>80-Akasha</code>{" "}
+              <strong>ditimpa</strong> setiap sinkron — sunting di Akasha; tulis catatan Anda sendiri di folder lain
               lalu tautkan ke sini dengan <code>[[…]]</code>.
             </li>
             <li>
               Hanya data milik Anda (bukan item yang dibagikan orang lain). Berkas lampiran tidak disalin — cukup nama
-              dan tautan “Buka di LifeOS”.
+              dan tautan “Buka di Akasha”.
             </li>
             <li>
               Folder ini tidak diindeks ulang sebagai pengetahuan (datanya sudah diindeks sebagai data kerja), jadi
@@ -363,7 +363,7 @@ function MirrorCard() {
         open={confirmClear}
         onOpenChange={setConfirmClear}
         title="Hapus berkas cermin?"
-        description="Semua berkas buatan LifeOS di folder 80-LifeOS dihapus dari vault (catatan Anda sendiri di folder itu tidak disentuh). Data di LifeOS tetap utuh; bila cermin masih menyala, berkas dibuat lagi saat data berubah."
+        description="Semua berkas buatan Akasha di folder 80-Akasha dihapus dari vault (catatan Anda sendiri di folder itu tidak disentuh). Data di Akasha tetap utuh; bila cermin masih menyala, berkas dibuat lagi saat data berubah."
         confirmLabel="Hapus berkas"
         onConfirm={() => clear.mutate(undefined, { onSuccess: () => toast.success("Berkas cermin dihapus."), onError })}
       />
@@ -465,7 +465,7 @@ function GuideCard() {
           Peraturan yang dicabut: ubah <code>status: dicabut</code> (jangan dihapus) — AI tidak lagi memakainya.
         </li>
         <li>
-          Tanyakan di chatbot LifeOS (tombol robot kanan bawah). Jawaban bagus bisa disimpan ke <code>00-Inbox</code>{" "}
+          Tanyakan di chatbot Akasha (tombol robot kanan bawah). Jawaban bagus bisa disimpan ke <code>00-Inbox</code>{" "}
           untuk Anda kurasi menjadi catatan tetap.
         </li>
       </ol>

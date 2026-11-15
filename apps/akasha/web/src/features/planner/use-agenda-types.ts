@@ -6,7 +6,7 @@ import type { AgendaType } from "@/types/entities";
 
 const DEFAULT_AGENDA_TYPES = ["Meeting", "Kuliah", "Janji Temu", "Lainnya"];
 
-const seededKey = (userId: string) => `lifeos-agenda-types-seeded:${userId}`;
+const seededKey = (userId: string) => `akasha-agenda-types-seeded:${userId}`;
 
 /**
  * Tipe agenda tersimpan di server per user.

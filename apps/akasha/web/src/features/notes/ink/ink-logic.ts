@@ -27,7 +27,7 @@ export const INK_COLOR_VAR: Record<InkColorId, string> = {
   ink: "var(--foreground)",
   blue: "var(--mod-planner)",
   red: "var(--destructive)",
-  green: "var(--mod-productivity)",
+  green: "var(--mod-working-space)",
   orange: "var(--mod-notes)",
   purple: "var(--mod-overview)",
   yellow: "var(--warning)",

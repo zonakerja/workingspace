@@ -1,9 +1,9 @@
 /**
- * AI di editor ONLYOFFICE lewat AI LifeOS — logika murni (diuji `office-ai.spec.ts`).
+ * AI di editor ONLYOFFICE lewat AI Akasha — logika murni (diuji `office-ai.spec.ts`).
  * ----------------------------------------------------------------------------
  * Tab **AI** plugin resmi ONLYOFFICE dijalankan dalam mode "pengaturan dari server": jembatan kecil di image ONLYOFFICE
- * (`infra/onlyoffice/lifeos-ai-bridge.js`) membaca opsi plugin dari config editor bertanda tangan (token sesi AI + alamat
- * backend) lalu mendaftarkan satu provider "AI LifeOS". Semua permintaan plugin (format OpenAI Chat Completions)
+ * (`infra/onlyoffice/akasha-ai-bridge.js`) membaca opsi plugin dari config editor bertanda tangan (token sesi AI + alamat
+ * backend) lalu mendaftarkan satu provider "AI Akasha". Semua permintaan plugin (format OpenAI Chat Completions)
  * dibungkus plugin menjadi `{ target, method, headers, data }` dan dikirim ke `POST /office/ai/proxy`; backend
  * menerjemahkannya ke `AiService.generate` dengan provider & API key milik user (Pengaturan → Model AI). Key tidak pernah ke
  * browser dan tidak ada pengaturan AI terpisah di editor. Detail: docs/ONLYOFFICE.md §3.4.
@@ -12,17 +12,17 @@
 /** GUID plugin AI resmi ONLYOFFICE (opsi `editorConfig.plugins.options` ditujukan ke GUID ini). */
 export const ONLYOFFICE_AI_PLUGIN_GUID = "asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}";
 /** Id model yang terlihat di plugin; jawaban selalu dari provider aktif user. */
-export const OFFICE_AI_MODEL_ID = "lifeos";
+export const OFFICE_AI_MODEL_ID = "akasha";
 /** Batas isi permintaan (± 100 halaman teks) — mencegah prompt raksasa ke provider. */
 export const OFFICE_AI_MAX_PROMPT = 400_000;
 /** Batas gambar per permintaan (aksi OCR / Vision). */
 export const OFFICE_AI_MAX_IMAGES = 4;
 
-/** Opsi plugin AI resmi yang dibaca jembatan LifeOS (`info.options.lifeos`). */
+/** Opsi plugin AI resmi yang dibaca jembatan Akasha (`info.options.akasha`). */
 export function officeAiPluginOptions(input: { appOrigin: string; token: string; modelName: string }) {
   const api = `${input.appOrigin.replace(/\/+$/, "")}/api/v1/office/ai`;
   return {
-    lifeos: {
+    akasha: {
       token: input.token,
       // Plugin mengirim semua permintaan (non-GET) ke alamat proxy ini
       proxy: `${api}/proxy`,
@@ -119,7 +119,7 @@ export function chatToPrompt(messages: unknown): { prompt: string; images: Offic
 /** Jawaban format OpenAI (non-streaming). */
 export function chatCompletion(text: string, model: string) {
   return {
-    id: `chatcmpl-lifeos-${Date.now()}`,
+    id: `chatcmpl-akasha-${Date.now()}`,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
     model,
@@ -130,7 +130,7 @@ export function chatCompletion(text: string, model: string) {
 /** Jawaban format OpenAI streaming (SSE): satu potongan berisi seluruh teks + penutup. */
 export function chatCompletionStream(text: string, model: string) {
   const base = {
-    id: `chatcmpl-lifeos-${Date.now()}`,
+    id: `chatcmpl-akasha-${Date.now()}`,
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
     model,
@@ -146,9 +146,9 @@ export function chatCompletionStream(text: string, model: string) {
 export function modelList(modelName: string) {
   return {
     object: "list",
-    data: [{ id: OFFICE_AI_MODEL_ID, object: "model", created: 0, owned_by: "lifeos", name: modelName }],
+    data: [{ id: OFFICE_AI_MODEL_ID, object: "model", created: 0, owned_by: "akasha", name: modelName }],
   };
 }
 
 /** Error format OpenAI — plugin menampilkan `error.message`. */
-export const openAiError = (message: string) => ({ error: { message, type: "lifeos_error" } });
+export const openAiError = (message: string) => ({ error: { message, type: "akasha_error" } });

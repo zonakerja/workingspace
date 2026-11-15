@@ -23,7 +23,7 @@ const ROWS: { key: TaskKey; label: string; hint: string; defaultLabel: string }[
   {
     key: "chat",
     label: "Chat & telaah",
-    hint: "Asisten LifeOS (chatbot) dan My Notebook. Pilih model dengan penalaran & tulisan terbaik.",
+    hint: "Asisten Akasha (chatbot) dan My Notebook. Pilih model dengan penalaran & tulisan terbaik.",
     defaultLabel: "Ikuti provider aktif",
   },
   {
@@ -35,7 +35,7 @@ const ROWS: { key: TaskKey; label: string; hint: string; defaultLabel: string }[
   {
     key: "agent",
     label: "Agen (Hermes)",
-    hint: "Model untuk AI Agent & skill di Approval, lewat LifeOS (key tidak disimpan di Hermes). Agen memakai banyak token — model Flash/hemat disarankan.",
+    hint: "Model untuk AI Agent & skill di Approval, lewat Akasha (key tidak disimpan di Hermes). Agen memakai banyak token — model Flash/hemat disarankan.",
     defaultLabel: "Ikuti provider aktif",
   },
   {

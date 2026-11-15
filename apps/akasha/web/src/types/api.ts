@@ -171,7 +171,7 @@ export interface AgentActivity {
   createdAt: string;
 }
 
-// ---------------------------------------------------------------- Chatbot LifeOS & basis pengetahuan
+// ---------------------------------------------------------------- Chatbot Akasha & basis pengetahuan
 
 /** Note composer: tujuan = catatan yang ada (`targetId` + hash) atau catatan baru (`newTitle`). */
 export interface KnowledgeComposeInput {
@@ -254,13 +254,13 @@ export interface McpConnectionInfo {
   allowWrite: boolean;
   /** Alat bertanda Hapus yang tetap diizinkan untuk agen */
   agentTools: string[];
-  /** Domain tempat berkas hasil aplikasi boleh disimpan agen ke LifeOS */
+  /** Domain tempat berkas hasil aplikasi boleh disimpan agen ke Akasha */
   fileHosts: string[];
   /** OAuth client yang didaftarkan pemilik (secret tidak pernah dikirim) */
   oauthClientId: string | null;
   hasClientSecret: boolean;
   oauthScope: string | null;
-  /** Alamat callback OAuth LifeOS untuk didaftarkan di OAuth client */
+  /** Alamat callback OAuth Akasha untuk didaftarkan di OAuth client */
   redirectUrl: string;
   lastCheckedAt: string | null;
   createdAt: string;
@@ -302,7 +302,7 @@ export interface TrashItemInfo {
 }
 
 export type SmartSearchMode = "text" | "meaning";
-export type SmartModule = "planner" | "notes" | "productivity" | "file_control" | "files" | "knowledge" | "other";
+export type SmartModule = "planner" | "notes" | "working-space" | "file_control" | "files" | "knowledge" | "other";
 
 /** Satu item/berkas hasil Pencarian Pintar (potongan terbaik + jumlah potongan cocok). */
 export interface SmartSearchResult {
@@ -364,9 +364,9 @@ export interface AiChatResult {
   used: { knowledge: number; workspace: number };
 }
 
-export type KnowledgeExportKind = "notes" | "lists" | "aiNotes" | "notebooks" | "productivity";
+export type KnowledgeExportKind = "notes" | "lists" | "aiNotes" | "notebooks" | "workingSpace";
 
-/** Cermin satu arah hasil kerja LifeOS ke folder `80-LifeOS` vault (`GET /knowledge/export`). */
+/** Cermin satu arah hasil kerja Akasha ke folder `80-Akasha` vault (`GET /knowledge/export`). */
 export interface KnowledgeExport {
   enabled: boolean;
   kinds: Record<KnowledgeExportKind, boolean>;
@@ -673,7 +673,7 @@ export interface AssetMetadata {
 
 export type NotebookSourceKind = "upload" | "record" | "text" | "web";
 export type NotebookSourceStatus = "ready" | "processing" | "failed" | "missing";
-/** Item LifeOS yang bisa dijadikan sumber notebook (sama dengan backend `NOTEBOOK_RECORD_TYPES`). */
+/** Item Akasha yang bisa dijadikan sumber notebook (sama dengan backend `NOTEBOOK_RECORD_TYPES`). */
 export type NotebookRecordType = "free_note" | "ai_note" | "list" | "para_resource";
 
 export interface NotebookListItem {
@@ -704,7 +704,7 @@ export interface NotebookSource {
   error: string | null;
   /** Jenis berkas (sumber unggahan) */
   mimeType: string | null;
-  /** true = diunggah langsung ke notebook (ikut terhapus bersama notebook); false = berkas/ item dari LifeOS */
+  /** true = diunggah langsung ke notebook (ikut terhapus bersama notebook); false = berkas/ item dari Akasha */
   ownedByNotebook: boolean;
   /** Jumlah karakter teks yang dibaca AI */
   chars: number;
@@ -902,7 +902,7 @@ export interface OfficeFonts {
 export interface OfficeConfigResult {
   documentServerUrl: string;
   access: OfficeAccess;
-  /** Tab AI (AI LifeOS) aktif di sesi editor ini */
+  /** Tab AI (AI Akasha) aktif di sesi editor ini */
   ai: boolean;
   /** Format bisa disunting tetapi sebagian format bisa hilang saat disimpan (ODT, RTF, CSV, TXT, …) */
   lossy: boolean;
@@ -930,7 +930,7 @@ export interface NotebookMessagePage {
   hasMore: boolean;
 }
 
-/** Item LifeOS / berkas yang menjadi sumber notebook (`GET /notebooks/usage`). */
+/** Item Akasha / berkas yang menjadi sumber notebook (`GET /notebooks/usage`). */
 export interface NotebookUsage {
   notebookId: string;
   notebookTitle: string;
@@ -1379,7 +1379,7 @@ export interface VaultAccess {
   location: string;
   network: string | null;
   browser: string | null;
-  /** Asal pembuka (hanya baris "buka"): e-Kinerja, LifeOS, situs lain, atau tanpa asal (tautan ditempel) */
+  /** Asal pembuka (hanya baris "buka"): e-Kinerja, Akasha, situs lain, atau tanpa asal (tautan ditempel) */
   referrer: { kind: "ekinerja" | "app" | "other" | "none"; label: string } | null;
 }
 
@@ -1393,7 +1393,7 @@ export interface PublicVaultView {
   visitor: { ip: string | null; location: string; browser: string | null; at: string };
 }
 
-/** Menu Knowledge (antarmuka Obsidian di LifeOS). */
+/** Menu Knowledge (antarmuka Obsidian di Akasha). */
 export interface KnowledgeTree {
   folders: string[];
   notes: KnowledgeNoteListItem[];
@@ -1488,7 +1488,7 @@ export interface KnowledgeBaseFile {
   data: Record<string, unknown>;
   /** Galat sintaks YAML (berkas tetap bisa diperbaiki di Obsidian) */
   error: string | null;
-  /** Di folder 80-LifeOS (dikelola LifeOS) */
+  /** Di folder 80-Akasha (dikelola Akasha) */
   readOnly: boolean;
 }
 

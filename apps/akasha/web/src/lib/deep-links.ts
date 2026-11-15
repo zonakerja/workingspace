@@ -20,11 +20,11 @@ export const links = {
   newAiNoteForSchedule: (id: string) => `/notes/ai?note=new&schedule=${encodeURIComponent(id)}`,
   routineEdit: (id: string) => `/planner/routines?edit=${encodeURIComponent(id)}`,
   todo: (id: string) => `/planner/daily?todo=${encodeURIComponent(id)}`,
-  project: (id: string) => `/productivity/projects?project=${encodeURIComponent(id)}`,
-  task: (id: string) => `/productivity/projects?task=${encodeURIComponent(id)}`,
-  areas: () => "/productivity/areas",
-  area: (id: string) => `/productivity/areas?area=${encodeURIComponent(id)}`,
-  resource: (id: string) => `/productivity/resources?resource=${encodeURIComponent(id)}`,
+  project: (id: string) => `/working-space/projects?project=${encodeURIComponent(id)}`,
+  task: (id: string) => `/working-space/projects?task=${encodeURIComponent(id)}`,
+  areas: () => "/working-space/areas",
+  area: (id: string) => `/working-space/areas?area=${encodeURIComponent(id)}`,
+  resource: (id: string) => `/working-space/resources?resource=${encodeURIComponent(id)}`,
   /** Detail arsip di File Control (tab sesuai status kearsipan). */
   archive: (id: string, tab: "pending" | "physical" | "digital" = "pending") =>
     `/file-control/${tab}?archive=${encodeURIComponent(id)}`,

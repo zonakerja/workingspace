@@ -30,8 +30,8 @@ describe("itemAccess", () => {
 
 describe("sharedItemPath", () => {
   it("memetakan jenis item ke halaman", () => {
-    expect(sharedItemPath("para_project", "p1")).toBe("/productivity/projects?project=p1");
-    expect(sharedItemPath("para_area", "a1")).toBe("/productivity/areas?area=a1");
+    expect(sharedItemPath("para_project", "p1")).toBe("/working-space/projects?project=p1");
+    expect(sharedItemPath("para_area", "a1")).toBe("/working-space/areas?area=a1");
     expect(sharedItemPath("free_note", "1")).toBe("/notes/free?note=1");
     expect(sharedItemPath("list", "9")).toBe("/notes/lists?list=9");
     expect(sharedItemPath("schedule", "s1")).toBe("/planner/schedule?agenda=s1");

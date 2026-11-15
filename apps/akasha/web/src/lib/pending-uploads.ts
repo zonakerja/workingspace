@@ -54,7 +54,7 @@ export const setPendingUploadsUser = (userId: string | null) => {
   currentUserId = userId;
 };
 
-const storageKey = () => (currentUserId ? `lifeos.pendingUploads.${currentUserId}` : null);
+const storageKey = () => (currentUserId ? `akasha.pendingUploads.${currentUserId}` : null);
 
 export const readPending = (): PendingUpload[] => {
   const key = storageKey();

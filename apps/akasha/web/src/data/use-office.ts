@@ -25,7 +25,7 @@ export function useRestoreOfficeVersion(uploadId: string) {
   });
 }
 
-/** Sakelar AI di editor milik user (+ provider AI LifeOS yang akan menjawab). */
+/** Sakelar AI di editor milik user (+ provider AI Akasha yang akan menjawab). */
 export function useOfficePreferences() {
   return useQuery({ queryKey: queryKeys.officePreferences, queryFn: officeApi.preferences });
 }

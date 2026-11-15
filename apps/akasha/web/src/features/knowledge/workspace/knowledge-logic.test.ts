@@ -203,7 +203,7 @@ describe("kueri graf & tabel", () => {
         row("c.md", null),
         row("d.pdf", null, "file"),
         row("90-Templat/x.md", { bidang: "Templat" }),
-        row("80-LifeOS/x.md", { sumber: "lifeos", bidang: "Cermin" }),
+        row("80-Akasha/x.md", { sumber: "akasha", bidang: "Cermin" }),
       ]),
     ).toEqual({
       fields: [

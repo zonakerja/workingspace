@@ -25,7 +25,7 @@ export const MONTH_NAMES = [
 
 export type RenaksiKind = "renaksi" | "realisasi" | "bukti";
 
-/** Isian satu baris indikator (dari LifeOS). Tiap nilai = satu butir bernomor di e-Kinerja. */
+/** Isian satu baris indikator (dari Akasha). Tiap nilai = satu butir bernomor di e-Kinerja. */
 export interface RenaksiRow {
   rhk: string;
   indicator: string;
@@ -163,8 +163,8 @@ export function monthSummary(text: string, canFill: boolean, canEdit: boolean, r
 }
 
 /**
- * Rencana sinkron satu bulan draf (LifeOS = sumber kebenaran isi): indikator baru dicentang, indikator yang tidak diminta
- * lagi dilepas, dan baris yang memuat butir di luar isian LifeOS **ditulis ulang** (lepas centang = semua butirnya
+ * Rencana sinkron satu bulan draf (Akasha = sumber kebenaran isi): indikator baru dicentang, indikator yang tidak diminta
+ * lagi dilepas, dan baris yang memuat butir di luar isian Akasha **ditulis ulang** (lepas centang = semua butirnya
  * terhapus, centang lagi, isi ulang) karena e-Kinerja tidak punya ubah/hapus per butir. Baris yang hanya kekurangan butir
  * cukup ditambah. Bulan tidak bisa dikosongkan (minimal satu indikator).
  */

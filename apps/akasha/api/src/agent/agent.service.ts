@@ -86,10 +86,10 @@ export interface ModelCall {
 
 /** Error berformat OpenAI untuk Hermes (klien OpenAI membaca `error.message`). */
 const llmError = (res: ExpressResponse, status: number, message: string) =>
-  res.status(status).json({ error: { message, type: "lifeos_agent_error" } });
+  res.status(status).json({ error: { message, type: "akasha_agent_error" } });
 
 /**
- * Asisten Agen (docs/AI-AGENT.md §23): backend LifeOS ↔ API server Hermes (OpenAI-compatible, `Authorization: Bearer
+ * Asisten Agen (docs/AI-AGENT.md §23): backend Akasha ↔ API server Hermes (OpenAI-compatible, `Authorization: Bearer
  * HERMES_API_KEY`). Kunci tidak pernah sampai ke browser. Hermes memakai token MCP milik satu user, sehingga hanya
  * `HERMES_OWNER_EMAIL` yang boleh memakai agen ini. Tugas berjalan sebagai **run** asinkron (`/v1/runs`) yang di-poll.
  */
@@ -252,7 +252,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
       });
     } catch {
       throw new UnprocessableEntityException(
-        "Hermes tidak dapat dihubungi. Nyalakan: wsl -e sh /mnt/d/Development/Application/LifeOS/infra/hermes/up.sh",
+        "Hermes tidak dapat dihubungi. Nyalakan: wsl -e sh /mnt/d/Development/Application/workingspace/infra/hermes/up.sh",
       );
     }
     if (!response.ok) {
@@ -280,7 +280,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
         health: typeof health.status === "string" ? health.status : "ok",
         model: models?.data?.[0]?.id ?? null,
         skills: skills.length,
-        lifeosSkills: skills.filter((s) => s.lifeos).length,
+        akashaSkills: skills.filter((s) => s.akasha).length,
       };
     } catch (error) {
       return { ...base, setup, reachable: false, error: error instanceof Error ? error.message : String(error) };
@@ -289,7 +289,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
 
   // ---------------------------------------------------------------- Penyiapan agen (tanpa terminal)
 
-  /** Hash kunci bersama Hermes ↔ LifeOS = hash token akses "Agen Hermes" di tabel `api_tokens`. */
+  /** Hash kunci bersama Hermes ↔ Akasha = hash token akses "Agen Hermes" di tabel `api_tokens`. */
   private agentKeyHash() {
     const key = this.config.get<string>("HERMES_API_KEY") ?? "";
     return looksLikeToken(key) ? hashToken(key) : null;
@@ -349,7 +349,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
 
   // ---------------------------------------------------------------- Proxy model (OpenAI-compatible) untuk Hermes
 
-  /** `GET /agent/llm/v1/models`: satu model `lifeos-agent` (konteks sesuai provider pilihan user). */
+  /** `GET /agent/llm/v1/models`: satu model `akasha-agent` (konteks sesuai provider pilihan user). */
   async models(principal: TokenPrincipal) {
     const credential = await this.ai.agentCredential(principal.user.id);
     return modelsResponse(credential?.provider ?? null, credential?.model ?? null);
@@ -361,11 +361,11 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
    */
   async proxyChat(principal: TokenPrincipal, body: unknown, res: ExpressResponse) {
     if (!principal.scopes.includes("ai:model")) {
-      return llmError(res, 403, "Token agen tidak punya izin Model AI (ai:model). Siapkan ulang agen di LifeOS.");
+      return llmError(res, 403, "Token agen tidak punya izin Model AI (ai:model). Siapkan ulang agen di Akasha.");
     }
     const candidates = await this.ai.agentCredentials(principal.user.id);
     if (!candidates.length) {
-      return llmError(res, 400, "Model AI agen belum diatur: simpan API key di LifeOS → Pengaturan → Model AI.");
+      return llmError(res, 400, "Model AI agen belum diatur: simpan API key di Akasha → Pengaturan → Model AI.");
     }
     // Provider tugas Agen dulu; gagal karena kuota / sibuk / tak terjangkau sebelum menjawab → cadangan berikutnya
     let fallbackFrom: { provider: string; error: string } | null = null;
@@ -658,7 +658,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Skill LifeOS dibaca dari folder repo (`HERMES_SKILLS_DIR`, bawaan `../../akai/agent/skills`) — folder yang sama
+   * Skill Akasha dibaca dari folder repo (`HERMES_SKILLS_DIR`, bawaan `../../akai/agent/skills`) — folder yang sama
    * dipasang ke container Hermes. Skill bawaan Hermes ditambahkan dari `/v1/skills` bila endpoint itu berfungsi.
    */
   async skills(user: AuthUser): Promise<AgentSkill[]> {
@@ -668,7 +668,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
       .then(parseSkills)
       .catch(() => [] as AgentSkill[]);
     const names = new Set(local.map((s) => s.name));
-    return [...local, ...remote.filter((s) => !s.lifeos && !names.has(s.name))];
+    return [...local, ...remote.filter((s) => !s.akasha && !names.has(s.name))];
   }
 
   private async localSkills(): Promise<AgentSkill[]> {

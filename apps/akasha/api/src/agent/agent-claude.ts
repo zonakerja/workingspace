@@ -4,7 +4,7 @@ import { EFFORT_MODELS, FALLBACK_MODELS, modelMatches } from "../ai/providers/an
 
 /**
  * Terjemahan proxy model agen untuk Claude (diuji di `agent-claude.spec.ts`): Hermes tetap berbicara format OpenAI chat
- * completions ke LifeOS, sedangkan ke Anthropic memakai Messages API native. Endpoint kompatibel OpenAI milik Anthropic
+ * completions ke Akasha, sedangkan ke Anthropic memakai Messages API native. Endpoint kompatibel OpenAI milik Anthropic
  * tidak dipakai karena tanpa prompt caching, tanpa blok pemikiran, dan menolak beberapa parameter pada model terbaru.
  */
 

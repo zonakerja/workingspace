@@ -6,7 +6,7 @@ import { trackPendingUpload, untrackPendingUpload } from "@/lib/pending-uploads"
 import type { AttachedResource } from "@/types/entities";
 
 /**
- * Pola lampiran di form Productivity yang disimpan eksplisit (Project, Action/Task) — aturan seragam dengan Planner
+ * Pola lampiran di form Working Space yang disimpan eksplisit (Project, Action/Task) — aturan seragam dengan Planner
  * (CLAUDE.md §8b "Hapus item / lampiran berkas", contoh asal: `planner/components/schedule-form.tsx`):
  * - Berkas yang diunggah di sesi form dibuang bila form ditutup tanpa disimpan (Batal / X / Esc, unmount = cadangan).
  * - Melepas lampiran berkas → konfirmasi `DeleteWithFilesDialog` (hapus / pertahankan sebagai Resource Global);

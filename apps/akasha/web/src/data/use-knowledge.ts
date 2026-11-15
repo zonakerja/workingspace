@@ -62,7 +62,7 @@ export function useAddToKnowledgeInbox() {
   });
 }
 
-/** Pengaturan & status cermin 80-LifeOS; dipantau selama sinkron berjalan. */
+/** Pengaturan & status cermin 80-Akasha; dipantau selama sinkron berjalan. */
 export function useKnowledgeExport(enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.knowledgeExport,

@@ -23,7 +23,7 @@ export const runningProjects = (projects: Project[]) =>
         (a.deadline || "9999-12-31").localeCompare(b.deadline || "9999-12-31") || a.title.localeCompare(b.title),
     );
 
-/** Satu baris tugas di Overview: todo Planner atau task/action Productivity. */
+/** Satu baris tugas di Overview: todo Planner atau task/action Working Space. */
 export type OverviewTask =
   { kind: "todo"; id: string; item: Todo; due: string } | { kind: "task"; id: string; item: ProjectTask; due: string };
 

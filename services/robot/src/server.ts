@@ -11,7 +11,7 @@ import { inboxRequestedKinds } from "./srikandi-inbox.js";
 import { requestedCategories } from "./srikandi-reference.js";
 
 /**
- * Service robot LifeOS (tahap 6 docs/AI-AGENT.md §21): API internal yang hanya dipanggil backend (token
+ * Service robot Akasha (tahap 6 docs/AI-AGENT.md §21): API internal yang hanya dipanggil backend (token
  * `ROBOT_TOKEN`), tidak pernah dibuka ke internet. Tidak menyimpan kata sandi, kode OTP, atau sesi — semuanya lewat
  * backend; pengguna mengetik sendiri di tayangan "browser jarak jauh".
  */

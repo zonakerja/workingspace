@@ -34,7 +34,7 @@ const TOKEN_SELECT = {
 } as const;
 
 /**
- * Token akses pribadi (Pengaturan → Integrasi) untuk agen AI / program luar yang memakai MCP LifeOS atas nama user.
+ * Token akses pribadi (Pengaturan → Integrasi) untuk agen AI / program luar yang memakai MCP Akasha atas nama user.
  * Token bertindak sebagai user pemiliknya dengan cakupan terbatas — aturan isolasi data tetap berlaku.
  */
 @Injectable()

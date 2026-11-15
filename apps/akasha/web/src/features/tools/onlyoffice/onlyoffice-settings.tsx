@@ -73,7 +73,7 @@ function ServerStatusCard() {
     <SectionCard
       icon={Server}
       title="Status server ONLYOFFICE"
-      description="Server dokumen yang membuka dan menyunting berkas LifeOS."
+      description="Server dokumen yang membuka dan menyunting berkas Akasha."
       action={
         <Button variant="outline" size="sm" disabled={isFetching} onClick={() => void refetch()}>
           <RefreshCw className={cn(isFetching && "animate-spin")} /> Periksa ulang

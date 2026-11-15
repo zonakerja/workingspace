@@ -47,7 +47,7 @@ const FILTERS: { id: CandidateFilter; label: string }[] = [
 ];
 
 /**
- * e-Kinerja → Rencana Aksi → "Kegiatan bulan ini": kegiatan yang ditarik dari Productivity (Productivity sendiri tidak
+ * e-Kinerja → Rencana Aksi → "Kegiatan bulan ini": kegiatan yang ditarik dari Working Space (Working Space sendiri tidak
  * punya tombol e-Kinerja), disaring per Area / Project / Lepas (`ScopeFilter`). "Generate usulan" (agen) mengusulkan
  * RHK + Renaksi + Realisasi; Anda yang memutuskan lewat centang:
  * dicentang = masuk daftar RHK & diisikan robot, dilepas = keluar lagi. Usulan bisa diubah, diabaikan, atau ditambah

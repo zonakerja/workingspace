@@ -9,7 +9,7 @@ import { AiChatDto, AiMessagesQueryDto, AiProfileDto } from "./ai-chat.dto";
 import { AiChatService } from "./ai-chat.service";
 import { LockService } from "../../security/lock.service";
 
-/** Chatbot LifeOS (RAG atas basis pengetahuan + data kerja) dan profil kerja yang selalu ikut di chat AI. */
+/** Chatbot Akasha (RAG atas basis pengetahuan + data kerja) dan profil kerja yang selalu ikut di chat AI. */
 @ApiTags("ai")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)

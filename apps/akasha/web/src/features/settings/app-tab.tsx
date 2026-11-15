@@ -129,7 +129,7 @@ function AppSettingsForm({ settings }: { settings: AppSettings }) {
           <div className="grid gap-4 md:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="app-name">Nama Aplikasi</FieldLabel>
-              <Input id="app-name" placeholder="LifeOS" required {...form.register("name")} />
+              <Input id="app-name" placeholder="Akasha" required {...form.register("name")} />
             </Field>
             <Field>
               <FieldLabel htmlFor="app-navsub">Sub Nama (Navbar)</FieldLabel>
@@ -137,11 +137,11 @@ function AppSettingsForm({ settings }: { settings: AppSettings }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="app-loginsub">Sub Nama (Halaman Login)</FieldLabel>
-              <Input id="app-loginsub" placeholder="Ultimate" {...form.register("loginSub")} />
+              <Input id="app-loginsub" placeholder="Ruang Kerja" {...form.register("loginSub")} />
             </Field>
             <Field>
               <FieldLabel htmlFor="app-motto">Motto Aplikasi (Login)</FieldLabel>
-              <Input id="app-motto" placeholder="Design Your Life..." {...form.register("motto")} />
+              <Input id="app-motto" placeholder="Ruang untuk pekerjaan..." {...form.register("motto")} />
             </Field>
           </div>
 

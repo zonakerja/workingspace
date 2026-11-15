@@ -14,7 +14,7 @@ export const DEFAULT_CANVAS = `${JSON.stringify(
   {
     nodes: [
       {
-        id: "lifeos-welcome",
+        id: "akasha-welcome",
         type: "text",
         text: "# Canvas baru\nTambahkan kartu teks, catatan, atau tautan, lalu hubungkan dengan garis.",
         x: 0,

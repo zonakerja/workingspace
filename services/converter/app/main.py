@@ -1,4 +1,4 @@
-"""Service Markdown Converter LifeOS (MarkItDown + Docling). Hanya dipanggil backend LifeOS (Bearer CONVERTER_TOKEN).
+"""Service Markdown Converter Akasha (MarkItDown + Docling). Hanya dipanggil backend Akasha (Bearer CONVERTER_TOKEN).
 
 POST /convert  (multipart: file, filename?, mode=auto|markitdown|docling, pdf_mode=auto|markitdown|docling)
 GET  /health   (tanpa token; status & versi mesin)
@@ -28,7 +28,7 @@ DOCLING_MAX_PAGES = int(os.environ.get("DOCLING_MAX_PAGES", "200"))
 if len(TOKEN) < 32:
     raise SystemExit("CONVERTER_TOKEN wajib diisi (minimal 32 karakter).")
 
-app = FastAPI(title="LifeOS Markdown Converter", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Akasha Markdown Converter", docs_url=None, redoc_url=None, openapi_url=None)
 _state = {"started": time.time(), "ready": False, "converted": 0}
 
 

@@ -56,9 +56,9 @@ describe("vault-daily", () => {
         ["s1", { title: "Anggaran", kind: "activity" as const, areaId: "a1" }],
       ]),
       mirror: new Map([
-        ["para_project:p1", "80-LifeOS/Productivity/Project/Laporan Q4.md"],
-        ["para_area:a1", "80-LifeOS/Productivity/Area/Keuangan.md"],
-        ["schedule:g2", "80-LifeOS/Agenda/2026-11-06 Rapat sore.md"],
+        ["para_project:p1", "80-Akasha/Working Space/Project/Laporan Q4.md"],
+        ["para_area:a1", "80-Akasha/Working Space/Area/Keuangan.md"],
+        ["schedule:g2", "80-Akasha/Agenda/2026-11-06 Rapat sore.md"],
       ]),
     });
     const lines = text.split("\n");
@@ -66,34 +66,34 @@ describe("vault-daily", () => {
     const iRapat = lines.findIndex((l) => l.includes("Rapat sore"));
     expect(iApel).toBeLessThan(iRapat);
     expect(text).toContain("- 07:30 **Apel** · Halaman");
-    expect(text).toContain("[[80-LifeOS/Agenda/2026-11-06 Rapat sore|Rapat sore]]");
+    expect(text).toContain("[[80-Akasha/Agenda/2026-11-06 Rapat sore|Rapat sore]]");
     expect(text).toContain("Berlanjut **Diklat**");
     expect(text).toContain("- [x] Kirim notulen");
-    expect(text).toContain("- [ ] Susun draf — [[80-LifeOS/Productivity/Project/Laporan Q4|Laporan Q4]]");
-    expect(text).toContain("- [ ] Rekap SPJ — [[80-LifeOS/Productivity/Area/Keuangan|Anggaran]]");
+    expect(text).toContain("- [ ] Susun draf — [[80-Akasha/Working Space/Project/Laporan Q4|Laporan Q4]]");
+    expect(text).toContain("- [ ] Rekap SPJ — [[80-Akasha/Working Space/Area/Keuangan|Anggaran]]");
     expect(text).toContain(
-      "## Terlambat\n- [ ] Review KAK — [[80-LifeOS/Productivity/Project/Laporan Q4|Laporan Q4]] · tenggat 2026-11-01",
+      "## Terlambat\n- [ ] Review KAK — [[80-Akasha/Working Space/Project/Laporan Q4|Laporan Q4]] · tenggat 2026-11-01",
     );
 
     // Tautan wiki terselesaikan ke berkas cermin
     const resolve = buildLinkResolver(
       [
         ...new Set([
-          "80-LifeOS/Productivity/Project/Laporan Q4.md",
-          "80-LifeOS/Productivity/Area/Keuangan.md",
-          "80-LifeOS/Agenda/2026-11-06 Rapat sore.md",
+          "80-Akasha/Working Space/Project/Laporan Q4.md",
+          "80-Akasha/Working Space/Area/Keuangan.md",
+          "80-Akasha/Agenda/2026-11-06 Rapat sore.md",
         ]),
       ].map((path, i) => ({ id: String(i), path, frontmatter: null })),
     );
     for (const link of parseNote("Harian/2026-11-06.md", text).links) expect(resolve(link.target)).not.toBeNull();
   });
 
-  it("templat: penanda diisi, ringkasan di {{lifeos}} atau di akhir; tanpa templat isi bawaan", () => {
+  it("templat: penanda diisi, ringkasan di {{akasha}} atau di akhir; tanpa templat isi bawaan", () => {
     const now = new Date(2026, 10, 6, 9, 5);
     const withMarker = buildDailyNote({
       date: "2026-11-06",
       section: "RINGKASAN",
-      template: "# {{judul}}\nTanggal {{tanggal}} jam {{jam}}\n{{lifeos}}\n## Refleksi",
+      template: "# {{judul}}\nTanggal {{tanggal}} jam {{jam}}\n{{akasha}}\n## Refleksi",
       now,
     });
     expect(withMarker).toBe("# Jumat, 6 November 2026\nTanggal 2026-11-06 jam 09:05\nRINGKASAN\n## Refleksi");

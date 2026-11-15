@@ -60,7 +60,7 @@ export class KnowledgeController {
     private readonly daily: KnowledgeDailyService,
   ) {}
 
-  /** Cermin hasil kerja LifeOS → folder 80-LifeOS di vault (satu arah). */
+  /** Cermin hasil kerja Akasha → folder 80-Akasha di vault (satu arah). */
   @Get("export")
   exportSettings(@CurrentUser() user: AuthUser) {
     return this.mirror.settings(user.id);
@@ -79,7 +79,7 @@ export class KnowledgeController {
     return this.mirror.settings(user.id);
   }
 
-  /** Hapus semua berkas cermin (bertanda sumber: lifeos) dari vault; pengaturan tidak berubah. */
+  /** Hapus semua berkas cermin (bertanda sumber: akasha) dari vault; pengaturan tidak berubah. */
   @Delete("export/files")
   async clearExport(@CurrentUser() user: AuthUser) {
     await this.mirror.clear(user.id);
@@ -254,7 +254,7 @@ export class KnowledgeController {
       : this.daily.open(user.id, dto.date);
   }
 
-  /** Riwayat versi catatan (isi sebelum ditimpa LifeOS + versi terpantau saat pindai). */
+  /** Riwayat versi catatan (isi sebelum ditimpa Akasha + versi terpantau saat pindai). */
   @Get("notes/:id/versions")
   versions(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.vault.versions(user.id, id);

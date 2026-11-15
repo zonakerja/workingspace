@@ -101,8 +101,8 @@ describe("gaya tipe agenda", () => {
   });
 
   it("agenda memakai gaya tipe dari daftar referensi", () => {
-    const types = [{ id: "t1", name: "Webinar", color: "productivity" as const, icon: "video" as const }];
-    expect(scheduleTypeStyle("Webinar", types).className).toContain("bg-mod-productivity");
+    const types = [{ id: "t1", name: "Webinar", color: "working-space" as const, icon: "video" as const }];
+    expect(scheduleTypeStyle("Webinar", types).className).toContain("bg-mod-working-space");
     expect(scheduleTypeStyle("Tidak dikenal", types).className).toContain("bg-mod-");
   });
 });

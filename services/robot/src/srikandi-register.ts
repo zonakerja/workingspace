@@ -89,7 +89,7 @@ export function searchTerm(label: string) {
 }
 
 /**
- * Indeks opsi yang sesuai dengan pilihan LifeOS; -1 = tidak ada. Urutan: sama persis → bagian pertama (nama/kode)
+ * Indeks opsi yang sesuai dengan pilihan Akasha; -1 = tidak ada. Urutan: sama persis → bagian pertama (nama/kode)
  * sama (bila beberapa, yang memuat `hint` jabatan) → satu-satunya opsi yang memuat label utuh.
  */
 export function pickOption(options: string[], wanted: RegisterPick): number {

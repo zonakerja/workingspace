@@ -39,14 +39,14 @@ describe("citationTarget", () => {
   it("halaman record untuk tipe tanpa berbagi", () => {
     expect(recordSourcePath("todo", "t1")).toContain("todo=t1");
     expect(recordSourcePath("para_task", "x")).toContain("task=x");
-    expect(recordSourcePath("para_activity", "x")).toBe("/productivity/areas");
+    expect(recordSourcePath("para_activity", "x")).toBe("/working-space/areas");
   });
 });
 
 describe("Inbox", () => {
   it("judul dari pertanyaan, dipotong", () => {
     expect(inboxTitle("  Berapa  lama sewa? ")).toBe("Berapa lama sewa?");
-    expect(inboxTitle("")).toBe("Jawaban LifeOS AI");
+    expect(inboxTitle("")).toBe("Jawaban Akasha AI");
     expect(inboxTitle("a".repeat(100))).toHaveLength(68);
   });
 

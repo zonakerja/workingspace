@@ -75,7 +75,7 @@ export interface FetchedAttachment {
   mimeType: string;
 }
 
-/** Lampiran tersimpan di record naskah: berkas LifeOS, atau `uploadId` kosong bila belum tertangkap. */
+/** Lampiran tersimpan di record naskah: berkas Akasha, atau `uploadId` kosong bila belum tertangkap. */
 export interface LetterAttachment {
   name: string;
   uploadId?: string;

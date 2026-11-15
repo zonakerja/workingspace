@@ -4,14 +4,14 @@ import { API_SCOPES } from "../integrations/api-token-logic";
 /**
  * Logika murni penyiapan agen Hermes & proxy model (diuji di `agent-llm.spec.ts`).
  *
- * Hermes tidak menyimpan API key model: provider model Hermes = endpoint OpenAI-compatible LifeOS (`/api/v1/agent/llm/v1`)
+ * Hermes tidak menyimpan API key model: provider model Hermes = endpoint OpenAI-compatible Akasha (`/api/v1/agent/llm/v1`)
  * yang meneruskan permintaan ke provider pilihan user (Pengaturan → Model AI → Pembagian tugas → Agen) dengan key
- * tersimpan. Hermes ↔ LifeOS memakai satu kunci bersama `HERMES_API_KEY` (= `API_SERVER_KEY` container) di dua arah:
- * backend → API server Hermes, dan Hermes → LifeOS (MCP + model) sebagai token akses "Agen Hermes" milik pemilik agen.
+ * tersimpan. Hermes ↔ Akasha memakai satu kunci bersama `HERMES_API_KEY` (= `API_SERVER_KEY` container) di dua arah:
+ * backend → API server Hermes, dan Hermes → Akasha (MCP + model) sebagai token akses "Agen Hermes" milik pemilik agen.
  */
 
-/** Nama model yang dilihat Hermes; model sungguhan dipilih LifeOS dari pengaturan user. */
-export const AGENT_MODEL_ID = "lifeos-agent";
+/** Nama model yang dilihat Hermes; model sungguhan dipilih Akasha dari pengaturan user. */
+export const AGENT_MODEL_ID = "akasha-agent";
 
 /** Nama & awalan token akses agen di Pengaturan → Integrasi (dibuat tombol "Siapkan agen"). */
 export const AGENT_TOKEN_NAME = "Agen Hermes (otomatis)";
@@ -36,7 +36,7 @@ export const CONTEXT_LENGTH: Record<"gemini" | "openai" | "anthropic", number> =
   anthropic: 200_000,
 };
 
-/** Respons `GET /models` untuk Hermes: satu model `lifeos-agent`. */
+/** Respons `GET /models` untuk Hermes: satu model `akasha-agent`. */
 export function modelsResponse(provider: keyof typeof CONTEXT_LENGTH | null, model: string | null) {
   return {
     object: "list",
@@ -45,7 +45,7 @@ export function modelsResponse(provider: keyof typeof CONTEXT_LENGTH | null, mod
         id: AGENT_MODEL_ID,
         object: "model",
         created: 0,
-        owned_by: "lifeos",
+        owned_by: "akasha",
         context_length: provider ? CONTEXT_LENGTH[provider] : 128_000,
         ...(model ? { upstream_model: model } : {}),
       },

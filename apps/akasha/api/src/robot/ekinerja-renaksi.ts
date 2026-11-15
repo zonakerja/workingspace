@@ -1,5 +1,5 @@
 /**
- * Logika murni pengisian Rencana Aksi e-Kinerja (diuji di `ekinerja-renaksi.spec.ts`): entri renaksi LifeOS satu bulan →
+ * Logika murni pengisian Rencana Aksi e-Kinerja (diuji di `ekinerja-renaksi.spec.ts`): entri renaksi Akasha satu bulan →
  * baris per indikator untuk robot (`/jobs/ekinerja/renaksi`), lalu hasil baca robot → entri yang sudah terisi.
  * Aturan sama dengan frontend `lib/action-plan.ts` (indikator terpilih, realisasi aspek WAKTU bawaan).
  */
@@ -174,7 +174,7 @@ export function buildSyncPlan(entries: SignedEntry[], targets: PlanTarget[], per
   return buildRenaksiPlan(active, targets, period);
 }
 
-/** Butir e-Kinerja yang tidak dikenal LifeOS → calon entri baru (impor), dikelompokkan per RHK & renaksi. */
+/** Butir e-Kinerja yang tidak dikenal Akasha → calon entri baru (impor), dikelompokkan per RHK & renaksi. */
 export interface ImportCandidate {
   targetId: string;
   description: string;
@@ -185,8 +185,8 @@ export interface ImportCandidate {
 }
 
 /**
- * Butir di baris e-Kinerja yang tidak berasal dari entri LifeOS mana pun (isi sekarang, isi saat terakhir dikirim, atau
- * entri yang ditandai hapus) → entri baru agar LifeOS sama dengan e-Kinerja. Butir dipasangkan per urutan (renaksi ke-i,
+ * Butir di baris e-Kinerja yang tidak berasal dari entri Akasha mana pun (isi sekarang, isi saat terakhir dikirim, atau
+ * entri yang ditandai hapus) → entri baru agar Akasha sama dengan e-Kinerja. Butir dipasangkan per urutan (renaksi ke-i,
  * realisasi ke-i, bukti ke-i); indikator satu RHK dengan renaksi & bukti sama digabung menjadi satu entri.
  */
 export function importCandidates(
@@ -238,7 +238,7 @@ export const entryPresent = (entry: PlanEntry, target: PlanTarget | undefined, r
 
 /**
  * Baris e-Kinerja yang berisi butir → baris kosong (rhk + indikator tanpa butir) untuk mode sinkron: dipakai saat semua
- * isian bulan dihapus di LifeOS, karena e-Kinerja tidak mengizinkan bulan tanpa indikator.
+ * isian bulan dihapus di Akasha, karena e-Kinerja tidak mengizinkan bulan tanpa indikator.
  */
 export function emptyRows(rows: FilledRow[], targets: PlanTarget[]): RenaksiRow[] {
   return rows
@@ -272,13 +272,13 @@ export function proposalsCoveredBy(
 }
 
 /**
- * Alasan bulan belum boleh **Kirim Penilaian Ke Atasan**: harus draf di e-Kinerja (potret Pantau), punya isian LifeOS, dan
+ * Alasan bulan belum boleh **Kirim Penilaian Ke Atasan**: harus draf di e-Kinerja (potret Pantau), punya isian Akasha, dan
  * semua isian sudah sama dengan e-Kinerja (tidak ada yang siap/berubah/akan dihapus) — agar yang dinilai atasan sama
- * dengan yang dilihat pemilik di LifeOS. Robot memeriksa ulang halaman e-Kinerja sebelum mengklik.
+ * dengan yang dilihat pemilik di Akasha. Robot memeriksa ulang halaman e-Kinerja sebelum mengklik.
  */
 export function submitBlockers(entries: SignedEntry[], month: { status?: string } | null | undefined) {
   if (month?.status === "submitted" || month?.status === "rated") return ["Bulan ini sudah dikirim ke atasan."];
-  if (!entries.length) return ["Belum ada isian renaksi LifeOS di bulan ini."];
+  if (!entries.length) return ["Belum ada isian renaksi Akasha di bulan ini."];
   if (month?.status !== "draft") {
     return ["Bulan ini belum tercatat sebagai draf di e-Kinerja — Kirim ke e-Kinerja lalu Pantau e-Kinerja dulu."];
   }

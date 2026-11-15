@@ -24,10 +24,10 @@ import { type AgentStatus, agentApi } from "@/lib/api/endpoints";
 import { formatDateTime } from "@/lib/dates";
 import type { ApiScope } from "@/types/api";
 
-const UP_COMMAND = "wsl -e sh /mnt/d/Development/Application/LifeOS/infra/hermes/up.sh";
+const UP_COMMAND = "wsl -e sh /mnt/d/Development/Application/workingspace/infra/hermes/up.sh";
 
 /**
- * Siapkan agen tanpa terminal (docs/AI-AGENT.md §23): Hermes memakai model lewat LifeOS (provider & API key dari
+ * Siapkan agen tanpa terminal (docs/AI-AGENT.md §23): Hermes memakai model lewat Akasha (provider & API key dari
  * Pengaturan → Model AI, tidak disimpan di Hermes) dan izin agen = token akses "Agen Hermes" yang dibuat tombol di sini.
  */
 export function AgentSetupCard({ status }: { status: AgentStatus }) {
@@ -62,7 +62,7 @@ export function AgentSetupCard({ status }: { status: AgentStatus }) {
     >
       <Step ok={status.reachable} title="1. Hermes menyala">
         {status.reachable ? (
-          "Container lifeos-hermes aktif."
+          "Container akasha-hermes aktif."
         ) : (
           <>
             Nyalakan sekali dari PowerShell: <code className="break-all">{UP_COMMAND}</code>
@@ -73,7 +73,7 @@ export function AgentSetupCard({ status }: { status: AgentStatus }) {
       <Step ok={!!setup?.model} title="2. Model AI">
         {setup?.model ? (
           <>
-            {providerLabel(setup.model.provider)} · <code>{setup.model.model}</code> — API key dipakai lewat LifeOS dan
+            {providerLabel(setup.model.provider)} · <code>{setup.model.model}</code> — API key dipakai lewat Akasha dan
             tidak disimpan di Hermes.{" "}
           </>
         ) : (
@@ -191,7 +191,7 @@ function Step({ ok, title, children }: { ok: boolean; title: string; children: R
   );
 }
 
-/** Pilih izin agen. Bawaan = semua; "Model AI agen" wajib agar Hermes bisa berpikir lewat LifeOS. */
+/** Pilih izin agen. Bawaan = semua; "Model AI agen" wajib agar Hermes bisa berpikir lewat Akasha. */
 function ScopesDialog({ setup, onClose }: { setup: NonNullable<AgentStatus["setup"]>; onClose: () => void }) {
   const { data: scopes } = useIntegrationScopes();
   const client = useQueryClient();
@@ -213,7 +213,7 @@ function ScopesDialog({ setup, onClose }: { setup: NonNullable<AgentStatus["setu
       const status = await agentApi.setup(chosen);
       client.setQueryData(queryKeys.agentStatus, status);
       void client.invalidateQueries({ queryKey: queryKeys.integrationTokens });
-      toast.success("Agen disiapkan", { description: "Hermes kini bisa memakai model & data LifeOS sesuai izin." });
+      toast.success("Agen disiapkan", { description: "Hermes kini bisa memakai model & data Akasha sesuai izin." });
       onClose();
     } catch (error) {
       toast.error("Gagal menyiapkan agen", { description: errorMessage(error) });
@@ -251,7 +251,7 @@ function ScopesDialog({ setup, onClose }: { setup: NonNullable<AgentStatus["setu
         </div>
         {!chosen.includes("ai:model") && (
           <p className="text-xs text-warning">
-            Tanpa izin Model AI agen, Hermes tidak bisa berpikir lewat LifeOS (perlu API key sendiri di Hermes).
+            Tanpa izin Model AI agen, Hermes tidak bisa berpikir lewat Akasha (perlu API key sendiri di Hermes).
           </p>
         )}
         <DialogFooter>

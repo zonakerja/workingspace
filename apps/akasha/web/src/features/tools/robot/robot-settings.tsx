@@ -126,7 +126,7 @@ function ServiceCard({ status, loading }: { status?: { configured: boolean; reac
       }
       description={
         ok
-          ? "Browser otomatis siap. Robot hanya membuka alamat sistem yang Anda atur di bawah; kredensial disimpan terenkripsi di brankas LifeOS, bukan di robot."
+          ? "Browser otomatis siap. Robot hanya membuka alamat sistem yang Anda atur di bawah; kredensial disimpan terenkripsi di brankas Akasha, bukan di robot."
           : status?.configured
             ? "Nyalakan container robot lalu muat ulang halaman ini."
             : "Isi ROBOT_URL & ROBOT_TOKEN di server (docs/DEPLOYMENT.md §13)."
@@ -274,7 +274,7 @@ function ConnectorCard({
             c.lastError && `Galat: ${c.lastError}`,
           ]
             .filter(Boolean)
-            .join(" · ") || "Belum pernah login lewat LifeOS."}
+            .join(" · ") || "Belum pernah login lewat Akasha."}
         </p>
       </section>
 
@@ -353,7 +353,7 @@ function ConnectorCard({
         onOpenChange={setConfirmDeleteCredentials}
         title="Hapus kredensial?"
         itemName={c.label}
-        description="Nama pengguna & kata sandi dihapus dari brankas LifeOS. Sesi login yang tersimpan tidak terpengaruh."
+        description="Nama pengguna & kata sandi dihapus dari brankas Akasha. Sesi login yang tersimpan tidak terpengaruh."
         confirmLabel="Hapus"
         onConfirm={() =>
           m.deleteCredentials.mutate(c.system, {
@@ -367,7 +367,7 @@ function ConnectorCard({
         onOpenChange={setConfirmForget}
         title="Lupakan sesi?"
         itemName={c.label}
-        description="Sesi login tersimpan dihapus dari LifeOS. Anda perlu login lagi sebelum robot bisa bekerja."
+        description="Sesi login tersimpan dihapus dari Akasha. Anda perlu login lagi sebelum robot bisa bekerja."
         confirmLabel="Lupakan"
         onConfirm={() => m.forget.mutate(c.system, { onError: (e) => toast.error(errorMessage(e)) })}
       />

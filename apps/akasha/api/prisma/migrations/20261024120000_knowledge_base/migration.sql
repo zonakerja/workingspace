@@ -1,5 +1,5 @@
 -- Basis pengetahuan & chat AI: koleksi/metadata potongan indeks, profil kerja & folder vault user,
--- percakapan chatbot LifeOS (riwayat permanen), catatan & tautan vault Obsidian.
+-- percakapan chatbot Akasha (riwayat permanen), catatan & tautan vault Obsidian.
 -- AlterTable
 ALTER TABLE "ai_chunks" ADD COLUMN     "collection" TEXT NOT NULL DEFAULT 'workspace',
 ADD COLUMN     "metadata" JSONB;

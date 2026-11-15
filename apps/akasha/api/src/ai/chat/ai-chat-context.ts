@@ -2,7 +2,7 @@ import { citedNumbers } from "../../notebooks/notebook-context";
 import { KNOWLEDGE_COLLECTION } from "../index/index-text";
 
 /**
- * Logika murni chatbot LifeOS (RAG tahap 2, tanpa database/AI): memilih & memberi nomor potongan dari basis pengetahuan
+ * Logika murni chatbot Akasha (RAG tahap 2, tanpa database/AI): memilih & memberi nomor potongan dari basis pengetahuan
  * dan data kerja, menyusun prompt, membaca sitasi. Diuji di `ai-chat-context.spec.ts`.
  */
 
@@ -121,7 +121,7 @@ export function buildAssistantPrompt(input: {
   const snapshot = input.snapshot?.trim().slice(0, MAX_SNAPSHOT_CHARS);
 
   return [
-    `Anda adalah "LifeOS AI", asisten kerja pribadi ${input.userName}.`,
+    `Anda adalah "Akasha AI", asisten kerja pribadi ${input.userName}.`,
     input.today ? `Hari ini: ${input.today}.` : "",
     profile ? `\n<profil_kerja_pengguna>\n${profile}\n</profil_kerja_pengguna>` : "",
     "",

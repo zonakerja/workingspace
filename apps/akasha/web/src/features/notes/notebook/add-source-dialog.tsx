@@ -33,7 +33,7 @@ import { MAX_TEXT_SOURCE_CHARS, RECORD_TYPE_LABEL } from "./notebook-utils";
 
 type SourceTab = "upload" | "record" | "text" | "web";
 
-/** Tambah sumber notebook: unggah berkas, pilih item LifeOS, tempel teks, atau ambil halaman web. */
+/** Tambah sumber notebook: unggah berkas, pilih item Akasha, tempel teks, atau ambil halaman web. */
 export function AddSourceDialog({
   notebookId,
   sources,
@@ -78,7 +78,7 @@ function AddSourceBody({
           <Upload /> <span className="hidden sm:inline">Berkas</span>
         </TabsTrigger>
         <TabsTrigger value="record">
-          <NotebookPen /> <span className="hidden sm:inline">Item LifeOS</span>
+          <NotebookPen /> <span className="hidden sm:inline">Item Akasha</span>
         </TabsTrigger>
         <TabsTrigger value="text">
           <Type /> <span className="hidden sm:inline">Teks</span>
@@ -178,7 +178,7 @@ function UploadSource({ notebookId, onDone }: { notebookId: string; onDone: () =
   );
 }
 
-// ---------------------------------------------------------------------------- Item LifeOS
+// ---------------------------------------------------------------------------- Item Akasha
 
 type Candidate = {
   key: string;
@@ -188,7 +188,7 @@ type Candidate = {
   label: string;
 } & ({ kind: "record"; recordType: NotebookRecordType; recordId: string } | { kind: "file"; assetId: string });
 
-/** Upload milik notebook sendiri (bukan berkas LifeOS lain) — tidak ditawarkan di daftar berkas. */
+/** Upload milik notebook sendiri (bukan berkas Akasha lain) — tidak ditawarkan di daftar berkas. */
 const NOTEBOOK_CONTEXTS = new Set(["notebook", "notebook_chat"]);
 /** Jenis berkas yang isinya bisa dibaca notebook (teks diekstrak server; gambar/scan lewat OCR). */
 const readableFile = (mime: string, name: string) =>
@@ -220,7 +220,7 @@ function RecordSource({
   const { items: aiNotes } = useAiNotes();
   const { items: lists } = useLists();
   const { items: resources } = useResources();
-  // Berkas yang sudah ada di LifeOS (lampiran project/agenda/Notes AI, dsb.) — dipakai sebagai rujukan, tidak dihapus
+  // Berkas yang sudah ada di Akasha (lampiran project/agenda/Notes AI, dsb.) — dipakai sebagai rujukan, tidak dihapus
   const { data: uploads = [] } = useQuery({ queryKey: queryKeys.uploads, queryFn: () => uploadsApi.list(100) });
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -288,7 +288,7 @@ function RecordSource({
           key: `file:${u.id}`,
           assetId: u.id,
           title: u.originalName,
-          hint: `Berkas di LifeOS · ${formatShortDate(u.createdAt)}`,
+          hint: `Berkas di Akasha · ${formatShortDate(u.createdAt)}`,
           label: fileLabel(u.mimeType, u.originalName),
         })),
     )

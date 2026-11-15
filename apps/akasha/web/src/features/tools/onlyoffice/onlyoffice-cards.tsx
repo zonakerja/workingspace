@@ -51,7 +51,7 @@ export function OfficeAiCard() {
     <SectionCard
       icon={Sparkles}
       title="AI di editor"
-      description="Tab AI ONLYOFFICE memakai AI LifeOS (Pengaturan → Model AI)."
+      description="Tab AI ONLYOFFICE memakai AI Akasha (Pengaturan → Model AI)."
     >
       {isLoading ? (
         <Skeleton className="h-24 w-full" />
@@ -84,7 +84,7 @@ export function OfficeAiCard() {
                     (<b>{data.provider.label}</b> · {data.provider.model})
                   </>
                 ) : null}
-                . API key tetap di server LifeOS; tidak ada pengaturan key di editor. Mati = tidak ada isi dokumen yang
+                . API key tetap di server Akasha; tidak ada pengaturan key di editor. Mati = tidak ada isi dokumen yang
                 dikirim ke AI.
               </span>
             </span>

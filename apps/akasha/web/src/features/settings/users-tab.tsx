@@ -35,7 +35,7 @@ import { useRetained } from "@/hooks/use-retained";
 const ROLE_BADGE: Record<UserRole, string> = {
   super_admin: "bg-mod-overview/15 text-mod-overview",
   admin: "bg-mod-planner/15 text-mod-planner",
-  member: "bg-mod-productivity/15 text-mod-productivity",
+  member: "bg-mod-working-space/15 text-mod-working-space",
 };
 
 const formatBytes = (bytes: number) => {

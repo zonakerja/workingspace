@@ -8,16 +8,16 @@ import type { KnowledgeGraph, KnowledgeNoteListItem } from "@/types/api";
 
 export const INBOX_DIR = "00-Inbox";
 export const TEMPLATE_DIR = "90-Templat";
-/** Folder cermin hasil kerja LifeOS (backend `vault-export.ts`): ditimpa setiap sinkron → baca saja di sini. */
-export const MIRROR_DIR = "80-LifeOS";
+/** Folder cermin hasil kerja Akasha (backend `vault-export.ts`): ditimpa setiap sinkron → baca saja di sini. */
+export const MIRROR_DIR = "80-Akasha";
 
-/** Berkas cermin buatan LifeOS (bukan catatan user yang kebetulan disimpan di folder itu). */
+/** Berkas cermin buatan Akasha (bukan catatan user yang kebetulan disimpan di folder itu). */
 export const isMirrorNote = (note: { path: string; properties?: Record<string, unknown> | null }) =>
-  note.path.split("/")[0] === MIRROR_DIR && note.properties?.sumber === "lifeos";
+  note.path.split("/")[0] === MIRROR_DIR && note.properties?.sumber === "akasha";
 
-/** Alamat "Buka di LifeOS" (properti `lifeos` berkas cermin) → path aplikasi, bila alamatnya aplikasi ini. */
+/** Alamat "Buka di Akasha" (properti `akasha` berkas cermin) → path aplikasi, bila alamatnya aplikasi ini. */
 export function mirrorAppPath(properties: Record<string, unknown> | null | undefined, origin: string) {
-  const value = typeof properties?.lifeos === "string" ? properties.lifeos : "";
+  const value = typeof properties?.akasha === "string" ? properties.akasha : "";
   try {
     const url = new URL(value);
     return url.origin === origin ? `${url.pathname}${url.search}` : null;
@@ -341,7 +341,7 @@ export function noteFieldNames(properties: Record<string, unknown> | null | unde
   return list.filter((v): v is string => typeof v === "string" && !!v.trim()).map((v) => v.trim());
 }
 
-/** Daftar bidang dari catatan yang dipakai AI: templat, cermin 80-LifeOS, dan berkas lampiran tidak dihitung. */
+/** Daftar bidang dari catatan yang dipakai AI: templat, cermin 80-Akasha, dan berkas lampiran tidak dihitung. */
 export function fieldCounts(notes: Pick<KnowledgeNoteListItem, "path" | "kind" | "properties">[]) {
   const counts = new Map<string, { name: string; count: number }>();
   let untagged = 0;

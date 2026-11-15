@@ -333,11 +333,11 @@ export interface EditorConfigInput {
   fileUrl: string;
   callbackUrl: string;
   lang?: string;
-  /** Tema LifeOS saat editor dibuka (config bertanda tangan tidak boleh diubah browser, jadi ikut dikirim ke backend) */
+  /** Tema Akasha saat editor dibuka (config bertanda tangan tidak boleh diubah browser, jadi ikut dikirim ke backend) */
   theme?: "light" | "dark";
   /**
    * AI di editor (sakelar user): aktif = tab AI plugin resmi ONLYOFFICE dengan opsi `pluginOptions` untuk GUID plugin itu
-   * (token sesi AI + alamat backend, dibaca jembatan LifeOS); mati = tab AI tidak ada.
+   * (token sesi AI + alamat backend, dibaca jembatan Akasha); mati = tab AI tidak ada.
    */
   ai?: { enabled: boolean; guid: string; pluginOptions?: Record<string, unknown> };
 }
@@ -384,7 +384,7 @@ export function buildEditorConfig(input: EditorConfigInput) {
         // Tombol Simpan langsung menyimpan versi (callback status 6), tidak menunggu editor ditutup
         forcesave: canEdit,
         compactHeader: true,
-        // Tab AI hanya bila diaktifkan user; isinya memakai AI LifeOS (docs/ONLYOFFICE.md §3.4)
+        // Tab AI hanya bila diaktifkan user; isinya memakai AI Akasha (docs/ONLYOFFICE.md §3.4)
         ai: { disabled: !aiOn },
         help: false,
         feedback: false,

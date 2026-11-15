@@ -22,7 +22,7 @@ import { useWorkspaceStore } from "./workspace-store";
 /** Label asal versi (kapan riwayat dicatat). */
 export const VERSION_REASON_LABEL: Record<string, string> = {
   observed: "Terpantau saat pindai vault",
-  before_save: "Sebelum disimpan dari editor LifeOS",
+  before_save: "Sebelum disimpan dari editor Akasha",
   before_properties: "Sebelum properti diubah",
   before_task: "Sebelum tugas dicentang",
   before_link: "Sebelum tautan disematkan",
@@ -89,7 +89,7 @@ function VersionHistory({ id, title, onDone }: { id: string; title: string; onDo
           <History className="size-5 text-module" /> Riwayat versi — {title}
         </DialogTitle>
         <DialogDescription>
-          LifeOS menyimpan isi catatan sebelum menimpanya, dan versi yang terpantau saat vault dipindai (maks. 30
+          Akasha menyimpan isi catatan sebelum menimpanya, dan versi yang terpantau saat vault dipindai (maks. 30
           versi).
         </DialogDescription>
       </DialogHeader>

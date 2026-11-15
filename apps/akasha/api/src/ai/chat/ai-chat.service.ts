@@ -26,7 +26,7 @@ const CONVERSATION_PAGE = 30;
 export const AI_MESSAGES_PAGE = 100;
 
 /**
- * Chatbot LifeOS (RAG tahap 2): pertanyaan → cari basis pengetahuan (vault Obsidian) + data kerja di indeks →
+ * Chatbot Akasha (RAG tahap 2): pertanyaan → cari basis pengetahuan (vault Obsidian) + data kerja di indeks →
  * perluas dengan catatan yang tertaut (`[[...]]`) → jawab dengan sitasi, riwayat percakapan disimpan permanen.
  * Semua data milik user sendiri; endpoint ini juga dasar agen & bot WhatsApp nanti.
  */

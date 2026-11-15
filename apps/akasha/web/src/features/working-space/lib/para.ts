@@ -5,7 +5,7 @@ import type { Activity, Area, AttachedResource, Project, ProjectTask, Resource, 
 const PROJECT_COLORS = [
   "bg-mod-overview",
   "bg-mod-planner",
-  "bg-mod-productivity",
+  "bg-mod-working-space",
   "bg-mod-notes",
   "bg-mod-files",
   "bg-mod-settings",

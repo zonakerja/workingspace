@@ -34,8 +34,8 @@ interface PickerProps {
 }
 
 /**
- * Pilih berkas untuk Register Naskah Keluar: dokumen pengajuan Approval, berkas LifeOS (mis. konsep lampiran
- * Productivity), atau unggah baru. Berkas unggahan baru dicatat `trackPendingUpload` sampai entri disimpan.
+ * Pilih berkas untuk Register Naskah Keluar: dokumen pengajuan Approval, berkas Akasha (mis. konsep lampiran
+ * Working Space), atau unggah baru. Berkas unggahan baru dicatat `trackPendingUpload` sampai entri disimpan.
  */
 export function RegisterFilePicker({ open, onOpenChange, mode, exclude, onPick }: PickerProps) {
   const extensions: readonly string[] = mode === "main" ? MAIN_EXTENSIONS : ATTACHMENT_EXTENSIONS;
@@ -58,14 +58,14 @@ export function RegisterFilePicker({ open, onOpenChange, mode, exclude, onPick }
           <Tabs defaultValue={mode === "main" ? "request" : "file"} className="min-w-0">
             <TabsList>
               <TabsTrigger value="request">Approval</TabsTrigger>
-              <TabsTrigger value="file">Berkas LifeOS</TabsTrigger>
+              <TabsTrigger value="file">Berkas Akasha</TabsTrigger>
               <TabsTrigger value="upload">Unggah</TabsTrigger>
             </TabsList>
             <TabsContent value="request" className="min-w-0">
               <RequestDocuments extensions={extensions} exclude={exclude} onPick={pick} />
             </TabsContent>
             <TabsContent value="file" className="min-w-0">
-              <LifeosFiles extensions={extensions} exclude={exclude} onPick={pick} />
+              <AkashaFiles extensions={extensions} exclude={exclude} onPick={pick} />
             </TabsContent>
             <TabsContent value="upload" className="min-w-0">
               <UploadNew extensions={extensions} onPick={pick} />
@@ -143,7 +143,7 @@ function RequestDocuments({ extensions, exclude, onPick }: ListProps) {
   );
 }
 
-function LifeosFiles({ extensions, exclude, onPick }: ListProps) {
+function AkashaFiles({ extensions, exclude, onPick }: ListProps) {
   const { data: uploads = [], isLoading } = useQuery({
     queryKey: queryKeys.uploads,
     queryFn: () => uploadsApi.list(100),

@@ -1,13 +1,13 @@
 // Smoke test API end-to-end terhadap server yang sedang berjalan.
 // Pemakaian: npm run test:smoke
 //   API_URL              default http://localhost:4000/api/v1
-//   SMOKE_ADMIN_EMAIL    akun super_admin (default admin@lifeos.com — seed development)
+//   SMOKE_ADMIN_EMAIL    akun super_admin (default admin@workingspace.id — seed development)
 //   SMOKE_ADMIN_PASSWORD (default 123)
 //
 // Tidak mengubah data asli: semua uji tulis memakai dua user member sementara
 // yang dibuat di awal dan dihapus (cascade) di akhir.
 const B = process.env.API_URL ?? "http://localhost:4000/api/v1";
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "admin@lifeos.com";
+const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "admin@workingspace.id";
 const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD ?? "123";
 let failed = 0;
 const j = async (method, path, body, token, cookie) => {
@@ -17,12 +17,12 @@ const j = async (method, path, body, token, cookie) => {
     headers: {
       ...(body && !isForm ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(cookie ? { Cookie: `lifeos_rt=${cookie}` } : {}),
+      ...(cookie ? { Cookie: `akasha_rt=${cookie}` } : {}),
     },
     body: isForm ? body : body ? JSON.stringify(body) : undefined,
   });
-  const setCookie = r.headers.getSetCookie().find((c) => c.startsWith("lifeos_rt=")) ?? "";
-  const rt = decodeURIComponent(setCookie.split(";")[0].slice("lifeos_rt=".length));
+  const setCookie = r.headers.getSetCookie().find((c) => c.startsWith("akasha_rt=")) ?? "";
+  const rt = decodeURIComponent(setCookie.split(";")[0].slice("akasha_rt=".length));
   const text = await r.text();
   let data;
   try {
@@ -95,12 +95,12 @@ const admin = r.d.accessToken;
 ok("no passwordHash", !("passwordHash" in r.d.user));
 
 // User sementara untuk semua uji tulis
-const email = `smoke-${Date.now()}@lifeos.test`;
+const email = `smoke-${Date.now()}@akasha.test`;
 r = await j("POST", "/users", { name: "Smoke Test", email, password: "rahasia", role: "member" }, admin);
 ok("create temp user", r.s === 201 && r.d.id, r);
 const tempUserId = r.d.id;
 // Rekan untuk uji isolasi data & berbagi
-const partnerEmail = `smoke-partner-${Date.now()}@lifeos.test`;
+const partnerEmail = `smoke-partner-${Date.now()}@akasha.test`;
 r = await j(
   "POST",
   "/users",
@@ -112,7 +112,7 @@ const tempPartnerId = r.d.id;
 r = await j(
   "POST",
   "/users",
-  { name: "x", email: `v-${Date.now()}@lifeos.test`, password: "rahasia", role: "viewer" },
+  { name: "x", email: `v-${Date.now()}@akasha.test`, password: "rahasia", role: "viewer" },
   admin,
 );
 ok("role viewer removed 400", r.s === 400, r);
@@ -415,7 +415,7 @@ try {
 
   // ------------------------------------------------------------ uploads
   const fd = new FormData();
-  fd.append("file", new Blob(["Halo arsip LifeOS"], { type: "text/plain" }), "catatan é.txt");
+  fd.append("file", new Blob(["Halo arsip Akasha"], { type: "text/plain" }), "catatan é.txt");
   fd.append("context", "resource");
   r = await j("POST", "/uploads", fd, at);
   ok("upload", r.s === 201 && r.d.id && r.d.originalName === "catatan é.txt", r);
@@ -432,13 +432,13 @@ try {
     r,
   );
   r = await j("GET", `/uploads/${assetId}`, null, at);
-  ok("stream w/ bearer", r.s === 200 && r.d === "Halo arsip LifeOS", r);
+  ok("stream w/ bearer", r.s === 200 && r.d === "Halo arsip Akasha", r);
   r = await j("POST", `/uploads/${assetId}/link`, null, at);
   ok("link", r.s === 201, r);
   const link = r.d.url;
   const dlToken = decodeURIComponent(link.split("token=")[1]);
   r = await j("GET", link);
-  ok("download via link", r.s === 200 && r.d === "Halo arsip LifeOS", r);
+  ok("download via link", r.s === 200 && r.d === "Halo arsip Akasha", r);
   r = await j("GET", "/auth/me", null, dlToken);
   ok("download token not usable as access 401", r.s === 401, r);
   r = await j("GET", `/uploads/${assetId}/download?token=bad`);
@@ -558,7 +558,7 @@ try {
   r = await j("POST", "/auth/refresh", null, null, rt);
   ok("parallel refresh within grace window", r.s === 200, r);
   r = await j("POST", "/auth/logout", null, null, rt2);
-  ok("logout clears cookie", r.s === 200 && /lifeos_rt=;/.test(r.setCookie), r.setCookie);
+  ok("logout clears cookie", r.s === 200 && /akasha_rt=;/.test(r.setCookie), r.setCookie);
   r = await j("POST", "/auth/refresh", null, null, rt2);
   ok("refresh after logout 401", r.s === 401, r);
 
@@ -631,7 +631,7 @@ try {
   r = await j(
     "POST",
     "/shares",
-    { recordType: "para_project", recordId: "sh-p1", email: "tidak-ada@lifeos.test", permission: "view" },
+    { recordType: "para_project", recordId: "sh-p1", email: "tidak-ada@akasha.test", permission: "view" },
     at,
   );
   ok("share unknown email 404", r.s === 404, r);
@@ -941,14 +941,14 @@ try {
   const nbAsset = await j("POST", "/uploads", nbForm, at);
   r = await j("POST", `/notebooks/${nb}/sources`, { kind: "upload", assetId: nbAsset.d.id }, at);
   ok("notebook upload source", r.s === 201 && ["processing", "ready"].includes(r.d.status) && r.d.ownedByNotebook, r);
-  // Berkas yang sudah ada di LifeOS (mis. lampiran) dipakai sebagai sumber → tidak ikut terhapus bersama notebook
+  // Berkas yang sudah ada di Akasha (mis. lampiran) dipakai sebagai sumber → tidak ikut terhapus bersama notebook
   const linkedForm = new FormData();
   linkedForm.append("file", new Blob(["Lampiran project: rencana kerja 2027."], { type: "text/plain" }), "rk.txt");
   linkedForm.append("context", "para_task");
   const linkedAsset = await j("POST", "/uploads", linkedForm, at);
   r = await j("POST", `/notebooks/${nb}/sources`, { kind: "upload", assetId: linkedAsset.d.id }, at);
   ok(
-    "notebook linked LifeOS file source",
+    "notebook linked Akasha file source",
     r.s === 201 && r.d.ownedByNotebook === false && r.d.mimeType === "text/plain",
     r,
   );
@@ -1044,7 +1044,7 @@ try {
   r = await j("GET", `/uploads/${nbAsset.d.id}/metadata`, null, at);
   ok("notebook upload removed with notebook", r.s === 404, r);
   r = await j("GET", `/uploads/${linkedAsset.d.id}/metadata`, null, at);
-  ok("notebook keeps LifeOS file after notebook delete", r.s === 200, r);
+  ok("notebook keeps Akasha file after notebook delete", r.s === 200, r);
   await j("DELETE", `/uploads/${linkedAsset.d.id}`, null, at);
   await j("DELETE", "/records/free_note/sm-nb-note", null, at);
   // ---------------------------------------------------------------- ONLYOFFICE (Tools → ONLYOFFICE)
@@ -1060,7 +1060,7 @@ try {
   // Secret JWT ONLYOFFICE untuk mensimulasikan callback (default = secret development di docker-compose.yml)
   const dsSecret =
     process.env.SMOKE_ONLYOFFICE_JWT_SECRET ??
-    (B === "http://localhost:4000/api/v1" ? "lifeos-dev-onlyoffice-jwt-secret-0123456789abcdef" : null);
+    (B === "http://localhost:4000/api/v1" ? "akasha-dev-onlyoffice-jwt-secret-0123456789abcdef" : null);
   if (!office.enabled) {
     r = await j("POST", "/office/documents", { format: "docx" }, at);
     ok("office disabled → 503", r.s === 503, r);
@@ -1141,7 +1141,7 @@ try {
       ok("office forcesave without open editor → no-session", r.s === 200 && r.d.status === "no-session", r);
     }
 
-    // AI di editor (sakelar per user): tab AI ONLYOFFICE memakai AI LifeOS lewat proxy backend
+    // AI di editor (sakelar per user): tab AI ONLYOFFICE memakai AI Akasha lewat proxy backend
     const AI_GUID = "asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}";
     r = await j("GET", "/office/preferences", null, at);
     ok(
@@ -1154,14 +1154,14 @@ try {
       cfg.editorConfig.customization.ai.disabled === true && !cfg.editorConfig.plugins,
       cfg.editorConfig,
     );
-    r = await j("PATCH", "/office/preferences", { ai: "lifeos" }, at);
+    r = await j("PATCH", "/office/preferences", { ai: "akasha" }, at);
     ok("office AI preference invalid 400", r.s === 400, r);
     r = await j("PATCH", "/office/preferences", { ai: true }, at);
     ok("office AI preference → on", r.s === 200 && r.d.ai === true, r);
     r = await j("POST", "/office/config", { uploadId: docId, appOrigin: "https://jahat.example" }, at);
-    const aiOptions = r.d.config?.editorConfig?.plugins?.options?.[AI_GUID]?.lifeos;
+    const aiOptions = r.d.config?.editorConfig?.plugins?.options?.[AI_GUID]?.akasha;
     ok(
-      "office config AI on → AI tab + LifeOS settings for AI plugin (registered origin only)",
+      "office config AI on → AI tab + Akasha settings for AI plugin (registered origin only)",
       r.d.ai === true &&
         r.d.config.editorConfig.customization.ai.disabled === false &&
         !!aiOptions?.token &&
@@ -1182,17 +1182,17 @@ try {
           data: JSON.stringify(data),
         }),
       }).then(async (res) => ({ s: res.status, d: await res.json().catch(() => null) }));
-    const chat = { model: "lifeos", messages: [{ role: "user", content: "Ringkas: rapat koordinasi." }] };
+    const chat = { model: "akasha", messages: [{ role: "user", content: "Ringkas: rapat koordinasi." }] };
     r = await aiProxy(null, chat);
     ok("office AI proxy without session token 401 (OpenAI error format)", r.s === 401 && !!r.d?.error?.message, r);
     r = await aiProxy(at, chat);
     ok("office AI proxy with login token (not session token) 401", r.s === 401, r);
     r = await aiProxy(aiOptions?.token, chat, `${aiOptions?.url}/images/generations`);
     ok("office AI proxy unsupported endpoint 400", r.s === 400 && !!r.d?.error?.message, r);
-    r = await aiProxy(aiOptions?.token, { model: "lifeos", messages: [] });
+    r = await aiProxy(aiOptions?.token, { model: "akasha", messages: [] });
     ok("office AI proxy empty prompt 400", r.s === 400, r);
     r = await aiProxy(aiOptions?.token, chat, `${aiOptions?.url}/models`);
-    ok("office AI proxy models list", r.s === 200 && r.d?.data?.[0]?.id === "lifeos", r);
+    ok("office AI proxy models list", r.s === 200 && r.d?.data?.[0]?.id === "akasha", r);
     // User smoke tidak punya API key → ditolak sebelum memanggil provider (tidak ada biaya)
     r = await aiProxy(aiOptions?.token, chat);
     ok(
@@ -1593,7 +1593,7 @@ try {
     ok("knowledge similar", r.s === 200 && typeof r.d.available === "boolean" && Array.isArray(r.d.items), r);
     r = await j("GET", `/knowledge/notes/${dailyId}/similar`, null, pt);
     ok("knowledge similar isolated 404", r.s === 404, r);
-    // Tugas lintas vault (K3): ringkasan LifeOS di catatan harian tidak ikut, centang ditulis balik ke berkas
+    // Tugas lintas vault (K3): ringkasan Akasha di catatan harian tidak ikut, centang ditulis balik ke berkas
     r = await j(
       "POST",
       "/knowledge/notes",
@@ -1635,7 +1635,7 @@ try {
     );
     ok("knowledge task toggle isolated 404", r.s === 404, r);
     await j("DELETE", `/knowledge/notes/${taskNoteId}`, null, at);
-    // Riwayat versi (K7): isi sebelum ditimpa LifeOS tersimpan & bisa dipulihkan
+    // Riwayat versi (K7): isi sebelum ditimpa Akasha tersimpan & bisa dipulihkan
     r = await j("POST", "/knowledge/notes", { title: "Smoke versi", content: "Isi pertama" }, at);
     const versionNoteId = r.d?.id;
     r = await j("GET", `/knowledge/notes/${versionNoteId}/source`, null, at);
@@ -2032,20 +2032,20 @@ try {
     ok("knowledge base to trash", r.s === 200 && r.d.trash.startsWith(".trash/"), r);
     await j("DELETE", `/knowledge/notes/${dailyId}`, null, at);
     await j("DELETE", "/knowledge/folders?path=Harian", null, at);
-    // Cermin hasil kerja LifeOS → 80-LifeOS (satu arah, baca saja di menu Pengetahuan)
+    // Cermin hasil kerja Akasha → 80-Akasha (satu arah, baca saja di menu Pengetahuan)
     r = await j("GET", "/knowledge/export", null, at);
     ok("knowledge export default off", r.s === 200 && r.d.enabled === false && r.d.vaultReady === true, r);
     const mirrorId = `smoke-mirror-${Date.now()}`;
     await j("PUT", `/records/free_note/${mirrorId}`, { payload: { title: "Cermin smoke", content: "isi cermin" } }, at);
-    r = await j("PUT", "/knowledge/export", { enabled: true, kinds: { productivity: false } }, at);
-    ok("knowledge export enable", r.s === 200 && r.d.enabled && r.d.kinds.productivity === false, r);
+    r = await j("PUT", "/knowledge/export", { enabled: true, kinds: { workingSpace: false } }, at);
+    ok("knowledge export enable", r.s === 200 && r.d.enabled && r.d.kinds.workingSpace === false, r);
     r = await j("POST", "/knowledge/export/run", null, at);
     ok("knowledge export run", r.s === 200 && r.d.files >= 2 && !r.d.lastError, r.d);
     r = await j("GET", "/knowledge/tree", null, at);
-    const mirrorNote = r.d?.notes?.find?.((n) => n.path === "80-LifeOS/Catatan Bebas/Cermin smoke.md");
+    const mirrorNote = r.d?.notes?.find?.((n) => n.path === "80-Akasha/Catatan Bebas/Cermin smoke.md");
     ok(
       "knowledge export file in vault",
-      !!mirrorNote && mirrorNote.properties?.sumber === "lifeos",
+      !!mirrorNote && mirrorNote.properties?.sumber === "akasha",
       r.d?.notes?.length,
     );
     r = await j("GET", `/knowledge/notes/${mirrorNote?.id}/source`, null, at);
@@ -2087,7 +2087,7 @@ try {
     { name: "Smoke agen", scopes: ["workspace:read", "workspace:write"], expiresInDays: 1 },
     at,
   );
-  ok("token create (plain token once)", r.s === 201 && r.d.token?.startsWith("lifeos_pat_") && r.d.expiresAt, r);
+  ok("token create (plain token once)", r.s === 201 && r.d.token?.startsWith("akasha_pat_") && r.d.expiresAt, r);
   const pat = r.d.token;
   const patId = r.d.id;
   // Koneksi aplikasi MCP luar: katalog, validasi alamat, kredensial tidak pernah dikembalikan, izin agen
@@ -2314,7 +2314,7 @@ try {
     ok("ekinerja submit without session rejected", r.s === 400 && /sesi|login|alamat/i.test(r.d?.message ?? ""), r);
     r = await j("POST", "/robot/ekinerja/renaksi/submit", { period: "2026-13", dryRun: true }, at);
     ok("ekinerja submit invalid period rejected", r.s === 400, r);
-    // Usulan renaksi (Hermes): kegiatan Productivity → RHK, usulan tidak pernah ikut diisikan
+    // Usulan renaksi (Hermes): kegiatan Working Space → RHK, usulan tidak pernah ikut diisikan
     const sfx = Date.now();
     await j(
       "PUT",
@@ -2718,8 +2718,8 @@ try {
   {
     const modelPat = await j("POST", "/integrations/tokens", { name: "Smoke model", scopes: ["ai:model"] }, at);
     r = await j("GET", "/agent/llm/v1/models", null, modelPat.d.token);
-    ok("agent llm models list", r.s === 200 && r.d.data?.[0]?.id === "lifeos-agent", r);
-    r = await j("POST", "/agent/llm/v1/chat/completions", { model: "lifeos-agent", messages: [] }, modelPat.d.token);
+    ok("agent llm models list", r.s === 200 && r.d.data?.[0]?.id === "akasha-agent", r);
+    r = await j("POST", "/agent/llm/v1/chat/completions", { model: "akasha-agent", messages: [] }, modelPat.d.token);
     ok("agent llm empty messages 400", r.s === 400 && !!r.d?.error?.message, r);
     await j("DELETE", `/integrations/tokens/${modelPat.d.id}`, null, at);
   }
@@ -2758,7 +2758,7 @@ try {
       r.d.some((a) => a.status === "error"),
     r.d,
   );
-  r = await mcp("lifeos_pat_" + "x".repeat(43), "tools/list");
+  r = await mcp("akasha_pat_" + "x".repeat(43), "tools/list");
   ok("mcp unknown token 401", r.s === 401, r);
   r = await mcp(at, "tools/list");
   ok("mcp login JWT rejected 401", r.s === 401, r);
@@ -3615,7 +3615,7 @@ try {
         return doc;
       };
       const docx = new FormData();
-      docx.append("file", new Blob([await makeDocx("Nota dinas uji konverter LifeOS")]), "nota-uji.docx");
+      docx.append("file", new Blob([await makeDocx("Nota dinas uji konverter Akasha")]), "nota-uji.docx");
       r = await convertDoc(docx);
       ok(
         "converter convert docx via markitdown",
@@ -3723,7 +3723,7 @@ try {
         { username: "nip-uji-001", password: "sandi-uji", accountPassword: "salah" },
         at,
       );
-      ok("robot credentials need LifeOS password (403)", r.s === 403, r);
+      ok("robot credentials need Akasha password (403)", r.s === 403, r);
       r = await j(
         "POST",
         "/robot/connectors/ekinerja/credentials",
@@ -3829,7 +3829,7 @@ try {
   // Instansi Pengirim (pilihan Dikirimkan melalui): tanpa sesi → ditolak sebelum robot membuka formulir
   r = await j("POST", "/robot/srikandi/sender-units/sync", null, at);
   ok("srikandi sender units without session rejected", r.s === 400 && /sesi|login/i.test(r.d?.message ?? ""), r);
-  // Naskah Masuk SRIKANDI: tanpa sesi → ditolak sebelum robot; record tindak lanjut LifeOS bisa ditulis
+  // Naskah Masuk SRIKANDI: tanpa sesi → ditolak sebelum robot; record tindak lanjut Akasha bisa ditulis
   r = await j("POST", "/robot/srikandi/inbox/sync", null, at);
   ok("srikandi inbox sync without session rejected", r.s === 400 && /sesi|login/i.test(r.d?.message ?? ""), r);
   r = await j("GET", "/automation/runs?kind=srikandi_inbox", null, at);
