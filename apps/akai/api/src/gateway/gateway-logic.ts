@@ -80,3 +80,26 @@ export function upstreamMessage(status: number, body: unknown): string {
   if (status === 429) return `Kuota / batas pemakaian sumber model habis${text ? `: ${text}` : "."}`;
   return `Sumber model menjawab galat ${status}${text ? `: ${text}` : "."}`;
 }
+
+/** Kegagalan upstream: `fallback` = boleh dicoba model berikutnya. */
+export class UpstreamFailure extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly fallback: boolean,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Kunci khusus OpenAI yang dibuang sebelum diteruskan ke sumber selain OpenAI resmi (endpoint kompatibel Gemini & router
+ * menolak / tidak mengenalnya). Aplikasi agen (Hermes) mengirimnya apa adanya.
+ */
+const OPENAI_ONLY_KEYS = ["store", "metadata", "service_tier", "prompt_cache_key", "safety_identifier", "user"];
+
+export function withoutOpenAiOnlyKeys(body: Json): Json {
+  const out = { ...body };
+  for (const key of OPENAI_ONLY_KEYS) delete out[key];
+  return out;
+}

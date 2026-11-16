@@ -1083,7 +1083,12 @@ try {
     ok("office new doc for attachment keeps context", r.s === 201 && r.d.context === "task", r);
     await j("DELETE", `/uploads/${r.d.id}`, null, at);
     // Ruang kerja dokumen (Tools → ONLYOFFICE → Dokumen): daftar, ganti judul, salinan untuk Working Space
-    r = await j("POST", "/office/documents", { format: "docx", title: "Konsep Ruang Kerja", context: "office-workspace" }, at);
+    r = await j(
+      "POST",
+      "/office/documents",
+      { format: "docx", title: "Konsep Ruang Kerja", context: "office-workspace" },
+      at,
+    );
     const wsId = r.d?.id;
     ok("office workspace new doc", r.s === 201 && r.d.context === "office-workspace", r);
     r = await j("GET", "/office/workspace", null, at);
@@ -2741,6 +2746,16 @@ try {
         "create_record,create_todo,describe_record_types,get_record,list_agenda,list_open_tasks,list_records,request_delete_record,search_workspace,update_record",
     toolNames,
   );
+  {
+    const byName = new Map((r.d?.result?.tools ?? []).map((t) => [t.name, t.annotations?.readOnlyHint === true]));
+    ok(
+      "mcp read tools marked readOnlyHint, write tools not",
+      byName.get("list_agenda") === true &&
+        byName.get("search_workspace") === true &&
+        byName.get("create_todo") === false,
+      [...byName],
+    );
+  }
   r = await mcp(pat, "tools/call", { name: "create_todo", arguments: { title: "Smoke MCP todo", date: "2026-10-25" } });
   const mcpTodo = r.d?.result && !r.d.result.isError ? JSON.parse(r.d.result.content[0].text) : null;
   ok("mcp create_todo", r.s === 200 && mcpTodo?.created === true, r.d);

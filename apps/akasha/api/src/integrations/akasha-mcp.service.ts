@@ -79,6 +79,32 @@ const INSTRUCTIONS = [
  * token. Semua aksi berjalan sebagai user pemilik token lewat service yang sama dengan aplikasi (isolasi & berbagi
  * tetap berlaku), dan setiap pemanggilan dicatat di `agent_activity_logs`.
  */
+/** Alat MCP yang hanya membaca data (anotasi `readOnlyHint`). Alat baru yang hanya membaca → tambahkan di sini. */
+export const READ_ONLY_TOOLS = new Set([
+  "search_knowledge",
+  "read_knowledge_note",
+  "search_workspace",
+  "list_agenda",
+  "list_open_tasks",
+  "describe_record_types",
+  "list_records",
+  "get_record",
+  "list_requests",
+  "get_request",
+  "read_request_files",
+  "list_templates",
+  "get_template_fields",
+  "list_whatsapp_followups",
+  "list_agent_menus",
+  "ekinerja_status",
+  "ekinerja_renaksi_context",
+  "srikandi_status",
+  "siman_status",
+  "list_app_connections",
+  "list_app_tools",
+  "ask_akasha",
+]);
+
 @Injectable()
 export class AkashaMcpService {
   constructor(
@@ -101,6 +127,24 @@ export class AkashaMcpService {
 
   createServer(principal: TokenPrincipal) {
     const server = new McpServer({ name: "akasha", version: "1.0.0" }, { instructions: INSTRUCTIONS });
+    // Tanda MCP "hanya membaca" untuk alat baca (klien seperti Akai memakai alat baca tanpa izin ubah). Disisipkan di sini agar
+    // satu daftar untuk semua alat; alat lain tanpa tanda = dianggap bisa mengubah data.
+    const register = server.registerTool.bind(server) as (...args: unknown[]) => unknown;
+    (server as unknown as { registerTool: (...args: unknown[]) => unknown }).registerTool = (
+      name: unknown,
+      config: unknown,
+      ...rest: unknown[]
+    ) =>
+      register(
+        name,
+        READ_ONLY_TOOLS.has(String(name))
+          ? {
+              ...(config as Record<string, unknown>),
+              annotations: { ...((config as { annotations?: object }).annotations ?? {}), readOnlyHint: true },
+            }
+          : config,
+        ...rest,
+      );
     const can = (scope: ApiScope) => principal.scopes.includes(scope);
     const userId = principal.user.id;
 

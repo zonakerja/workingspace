@@ -21,6 +21,7 @@ import OpenAI from "openai";
 import { type AiEndpoint, anthropicBaseUrl } from "../ai/ai-endpoint";
 import { isUnsupportedFeatureError } from "../ai/providers/anthropic.client";
 import { AiService } from "../ai/ai.service";
+import { type AkaiUser, AkaiService } from "../akai/akai.service";
 import type { AuthUser } from "../common/types/auth-user";
 import { type ApiScope, hashToken, looksLikeToken, normalizeScopes } from "../integrations/api-token-logic";
 import type { TokenPrincipal } from "../integrations/api-tokens.service";
@@ -107,7 +108,16 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly ai: AiService,
     private readonly policies: AgentPolicyService,
+    private readonly akai: AkaiService,
   ) {}
+
+  /** Akun untuk Akai (sub SSO) — tugas Agen yang diatur di Akai dijawab gateway Akai. */
+  private async akaiUser(userId: string): Promise<AkaiUser | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { ssoSubject: true, email: true, name: true },
+    });
+  }
 
   onModuleInit() {
     if (!this.configured) return;
@@ -307,10 +317,17 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
         : null,
       this.ai.agentCredential(user.id),
     ]);
+    const akaiUser = await this.akaiUser(user.id);
+    const akaiModel = akaiUser ? await this.akai.primaryModel(akaiUser, "agent") : null;
     return {
       keyValid: !!hash,
       token: token ? { ...token, scopes: normalizeScopes(token.scopes) } : null,
-      model: credential ? { provider: credential.provider, model: credential.model } : null,
+      // Tugas Agen di Akai mengalahkan pengaturan lama (provider "akai", model = model utama di Akai)
+      model: akaiModel
+        ? { provider: "akai", model: akaiModel }
+        : credential
+          ? { provider: credential.provider, model: credential.model }
+          : null,
       lastModelCall: this.lastModelCall,
     };
   }
@@ -351,6 +368,10 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
 
   /** `GET /agent/llm/v1/models`: satu model `akasha-agent` (konteks sesuai provider pilihan user). */
   async models(principal: TokenPrincipal) {
+    const akaiUser = await this.akaiUser(principal.user.id);
+    const akaiModel = akaiUser ? await this.akai.primaryModel(akaiUser, "agent") : null;
+    // Lewat Akai: panjang konteks konservatif (Hermes meringkas riwayat lebih awal, tidak pernah ditolak model)
+    if (akaiModel) return modelsResponse(null, akaiModel);
     const credential = await this.ai.agentCredential(principal.user.id);
     return modelsResponse(credential?.provider ?? null, credential?.model ?? null);
   }
@@ -364,6 +385,27 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
       return llmError(res, 403, "Token agen tidak punya izin Model AI (ai:model). Siapkan ulang agen di Akasha.");
     }
     const candidates = await this.ai.agentCredentials(principal.user.id);
+    // Tugas Agen diatur di Akai → gateway Akai (model, cadangan, cache & pemikiran Claude dipilih Akai). Akai tidak dapat
+    // dihubungi sebelum menjawab → jalur lama bila ada key.
+    const akaiUser = await this.akaiUser(principal.user.id);
+    if (akaiUser && (await this.akai.handles(akaiUser, "agent"))) {
+      const at = new Date().toISOString();
+      const result = await this.akai.proxyAgent(akaiUser, body, res);
+      this.lastModelCall = {
+        at,
+        ok: result.ok,
+        provider: "akai",
+        model: result.model ?? "akai",
+        ...(result.error ? { error: result.error } : {}),
+        ...(result.usage ? { usage: result.usage } : {}),
+        ...(result.fallbackFrom
+          ? { fallbackFrom: { provider: result.fallbackFrom, error: "dialihkan oleh Akai" } }
+          : {}),
+      };
+      if (!result.unreachable) return;
+      if (!candidates.length) return llmError(res, 422, "Akai tidak dapat dihubungi. Coba lagi sebentar.");
+      this.logger.warn("Akai tidak dapat dihubungi, model agen memakai pengaturan lama.");
+    }
     if (!candidates.length) {
       return llmError(res, 400, "Model AI agen belum diatur: simpan API key di Akasha → Pengaturan → Model AI.");
     }

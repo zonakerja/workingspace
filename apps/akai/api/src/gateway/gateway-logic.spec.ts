@@ -7,6 +7,7 @@ import {
   needsTools,
   needsVision,
   upstreamMessage,
+  withoutOpenAiOnlyKeys,
   usageFromOpenAi,
 } from "./gateway-logic";
 
@@ -60,5 +61,14 @@ describe("upstreamMessage", () => {
     expect(upstreamMessage(500, { message: "x".repeat(500) })).toHaveLength(
       "Sumber model menjawab galat 500: ".length + 300,
     );
+  });
+});
+
+describe("withoutOpenAiOnlyKeys", () => {
+  it("membuang kunci khusus OpenAI, sisanya tetap", () => {
+    expect(withoutOpenAiOnlyKeys({ messages: [], store: false, metadata: {}, user: "x", tools: [] })).toEqual({
+      messages: [],
+      tools: [],
+    });
   });
 });

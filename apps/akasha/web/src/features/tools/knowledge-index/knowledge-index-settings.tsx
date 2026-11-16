@@ -112,8 +112,10 @@ function AiIndexCard({ settings }: { settings: AiSettings }) {
     if (query.trim()) search.mutate(query.trim());
   };
 
-  const embeddingLabel =
-    settings.providers.find((p) => p.id === status?.embeddingProvider)?.label ?? "Gemini / OpenAI (belum ada key)";
+  const viaAkai = status?.embeddingProvider === "akai";
+  const embeddingLabel = viaAkai
+    ? "Akai"
+    : (settings.providers.find((p) => p.id === status?.embeddingProvider)?.label ?? "Gemini / OpenAI (belum ada key)");
   const busy = !!status?.pendingJobs;
 
   return (
@@ -135,8 +137,9 @@ function AiIndexCard({ settings }: { settings: AiSettings }) {
         <p className="text-xs text-muted-foreground">
           Catatan, agenda, task, project, resource, arsip, isi berkas (PDF, DOCX, XLSX; gambar & PDF scan dibaca lewat
           OCR) <b>dan</b> isi Basis Pengetahuan (vault Obsidian) dipotong lalu di-embed dengan <b>{embeddingLabel}</b>
-          {status?.model ? ` (${status.model})` : ""} memakai API key Anda, agar AI bisa mencari berdasarkan makna.
-          Matikan bila data tidak boleh dikirim ke penyedia AI — indeks langsung dihapus.
+          {status?.model ? ` (${status.model})` : ""} memakai {viaAkai ? "model Embedding di Akai" : "API key Anda"},
+          agar AI bisa mencari berdasarkan makna. Mengganti model embedding berarti perlu Indeks ulang. Matikan bila
+          data tidak boleh dikirim ke penyedia AI — indeks langsung dihapus.
         </p>
         <Link to="/tools/knowledge" className={LINK_CLASS}>
           <Library className="size-3.5" /> Isi pengetahuan yang Anda kurasi diatur di Tools → Basis Pengetahuan

@@ -82,6 +82,16 @@ class UpdateSourceDto {
   apiKey?: string;
 }
 
+class CloneSourceDto {
+  @IsIn(Object.values(ApiFormat))
+  apiFormat: ApiFormat;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  label?: string;
+}
+
 class ModelDto {
   @IsOptional()
   @IsString()
@@ -172,6 +182,11 @@ export class SourcesController {
   @HttpCode(204)
   async remove(@Param("id") id: string, @Req() req: Request) {
     await this.sources.remove(await this.accountId(req), id);
+  }
+
+  @Post("sources/:id/clone")
+  async clone(@Param("id") id: string, @Body() dto: CloneSourceDto, @Req() req: Request) {
+    return this.sources.clone(await this.accountId(req), id, dto);
   }
 
   @Post("sources/:id/test")

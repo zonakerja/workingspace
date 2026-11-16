@@ -210,7 +210,9 @@ Volume PostgreSQL memuat nomor major (`akasha-postgres18-data`, prod `postgres18
 `CREATE DATABASE akasha_shadow` → `npx prisma migrate deploy` → `npm run prisma:seed`).
 
 **Produksi** (`docker compose -f docker-compose.prod.yml up -d --build`, project `akasha-prod`, volume terpisah dari
-dev): tiga host Caddy — `ROOT_DOMAIN` (landing), `AUTH_DOMAIN` (`auth-api` + `auth-web`), `APP_DOMAIN` (Akasha) + www dialihkan;
+dev): empat host Caddy — `ROOT_DOMAIN` (landing), `AUTH_DOMAIN` (`auth-api` + `auth-web`), `APP_DOMAIN` (Akasha), `AKAI_DOMAIN`
+(`akai-api` `/api/*` + `akai-web`; gateway hanya internal `http://akai-api:4400`, DEPLOYMENT §17) + www dialihkan; perkiraan resource
+VPS 8 vCPU / 16 GB / 300 GB + `.env` tuning: DEPLOYMENT §1.3;
 `SITE_SCHEME` (bawaan https; http hanya uji lokal `*.localhost` + `COOKIE_SECURE=false`); database SSO `workingspace_auth`
 (`infra/postgres/init` pada volume kosong) ikut backup (`EXTRA_DATABASES`); rahasia SSO dari
 `apps/auth/api/scripts/generate-prod-secrets.mjs`; Akasha masuk lewat SSO (alias jaringan Caddy = `AUTH_DOMAIN`), login kata
@@ -313,8 +315,14 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   env opsional `AKAI_URL`, `AKAI_CLIENT_ID` (bawaan `akasha`), `AKAI_CLIENT_SECRET`, `AKAI_WEB_URL` (dev diisi `npm run setup:dev -w @akai/api`).
   `AiService.generate` & `ocr` memakai Akai lebih dulu bila akun ber-`sso_subject` sudah punya model untuk tugas itu di Akai
   (`AkaiService.handles`, status gateway di-cache 30 dtk; tugas `chat | general | document | ocr`; hasil `provider: "akai"`). Tugas yang
-  belum diatur, akun lokal, lampiran audio, agen, embedding, transkrip = jalur lama. Galat Akai 429 / 422; Akai tak terjangkau → jalur
-  lama bila ada key. `GET /ai/settings` → `akai { available, reachable, webUrl, tasks }`; user dari `/auth/*` membawa `aiViaAkai`
+  belum diatur, akun lokal, lampiran audio, agen, transkrip = jalur lama. Galat Akai 429 / 422; Akai tak terjangkau → jalur
+  lama bila ada key. **Embedding lewat Akai** (tahap 2 langkah 1): `embeddingCredential` → `provider: "akai"` + `remote` =
+  `AkaiService.embed` bila tugas `embedding` punya model di Akai (`primary` dari status); `ai_chunks.model` = model yang benar-benar
+  menjawab `akai/<ID>`, pencarian memakai model hasil embedding pertanyaan (`embedQuery` → `{ vector, model }`); detail docs/AKAI.md §4.
+  **Agen lewat Akai** (langkah 2): `AgentService.proxyChat` → `AkaiService.proxyAgent` bila tugas `agent` diatur di Akai (gateway jalur
+  native: cache & pemikiran Claude, Responses API OpenAI — `apps/akai/api/src/gateway/agent-model.service.ts`); kode proxy lama Akasha
+  tetap untuk akun yang belum memindahkan tugas Agen. **Model AI** (langkah 3): bila Akai utama (`isAkaiPrimary` di
+  `ai-settings-tab.tsx`) pengaturan lama dilipat "Pengaturan lama (cadangan)"; modul key lama belum dihapus (tunggu pemilik). `GET /ai/settings` → `akai { available, reachable, webUrl, tasks }`; user dari `/auth/*` membawa `aiViaAkai`
   (frontend `useAi().isConfigured`).
 - **Indeks pengetahuan / RAG** (`src/ai/index/`, detail: `docs/ARCHITECTURE.md` §3.2): tabel `ai_chunks` (pgvector 768,
   `gemini-embedding-2` dengan key Gemini pemilik data; tanpa key → tanpa embedding, pencarian kata saja), antrian BullMQ
@@ -1610,6 +1618,16 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Akai tahap 6a.2 gateway** `POST /gateway/v1/chat/completions` (format OpenAI + stream, `task` atau `model`, cadangan berurutan, terjemahan sumber Anthropic, penyaring gambar/alat, header `X-Akai-Model`/`X-Akai-Fallback-From`), `/embeddings` (768), `/status`, log `ai_usage` + perkiraan biaya | ✅ 2026-11-16 — unit 23, smoke 37/37 dengan router tiruan, turbo Akai lulus. **Belum**: router/provider sungguhan; caching & pemikiran Claude (6c). |
 | **Akai tahap 6a.3 web** `apps/akai/web` (masuk SSO + pemeriksaan diam-diam, tab Sumber / Model / Pembagian tugas / Pemakaian) + sesi web Akai API (`web_sessions`, cookie `akai_sid`, header `X-Akai-Web`, back-channel logout, `GET /api/usage`), klien OIDC & aplikasi `akai` di SSO | ✅ 2026-11-16 — unit API 29 & web 3, smoke Akai 44/44, smoke SSO, turbo 13/13, browser (masuk diam-diam & penuh, router tiruan → katalog → model → tugas → gateway → pemakaian, keluar dua arah, 375 px; data uji dihapus). **Belum**: compose/Caddy produksi Akai, router sungguhan. |
 | **Akai tahap 6a.4 tahap 1**: Akasha memakai gateway Akai untuk tugas chat / umum / rapikan dokumen / OCR yang diatur di Akai (fitur lama tetap jalan untuk tugas lain), kartu Akai di Pengaturan → Model AI, penanda `aiViaAkai`, gateway menerima PDF | ✅ 2026-11-16 — unit Akai 30 & Akasha (+8), smoke Akasha penuh, smoke Akai, sso-smoke, uji ujung-ke-ujung admin dev → Akai → router tiruan (data uji dihapus), browser Model AI. **Belum**: router sungguhan (A44), agen & embedding lewat Akai, Model AI → tautan ke Akai (tahap 2) |
+| **Akai 6a.4 tahap 2 langkah 1: embedding lewat Akai** (indeks pengetahuan memakai model Embedding di Akai bila diatur; Akai `status.primary`, embeddings ber-`model`) | ✅ 2026-11-16 — unit Akasha 535 & web 355, smoke Akai (+3) & Akasha penuh lulus, uji ujung-ke-ujung admin dev → Akai → router tiruan (data uji dihapus). **Belum**: router sungguhan, langkah 2 proxy agen |
+| **Akai 6a.4 tahap 2 langkah 2: agen Hermes lewat Akai** (jalur native Claude/OpenAI dipindah ke gateway Akai, proxy agen Akasha meneruskan ke Akai) | ✅ 2026-11-16 — unit Akai 52 & Akasha 536, smoke Akai (+4) & Akasha penuh, uji ujung-ke-ujung dengan router tiruan Anthropic (data uji dihapus). **Belum**: Hermes sungguhan & router sungguhan, Responses API ke OpenAI sungguhan |
+| **Akai 6a.4 tahap 2 langkah 3: Model AI Akasha menjadikan Akai utama** (kartu Akai di atas + baris Agen, pengaturan lama dilipat sebagai cadangan) | ✅ 2026-11-16 — typecheck, lint, unit web 355, browser 1366×768 & 375 px (mode Akai utama dengan data uji, akun tanpa Akai tidak berubah; data uji dihapus). **Belum**: melepas modul key lama (menunggu pemilik memindahkan semua tugas, TODO-USER A44) |
+| **Produksi Akai** (compose `akai-api` + `akai-web`, Caddy `AKAI_DOMAIN`, DB `akai` + backup, klien OIDC `akai`, CI/Dependabot) + **perkiraan resource VPS 8 vCPU / 16 GB / 300 GB** (DEPLOYMENT §1.3) + batas CPU converter (`CONVERTER_CPUS`) | ✅ 2026-11-16 — stack produksi lokal: semua sehat, masuk Akai web lewat SSO, backend → Akai internal, backup DB `akai`; stack uji dihapus. **Belum**: CI baru (butuh push), masuk dengan Google (menunggu OAuth client, A42) |
+| **Akai 6b.1 chat seperti Claude** (percakapan tersimpan, sidebar riwayat, stream, lampiran gambar/PDF/teks, pilih model, salin, ulangi, judul otomatis) + **salin sumber dengan format lain** + **pengaturan model akun admin** (Classai: 13 model, Claude lewat format Anthropic, pembagian 5 tugas dengan cadangan; docs/AKAI.md §8) | ✅ 2026-11-16 — unit API 58 & web 6, smoke Akai (+16), lint, build; uji nyata tiap model lewat gateway (Sonnet + alat via Anthropic Classai 502 → tidak dipakai di Agen); browser: chat sungguhan dengan Sonnet 5.5 (tabel Markdown, judul AI), HP tanpa luberan. **Belum**: 6b.2 Proyek → 6b.3 Memori → 6b.4 Artifact → 6b.5 Alat & konektor MCP → 6b.6 Skill |
+| **Akai 6b.2 Proyek** (instruksi tetap + pengetahuan PDF/DOCX/teks, utuh ≤ 120 rb karakter atau potongan relevan; percakapan di proyek) | ✅ 2026-11-16 — unit API 63, smoke Akai penuh (+11), build; browser: proyek → dokumen → jawaban bersumber dokumen (data uji dihapus). **Belum**: pencarian makna (Akai belum punya model embedding), pindah percakapan ke proyek dari UI (API ada) |
+| **Akai 6b.3 Memori** (dicatat otomatis tiap pertukaran lewat tugas baru `memory`, penyaring data rahasia, dipakai di semua percakapan, halaman Memori, penanda "Memori diperbarui") | ✅ 2026-11-16 — unit API 68, smoke Akai penuh (+10), build; browser dengan model sungguhan (ingat lintas percakapan; data uji dihapus). **Belum**: memori per proyek |
+| **Akai 6b.4 Artifact** (dokumen, HTML, SVG, diagram Mermaid, kode di panel samping; versi; salin/unduh; HTML di iframe sandbox + CSP sendiri) | ✅ 2026-11-16 — unit web 11 & API 68, smoke penuh, build; browser dengan model sungguhan (HTML v1→v2, Mermaid). **Belum**: artifact React, sunting langsung, bagikan |
+| **Akai 6b.6 Skill** (format SKILL.md seperti Hermes: 4 skill bawaan + buatan pemilik dengan berkas teks, katalog di prompt + alat `akai__skill`, cadangan kata kunci bila model tanpa alat, menu Skill: buat, impor/unduh SKILL.md, sakelar) | ✅ 2026-11-17 — unit API 82 & web, smoke Akai penuh (+14), migrasi tanpa drift, lint, build, uji nyata Sonnet memuat skill buatan pemilik; data uji dihapus. **Catatan**: selama ada skill aktif, cadangan tugas Chat yang tanpa kemampuan Alat dilewati. **Belum**: skill per proyek, skrip/berkas biner |
+| **Akai 6b.5 Alat & konektor MCP** (konektor Akasha + server MCP lain, izin baca/ubah/hapus, loop alat di chat dengan jejak alat; alat baca Akasha bertanda `readOnlyHint`) | ✅ 2026-11-16 — unit Akai 75 & web 12 & Akasha 536, smoke Akai (+9) & Akasha penuh, uji nyata Sonnet → `list_open_tasks` Akasha. **Belum**: OAuth server MCP luar, pencarian web |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -1617,8 +1635,9 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 
 **Lanjutan yang disepakati (per 2026-11-09, diperbarui 2026-11-16)** — mulai dari sini di chat baru:
 00. **MULAI DI SINI (2026-11-16, pemilik berganti akun Claude & chat lama dihapus)**: pekerjaan berikutnya = **Akai 6a.4 tahap 2**,
-   rencana langkah demi langkah di `docs/AKAI.md` §7 (embedding lewat Akai → proxy agen Hermes lewat Akai dengan memindahkan fitur
-   Claude caching/pemikiran ke gateway Akai → Model AI Akasha menjadikan Akai utama → produksi Akai). Status langkah Akai: `docs/AKAI.md` §6.
+   rencana langkah demi langkah di `docs/AKAI.md` §7 (embedding lewat Akai ✅ → proxy agen Hermes lewat Akai ✅ → Model AI Akasha menjadikan Akai utama ✅ → produksi Akai ✅;
+   6b.1 chat Akai ✅, 6b.2 Proyek ✅, 6b.3 Memori ✅, 6b.4 Artifact ✅, 6b.5 Alat & konektor ✅, 6b.6 Skill ✅ (6b selesai; lanjutan yang belum di docs/AKAI.md §8),
+   Masuk dengan Google setelah pemilik membuat OAuth client (A42), melepas modul key lama setelah pemilik memindahkan semua tugas ke Akai). Status langkah Akai: `docs/AKAI.md` §6.
    Semua pekerjaan s.d. 6a.4 tahap 1 sudah di-commit (belum di-push). Lingkungan dev: §2a (nyalakan WSL + Docker + preview `backend`,
    `frontend`, `auth-api`, `auth-web`, `akai-api`; `akai-web` bila perlu — batas panel preview 5 server, matikan `frontend` sementara).
    Akun admin dev Akasha sudah tertaut SSO (`sso_subject` terisi). Akai milik akun admin dev **kosong** (belum ada sumber model).
@@ -2796,6 +2815,24 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   digantikan. Aplikasi memanggil Akai server ke server (HTTP Basic klien + `X-Akai-Subject` sub SSO); sesi web Akai (cookie `akai_sid`, masuk SSO) sejak 6a.3. Akun Akai
   dibuat saat pertama dipakai (tanpa daftar terpisah).
 - 2026-11-16 — **Akai web (6a.3)**: sesi web Akai disimpan sebagai token acak di tabel (bukan JWT) agar bisa dicabut satu per satu dan oleh back-channel logout; CSRF dicegah header `X-Akai-Web` (browser tidak bisa mengirimnya lintas situs tanpa preflight) + SameSite Lax, bukan token CSRF terpisah. Satu akun Akai untuk web & aplikasi (kunci = sub SSO), jadi pengaturan di web langsung dipakai gateway untuk Akasha. Halaman Akai web memakai identitas visual `packages/ui` + tanda Akai sendiri (percikan). Produksi (compose/Caddy) dikerjakan saat deploy.
+- 2026-11-17 — **Akai 6b.6 Skill**: dimuat seperti Claude (katalog nama + deskripsi di prompt, isi lewat alat `akai__skill`) agar skill banyak tidak memenuhi prompt; konsekuensinya chat selalu lewat loop alat saat ada skill aktif sehingga cadangan tugas Chat tanpa kemampuan Alat dilewati — bila tidak ada model beralat sama sekali, skill dipilih kata kunci dan disisipkan langsung. Skill bawaan di kode (bukan tabel) agar perbaikan isinya ikut rilis; dimatikan per akun. Format SKILL.md disamakan dengan Hermes agar skill bisa dipindah lewat unduh/impor.
+- 2026-11-16 — **Akai 6b (seperti Claude) & model akun admin**: pemilik meminta memori, skill, plugin, artifact seperti Claude → dibangun
+  bertahap 6b.1–6b.6 (docs/AKAI.md §8), mulai chat inti. Lampiran chat disimpan di database Akai (`bytea`, dibatasi ukuran) karena Akai
+  belum punya object storage; berkas asal tidak dipakai fitur lain. Jawaban disimpan dengan men-*tee* stream gateway (satu jalur cadangan &
+  log). Atas permintaan pemilik, Claude dipindah ke sumber Classai berformat Anthropic (fitur salin sumber, key tidak lewat browser) dan
+  pembagian tugas disusun dari riset harga Classai + uji nyata tiap model.
+- 2026-11-16 — **Produksi Akai & ukuran VPS**: Akai service inti (bukan profile) karena Akasha bergantung padanya untuk tugas yang
+  dipindah pemilik. Gateway `/gateway/*` sengaja tidak dibuka di Caddy (hanya jaringan internal; aplikasi ekosistem satu server).
+  Pemilik menetapkan VPS maksimal 8 vCPU / 16 GB / 300 GB SSD → perkiraan: RAM biasa ± 5–7 GB, puncak ± 11–12 GB (cukup), CPU longgar
+  (converter dibatasi `CONVERTER_CPUS`), disk aman untuk berkas pengguna ± 90 GB karena backup lokal mencerminkan berkas (DEPLOYMENT §1.3).
+- 2026-11-16 — **Agen lewat Akai (6a.4 tahap 2 langkah 2)**: logika Claude & OpenAI Responses **disalin** ke Akai (bukan paket bersama)
+  karena jalur lama Akasha tetap dipakai akun yang belum pindah; setelah key lama dilepas (langkah 3) salinan Akasha dihapus. Jalur native
+  hanya untuk `task: "agent"` agar tugas teks lain (sudah teruji di tahap 1) tidak berubah. Akai kini memakai SDK Anthropic & OpenAI.
+- 2026-11-16 — **Embedding lewat Akai (6a.4 tahap 2 langkah 1)**: nama vektor per potongan = model yang benar-benar menjawab (bukan
+  model utama), karena gateway Akai boleh pindah ke cadangan dan vektor dua model tidak sebanding; satu panggilan tidak boleh
+  mencampur model (batch berikutnya meminta `model` batch pertama). Akai `status` kini memuat `primary` agar Akasha tahu nama model
+  sebelum meng-embed (penanda potongan "berubah"). Uji ujung-ke-ujung sengaja tanpa Indeks ulang agar potongan admin dev yang memakai
+  Gemini sungguhan tidak dikirim ulang.
 - 2026-11-16 — **Akasha memakai Akai (6a.4 tahap 1)**: per tugas, bukan sakelar global — tugas yang punya model di Akai dijawab Akai, tugas lain tetap memakai key lama di Akasha, sehingga pemilik bisa pindah bertahap tanpa fitur AI mati. Penentu = status gateway (bukan kolom baru di Akasha) agar Akai tetap satu-satunya sumber pengaturan. Akun tanpa SSO tidak pernah lewat Akai (Akai mengenali akun dari sub SSO). Akai tak terjangkau → jalur lama, bukan galat, selama ada key. Agen (Hermes, proxy dengan caching & pemikiran Claude) dan embedding (kolom vektor 768 & model per potongan) dipindah di tahap 2.
 - 2026-11-16 — **SSO dua arah sungguhan** (laporan pemilik: masuk SSO tidak membuat Akasha masuk, keluar Akasha tidak mengeluarkan
   SSO, Dashboard tidak muncul). Penyebab: halaman masuk Akasha menunggu klik tombol; halaman keluar SSO menunggu klik "Keluar"; tab lama
@@ -2968,7 +3005,8 @@ persetujuan di Approval → Usulan Agen dan di halaman fitur, + label di `action
 di dalam blok cakupan yang sesuai (`can("…")`), handler dibungkus `run(nama, …)` agar tercatat di log aktivitas, input
 dengan zod (batasi panjang/rentang), aksi lewat service aplikasi (jangan query langsung yang melewati isolasi/berbagi).
 Cakupan baru → `API_SCOPES` + `SCOPE_LABELS` (backend) & `SCOPE_SHORT` (frontend `integrations-tab.tsx`); label log di
-`TOOL_LABELS`. Tambah skenario smoke (JSON-RPC `tools/call`).
+`TOOL_LABELS`. Alat yang hanya membaca → `READ_ONLY_TOOLS` (tanda MCP `readOnlyHint`, dipakai klien seperti Akai tanpa izin ubah).
+Tambah skenario smoke (JSON-RPC `tools/call`).
 
 **Menambah alur robot pengisi** (pelajaran Renaksi e-Kinerja): baca halaman per **node teks terlihat** (bukan per elemen —
 judul bisa teks lepas, templat tersembunyi ikut di DOM), sediakan `dryRun` (baca + rencana tanpa klik) dan uji dulu, buat
@@ -3049,6 +3087,9 @@ utama tetap < 500 kB (cek output `npm run build`).
   gpgv, `nofile` normal; https cepat) dan repo `apt.postgresql.org` bawaan image postgres sangat lambat → `infra/backup/Dockerfile`
   memakai repo Debian via **https** (CA sementara dari image rclone) tanpa pgdg. Dockerfile lain yang memakai apt: terapkan pola sama bila
   macet.
+- Uji stack produksi lokal di `*.workingspace.localhost` (port 80) memakai **host yang sama** dengan SSO dev (port 5175): cookie tidak
+  membedakan port, jadi sesi SSO dev di peramban yang sama ikut keluar → masuk ulang di `http://auth.workingspace.localhost:5175`.
+  Container backup uji langsung menulis dump ke `./backups` saat menyala → hapus dump uji setelah `down -v`.
 - Folded scalar YAML (`>-`) di compose menggabung baris dengan spasi — aman untuk JSON (`OIDC_CLIENTS`), tidak untuk nilai yang
   sensitif spasi.
 - Monorepo: dependensi di-hoist ke `node_modules` root; folder workspace hanya punya `node_modules` sendiri untuk versi yang bentrok. Image Node dibangun dengan konteks **root** (`docker build -f apps/akasha/api/Dockerfile .`), jadi `.dockerignore` root yang berlaku (mengecualikan `_uji`, vault, `services/converter`). Di image, Prisma CLI dipanggil `node /app/node_modules/prisma/build/index.js` dari `/app/apps/akasha/api`. Telemetri Turborepo dimatikan (`turbo telemetry disable` lokal, `TURBO_TELEMETRY_DISABLED` di CI).
@@ -3063,6 +3104,10 @@ utama tetap < 500 kB (cek output `npm run build`).
 - SSO dev: buka halaman SSO di `http://auth.workingspace.localhost:5175`, **bukan** `localhost:5175` (issuer & cookie terikat host itu). Node &
   Chrome menerjemahkan `*.localhost` sendiri (Node → `::1`). `nest build` di `apps/auth/api` saat `nest start --watch` berjalan menghapus
   `dist` sesaat → tunggu ± 20 dtk sebelum smoke. Email dev ada di `apps/auth/api/.mail/` (nama berkas: karakter selain huruf/angka/@/. → `_`).
+- Bash tool memakan backslash juga di heredoc `<<'EOF'` yang menulis berkas `.cjs` berisi regex (`/?schema/` jadi `/?schema/`) →
+  regex di skrip bantu ditulis lewat tool Write, lalu periksa dengan `node --check`.
+- Panel browser Claude tidak menjalankan skrip di iframe `sandbox="allow-scripts"` yang dimuat lewat jaringan (srcdoc/`data:`/`blob:`
+  berjalan; dengan `allow-same-origin` juga berjalan) → uji pratinjau artifact HTML jatuh ke cadangan srcdoc; Chrome biasa memakai bingkai.
 - Rute Nest `@Post` yang menulis sendiri ke `@Res()` (stream SSE) berstatus **201** bawaan → setel `res.status(200)` sebelum
   menulis; header jawaban (mis. `X-Akai-Model`) wajib disetel sebelum stream mulai.
 - `npx prettier --write docs/<berkas>.md` merapikan **seluruh** berkas lama (miring `*…*` → `_…_`, indentasi lanjutan daftar) → diff

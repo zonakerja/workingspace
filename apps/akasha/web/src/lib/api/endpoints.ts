@@ -721,7 +721,8 @@ export interface AgentSetupState {
   /** HERMES_API_KEY di server berbentuk valid (huruf/angka/_/-, 24–128 karakter) */
   keyValid: boolean;
   token: { id: string; scopes: ApiScope[]; lastUsedAt: string | null; createdAt: string } | null;
-  model: { provider: AiProviderId; model: string } | null;
+  /** `akai` = tugas Agen diatur di Akai (model = ID model utama di Akai) */
+  model: { provider: AiProviderId | "akai"; model: string } | null;
   lastModelCall: {
     at: string;
     ok: boolean;

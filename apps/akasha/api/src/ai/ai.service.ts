@@ -35,7 +35,8 @@ import {
   taskBackup,
   taskProvider,
 } from "./ai-routing";
-import { EMBEDDING_MODELS } from "./index/embedding";
+import { EMBEDDING_MODELS, type EmbeddingTarget } from "./index/embedding";
+import { EMBEDDING_DIMENSIONS } from "./index/index-text";
 import { SaveAiProviderDto, UpdateAiSettingsDto } from "./dto/ai.dto";
 import { AiIndexQueueService } from "./index/ai-index-queue.service";
 import { type AiAttachment, type AiClient, AiProviderError } from "./providers/ai-client";
@@ -70,12 +71,16 @@ export interface AiFile {
   buffer: Buffer;
 }
 
-/** Key, model & jalur embedding yang dipakai indeks pengetahuan user (`baseUrl` = lewat router). */
+/**
+ * Key, model & jalur embedding yang dipakai indeks pengetahuan user (`baseUrl` = lewat router). `provider: "akai"` = lewat
+ * gateway Akai (`remote`), tanpa key di Akasha.
+ */
 export interface EmbeddingCredential {
-  provider: EmbeddingProvider;
+  provider: EmbeddingProvider | "akai";
   apiKey: string;
   model: string;
   baseUrl: string | null;
+  remote?: EmbeddingTarget["remote"];
 }
 
 /** Jenis lampiran per provider sesuai jalur kredensialnya (provider tanpa key = katalog). */
@@ -391,12 +396,29 @@ export class AiService {
     return result;
   }
 
-  /** Key & model embedding indeks (Gemini atau OpenAI sesuai pembagian tugas); null = pencarian kata saja. */
+  /**
+   * Key & model embedding indeks: tugas `embedding` yang diatur di Akai lebih dulu (akun SSO), selain itu Gemini atau OpenAI
+   * sesuai pembagian tugas; null = pencarian kata saja.
+   */
   async embeddingCredential(userId: string): Promise<EmbeddingCredential | null> {
     const [user, credentials] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId }, select: { aiRouting: true } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { aiRouting: true, ssoSubject: true, email: true, name: true },
+      }),
       this.prisma.aiCredential.findMany({ where: { userId }, select: { provider: true } }),
     ]);
+    if (user) {
+      const akaiModel = await this.akai.embeddingModel(user);
+      if (akaiModel)
+        return {
+          provider: "akai",
+          apiKey: "",
+          model: akaiModel,
+          baseUrl: null,
+          remote: (texts) => this.akai.embed(user, texts, EMBEDDING_DIMENSIONS),
+        };
+    }
     const provider = embeddingProvider(
       parseRouting(user?.aiRouting),
       credentials.map((c) => c.provider),

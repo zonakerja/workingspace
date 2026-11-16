@@ -85,6 +85,12 @@ class EnvironmentVariables {
   @Transform(emptyToUndefined)
   @IsIn(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
   LOG_LEVEL?: string;
+
+  /** MCP server Akasha untuk konektor Akasha (6b.5), mis. dev http://localhost:4000/api/v1/mcp, produksi http://backend:4000/api/v1/mcp. Kosong = konektor Akasha tidak ditawarkan. */
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsUrl({ require_tld: false, protocols: ["http", "https"] })
+  AKASHA_MCP_URL?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

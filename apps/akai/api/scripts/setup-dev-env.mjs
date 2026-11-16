@@ -24,6 +24,8 @@ SHADOW_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/akai_shadow?s
 AKAI_ENCRYPTION_KEY=${randomBytes(32).toString("hex")}
 # Aplikasi ekosistem yang boleh memanggil Akai
 AKAI_CLIENTS='${JSON.stringify(clients)}'
+# Konektor Akasha (MCP Akasha, 6b.5)
+AKASHA_MCP_URL="http://localhost:4000/api/v1/mcp"
 `,
   );
   console.log("apps/akai/api/.env dibuat (kunci acak baru).");

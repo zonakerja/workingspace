@@ -149,6 +149,36 @@ export class SourcesService {
     return this.view(await this.prisma.aiSource.update({ where: { id }, data }));
   }
 
+  /**
+   * Salin sumber router dengan format API lain (alamat & key sama; key terenkripsi disalin di server, tidak pernah lewat
+   * browser). Dipakai agar satu router bisa dipanggil dua format: Claude lewat Anthropic Messages (prompt caching, pemikiran,
+   * PDF) dan model lain lewat OpenAI Chat Completions — tanpa menempel ulang key.
+   */
+  async clone(accountId: string, id: string, input: { apiFormat: ApiFormat; label?: string }) {
+    const source = await this.own(accountId, id);
+    if (source.kind !== SourceKind.router) throw new BadRequestException("Hanya sumber router yang bisa disalin.");
+    if (source.apiFormat === input.apiFormat)
+      throw new BadRequestException("Format sama dengan sumber asal — pilih format lain.");
+    const duplicate = await this.prisma.aiSource.findFirst({
+      where: { accountId, kind: SourceKind.router, baseUrl: source.baseUrl, apiFormat: input.apiFormat },
+    });
+    if (duplicate) throw new BadRequestException(`Sumber "${duplicate.label}" sudah memakai alamat & format ini.`);
+    const suffix = input.apiFormat === ApiFormat.anthropic ? "Anthropic" : "OpenAI";
+    const copy = await this.prisma.aiSource.create({
+      data: {
+        accountId,
+        kind: source.kind,
+        preset: source.preset,
+        label: (input.label?.trim() || `${source.label} (${suffix})`).slice(0, 80),
+        baseUrl: source.baseUrl,
+        apiFormat: input.apiFormat,
+        keyEnc: source.keyEnc,
+        keyHint: source.keyHint,
+      },
+    });
+    return this.view(copy);
+  }
+
   async remove(accountId: string, id: string) {
     await this.own(accountId, id);
     await this.prisma.aiSource.delete({ where: { id } });

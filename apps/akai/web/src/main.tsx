@@ -9,16 +9,25 @@ import "./index.css";
 
 initTheme();
 
-// Langkah 6a.3: Akai web = Pengaturan Model (sumber, model, pembagian tugas, pemakaian). Chat menyusul (6b).
+// Akai web: chat (6b.1, /chat/:id?) + Pengaturan Model (sumber, model, pembagian tugas, pemakaian).
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   {
     element: <AppShell />,
     children: [
-      { path: "/", element: <Navigate to="/models" replace /> },
+      { path: "/", element: <Navigate to="/chat" replace /> },
+      { path: "/chat/:id?", lazy: async () => ({ Component: (await import("./pages/chat-page")).ChatPage }) },
       // Pengaturan (dialog, select, tabel) dimuat malas agar halaman masuk ringan
+      { path: "/projects", lazy: async () => ({ Component: (await import("./pages/projects-page")).ProjectsPage }) },
+      { path: "/projects/:id", lazy: async () => ({ Component: (await import("./pages/project-page")).ProjectPage }) },
+      {
+        path: "/connectors",
+        lazy: async () => ({ Component: (await import("./pages/connectors-page")).ConnectorsPage }),
+      },
+      { path: "/skills", lazy: async () => ({ Component: (await import("./pages/skills-page")).SkillsPage }) },
+      { path: "/memory", lazy: async () => ({ Component: (await import("./pages/memory-page")).MemoryPage }) },
       { path: "/models", lazy: async () => ({ Component: (await import("./pages/models-page")).ModelsPage }) },
-      { path: "*", element: <Navigate to="/models" replace /> },
+      { path: "*", element: <Navigate to="/chat" replace /> },
     ],
   },
 ]);

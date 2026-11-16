@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Artifact</title>
+  </head>
+  <body>
+    <script>
+      // Bingkai artifact HTML Akai (6b.4). Dimuat di iframe sandbox="allow-scripts" (asal buram: tidak bisa membaca cookie,
+      // penyimpanan, atau API Akai). Isi HTML dikirim halaman induk lewat postMessage lalu ditulis menggantikan dokumen ini.
+      // Produksi: nginx memberi halaman ini CSP sendiri yang mengizinkan skrip sebaris & pustaka CDN https (nginx.conf).
+      window.addEventListener("message", function (event) {
+        if (event.source !== window.parent || !event.data || event.data.type !== "akai-artifact") return;
+        document.open();
+        document.write(String(event.data.html));
+        document.close();
+      });
+      window.parent.postMessage({ type: "akai-artifact-ready" }, "*");
+    </script>
+  </body>
+</html>

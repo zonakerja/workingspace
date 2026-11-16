@@ -44,7 +44,8 @@ export function AgentSetupCard({ status }: { status: AgentStatus }) {
         ? "kuota embedding habis"
         : "provider embedding sedang bermasalah";
   const [open, setOpen] = useState(false);
-  const providerLabel = (id: string) => ai?.providers.find((p) => p.id === id)?.label ?? id;
+  const providerLabel = (id: string) =>
+    id === "akai" ? "Akai" : (ai?.providers.find((p) => p.id === id)?.label ?? id);
   const ready = status.reachable && !!setup?.token?.scopes.includes("ai:model") && !!setup.model;
 
   return (
@@ -73,8 +74,10 @@ export function AgentSetupCard({ status }: { status: AgentStatus }) {
       <Step ok={!!setup?.model} title="2. Model AI">
         {setup?.model ? (
           <>
-            {providerLabel(setup.model.provider)} · <code>{setup.model.model}</code> — API key dipakai lewat Akasha dan
-            tidak disimpan di Hermes.{" "}
+            {providerLabel(setup.model.provider)} · <code>{setup.model.model}</code> —{" "}
+            {setup.model.provider === "akai"
+              ? "model, cadangan, dan API key diatur di Akai (tugas Agen); tidak disimpan di Hermes."
+              : "API key dipakai lewat Akasha dan tidak disimpan di Hermes."}{" "}
           </>
         ) : (
           "Belum ada API key. Simpan key provider (mis. Google Gemini) dulu. "

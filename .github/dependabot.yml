@@ -44,6 +44,8 @@ updates:
         update-types: [version-update:semver-major]
       # Image yang dibangun sendiri (akasha-api, akasha-onlyoffice, …) tidak ada di registry mana pun
       - dependency-name: "akasha-*"
+      - dependency-name: "akai-*"
+      - dependency-name: "workingspace-*"
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

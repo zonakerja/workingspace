@@ -284,17 +284,18 @@ export class AiIndexService {
     if (changed.length === 0) return null;
 
     const texts = changed.flatMap(({ doc, contents }) => contents.map((content) => ({ title: doc.title, content })));
-    let vectors: Awaited<ReturnType<typeof embedDocuments>> | null = null;
+    let vectors: number[][] | null = null;
+    let model = KEYWORD_ONLY_MODEL;
     let failure: AiProviderError | null = null;
     if (embedding) {
       try {
-        vectors = await embedDocuments(embedding, texts);
+        // Nama model = model yang benar-benar menjawab (lewat Akai bisa cadangan): pencarian hanya membandingkan model sama
+        ({ vectors, model } = await embedDocuments(embedding, texts));
       } catch (error) {
         if (!(error instanceof AiProviderError)) throw error;
         failure = error;
       }
     }
-    const model = vectors && embedding ? embedding.model : KEYWORD_ONLY_MODEL;
 
     let offset = 0;
     for (const { doc, contents, hashes } of changed) {
@@ -594,13 +595,13 @@ export class AiIndexService {
 
     let semantic: Row[] = [];
     const embedding = useVector ? await this.ai.embeddingCredential(userId) : null;
-    const vector = embedding ? await this.embedQuery(userId, embedding, query) : null;
-    if (vector && embedding) {
-      const literal = toVectorLiteral(vector);
+    const queried = embedding ? await this.embedQuery(userId, embedding, query) : null;
+    if (queried?.vector) {
+      const literal = toVectorLiteral(queried.vector);
       // `embedding IS NOT NULL` wajib agar indeks HNSW parsial terpakai; hanya vektor dari model yang sama yang sebanding
       semantic = await this.prisma.$queryRaw<Row[]>(
         ranked(
-          Prisma.sql`user_id = ${userId} AND embedding IS NOT NULL AND model = ${embedding.model} ${scope}`,
+          Prisma.sql`user_id = ${userId} AND embedding IS NOT NULL AND model = ${queried.model} ${scope}`,
           Prisma.sql`embedding <=> ${literal}::vector`,
         ),
       );

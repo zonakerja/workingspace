@@ -1,8 +1,9 @@
 import { HttpException, Injectable, Logger } from "@nestjs/common";
 import type { Response } from "express";
 import type { Caller } from "../common/caller";
-import { type AiModel, type AiSource, ApiFormat } from "../generated/prisma/client";
+import { type AiModel, type AiSource, ApiFormat, SourceKind } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { AgentModelService } from "./agent-model.service";
 import { SourcesService } from "../sources/sources.service";
 import { AI_TASKS, type AiTask, TASK_LABELS } from "../sources/task-logic";
 import { completionAsSse, fromAnthropic, toAnthropic } from "./anthropic";
@@ -15,7 +16,9 @@ import {
   needsPdf,
   needsVision,
   upstreamMessage,
+  UpstreamFailure,
   usageFromOpenAi,
+  withoutOpenAiOnlyKeys,
 } from "./gateway-logic";
 
 type Json = Record<string, unknown>;
@@ -37,17 +40,6 @@ class GatewayError extends HttpException {
   }
 }
 
-/** Kegagalan upstream: `fallback` = boleh dicoba model berikutnya. */
-class UpstreamFailure extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-    readonly fallback: boolean,
-  ) {
-    super(message);
-  }
-}
-
 /** Gateway model untuk aplikasi ekosistem (docs/AKAI.md §4): pembagian tugas + cadangan, OpenAI ↔ Anthropic, log pemakaian. */
 @Injectable()
 export class GatewayService {
@@ -56,6 +48,7 @@ export class GatewayService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sources: SourcesService,
+    private readonly agent: AgentModelService,
   ) {}
 
   /** Model untuk permintaan: `model` (id model Akai / id di sumber) = satu model tanpa cadangan; selain itu tugas. */
@@ -129,12 +122,27 @@ export class GatewayService {
 
   /** Satu panggilan chat ke satu model. Stream OpenAI diteruskan langsung ke `res` (setelah header terkirim tidak ada cadangan). */
   private async callChat(
+    caller: Caller,
+    task: AiTask | null,
     model: Candidate,
     body: Json,
     res: Response,
   ): Promise<{ usage: TokenUsage; streamed: boolean; json?: Json }> {
     const { baseUrl, format, apiKey } = this.sources.endpointOf(model.source);
     const stream = body.stream === true;
+    // Tugas Agen: jalur native (prompt caching & pemikiran Claude, Responses API OpenAI) — AgentModelService
+    // akai_native = permintaan internal Akai (chat beralat) yang juga butuh jalur native (cache, pemikiran, alat)
+    const native = task === "agent" || body.akai_native === true;
+    body = { ...body };
+    delete body.akai_native;
+    if (native) {
+      const payload: Json = { ...body };
+      delete payload.task;
+      if (format === ApiFormat.anthropic)
+        return this.agent.claude(caller.account.id, model, { baseUrl, apiKey }, payload, res);
+      if (model.source.kind === SourceKind.openai)
+        return this.agent.openaiResponses(model, { baseUrl, apiKey }, payload, res);
+    }
     if (format === ApiFormat.anthropic) {
       const upstream = await this.fetchJson(
         `${baseUrl}/messages`,
@@ -158,7 +166,10 @@ export class GatewayService {
       return { usage, streamed: false, json: completion };
     }
 
-    const payload: Json = { ...body, model: model.modelId };
+    const payload: Json = {
+      ...(task === "agent" && model.source.kind !== SourceKind.openai ? withoutOpenAiOnlyKeys(body) : body),
+      model: model.modelId,
+    };
     delete payload.task;
     if (stream) payload.stream_options = { include_usage: true };
     const upstream = await this.fetchJson(
@@ -230,7 +241,7 @@ export class GatewayService {
       res.setHeader("X-Akai-Model", encodeURIComponent(model.label));
       if (fallbackFrom) res.setHeader("X-Akai-Fallback-From", encodeURIComponent(fallbackFrom));
       try {
-        const result = await this.callChat(model, body, res);
+        const result = await this.callChat(caller, task, model, body, res);
         await this.log(caller, task, model, {
           ok: true,
           usage: result.usage,
@@ -248,6 +259,8 @@ export class GatewayService {
           durationMs: Date.now() - started,
           fallbackFrom,
         });
+        // Stream sudah dimulai (potongan galat terkirim) → tidak ada jawaban lain yang bisa ditulis
+        if (res.headersSent) return;
         if (!error.fallback) break;
         fallbackFrom ??= model.label;
       }
@@ -255,9 +268,35 @@ export class GatewayService {
     throw new GatewayError(callerStatus(last?.status ?? 500), last?.message ?? "Model tidak menjawab.", last?.status);
   }
 
+  /**
+   * Jawaban non-stream untuk pemakaian internal Akai (mis. judul percakapan chat): jalur gateway yang sama (tugas, cadangan,
+   * log pemakaian) tanpa respons HTTP. Galat → `HttpException` (429/422) seperti `chat`.
+   */
+  async completion(caller: Caller, body: Json): Promise<Json> {
+    let result: Json = {};
+    const sink = {
+      headersSent: false,
+      setHeader: () => sink,
+      status: () => sink,
+      json: (value: Json) => {
+        result = value;
+        return sink;
+      },
+      on: () => sink,
+    };
+    await this.chat(caller, { ...body, stream: false }, sink as unknown as Response);
+    return result;
+  }
+
   /** `POST /gateway/v1/embeddings` — tugas embedding, 768 dimensi (sama dengan indeks pgvector Akasha). */
   async embeddings(caller: Caller, body: Json) {
-    const { list } = await this.candidates(caller.account.id, { task: "embedding" });
+    // `model` = model tertentu tanpa cadangan (aplikasi meminta model yang sama untuk semua batch satu indeks, karena
+    // vektor dari model berbeda tidak sebanding); tanpa itu model tugas `embedding` + cadangannya.
+    const { list } = await this.candidates(
+      caller.account.id,
+      typeof body.model === "string" && body.model.trim() ? { model: body.model } : { task: "embedding" },
+    );
+    if (!list[0].embedding) throw new GatewayError(422, `Model "${list[0].label}" bukan model embedding.`);
     const input = body.input;
     if (!(typeof input === "string" || (Array.isArray(input) && input.every((x) => typeof x === "string"))))
       throw new GatewayError(422, "input wajib teks atau daftar teks.");
@@ -311,17 +350,22 @@ export class GatewayService {
   /** Tugas mana yang sudah punya model (aplikasi menampilkan "atur di Akai"). */
   async status(caller: Caller) {
     const routes = await this.prisma.aiTaskRoute.findMany({ where: { accountId: caller.account.id } });
-    const enabled = new Set(
+    const enabled = new Map(
       (
         await this.prisma.aiModel.findMany({
           where: { accountId: caller.account.id, enabled: true },
-          select: { id: true },
+          select: { id: true, modelId: true },
         })
-      ).map((m) => m.id),
+      ).map((m) => [m.id, m.modelId]),
     );
-    const byTask = new Map(
-      routes.map((r) => [r.task, (r.modelIds as string[]).filter((id) => enabled.has(id)).length]),
-    );
-    return { tasks: AI_TASKS.map((task) => ({ task, label: TASK_LABELS[task], models: byTask.get(task) ?? 0 })) };
+    const byTask = new Map(routes.map((r) => [r.task, (r.modelIds as string[]).filter((id) => enabled.has(id))]));
+    // `primary` = ID model utama tugas (urutan pertama yang menyala). Dipakai aplikasi untuk menandai vektor embedding
+    // per model: vektor dari model berbeda tidak sebanding.
+    return {
+      tasks: AI_TASKS.map((task) => {
+        const ids = byTask.get(task) ?? [];
+        return { task, label: TASK_LABELS[task], models: ids.length, primary: ids[0] ? enabled.get(ids[0])! : null };
+      }),
+    };
   }
 }

@@ -11,6 +11,8 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },
+  // Mermaid (diagram artifact, elk ± 1,4 MB) hanya dimuat saat ada diagram; chunk utama tetap kecil (sama dengan Akasha)
+  build: { chunkSizeWarningLimit: 1500 },
   server: {
     port: 5177,
     strictPort: true,

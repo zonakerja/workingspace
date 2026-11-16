@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   DatabaseZap,
   ChevronDown,
+  ChevronRight,
   ExternalLink,
   Eye,
   EyeOff,
@@ -19,6 +20,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { PageLoader } from "@/components/common/page-loader";
 import { SectionCard } from "@/components/common/section-card";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import {
@@ -70,51 +72,57 @@ export function AiSettingsTab() {
   }
 
   const active = data.providers.find((p) => p.id === data.activeProvider);
+  const akaiPrimary = isAkaiPrimary(data.akai);
+
+  const legacy = (
+    <>
+      <div
+        className={cn(
+          "flex items-start gap-3 rounded-2xl p-4 text-sm",
+          active ? "bg-success/10 text-success" : "bg-warning/10 text-warning",
+        )}
+      >
+        {active ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <PlugZap className="mt-0.5 size-4 shrink-0" />}
+        <p>
+          {active ? (
+            <>
+              Fitur AI memakai <b>{providerLabel(active)}</b> dengan model <b>{active.model || active.defaultModel}</b>.
+            </>
+          ) : (
+            "AI belum diatur. Simpan API key salah satu provider di bawah agar chatbot, pencarian AI, Notes AI, dan ringkasan resource bisa dipakai."
+          )}
+        </p>
+      </div>
+
+      <FallbackSwitch settings={data} />
+
+      {data.providers.map((provider) => (
+        // Remount setelah disimpan agar form kembali ke nilai dari server
+        <ProviderCard
+          key={`${provider.id}:${provider.updatedAt ?? "baru"}`}
+          provider={provider}
+          active={provider.id === data.activeProvider}
+        />
+      ))}
+
+      <AiRoutingCard settings={data} />
+    </>
+  );
 
   return (
     <SectionCard
       icon={Sparkles}
       title="Model AI"
-      description="Pilih provider AI dan simpan API key milik Anda. Key hanya berlaku untuk akun Anda."
+      description={
+        akaiPrimary
+          ? "Model AI akun Anda diatur di Akai untuk semua aplikasi workingspace.id. Pengaturan lama di halaman ini hanya cadangan."
+          : "Pilih provider AI dan simpan API key milik Anda. Key hanya berlaku untuk akun Anda."
+      }
     >
       <div className="flex flex-col gap-4">
         <AkaiCard akai={data.akai} />
 
-        <div
-          className={cn(
-            "flex items-start gap-3 rounded-2xl p-4 text-sm",
-            active ? "bg-success/10 text-success" : "bg-warning/10 text-warning",
-          )}
-        >
-          {active ? (
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          ) : (
-            <PlugZap className="mt-0.5 size-4 shrink-0" />
-          )}
-          <p>
-            {active ? (
-              <>
-                Fitur AI memakai <b>{providerLabel(active)}</b> dengan model{" "}
-                <b>{active.model || active.defaultModel}</b>.
-              </>
-            ) : (
-              "AI belum diatur. Simpan API key salah satu provider di bawah agar chatbot, pencarian AI, Notes AI, dan ringkasan resource bisa dipakai."
-            )}
-          </p>
-        </div>
-
-        <FallbackSwitch settings={data} />
-
-        {data.providers.map((provider) => (
-          // Remount setelah disimpan agar form kembali ke nilai dari server
-          <ProviderCard
-            key={`${provider.id}:${provider.updatedAt ?? "baru"}`}
-            provider={provider}
-            active={provider.id === data.activeProvider}
-          />
-        ))}
-
-        <AiRoutingCard settings={data} />
+        {akaiPrimary ? <LegacySettings akai={data.akai}>{legacy}</LegacySettings> : legacy}
 
         <Link
           to="/tools/index"
@@ -136,13 +144,53 @@ export function AiSettingsTab() {
   );
 }
 
-/** Tugas Akasha yang bisa dijawab Akai (urutan tampil). Agen & embedding masih memakai pengaturan di halaman ini. */
+/** Tugas Akasha yang bisa dijawab Akai (urutan tampil). Transkrip audio selalu memakai key Gemini di pengaturan lama. */
 const AKAI_TASKS = [
   { key: "chat", label: "Chat & asisten" },
   { key: "general", label: "Umum" },
   { key: "document", label: "Rapikan dokumen" },
   { key: "ocr", label: "Baca gambar (OCR)" },
+  { key: "embedding", label: "Embedding (indeks)" },
+  { key: "agent", label: "Agen (Hermes)" },
 ] as const;
+
+/** Akai menjadi pengaturan utama: akun SSO, Akai terjangkau, dan minimal satu tugas sudah punya model di Akai. */
+const isAkaiPrimary = (akai: AiSettings["akai"]) =>
+  akai.available && akai.reachable && AKAI_TASKS.some(({ key }) => (akai.tasks?.[key] ?? 0) > 0);
+
+/** Tugas yang belum punya model di Akai = masih memakai pengaturan lama. */
+const legacyTasks = (akai: AiSettings["akai"]) =>
+  AKAI_TASKS.filter(({ key }) => (akai.tasks?.[key] ?? 0) === 0).map(({ label }) => label);
+
+/**
+ * Pengaturan lama (provider, key, cadangan, pembagian tugas) dilipat bila Akai sudah utama. Tetap bisa dibuka: tugas yang
+ * belum diatur di Akai, cadangan saat Akai tidak terjangkau, dan transkrip audio (Gemini langsung) masih memakainya.
+ */
+function LegacySettings({ akai, children }: { akai: AiSettings["akai"]; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const remaining = legacyTasks(akai);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-2xl border">
+      <CollapsibleTrigger className="flex w-full items-start gap-3 p-4 text-left">
+        <ChevronRight className={cn("mt-0.5 size-4 shrink-0 transition-transform", open && "rotate-90")} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Pengaturan lama (cadangan)</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {remaining.length > 0 ? (
+              <>
+                Masih dipakai untuk: <b>{remaining.join(", ")}</b>, transkrip audio, dan bila Akai tidak dapat
+                dihubungi.
+              </>
+            ) : (
+              "Hanya dipakai untuk transkrip audio dan bila Akai tidak dapat dihubungi."
+            )}
+          </p>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="flex flex-col gap-4 border-t p-4">{children}</CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 /**
  * Akai = tempat mengatur router & API key model untuk semua aplikasi workingspace.id. Tugas yang sudah punya model di Akai
@@ -160,7 +208,7 @@ function AkaiCard({ akai }: { akai: AiSettings["akai"] }) {
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Atur router & API key sekali di Akai. Tugas yang sudah punya model di Akai dijawab Akai; tugas lain memakai
-            pengaturan di bawah.
+            pengaturan lama di bawah.
           </p>
         </div>
         {akai.available && (
@@ -185,7 +233,7 @@ function AkaiCard({ akai }: { akai: AiSettings["akai"] }) {
             const models = akai.tasks?.[key] ?? 0;
             return (
               <Badge key={key} variant={models > 0 ? "default" : "outline"} className="font-normal">
-                {label}: {models > 0 ? `Akai · ${models} model` : "pengaturan di bawah"}
+                {label}: {models > 0 ? `Akai · ${models} model` : "pengaturan lama"}
               </Badge>
             );
           })}

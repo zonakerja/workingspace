@@ -118,8 +118,9 @@ export interface AiIndexStatus {
   enabled: boolean;
   /** User punya API key untuk embedding (Gemini atau OpenAI). */
   embeddingAvailable: boolean;
-  embeddingProvider: AiEmbeddingProvider | null;
-  /** Model embedding yang dipakai; null = pencarian kata saja */
+  /** `akai` = embedding lewat gateway Akai (tugas Embedding diatur di Akai) */
+  embeddingProvider: AiEmbeddingProvider | "akai" | null;
+  /** Model embedding yang dipakai (`akai/<id>` bila lewat Akai); null = pencarian kata saja */
   model: string | null;
   sources: number;
   chunks: number;

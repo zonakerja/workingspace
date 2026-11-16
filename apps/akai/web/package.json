@@ -18,10 +18,13 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "lucide-react": "^1.53.0",
+    "mermaid": "^12.2.0",
     "radix-ui": "^1.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
     "react-router": "^8.4.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8"
   },
   "devDependencies": {

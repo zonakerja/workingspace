@@ -124,6 +124,22 @@ jobs:
           push: false
           cache-from: type=gha,scope=landing
           cache-to: type=gha,mode=max,scope=landing
+      - name: Build Akai API image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/akai/api/Dockerfile
+          push: false
+          cache-from: type=gha,scope=akai-api
+          cache-to: type=gha,mode=max,scope=akai-api
+      - name: Build Akai web image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/akai/web/Dockerfile
+          push: false
+          cache-from: type=gha,scope=akai-web
+          cache-to: type=gha,mode=max,scope=akai-web
       - name: Build robot image
         uses: docker/build-push-action@v7
         with:

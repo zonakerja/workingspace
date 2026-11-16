@@ -20,7 +20,7 @@ const POINTS = [
 export function LoginPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const returnTo = params.get("returnTo") ?? "/models";
+  const returnTo = params.get("returnTo") ?? "/chat";
   const error = params.get("sso_error");
   const checked = params.get("sso_checked") === "1" || !!error;
   const [state, setState] = useState<"checking" | "ready" | "disabled">("checking");

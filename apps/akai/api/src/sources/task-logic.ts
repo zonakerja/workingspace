@@ -1,6 +1,6 @@
 /** Aturan pembagian tugas model (logika murni, diuji di task-logic.spec.ts). docs/AKAI.md §3. */
 
-export const AI_TASKS = ["chat", "general", "agent", "document", "ocr", "embedding", "transcribe"] as const;
+export const AI_TASKS = ["chat", "general", "agent", "document", "ocr", "embedding", "transcribe", "memory"] as const;
 export type AiTask = (typeof AI_TASKS)[number];
 
 export const TASK_LABELS: Record<AiTask, string> = {
@@ -11,6 +11,7 @@ export const TASK_LABELS: Record<AiTask, string> = {
   ocr: "Baca gambar (OCR)",
   embedding: "Embedding (pencarian makna)",
   transcribe: "Transkrip audio",
+  memory: "Memori (catat fakta)",
 };
 
 /** Maksimum model per tugas: 1 utama + 4 cadangan. */

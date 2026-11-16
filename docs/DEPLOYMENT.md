@@ -215,6 +215,85 @@ Cek: `sudo sshd -T | grep -E "passwordauthentication|permitrootlogin"` (harus `n
 `systemctl status unattended-upgrades`. Semua container memakai `restart: unless-stopped`, jadi aplikasi hidup
 kembali setelah reboot otomatis.
 
+### 1.3 Perkiraan resource: semua service menyala di VPS 8 vCPU / 16 GB / 300 GB SSD
+
+Dihitung 2026-11-16 dari pemakaian nyata di laptop dev (proses Akasha API ± 290 MB, SSO API ± 145 MB, Akai API ± 145 MB,
+SeaweedFS ± 165 MB, Markdown Converter diam ± 1,2 GB) + batas memori di `docker-compose.prod.yml`. "Semua menyala" =
+halaman depan, SSO, Akasha, Akai, PostgreSQL, Redis, SeaweedFS, backup, **dan** semua profile opsional
+(`COMPOSE_PROFILES=office,robot,converter,agent,sync`).
+
+**Memori (RAM)**
+
+| Service | Biasa (diam / dipakai ringan) | Puncak | Batas yang disarankan untuk 16 GB |
+| --- | --- | --- | --- |
+| OS + Docker + journald | 0,8–1 GB | 1 GB | — |
+| Caddy + 4 nginx (Akasha web, SSO web, Akai web, halaman depan) | 0,1 GB | 0,15 GB | bawaan |
+| Akasha API (`backend`) | 0,3–0,6 GB | 0,9 GB (baca PDF/DOCX besar) | `BACKEND_MEM_LIMIT=1536m`, `BACKEND_HEAP_MB=1024` |
+| SSO API (`auth-api`) | 0,15–0,2 GB | 0,25 GB | bawaan 256m |
+| Akai API (`akai-api`) | 0,15–0,3 GB | 0,4 GB (stream agen) | bawaan 448m |
+| PostgreSQL 18 + pgvector | 0,5–1,5 GB | 2,5 GB | `POSTGRES_MEM_LIMIT=2560m` + tuning di bawah |
+| Redis | 0,05–0,1 GB | 0,3 GB | `REDIS_MEM_LIMIT=384m`, `REDIS_MAXMEMORY=320mb` |
+| SeaweedFS | 0,2–0,4 GB | 0,6 GB | `STORAGE_MEM_LIMIT=768m` |
+| ONLYOFFICE | 1,2–1,8 GB | 2,5–3 GB (beberapa dokumen dibuka + konversi) | `ONLYOFFICE_MEM_LIMIT=3072m` |
+| Markdown Converter (Docling) | 1,2 GB | 2–3 GB (OCR PDF scan besar) | `CONVERTER_MEM_LIMIT=2560m`, `CONVERTER_CPUS=4` |
+| Robot Playwright | 0,15 GB | 0,8–1,2 GB (Chromium membuka sistem) | `ROBOT_MEM_LIMIT=1280m` |
+| Hermes (agen) | 0,3–0,8 GB | 1,2 GB | bawaan 1536m |
+| Syncthing | 0,05–0,15 GB | 0,25 GB | bawaan |
+| Backup (hanya saat berjalan, tiap 24 jam) | 0 | 0,4 GB | bawaan 512m |
+| **Jumlah** | **± 5–7 GB** | **± 11–12 GB** (semua puncak bersamaan — jarang) | |
+
+Kesimpulan RAM: **16 GB cukup** untuk semua service menyala, dengan ± 4 GB sisa saat puncak dan ± 9 GB saat biasa (dipakai
+Linux sebagai cache disk → database & berkas lebih cepat). Jumlah batas di atas (± 15 GB) sengaja lebih besar dari pemakaian
+nyata: batas mencegah satu service menghabiskan RAM, bukan jatah tetap. Tetap pasang **swap 4 GB** sebagai pengaman (§1).
+
+**CPU (8 vCPU)**
+
+- Diam: < 5 % total. Node (Akasha, SSO, Akai) masing-masing satu thread; nginx/Caddy/Redis hampir tidak terasa.
+- Lonjakan: OCR Docling memakai semua core yang diizinkan (risalah 6 halaman ± 20 detik di laptop) → dibatasi
+  `CONVERTER_CPUS=4`; konversi ONLYOFFICE 1–2 core sebentar; robot Chromium ± 1 core; pembuatan indeks HNSW PostgreSQL
+  ± 1 core saat Indeks ulang. Panggilan model AI tidak memakai CPU VPS (dikerjakan provider).
+- Kesimpulan: **8 vCPU longgar.** Pilih paket VPS dengan vCPU yang tidak terlalu dibagi ("dedicated"/"performance") bila
+  ada; vCPU bersama yang padat membuat OCR & ONLYOFFICE terasa lambat.
+
+**Disk (300 GB SSD)**
+
+| Bagian | Perkiraan |
+| --- | --- |
+| Ubuntu + Docker | ± 10 GB |
+| Image Docker (converter ± 5,2 GB, Hermes ± 4,5 GB, robot ± 3,5 GB, ONLYOFFICE ± 3,2 GB, lainnya) | ± 20 GB |
+| Sisa build image saat update (dibuang dengan `docker builder prune -f` setelah update) | 0–20 GB sementara |
+| PostgreSQL (data + embedding: ± 3 KB per potongan, 100 rb potongan ± 1 GB dengan indeks) | 2–5 GB |
+| Data ONLYOFFICE, Hermes, Caddy, log (dirotasi 10 MB × 5 per service) | ± 3 GB |
+| Berkas pengguna di SeaweedFS | **X** |
+| Backup lokal `./backups`: dump database 14 hari + cermin berkas (`storage/current` = X) + versi berubah | ± 7 GB + 1,1–1,3 X |
+| Ruang kosong wajib (PostgreSQL & Docker butuh ruang kerja, sisakan ≥ 15 %) | ± 45 GB |
+
+Rumus kasar: **± 85 GB tetap + ± 2,3 × X**. Dengan 300 GB, berkas pengguna aman sampai **± 90 GB**. Lewat dari itu: simpan
+backup berkas hanya di luar server (R2/B2, §4.1) atau pindahkan object storage ke S3 eksternal (§7) — disk VPS lalu hanya untuk
+database & aplikasi.
+
+**`.env` yang disarankan untuk VPS 16 GB** (tambahkan ke `.env` di VPS):
+
+```bash
+POSTGRES_MEM_LIMIT=2560m
+PG_SHARED_BUFFERS=640MB
+PG_EFFECTIVE_CACHE_SIZE=2GB
+PG_WORK_MEM=16MB
+PG_MAINTENANCE_WORK_MEM=256MB
+BACKEND_MEM_LIMIT=1536m
+BACKEND_HEAP_MB=1024
+REDIS_MEM_LIMIT=384m
+REDIS_MAXMEMORY=320mb
+STORAGE_MEM_LIMIT=768m
+ONLYOFFICE_MEM_LIMIT=3072m
+CONVERTER_MEM_LIMIT=2560m
+CONVERTER_CPUS=4
+ROBOT_MEM_LIMIT=1280m
+```
+
+Setelah berjalan seminggu, cocokkan dengan `docker stats --no-stream` dan `df -h`; container yang sering terkena batas
+(`OOMKilled`, §1.1) dinaikkan batasnya, yang jauh di bawah batas boleh diturunkan.
+
 ## 2. Instalasi
 
 ```bash
@@ -628,3 +707,30 @@ Rancangan & keputusan: [SSO.md](SSO.md). Service `auth-api`, `auth-web`, `landin
 - **Status di halaman depan**: `auth-api` `LANDING_URL` (= `https://<ROOT_DOMAIN>`) boleh membaca status masuk; `landing` mendapat
   `AUTH_ORIGIN` untuk CSP `connect-src` (templat nginx).
 - Pemantau uptime: tambahkan `https://<AUTH_DOMAIN>/api/health` dan `https://<ROOT_DOMAIN>`.
+
+## 17. Akai (gateway model)
+
+Rancangan: [AKAI.md](AKAI.md). Service `akai-api` dan `akai-web` selalu menyala (bukan profile); host `AKAI_DOMAIN`
+(`akai.workingspace.id`) butuh record DNS A/AAAA seperti host lain.
+
+- **Database** `akai` dibuat otomatis oleh `infra/postgres/init/20-akai.sql` hanya pada volume PostgreSQL yang masih kosong.
+  Server yang sudah berjalan sebelum Akai ditambahkan: buat sekali secara manual, lalu nyalakan `akai-api` (migrasi berjalan saat start):
+
+  ```bash
+  docker compose -f docker-compose.prod.yml exec postgres psql -U akasha -d akasha -c "CREATE DATABASE akai"
+  docker compose -f docker-compose.prod.yml up -d akai-api akai-web caddy
+  ```
+
+- **Rahasia** (dari `generate-prod-secrets.mjs`): `SSO_AKAI_CLIENT_SECRET` (klien OIDC `akai`), `AKAI_ENCRYPTION_KEY` (64 hex,
+  mengenkripsi API key sumber model; **jangan diganti** — key tersimpan tidak terbaca lagi), `AKAI_AKASHA_CLIENT_SECRET`
+  (Akasha → gateway; dipakai di `AKAI_CLIENTS` service `akai-api` dan `AKAI_CLIENT_SECRET` service `backend`).
+- **Jalur**: Caddy membuka `https://<AKAI_DOMAIN>/api/*` (Akai web: masuk SSO, sumber, model, tugas, pemakaian) dan halaman web.
+  **Gateway `/gateway/*` tidak dibuka ke internet**: Akasha memanggilnya di jaringan internal `http://akai-api:4400`.
+  Aplikasi lain kelak (Cendekia) juga lewat jaringan internal + klien baru di `AKAI_CLIENTS`.
+- **Keluar lintas aplikasi**: klien `akai` di `OIDC_CLIENTS` membawa `backchannel_logout_uri`
+  (`https://<AKAI_DOMAIN>/api/auth/sso/backchannel-logout`), dijawab lewat alias jaringan Caddy `AKAI_DOMAIN`.
+- **Backup**: `EXTRA_DATABASES=workingspace_auth,akai` → `db-akai-<waktu>.dump` ikut retensi & salinan luar server. Isinya
+  API key model terenkripsi: tanpa `AKAI_ENCRYPTION_KEY` yang sama, dump itu tidak membuka key (simpan kunci di password manager).
+- **Konektor Akasha** di chat Akai: `AKASHA_MCP_URL=http://backend:4000/api/v1/mcp` (compose, jaringan internal); pemilik membuat token
+  akses di Akasha → Pengaturan → Integrasi lalu menempelnya di Akai → Konektor.
+- Pemantau uptime: tambahkan `https://<AKAI_DOMAIN>/api/health`.

@@ -32,18 +32,28 @@ enum ApiFormat {
 
 /// Akun Akai = akun SSO workingspace.id (dibuat saat pertama dipakai). Semua data di bawah milik satu akun.
 model Account {
-  id         String   @id @default(cuid())
-  ssoSubject String   @unique @map("sso_subject")
-  email      String?
-  name       String?
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id            String   @id @default(cuid())
+  ssoSubject    String   @unique @map("sso_subject")
+  email         String?
+  name          String?
+  /// Memori chat (6b.3): Akai mencatat & memakai fakta tentang pengguna lintas percakapan
+  memoryEnabled Boolean  @default(true) @map("memory_enabled")
+  /// Skill bawaan yang dimatikan pemilik (6b.6): daftar nama
+  disabledSkills Json    @default("[]") @map("disabled_skills")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sources     AiSource[]
-  models      AiModel[]
-  tasks       AiTaskRoute[]
-  usage       AiUsage[]
-  webSessions WebSession[]
+  sources         AiSource[]
+  models          AiModel[]
+  tasks           AiTaskRoute[]
+  usage           AiUsage[]
+  webSessions     WebSession[]
+  conversations   Conversation[]
+  chatAttachments ChatAttachment[]
+  projects        Project[]
+  memories        Memory[]
+  connectors      Connector[]
+  skills          Skill[]
 
   @@map("accounts")
 }
@@ -183,4 +193,166 @@ model WebSession {
   @@index([accountId])
   @@index([ssoSid])
   @@map("web_sessions")
+}
+
+/// Percakapan chat Akai web (6b.1). model_id = model Akai pilihan pemilik (null = tugas "chat" + cadangannya).
+model Conversation {
+  id        String   @id @default(cuid())
+  accountId String   @map("account_id")
+  title     String   @default("Percakapan baru")
+  modelId   String?  @map("model_id")
+  /// Proyek pemilik percakapan (hapus proyek = percakapan tetap, keluar dari proyek)
+  projectId String?  @map("project_id")
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account     Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  project     Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages    ChatMessage[]
+  attachments ChatAttachment[]
+
+  @@index([accountId, updatedAt])
+  @@index([projectId])
+  @@map("conversations")
+}
+
+/// Pesan percakapan. role = user | assistant; attachments = [{ id, name, mimeType, size }].
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  role           String
+  content        String   @default("")
+  attachments    Json?
+  model          String?
+  fallbackFrom   String?  @map("fallback_from")
+  error          String?
+  /// Perubahan memori dari pertukaran ini: [{ op: add|remove, content }]
+  memoryUpdates  Json?    @map("memory_updates")
+  /// Jejak alat konektor yang dipakai jawaban ini (6b.5): [{ id, connector, tool, title, status, input, output }]
+  toolRuns       Json?    @map("tool_runs")
+  inputTokens    Int?     @map("input_tokens")
+  outputTokens   Int?     @map("output_tokens")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("chat_messages")
+}
+
+/// Lampiran chat (gambar, PDF, teks) disimpan di database (kecil, dibatasi ukuran). conversation_id kosong = belum dikirim.
+model ChatAttachment {
+  id             String   @id @default(cuid())
+  accountId      String   @map("account_id")
+  conversationId String?  @map("conversation_id")
+  name           String
+  mimeType       String   @map("mime_type")
+  size           Int
+  kind           String
+  data           Bytes
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([conversationId])
+  @@map("chat_attachments")
+}
+
+/// Proyek Akai (6b.2): kumpulan percakapan + instruksi tetap + berkas pengetahuan (teks hasil ekstraksi ikut konteks).
+model Project {
+  id           String   @id @default(cuid())
+  accountId    String   @map("account_id")
+  name         String
+  description  String   @default("")
+  instructions String   @default("")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  files         ProjectFile[]
+  conversations Conversation[]
+
+  @@index([accountId, updatedAt])
+  @@map("projects")
+}
+
+/// Berkas pengetahuan proyek: hanya teks hasil ekstraksi yang disimpan (berkas asal tidak disimpan).
+model ProjectFile {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  name      String
+  mimeType  String   @map("mime_type")
+  size      Int
+  text      String
+  chars     Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_files")
+}
+
+/// Memori Akai (6b.3): fakta/preferensi tentang pengguna yang diingat lintas percakapan. source = auto (dicatat Akai) | manual.
+model Memory {
+  id             String   @id @default(cuid())
+  accountId      String   @map("account_id")
+  content        String
+  source         String   @default("auto")
+  conversationId String?  @map("conversation_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("memories")
+}
+
+/// Konektor MCP Akai (6b.5): alat dari aplikasi lain untuk chat. kind = akasha (alamat dari env AKASHA_MCP_URL) | custom (alamat isian).
+/// Token akses terenkripsi (AKAI_ENCRYPTION_KEY). tools = salinan tools/list (nama, deskripsi, skema input, tanda baca/hapus).
+model Connector {
+  id            String    @id @default(cuid())
+  accountId     String    @map("account_id")
+  name          String
+  slug          String
+  kind          String    @default("custom")
+  url           String?
+  tokenEnc      String?   @map("token_enc")
+  tokenHint     String?   @map("token_hint")
+  enabled       Boolean   @default(true)
+  allowWrite    Boolean   @default(false) @map("allow_write")
+  tools         Json      @default("[]")
+  status        String    @default("new")
+  statusMessage String?   @map("status_message")
+  checkedAt     DateTime? @map("checked_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, slug])
+  @@map("connectors")
+}
+
+/// Skill buatan pemilik (6b.6): instruksi format SKILL.md + berkas teks pendukung, dimuat model lewat alat akai__skill saat relevan.
+/// files = [{ path, content }]. Skill bawaan ada di kode (src/skills/builtin-skills.ts), bukan di tabel ini.
+model Skill {
+  id           String   @id @default(cuid())
+  accountId    String   @map("account_id")
+  name         String
+  description  String
+  instructions String
+  files        Json     @default("[]")
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, name])
+  @@map("skills")
 }

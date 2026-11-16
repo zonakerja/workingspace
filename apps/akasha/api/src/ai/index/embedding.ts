@@ -89,27 +89,55 @@ export const documentText = (provider: EmbeddingProvider, doc: EmbeddingDocument
 export const queryText = (provider: EmbeddingProvider, query: string) =>
   provider === "gemini" ? queryEmbeddingText(query) : query;
 
+/**
+ * Format teks mengikuti keluarga model: lewat Akai, model Gemini Embedding (resmi atau lewat router) tetap memakai format
+ * tugas Gemini; model lain teks biasa.
+ */
+export const textFormatOf = ({ provider, model }: Pick<EmbeddingTarget, "provider" | "model">): EmbeddingProvider =>
+  provider === "akai" ? (/gemini-embedding/i.test(model) ? "gemini" : "openai") : provider;
+
+/** Vektor + nama model yang benar-benar menjawab (lewat Akai bisa model cadangan) — dicatat per potongan. */
+export interface EmbeddingResult {
+  vectors: number[][];
+  model: string;
+}
+
 export function embedDocuments(embedding: EmbeddingTarget, docs: EmbeddingDocument[]) {
+  const format = textFormatOf(embedding);
   return embed(
     embedding,
-    docs.map((doc) => documentText(embedding.provider, doc)),
+    docs.map((doc) => documentText(format, doc)),
   );
 }
 
 export async function embedQuery(embedding: EmbeddingTarget, query: string) {
-  const [vector] = await embed(embedding, [queryText(embedding.provider, query)]);
-  return vector;
+  const { vectors, model } = await embed(embedding, [queryText(textFormatOf(embedding), query)]);
+  return { vector: vectors[0], model };
 }
 
-/** Key, model, dan jalur embedding (lewat router = endpoint OpenAI-compatible `/embeddings` milik router). */
+/**
+ * Key, model, dan jalur embedding (lewat router = endpoint OpenAI-compatible `/embeddings` milik router). `provider: "akai"`
+ * = gateway Akai lewat `remote` (key tidak dipegang Akasha); `model` = nama model utama di Akai (`akai/<id>`).
+ */
 export interface EmbeddingTarget {
-  provider: EmbeddingProvider;
+  provider: EmbeddingProvider | "akai";
   apiKey: string;
   model: string;
   baseUrl?: string | null;
+  remote?: (texts: string[]) => Promise<EmbeddingResult>;
 }
 
-function embed({ provider, apiKey, model, baseUrl }: EmbeddingTarget, texts: string[]) {
-  if (baseUrl) return openaiEmbed(apiKey, texts, model, baseUrl);
-  return provider === "gemini" ? geminiEmbed(apiKey, texts) : openaiEmbed(apiKey, texts, model);
+async function embed(target: EmbeddingTarget, texts: string[]): Promise<EmbeddingResult> {
+  const { provider, apiKey, model, baseUrl, remote } = target;
+  if (texts.length === 0) return { vectors: [], model };
+  if (provider === "akai") {
+    if (!remote) throw new AiProviderError("unavailable", "Akai tidak aktif.");
+    return remote(texts);
+  }
+  const vectors = baseUrl
+    ? await openaiEmbed(apiKey, texts, model, baseUrl)
+    : provider === "gemini"
+      ? await geminiEmbed(apiKey, texts)
+      : await openaiEmbed(apiKey, texts, model);
+  return { vectors, model };
 }
