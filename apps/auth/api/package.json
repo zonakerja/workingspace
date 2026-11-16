@@ -15,7 +15,8 @@
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "setup:dev": "node scripts/setup-dev-env.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.2",

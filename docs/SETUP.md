@@ -1,6 +1,7 @@
-# Setup & Menjalankan Akasha
+# Setup & Menjalankan Workingspace (Akasha + SSO)
 
-Panduan development lokal. Bagian §1–§6 adalah **petunjuk operasional** (setup awal, menyalakan, mematikan, cek
+Panduan development lokal untuk monorepo **workingspace**: aplikasi **Akasha** (`apps/akasha`) dan **SSO workingspace.id**
+(`apps/auth`, akun satu pintu untuk semua aplikasi — docs/SSO.md). Bagian §1–§6 adalah **petunjuk operasional** (setup awal, menyalakan, mematikan, cek
 status) untuk laptop Windows + Docker di WSL; §7 dan seterusnya adalah referensi teknis.
 
 | Mau apa? | Baca |
@@ -12,7 +13,8 @@ status) untuk laptop Windows + Docker di WSL; §7 dan seterusnya adalah referens
 | Port bentrok / bingung port | §2 Aturan port |
 
 Semua perintah di §3–§6 dijalankan di **PowerShell** (Windows Terminal) dari folder proyek
-`D:\Development\Application\workingspace`, kecuali disebut lain.
+`D:\Development\Application\workingspace`, kecuali disebut lain. (Windows tidak membedakan huruf besar/kecil nama folder:
+`Workingspace` dan `workingspace` sama, juga di WSL `/mnt/d/...`.)
 
 ## 1. Prasyarat
 
@@ -55,7 +57,7 @@ $env:PROCESSOR_ARCHITECTURE     # AMD64 = Windows x64 (Intel/AMD) · ARM64 = Win
 - **[ARM64]** Paket native tanpa prebuilt win32-arm64 akan gagal dipasang. Proyek ini sudah memakai alternatif yang aman
   (`@node-rs/argon2`, Prisma tanpa engine Rust + adapter `pg`; lihat ARCHITECTURE.md §2.2).
 - npm 11 memblokir install script yang belum disetujui; daftar yang diizinkan ada di field `allowScripts`
-  pada `apps/akasha/api/package.json`. Paket baru yang butuh postinstall: `npm approve-scripts <pkg>` lalu `npm rebuild <pkg>`.
+  pada `package.json` **root** (monorepo). Paket baru yang butuh postinstall: `npm approve-scripts <pkg>` lalu `npm rebuild <pkg>`.
 
 ## 2. Aturan port (berlaku di semua terminal & semua thread Claude)
 
@@ -67,7 +69,10 @@ test) semuanya mengandalkan angka yang sama.
 |---|---|---|---|
 | Frontend (Vite dev server) | **5173** | http://localhost:5173 | `apps/akasha/web/vite.config.ts` (`strictPort`) |
 | Backend (NestJS API) | **4000** | http://localhost:4000/api/v1 · Swagger `/api/docs` | `apps/akasha/api/.env` `PORT` |
-| PostgreSQL | **5432** | db `akasha` (+ `akasha_shadow`) | `docker-compose.yml` |
+| SSO API (NestJS + OIDC) | **4300** | http://localhost:4300/api/health | `apps/auth/api/.env` `PORT` |
+| SSO halaman masuk & akun (Vite) | **5175** | **http://auth.localhost:5175** (bukan `localhost:5175`) | `apps/auth/web/vite.config.ts` (`strictPort`) |
+| Halaman depan workingspace.id (Vite, direncanakan) | 5176 | — | `apps/landing` (belum dibuat) |
+| PostgreSQL | **5432** | db `akasha` (+ `akasha_shadow`), `workingspace_auth` (+ `workingspace_auth_shadow`) | `docker-compose.yml` |
 | Redis | **6379** | — | `docker-compose.yml` |
 | SeaweedFS S3 API / filer UI | **8333** / **8888** | filer: http://localhost:8888 | `docker-compose.yml` |
 | ONLYOFFICE Docs (opsional, profile `office`) | **8080** | http://localhost:8080 (`/healthcheck` → `true`) | `docker-compose.yml` |
@@ -88,8 +93,10 @@ Aturan main:
    pindah ke 5174/4001. Pesan itu artinya: matikan proses lama (§5) atau pakai yang sudah berjalan.
 3. **Thread Claude** mengikuti aturan yang sama (CLAUDE.md §2a): Claude mengecek status lebih dulu, memakai server yang
    sudah berjalan bila ada, dan hanya menyalakan yang belum aktif (lewat `.claude/launch.json`, port sama).
-4. Port 80/443 hanya dipakai stack produksi uji; matikan stack itu (`docker compose -p <nama> down -v`) setelah selesai.
-5. **Proyek lain di laptop yang sama**: OnTrack Data Hub (sumber data SIMAN/MyIntress, docs/AI-AGENT.md §16) memakai port
+4. **SSO dibuka di `http://auth.localhost:5175`.** Alamat `*.localhost` otomatis menuju laptop sendiri (Chrome, Edge, Node) tanpa
+   mengubah berkas hosts; alamat SSO dan cookie-nya terikat ke nama itu, jadi `http://localhost:5175` **tidak** dipakai.
+5. Port 80/443 hanya dipakai stack produksi uji; matikan stack itu (`docker compose -p <nama> down -v`) setelah selesai.
+6. **Proyek lain di laptop yang sama**: OnTrack Data Hub (sumber data SIMAN/MyIntress, docs/AI-AGENT.md §16) memakai port
    sendiri — web **5174**, API/MCP **3000**, PostgreSQL **5433**, Redis **6380** (keputusan 2026-10-24) — sehingga bisa
    menyala bersamaan dengan Akasha. Bila container OnTrack masih memakai 5432/6379 (versi lama), PostgreSQL/Redis Akasha
    menyala **tanpa port**: hentikan `docker stop ontrack_postgres ontrack_redis` lalu `docker restart akasha-postgres
@@ -135,7 +142,8 @@ nvm uninstall <versi-x64>
 ```
 
 Bila `node_modules` sudah pernah dipasang dengan Node arsitektur lain, hapus lalu pasang ulang agar paket native
-sesuai: `Remove-Item -Recurse -Force backend\node_modules, frontend\node_modules` → ulangi langkah 4–5.
+sesuai: `Remove-Item -Recurse -Force node_modules` (folder `node_modules` di root; bila ada, juga di `apps\*\*\node_modules`) → ulangi
+langkah 4.
 
 Setelah `nvm install`, nvm menyarankan `nvm use <versi>` **tanpa** `arm64` — abaikan saran itu. nvm-windows tidak
 mengingat pilihan arsitektur: setiap `nvm install`/`nvm use` di Windows ARM selalu ditambah `arm64`
@@ -159,29 +167,47 @@ wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose u
 
 Pertama kali, Docker mengunduh image (beberapa menit). Selesai bila ketiga container berstatus *Healthy/Started*.
 
-**Langkah 3 — buat database shadow** (dipakai Prisma untuk cek drift skema; sekali saja):
+**Langkah 3 — buat database tambahan** (sekali saja): `akasha_shadow` (cek drift skema Akasha), `workingspace_auth` (akun SSO) dan
+`workingspace_auth_shadow`:
 
 ```powershell
-wsl -e sh -c "docker exec akasha-postgres psql -U postgres -c 'CREATE DATABASE akasha_shadow'"
+wsl -e sh -c "docker exec akasha-postgres psql -U postgres -c 'CREATE DATABASE akasha_shadow' -c 'CREATE DATABASE workingspace_auth' -c 'CREATE DATABASE workingspace_auth_shadow'"
 ```
 
-**Langkah 4 — backend**: file env, paket, tabel database, akun demo.
+Pesan `already exists` untuk salah satunya aman diabaikan.
+
+**Langkah 4 — Akasha**: file env, paket semua workspace, tabel database, akun demo.
 
 ```powershell
-Copy-Item backend\.env.example backend\.env
-npm install                         # juga membuat Prisma Client (postinstall)
-npm --prefix apps/akasha/api run prisma:deploy              # membuat semua tabel
-npm --prefix apps/akasha/api run prisma:seed                 # pengaturan + akun demo
+Copy-Item apps\akasha\api\.env.example apps\akasha\api\.env
+npm install                                         # semua workspace (satu package-lock.json di root) + Prisma Client
+npm --prefix apps/akasha/api run prisma:deploy      # membuat semua tabel Akasha
+npm --prefix apps/akasha/api run prisma:seed        # pengaturan + akun demo
 ```
 
-**Langkah 5 — frontend**: tidak perlu langkah tambahan (paketnya ikut terpasang oleh `npm install` di root pada langkah 4).
+Isi kunci rahasia di `apps/akasha/api/.env` yang masih contoh (mis. `AI_ENCRYPTION_KEY`, `CREDENTIAL_ENCRYPTION_KEY`) dengan nilai
+acak: `node -p "require('crypto').randomBytes(32).toString('hex')"`.
 
-**Langkah 6 — coba jalankan** mengikuti §4 langkah 3–4, buka http://localhost:5173 dan login
-`admin@workingspace.id` / `123` (akun kedua untuk uji berbagi: `user@workingspace.id` / `123`). Opsional, pastikan semuanya sehat:
+**Langkah 5 — SSO workingspace.id**: env (kunci dibuat otomatis), tabel, akun demo.
 
 ```powershell
-npm run check                       # Turborepo: lint, typecheck, test, build semua workspace
-npm --prefix apps/akasha/api run test:smoke                  # butuh backend yang sedang berjalan
+npm run setup:dev -w @workingspace/auth-api         # membuat apps/auth/api/.env + mengisi SSO_* di apps/akasha/api/.env
+npm --prefix apps/auth/api run prisma:deploy        # membuat tabel SSO (DB workingspace_auth)
+npm --prefix apps/auth/api run prisma:seed          # aplikasi Akasha + akun demo SSO (sama dengan akun Akasha)
+```
+
+`setup:dev` aman dijalankan ulang: berkas yang sudah ada tidak diubah. Email (verifikasi, lupa kata sandi) di development tidak
+dikirim, melainkan ditulis ke folder `apps/auth/api/.mail/`.
+
+**Langkah 6 — coba jalankan** mengikuti §4, buka http://localhost:5173 lalu **Masuk dengan akun Workingspace** (atau kata sandi lokal di
+bawahnya): `admin@workingspace.id` / `123` (akun kedua untuk uji berbagi: `user@workingspace.id` / `123`). Halaman akun SSO:
+http://auth.localhost:5175. Opsional, pastikan semuanya sehat:
+
+```powershell
+npm run check                                       # Turborepo: lint, typecheck, test, build semua workspace
+npm --prefix apps/akasha/api run test:smoke         # butuh backend Akasha yang sedang berjalan
+npm --prefix apps/auth/api run test:smoke           # butuh SSO API yang sedang berjalan
+node apps/akasha/api/test/sso-smoke.mjs             # Akasha ↔ SSO (± 3 menit); butuh keempat dev server
 ```
 
 Setelah ini, cukup ikuti §4 setiap mulai bekerja.
@@ -192,24 +218,29 @@ Setelah ini, cukup ikuti §4 setiap mulai bekerja.
 |---|---|
 | `package-lock.json` / `package.json` workspace mana pun | `npm install` (di root) |
 | Folder baru di `apps/akasha/api/prisma/migrations/` | `npm --prefix apps/akasha/api run prisma:deploy` (lalu `npm --prefix apps/akasha/api run prisma:generate`) |
+| Folder baru di `apps/auth/api/prisma/migrations/` | `npm --prefix apps/auth/api run prisma:deploy` (lalu `npm --prefix apps/auth/api run prisma:generate`) |
+| `apps/auth/api/.env.example` punya variabel baru | Salin variabelnya ke `apps/auth/api/.env` |
 | `apps/akasha/api/.env.example` punya variabel baru | Salin variabelnya ke `apps/akasha/api/.env` (backend menolak start bila env wajib kosong, §13) |
 | `services/robot/` (kode robot) | `wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile robot up -d --build --wait robot"` |
 | `services/converter/` (kode converter) | `wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile converter up -d --build --wait converter"` |
 | `infra/onlyoffice/` | `wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile office up -d --build --wait onlyoffice"` |
-| `apps/akai/agent/hermes/` atau `apps/akai/agent/skills/` | Jalankan ulang `apps/akai/agent/hermes/up.sh` (§4 langkah 8) |
+| `apps/akai/agent/hermes/` atau `apps/akai/agent/skills/` | Jalankan ulang `apps/akai/agent/hermes/up.sh` (§4 langkah 11) |
 
 ## 4. Menyalakan (setiap mulai bekerja)
 
-**Ringkas** (tiga tab PowerShell di folder proyek; langkah lengkap di bawah):
+**Ringkas** (lima tab PowerShell di folder proyek; langkah lengkap di bawah):
 
 | Tab | Perintah | Biarkan terbuka |
 |---|---|---|
 | A | `wsl -e lazydocker` (atau `wsl -e sh -c "sleep infinity"`) | ya — menjaga WSL & Docker hidup |
 | A2 / tab mana saja | `wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose up -d --wait"` | tidak (selesai sendiri) |
-| B | `npm --prefix apps/akasha/api run dev` | ya |
-| C | `npm --prefix apps/akasha/web run dev` | ya |
+| B | `npm --prefix apps/akasha/api run dev` | ya — backend Akasha (4000) |
+| C | `npm --prefix apps/akasha/web run dev` | ya — frontend Akasha (5173) |
+| D | `npm --prefix apps/auth/api run dev` | ya — SSO API (4300) |
+| E | `npm --prefix apps/auth/web run dev` | ya — halaman SSO (5175) |
 
-Lalu buka http://localhost:5173 (login `admin@workingspace.id` / `123`).
+Lalu buka http://localhost:5173 → **Masuk dengan akun Workingspace** (login `admin@workingspace.id` / `123`). Halaman akun & admin
+SSO: http://auth.localhost:5175. Tanpa tab D & E Akasha tetap bisa dimasuki dengan kata sandi lokal (hanya di development).
 
 0. **Cek status dulu** (§6) — nyalakan hanya yang belum aktif.
 1. **Tab A — WSL & Docker**: `wsl -e lazydocker` (atau `wsl -e sh -c "sleep infinity"`). Biarkan terbuka.
@@ -225,8 +256,17 @@ Lalu buka http://localhost:5173 (login `admin@workingspace.id` / `123`).
    ```powershell
    npm --prefix apps/akasha/web run dev
    ```
-5. Buka http://localhost:5173. Cek API: http://localhost:4000/api/v1/health (harus `"status":"ok"`).
-6. **Opsional — ONLYOFFICE** (editor dokumen, menu Tools → ONLYOFFICE; butuh ± 1–2 GB RAM, start pertama ± 1–2 menit):
+5. **Tab D — SSO API** (tunggu `Nest application successfully started`):
+   ```powershell
+   npm --prefix apps/auth/api run dev
+   ```
+6. **Tab E — halaman SSO**:
+   ```powershell
+   npm --prefix apps/auth/web run dev
+   ```
+7. Buka http://localhost:5173. Cek API: http://localhost:4000/api/v1/health dan http://localhost:4300/api/health (keduanya
+   `"status":"ok"`). Halaman akun SSO: http://auth.localhost:5175 (bila super admin: menu **Kelola akun**).
+8. **Opsional — ONLYOFFICE** (editor dokumen, menu Tools → ONLYOFFICE; butuh ± 1–2 GB RAM, start pertama ± 1–2 menit):
    ```powershell
    wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile office up -d --wait onlyoffice"
    ```
@@ -237,7 +277,7 @@ Lalu buka http://localhost:5173 (login `admin@workingspace.id` / `123`).
    ONLYOFFICE yang tidak tersedia. `apps/akasha/api/.env` harus berisi variabel `ONLYOFFICE_*` (salin dari
    `apps/akasha/api/.env.example`, lalu restart backend). Detail: [ONLYOFFICE.md](ONLYOFFICE.md).
 
-7. **Opsional — Service robot** (konektor e-Kinerja, SRIKANDI & SIMAN, tab **Connector** di menu grup Connection & MCP;
+9. **Opsional — Service robot** (konektor e-Kinerja, SRIKANDI & SIMAN, tab **Connector** di menu grup Connection & MCP;
    ± 300–600 MB RAM saat dipakai). Menyalakan robot **tidak** menjalankan apa pun ke sistem pemerintah; jadwal otomasi
    hanya berjalan bila dinyalakan di tab Connector → Otomasi terjadwal:
    ```powershell
@@ -247,7 +287,7 @@ Lalu buka http://localhost:5173 (login `admin@workingspace.id` / `123`).
    `apps/akasha/api/.env` harus berisi `ROBOT_URL` & `ROBOT_TOKEN` (salin dari `apps/akasha/api/.env.example`, lalu restart backend).
    Cek: http://localhost:4100/health → `{"ok":true,…}`.
 
-8. **Opsional — Markdown Converter** (Tools → Markdown Converter; MarkItDown + Docling, ± 1,2 GB RAM saat menyala). Berkas yang
+10. **Opsional — Markdown Converter** (Tools → Markdown Converter; MarkItDown + Docling, ± 1,2 GB RAM saat menyala). Berkas yang
    diunggah dibaca menjadi Markdown di laptop sendiri sehingga AI tidak memakai token untuk membaca berkas; tanpa converter
    aplikasi tetap jalan (pembaca bawaan + OCR AI):
    ```powershell
@@ -257,9 +297,9 @@ Lalu buka http://localhost:5173 (login `admin@workingspace.id` / `123`).
    `apps/akasha/api/.env` harus berisi `CONVERTER_URL` & `CONVERTER_TOKEN` (salin dari `apps/akasha/api/.env.example`, lalu restart backend).
    Cek: http://localhost:4200/health → `"ready": true` (± 20 detik setelah menyala, model Docling dimuat).
 
-9. **Opsional — Agen Hermes** (menu **AI Agent**; ± 300–800 MB RAM; nyalakan setelah backend):
+11. **Opsional — Agen Hermes** (menu **AI Agent**; ± 300–800 MB RAM; nyalakan setelah backend):
    ```powershell
-   wsl -e sh /mnt/d/Development/Application/workingspace/infra/hermes/up.sh
+   wsl -e sh /mnt/d/Development/Application/workingspace/apps/akai/agent/hermes/up.sh
    ```
    Pertama kali mengunduh image `nousresearch/hermes-agent`; skrip juga mengatur Hermes agar memakai model **lewat Akasha**
    (`apps/akai/agent/hermes/configure.sh`, tanpa API key di Hermes). Sekali di Akasha: API key di Pengaturan → Model AI, lalu
@@ -269,8 +309,8 @@ Lalu buka http://localhost:5173 (login `admin@workingspace.id` / `123`).
    Hermes membaca alat MCP saat menyala: setelah izin agen diubah, jalankan
    `wsl -e sh -c "docker restart akasha-hermes"`.
 
-Alternatif: minta Claude menyalakannya — Claude memakai konfigurasi yang sama (`.claude/launch.json`, port 4000 &
-5173) setelah mengecek status, jadi tidak akan bentrok dengan yang sudah berjalan.
+Alternatif: minta Claude menyalakannya — Claude memakai konfigurasi yang sama (`.claude/launch.json`: `backend`, `frontend`,
+`auth-api`, `auth-web`; port 4000, 5173, 4300, 5175) setelah mengecek status, jadi tidak akan bentrok dengan yang sudah berjalan.
 
 Catatan: `401` dari `POST /auth/refresh` di console saat membuka aplikasi tanpa sesi, dan `502` pertama saat frontend
 dibuka sebelum backend selesai kompilasi, adalah normal.
@@ -279,14 +319,14 @@ dibuka sebelum backend selesai kompilasi, adalah normal.
 
 Data tetap aman — semua langkah di bawah hanya menghentikan proses, tidak menghapus data.
 
-**Ringkas**: `Ctrl+C` di tab C dan B → jalankan perintah di bawah → `q` di lazydocker (tab A) → opsional `wsl --shutdown`.
+**Ringkas**: `Ctrl+C` di tab E, D, C, B → jalankan perintah di bawah → `q` di lazydocker (tab A) → opsional `wsl --shutdown`.
 
 ```powershell
 wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile office --profile robot --profile agent --profile converter stop"
 ```
 
-1. **Frontend & backend**: tekan `Ctrl+C` di Tab C dan Tab B (jawab `Y` bila ditanya *Terminate batch job*). Bila
-   dinyalakan Claude, minta Claude "matikan semua".
+1. **Dev server**: tekan `Ctrl+C` di Tab E, D, C, dan B (jawab `Y` bila ditanya *Terminate batch job*). Bila dinyalakan Claude,
+   minta Claude "matikan semua".
 2. **Infrastruktur Docker**:
    ```powershell
    wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile office --profile robot --profile agent --profile converter stop"
@@ -305,17 +345,21 @@ Data dev hanya data dummy dan boleh dihapus kapan saja (backend harus mati dulu)
 
 ```powershell
 wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose down -v && docker compose up -d --wait"
-wsl -e sh -c "docker exec akasha-postgres psql -U postgres -c 'CREATE DATABASE akasha_shadow'"
+wsl -e sh -c "docker exec akasha-postgres psql -U postgres -c 'CREATE DATABASE akasha_shadow' -c 'CREATE DATABASE workingspace_auth' -c 'CREATE DATABASE workingspace_auth_shadow'"
 npm --prefix apps/akasha/api run prisma:deploy
 npm --prefix apps/akasha/api run prisma:seed
+npm --prefix apps/auth/api run prisma:deploy
+npm --prefix apps/auth/api run prisma:seed
 ```
+
+Akun SSO & akun Akasha dibuat ulang dengan email yang sama; akun Akasha tertaut lagi ke akun SSO saat pertama kali masuk lewat SSO.
 
 ## 6. Cek status (apa yang sedang menyala?)
 
 ```powershell
 # Port Akasha yang sedang dipakai + prosesnya (wslrelay = container Docker, node = dev server)
 Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-  Where-Object { $_.LocalPort -in 80,443,4000,4100,5173,5432,6379,8080,8333,8642,8888 } |
+  Where-Object { $_.LocalPort -in 80,443,4000,4100,4200,4300,5173,5175,5432,6379,8080,8333,8642,8888 } |
   Sort-Object LocalPort -Unique |
   ForEach-Object { "{0}  pid={1}  {2}" -f $_.LocalPort, $_.OwningProcess, (Get-Process -Id $_.OwningProcess).ProcessName }
 
@@ -437,6 +481,24 @@ Vite mem-proxy `/api` ke `http://localhost:4000`, sehingga frontend cukup memaka
 | `npm run format` / `format:check` | Prettier (config di root) |
 | `npm test` | unit test (Vitest) |
 
+## 9a. SSO workingspace.id (`apps/auth`)
+
+| Bagian | Isi |
+|---|---|
+| `apps/auth/api` | NestJS + `oidc-provider`: akun, daftar + verifikasi email, lupa kata sandi, OIDC (kode + PKCE), admin akun, PIN keamanan; DB `workingspace_auth`; port 4300 |
+| `apps/auth/web` | Vite + React: masuk, daftar, verifikasi, atur ulang kata sandi, **Akun**, **Admin**; port 5175, dibuka di http://auth.localhost:5175 (Vite meneruskan `/api`, `/oidc`, `/interaction` ke 4300) |
+
+| Perintah (`npm --prefix apps/auth/api run …`) | Fungsi |
+|---|---|
+| `setup:dev` | membuat `.env` dev SSO + mengisi `SSO_*` Akasha (§3 langkah 5) |
+| `dev` / `build` / `start` | server dengan watch / build / jalankan |
+| `prisma:deploy` / `prisma:seed` / `prisma:generate` | migrasi, akun demo, Prisma Client |
+| `test` / `test:smoke` | unit test / uji end-to-end SSO (akun sementara `smoke-*@example.test` dibuat & dihapus) |
+
+- Rancangan, keputusan, dan status: [SSO.md](SSO.md). Uji Akasha ↔ SSO: `node apps/akasha/api/test/sso-smoke.mjs`.
+- Email development ada di `apps/auth/api/.mail/` (berkas `.txt` berisi tautan verifikasi / atur ulang kata sandi).
+- Login Google muncul setelah `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` diisi (docs/TODO-USER.md A42).
+
 ## 10. Alur kerja database
 
 - Skema: `apps/akasha/api/prisma/schema.prisma`. Model domain (tabel `schedules`, `todos`, `resources`, `archive_*`, ...)
@@ -488,3 +550,7 @@ Lihat [DEPLOYMENT.md](DEPLOYMENT.md) (VPS dengan `docker-compose.prod.yml`: Cadd
 | Container `akasha-redis` terus restart setelah `wsl --shutdown` | Berkas AOF Redis rusak di ujungnya — lihat CLAUDE.md §15 (perintah `redis-check-aof --fix`) atau minta Claude |
 | Teks merah `NativeCommandError` / `RemoteException` di PowerShell saat `npm install`/Prisma | Bukan error: PowerShell menampilkan output stderr (mis. "Loaded Prisma config…") sebagai merah. Lihat baris terakhir perintah |
 | Login gagal `429` | Batas 10 login/menit (mis. smoke test berulang) — tunggu satu menit |
+| Halaman SSO: "Sesi masuk sudah kedaluwarsa" / dialihkan terus ke halaman masuk | Buka SSO di **http://auth.localhost:5175**, bukan `localhost:5175` (§2 butir 4); tutup tab lalu masuk ulang dari Akasha |
+| Tombol **Masuk dengan akun Workingspace** tidak muncul di Akasha | `SSO_*` di `apps/akasha/api/.env` kosong → `npm run setup:dev -w @workingspace/auth-api` lalu restart backend Akasha |
+| Masuk lewat SSO → "Layanan akun Workingspace tidak dapat dihubungi" | Tab D/E (SSO API & halaman SSO) belum menyala (§4 langkah 5–6) |
+| Email verifikasi / lupa kata sandi tidak datang (development) | Memang tidak dikirim: buka berkas terbaru di `apps/auth/api/.mail/` |

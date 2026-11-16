@@ -36,7 +36,13 @@ import { normalizeEmail, passwordProblem } from "../accounts/password-policy";
 import { SessionsService } from "../accounts/sessions.service";
 import { clientInfo } from "../common/http";
 import { PrismaService } from "../prisma/prisma.service";
-import { accountChangeProblem, accountSearch } from "./admin-logic";
+import {
+  ACCOUNT_STATUSES,
+  type AccountStatusFilter,
+  accountChangeProblem,
+  accountSearch,
+  accountStatusFilter,
+} from "./admin-logic";
 
 const ROLES = ["admin", "member"] as const;
 
@@ -45,6 +51,10 @@ class ListQuery {
   @IsString()
   @MaxLength(100)
   q?: string;
+
+  @IsOptional()
+  @IsIn(ACCOUNT_STATUSES)
+  status?: AccountStatusFilter;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))
@@ -156,12 +166,27 @@ export class AdminController {
     return app;
   }
 
+  /** Ringkasan angka untuk halaman admin (tanpa data pribadi). */
+  @Get("stats")
+  async stats(@Req() req: Request) {
+    await this.admin(req);
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [total, superAdmins, active30d, unverified, disabled] = await Promise.all([
+      this.prisma.account.count(),
+      this.prisma.account.count({ where: { superAdmin: true } }),
+      this.prisma.account.count({ where: { lastLoginAt: { gte: since }, disabled: false } }),
+      this.prisma.account.count({ where: accountStatusFilter("unverified") }),
+      this.prisma.account.count({ where: { disabled: true } }),
+    ]);
+    return { total, superAdmins, active30d, unverified, disabled };
+  }
+
   @Get("accounts")
   async list(@Query() query: ListQuery, @Req() req: Request) {
     await this.admin(req);
     const size = query.size ?? 20;
     const page = query.page ?? 1;
-    const where = accountSearch(query.q);
+    const where = { ...accountSearch(query.q), ...accountStatusFilter(query.status) };
     const [total, rows] = await Promise.all([
       this.prisma.account.count({ where }),
       this.prisma.account.findMany({

@@ -167,7 +167,7 @@ workingspace/  (monorepo ekosistem workingspace: npm workspaces + Turborepo, doc
 │   │   └── web/              @akasha/web — React SPA (Dockerfile, nginx.conf, src/)
 │   ├── auth/
 │   │   ├── api/              @workingspace/auth-api — SSO workingspace.id (NestJS + oidc-provider, DB workingspace_auth, test/smoke.mjs, .env; docs/SSO.md)
-│   │   └── web/              @workingspace/auth-web — halaman masuk/daftar/verifikasi/reset/akun (Vite + React + shadcn, token desain salinan Akasha)
+│   │   └── web/              @workingspace/auth-web — halaman masuk/daftar/verifikasi/reset/akun/admin (Vite + React + shadcn, identitas visual Workingspace sendiri — `docs/SSO.md` §2.10)
 │   └── akai/
 │       └── agent/
 │           ├── skills/       skill Hermes (SKILL.md) — dipasang baca-saja ke container hermes & dibaca backend
@@ -1606,7 +1606,13 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
    `apps/akasha/api/test/sso-smoke.mjs`, smoke Akasha penuh lulus. **B2 langkah 2 ✅ (2026-11-16)**: PIN akun SSO diperiksa SSO
    (kartu PIN Profil → "Kelola PIN" di halaman akun SSO, simpan kredensial robot dikonfirmasi PIN), nama/email/kata sandi akun SSO
    hanya diubah di SSO (Profil & Manajemen User menolak + tautan admin SSO), tawaran PIN setelah masuk lewat SSO; `sso-smoke.mjs` 30 cek.
-   **Sisa B**: login Google (A42), compose produksi + env SSO (B4), halaman depan (B3), lalu Akai (no. 6–7). Lalu B2 (Akasha memakai SSO), B3 (halaman depan), B4 (produksi).
+   **Desain ulang halaman Akun & Admin ✅ (2026-11-16)**: identitas visual Workingspace sendiri (tinta navy + gradien aurora indigo → sian →
+   lime, Plus Jakarta Sans + Bricolage Grotesque, `docs/SSO.md` §2.10) yang juga dipakai halaman depan B3; Akun = sidebar + ringkasan
+   dengan skor keamanan, peluncur aplikasi (+ Akai & Cendikia "segera hadir"), profil, kata sandi, PIN 6 titik, perangkat; Admin = angka
+   (`GET /api/admin/stats`), saring status (`?status=`), daftar akun berpil status & akses, laci Kelola (status, akses aplikasi, tindakan,
+   linimasa log). SETUP.md diperbarui (SSO, skrip `npm run setup:dev -w @workingspace/auth-api`). Diuji: lint, typecheck, unit, build,
+   smoke SSO (+5), browser 1366×768 terang & gelap + 375 px.
+   **Sisa B**: login Google (A42), compose produksi + env SSO (B4), halaman depan (B3) memakai identitas yang sama, lalu Akai (no. 6–7).
 4. **Tampilan ringkas (2026-11-12)** sudah di-commit (`style(ui): compact layout across modules and dialogs`), belum di-push. Modal yang jarang dipakai (robot, brankas, Register SRIKANDI) belum dilihat satu per satu.
 5. Commit lokal bisa belum di-push (cek `git status -sb`): push hanya atas perintah user, lalu user mengecek CI.
 6d. **Commit gabungan (2026-11-13, atas perintah user)**: Edit register + Naskah Masuk di-commit **bersama** pekerjaan sesi "SIMAN connection
@@ -2730,6 +2736,11 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   sandi lokal dipertahankan di luar production agar smoke test Akasha (±700 skenario dengan user sementara) tetap jalan tanpa SSO;
   production mematikannya. Status akun dicek saat refresh token dengan cache 60 dtk — pencabutan akses berlaku dalam ± 1 menit + umur
   access token (15 menit). Bila SSO mati sesaat, sesi yang ada tidak diputus.
+- 2026-11-16 — **Identitas visual Workingspace** (permintaan pemilik: halaman Akun & Admin SSO dirombak total, tidak perlu sama dengan
+  Akasha, lebih menarik dan setipe dengan halaman depan yang akan dibuat). Token & utility di `apps/auth/web/src/index.css` (`bg-aurora`,
+  `bg-grid`, `text-gradient`, `ring-aurora`, `shadow-soft/lift`, warna `ink`/`indigo`/`cyan`/`lime`/`coral`) menjadi acuan halaman
+  depan B3 (kelak dipindah ke `packages/ui` bila dipakai dua aplikasi). Nama variabel shadcn dipertahankan agar komponen salinan tetap
+  jalan. Halaman akun tetap satu halaman beranchor (bukan rute per bagian) agar tautan `/account#pin` dari Akasha tetap berlaku.
 - 2026-11-16 — **B2 langkah 2**: konfirmasi pemilik untuk akun tanpa kata sandi lokal (akun SSO) = PIN keamanan (diperiksa SSO), bukan
   kata sandi — aplikasi tidak pernah memeriksa kata sandi akun ekosistem. Akun lokal (dev/smoke) tetap memakai PIN & kata sandi lokal
   seperti sebelumnya, sehingga smoke Akasha tidak berubah. Status "terbuka" tetap per sesi Akasha.
@@ -2951,6 +2962,7 @@ utama tetap < 500 kB (cek output `npm run build`).
 - Jangan menulis path berisi `.. ` (titik-titik + spasi) dengan tool Write: Windows membuat folder bernama `.. ` yang di banyak API
   dianggap folder induk. Hapus hanya lewat PowerShell `Remove-Item -LiteralPath '\\?\D:\…\.. \<isi>'` (awalan `\\?\` mematikan normalisasi) per berkas/folder kosong,
   **jangan** `rm -rf`.
+- shadcn `SheetContent` = flex kolom: bila isinya digulir (`overflow-y-auto`), anak-anaknya ikut menyusut (kepala laci terjepit) → beri `[&>*]:shrink-0`.
 - SSO dev: buka halaman SSO di `http://auth.localhost:5175`, **bukan** `localhost:5175` (issuer & cookie terikat host itu). Node &
   Chrome menerjemahkan `*.localhost` sendiri (Node → `::1`). `nest build` di `apps/auth/api` saat `nest start --watch` berjalan menghapus
   `dist` sesaat → tunggu ± 20 dtk sebelum smoke. Email dev ada di `apps/auth/api/.mail/` (nama berkas: karakter selain huruf/angka/@/. → `_`).

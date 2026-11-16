@@ -31,3 +31,22 @@ export function accountSearch(q: string | undefined) {
     ],
   };
 }
+
+export const ACCOUNT_STATUSES = ["all", "super", "active", "unverified", "disabled"] as const;
+export type AccountStatusFilter = (typeof ACCOUNT_STATUSES)[number];
+
+/** Filter status daftar akun admin (super admin, aktif, belum verifikasi, nonaktif). */
+export function accountStatusFilter(status: AccountStatusFilter | undefined) {
+  switch (status) {
+    case "super":
+      return { superAdmin: true };
+    case "active":
+      return { disabled: false, emailVerifiedAt: { not: null } };
+    case "unverified":
+      return { disabled: false, emailVerifiedAt: null };
+    case "disabled":
+      return { disabled: true };
+    default:
+      return {};
+  }
+}

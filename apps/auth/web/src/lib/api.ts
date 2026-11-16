@@ -112,11 +112,22 @@ export interface SecurityEventRow {
   createdAt: string;
 }
 
+export type AccountStatus = "all" | "super" | "active" | "unverified" | "disabled";
+
+export interface AdminStats {
+  total: number;
+  superAdmins: number;
+  active30d: number;
+  unverified: number;
+  disabled: number;
+}
+
 export const adminApi = {
-  accounts: (q: string, page: number, size = 20) =>
+  stats: () => request<AdminStats>("GET", "/api/admin/stats"),
+  accounts: (q: string, page: number, size = 20, status: AccountStatus = "all") =>
     request<{ total: number; page: number; size: number; items: AdminAccount[] }>(
       "GET",
-      `/api/admin/accounts?${new URLSearchParams({ q, page: String(page), size: String(size) })}`,
+      `/api/admin/accounts?${new URLSearchParams({ q, page: String(page), size: String(size), status })}`,
     ),
   create: (body: {
     name: string;

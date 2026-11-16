@@ -53,6 +53,11 @@ const EVENT_LABELS: Record<string, string> = {
   admin_password_link: "Admin mengirim tautan kata sandi",
   admin_sign_out: "Dikeluarkan admin dari semua perangkat",
   admin_app_access: "Akses aplikasi diubah",
+  admin_app_updated: "Pengaturan aplikasi diubah",
+  pin_set: "PIN diatur",
+  pin_removed: "PIN dihapus",
+  pin_failed: "PIN salah",
+  pin_blocked: "PIN diblokir",
 };
 
 /** Label log keamanan; kejadian baru tanpa label tetap tampil dengan kodenya. */
@@ -81,3 +86,38 @@ export function pinProblem(pin: string, confirm: string): string | null {
   if (pin !== confirm) return "Konfirmasi PIN tidak sama.";
   return null;
 }
+
+export interface SecurityCheck {
+  key: "email" | "password" | "pin";
+  label: string;
+  done: boolean;
+  /** Bagian halaman akun untuk memperbaikinya */
+  hash: string;
+}
+
+/** Langkah pengamanan akun yang tampil di ringkasan (urutan = urutan saran). */
+export function securityChecks(account: { emailVerified: boolean; hasPassword: boolean; hasPin: boolean }) {
+  const checks: SecurityCheck[] = [
+    { key: "email", label: "Email terverifikasi", done: account.emailVerified, hash: "profil" },
+    { key: "password", label: "Kata sandi dibuat", done: account.hasPassword, hash: "keamanan" },
+    { key: "pin", label: "PIN keamanan aktif", done: account.hasPin, hash: "pin" },
+  ];
+  const score = Math.round((checks.filter((c) => c.done).length / checks.length) * 100);
+  return { checks, score };
+}
+
+/** "baru saja", "5 menit lalu", "3 jam lalu", "2 hari lalu", lalu tanggal. */
+export function relativeTime(iso: string, now = Date.now()): string {
+  const diff = Math.max(0, now - new Date(iso).getTime());
+  const minute = 60_000;
+  if (diff < minute) return "baru saja";
+  if (diff < 60 * minute) return `${Math.floor(diff / minute)} menit lalu`;
+  if (diff < 24 * 60 * minute) return `${Math.floor(diff / (60 * minute))} jam lalu`;
+  if (diff < 7 * 24 * 60 * minute) return `${Math.floor(diff / (24 * 60 * minute))} hari lalu`;
+  return DATE_ONLY.format(new Date(iso));
+}
+
+const DATE_ONLY = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" });
+
+/** Perangkat seluler menurut user agent (untuk ikon). */
+export const isMobileAgent = (userAgent: string | null) => !!userAgent && /Android|iPhone|iPad|Mobile/.test(userAgent);

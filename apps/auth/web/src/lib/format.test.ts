@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { messageOf } from "./api";
-import { deviceLabel, safeNext } from "./format";
+import { avatarTone, initials } from "../components/brand";
+import { deviceLabel, relativeTime, safeNext, securityChecks } from "./format";
 
 describe("deviceLabel", () => {
   it("mengenali peramban & sistem", () => {
@@ -54,5 +55,34 @@ describe("pinProblem", () => {
     expect(pinProblem("654321", "654321")).toMatch(/berurutan/);
     expect(pinProblem("482915", "482916")).toMatch(/Konfirmasi/);
     expect(pinProblem("482915", "482915")).toBeNull();
+  });
+});
+
+describe("securityChecks", () => {
+  it("menghitung skor dari langkah yang selesai", () => {
+    expect(securityChecks({ emailVerified: true, hasPassword: true, hasPin: true }).score).toBe(100);
+    const partial = securityChecks({ emailVerified: true, hasPassword: false, hasPin: false });
+    expect(partial.score).toBe(33);
+    expect(partial.checks.filter((c) => !c.done).map((c) => c.hash)).toEqual(["keamanan", "pin"]);
+  });
+});
+
+describe("relativeTime", () => {
+  const now = new Date("2026-11-16T10:00:00Z").getTime();
+  it("menulis selisih waktu dalam Bahasa Indonesia", () => {
+    expect(relativeTime("2026-11-16T09:59:30Z", now)).toBe("baru saja");
+    expect(relativeTime("2026-11-16T09:55:00Z", now)).toBe("5 menit lalu");
+    expect(relativeTime("2026-11-16T07:00:00Z", now)).toBe("3 jam lalu");
+    expect(relativeTime("2026-11-14T10:00:00Z", now)).toBe("2 hari lalu");
+    expect(relativeTime("2026-10-01T10:00:00Z", now)).toMatch(/2026/);
+  });
+});
+
+describe("avatar", () => {
+  it("inisial & warna stabil", () => {
+    expect(initials("Mohammad Yusuf")).toBe("MY");
+    expect(initials("admin")).toBe("AD");
+    expect(initials("  ")).toBe("?");
+    expect(avatarTone("abc")).toBe(avatarTone("abc"));
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountChangeProblem, accountSearch } from "./admin-logic";
+import { accountChangeProblem, accountSearch, accountStatusFilter } from "./admin-logic";
 
 describe("accountChangeProblem", () => {
   const base = { self: false, targetSuperAdmin: false, activeSuperAdmins: 2 };
@@ -30,5 +30,16 @@ describe("accountSearch", () => {
   });
   it("nama atau email", () => {
     expect(JSON.stringify(accountSearch(" budi "))).toContain('"contains":"budi"');
+  });
+});
+
+describe("accountStatusFilter", () => {
+  it("memetakan status ke filter Prisma", () => {
+    expect(accountStatusFilter(undefined)).toEqual({});
+    expect(accountStatusFilter("all")).toEqual({});
+    expect(accountStatusFilter("super")).toEqual({ superAdmin: true });
+    expect(accountStatusFilter("unverified")).toEqual({ disabled: false, emailVerifiedAt: null });
+    expect(accountStatusFilter("disabled")).toEqual({ disabled: true });
+    expect(accountStatusFilter("active")).toEqual({ disabled: false, emailVerifiedAt: { not: null } });
   });
 });

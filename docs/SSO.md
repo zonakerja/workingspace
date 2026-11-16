@@ -112,6 +112,23 @@ Caddy: satu blok per host (`workingspace.id`, `auth.workingspace.id`, `akasha.wo
 Service baru `auth-api` (Node) + `auth-web` & `landing` (nginx statis). Kunci JWKS & secret klien = env. Backup harian ikut
 mencadangkan DB `workingspace_auth`. Diuji dengan stack produksi lokal sebelum VPS (tahap D).
 
+### 2.10 Identitas visual (halaman SSO & halaman depan)
+
+Workingspace punya tampilan sendiri, terpisah dari Akasha (keputusan pemilik 2026-11-16), dan dipakai juga oleh halaman depan
+`workingspace.id` (B3):
+
+- **Warna**: tinta navy pekat (`ink`) + gradien "aurora" indigo → sian → lime (`--brand-indigo|cyan|lime`, aksen `coral`). Panel
+  unggulan (hero, panel kiri halaman masuk, kepala laci) = `bg-aurora` + `bg-grid` dengan teks `text-ink-foreground` di kedua tema.
+- **Huruf**: Plus Jakarta Sans (teks), Bricolage Grotesque (judul, `font-display`; `h1–h3` otomatis).
+- **Utility** (`apps/auth/web/src/index.css`): `bg-aurora`, `bg-aurora-soft` (latar halaman), `bg-grid`, `text-gradient`,
+  `ring-aurora` (tepi bergradien), `shadow-soft`, `shadow-lift`. Nama token shadcn (`--primary`, `--card`, …) tetap.
+- **Komponen bersama**: `components/brand.tsx` (`LogoMark`, `Wordmark`, `UserAvatar` berwarna stabil dari id), `components/section.tsx`
+  (`Section`, `StatusPill`), `components/account-shell.tsx` (sidebar desktop / menu geser HP, anchor bagian dengan penanda bagian aktif).
+- **Halaman akun** (`/account`, satu halaman beranchor: `#ringkasan #aplikasi #profil #keamanan #pin #perangkat`): hero dengan skor
+  keamanan (`securityChecks`), peluncur aplikasi + aplikasi yang segera hadir (`UPCOMING_APPS`), profil, kata sandi, PIN, perangkat.
+- **Halaman admin** (`/admin`, dimuat malas): kartu angka `GET /api/admin/stats` (klik = saring), saring `?status=all|active|unverified|
+  disabled|super`, daftar akun, laci Kelola (`Sheet`; anak `SheetContent` wajib `shrink-0` karena isinya digulir), tab Aplikasi.
+
 ## 3. Urutan kerja
 
 1. **B1 — Layanan SSO**: `apps/auth/api` (DB, akun, daftar + verifikasi email, masuk, lupa kata sandi, OIDC, Google, admin akun &

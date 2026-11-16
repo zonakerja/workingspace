@@ -1,127 +1,226 @@
-import { AppWindow, KeyRound, LaptopMinimal, UserRound } from "lucide-react";
+import {
+  ArrowUpRight,
+  AtSign,
+  BadgeCheck,
+  Check,
+  Crown,
+  KeyRound,
+  LaptopMinimal,
+  LayoutGrid,
+  Smartphone,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { AppHeader } from "@/components/app-header";
+import { Link, useSearchParams } from "react-router";
+import { AccountShell } from "@/components/account-shell";
 import { Notice } from "@/components/auth-layout";
+import { UserAvatar } from "@/components/brand";
 import { NameField, PASSWORD_HINT, PasswordField } from "@/components/form-fields";
-import { Badge } from "@/components/ui/badge";
+import { Section, StatusPill } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { type Account, ApiError, type SessionRow, api, errorText } from "@/lib/api";
-import { deviceLabel, formatDateTime } from "@/lib/format";
+import { type Account, type SessionRow, api, errorText } from "@/lib/api";
+import { ROLE_LABELS, deviceLabel, isMobileAgent, relativeTime, securityChecks } from "@/lib/format";
+import { useMe } from "@/lib/use-me";
+import { cn } from "@/lib/utils";
 import { PinSection } from "./pin-section";
 
-export function Section({
-  id,
-  icon,
-  title,
-  description,
-  children,
-}: {
-  id?: string;
-  icon: ReactNode;
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
+/** Aplikasi ekosistem yang sedang dibangun (ditampilkan bila akun belum punya aksesnya). */
+const UPCOMING_APPS = [
+  { key: "akai", name: "Akai", description: "Asisten AI: chat & agen untuk semua aplikasi." },
+  { key: "cendikia", name: "Cendikia", description: "Ruang belajar & pengetahuan." },
+];
+
+/** Halaman akun: ringkasan, aplikasi, profil, kata sandi, PIN, perangkat. */
+export function AccountPage() {
+  const [account, setAccount] = useMe("/account");
+  const [params] = useSearchParams();
+
   return (
-    <section id={id} className="scroll-mt-4 rounded-2xl border bg-card p-4 sm:p-5">
-      <div className="mb-4 flex items-start gap-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary [&_svg]:size-4">
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
-          {description && <p className="text-xs text-muted-foreground">{description}</p>}
-        </div>
-      </div>
-      {children}
-    </section>
+    <AccountShell account={account} page="account">
+      {account && (
+        <>
+          {params.get("verified") && <Notice tone="success">Email terverifikasi. Akun Anda sudah aktif.</Notice>}
+          <Hero account={account} />
+          <AppsSection account={account} />
+          <ProfileSection account={account} onSaved={setAccount} />
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <PasswordSection account={account} onChanged={() => setAccount({ ...account, hasPassword: true })} />
+            <PinSection account={account} onChange={(hasPin) => setAccount({ ...account, hasPin })} />
+          </div>
+          <SessionsSection />
+        </>
+      )}
+    </AccountShell>
   );
 }
 
-/** Halaman akun: aplikasi yang boleh dibuka, profil, kata sandi, sesi masuk. */
-export function AccountPage() {
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const [account, setAccount] = useState<Account | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    api
-      .me()
-      .then((value) => alive && setAccount(value))
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 401) navigate("/login?next=/account", { replace: true });
-      });
-    return () => {
-      alive = false;
-    };
-  }, [navigate]);
-
-  if (!account)
-    return (
-      <div className="flex min-h-svh items-center justify-center bg-background">
-        <Spinner />
-      </div>
-    );
-
+function ScoreRing({ score }: { score: number }) {
+  const radius = 34;
+  const length = 2 * Math.PI * radius;
   return (
-    <div className="min-h-svh bg-background">
-      <AppHeader superAdmin={account.superAdmin} />
-      <main className="mx-auto flex max-w-5xl flex-col gap-4 p-4">
-        {params.get("verified") && <Notice tone="success">Email terverifikasi. Akun Anda sudah aktif.</Notice>}
-        <div>
-          <h1 className="text-xl font-bold">Halo, {account.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {account.email}
-            {account.superAdmin && (
-              <Badge variant="secondary" className="ml-2">
-                Super admin
-              </Badge>
-            )}
-          </p>
-        </div>
-        <AppsSection account={account} />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <ProfileSection account={account} onSaved={setAccount} />
-          <PasswordSection account={account} />
-        </div>
-        <PinSection account={account} />
-        <SessionsSection />
-      </main>
+    <div className="relative size-24 shrink-0">
+      <svg viewBox="0 0 80 80" className="size-full -rotate-90" aria-hidden="true">
+        <circle cx="40" cy="40" r={radius} fill="none" strokeWidth="7" className="stroke-white/12" />
+        <circle
+          cx="40"
+          cy="40"
+          r={radius}
+          fill="none"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={length}
+          strokeDashoffset={length * (1 - score / 100)}
+          className="stroke-lime transition-[stroke-dashoffset] duration-700"
+        />
+      </svg>
+      <span className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-display text-2xl leading-none font-bold">{score}</span>
+        <span className="text-[10px] font-medium tracking-wide opacity-70">dari 100</span>
+      </span>
     </div>
   );
 }
 
-function AppsSection({ account }: { account: Account }) {
+function Hero({ account }: { account: Account }) {
+  const { checks, score } = securityChecks(account);
+  const firstName = account.name.trim().split(/\s+/)[0] ?? account.name;
   return (
-    <Section icon={<AppWindow />} title="Aplikasi" description="Aplikasi yang bisa Anda buka dengan akun ini.">
-      {account.apps.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Belum ada aplikasi. Minta admin memberi akses ke aplikasi yang Anda butuhkan.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {account.apps.map((app) => (
-            <a
-              key={app.key}
-              href={app.url}
-              className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors hover:bg-accent"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">{app.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {app.url.replace(/^https?:\/\//, "")}
-                </span>
-              </span>
-              <Badge variant={app.role === "admin" ? "default" : "secondary"}>
-                {app.role === "admin" ? "Admin" : "Anggota"}
-              </Badge>
-            </a>
-          ))}
+    <section
+      id="ringkasan"
+      className="relative scroll-mt-24 overflow-hidden rounded-[28px] bg-aurora p-6 text-ink-foreground shadow-lift sm:p-8"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-grid" />
+      <div className="pointer-events-none absolute -top-24 -right-20 size-72 rounded-full bg-cyan/25 blur-3xl" />
+      <div className="relative grid grid-cols-1 gap-6 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="min-w-0">
+          <div className="flex items-center gap-4">
+            <UserAvatar
+              name={account.name}
+              seed={account.id}
+              className="size-16 text-xl ring-4 ring-white/15 sm:size-20 sm:text-2xl"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold tracking-[0.16em] uppercase opacity-70">Akun Workingspace</p>
+              <h1 className="truncate text-3xl font-bold sm:text-4xl">Halo, {firstName}</h1>
+              <p className="truncate text-sm opacity-75">{account.email}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {account.superAdmin && (
+              <HeroChip>
+                <Crown /> Super admin
+              </HeroChip>
+            )}
+            <HeroChip>
+              <LayoutGrid /> {account.apps.length} aplikasi
+            </HeroChip>
+            {account.emailVerified && (
+              <HeroChip>
+                <BadgeCheck /> Email terverifikasi
+              </HeroChip>
+            )}
+            {account.google && <HeroChip>Google tertaut</HeroChip>}
+          </div>
         </div>
+        <div className="flex items-center gap-4 rounded-2xl bg-white/[0.07] p-4 ring-1 ring-white/15 backdrop-blur-md">
+          <ScoreRing score={score} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Keamanan akun</p>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {checks.map((check) => (
+                <li key={check.key} className="flex items-center gap-2 text-xs">
+                  <span
+                    className={cn(
+                      "flex size-4 shrink-0 items-center justify-center rounded-full",
+                      check.done ? "bg-lime text-ink" : "ring-1 ring-white/40",
+                    )}
+                  >
+                    {check.done && <Check className="size-3" strokeWidth={3} />}
+                  </span>
+                  {check.done ? (
+                    <span className="opacity-90">{check.label}</span>
+                  ) : (
+                    <Link to={`/account#${check.hash}`} className="font-medium underline-offset-2 hover:underline">
+                      {check.label}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HeroChip({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/15 [&_svg]:size-3.5">
+      {children}
+    </span>
+  );
+}
+
+const hostOf = (url: string) => url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+
+function AppsSection({ account }: { account: Account }) {
+  const upcoming = UPCOMING_APPS.filter((app) => !account.apps.some((a) => a.key === app.key));
+  return (
+    <Section
+      id="aplikasi"
+      icon={<LayoutGrid />}
+      eyebrow="Peluncur"
+      title="Aplikasi Anda"
+      description="Masuk sekali, buka aplikasi mana pun tanpa login ulang."
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {account.apps.map((app) => (
+          <a
+            key={app.key}
+            href={app.url}
+            className="group ring-aurora relative flex flex-col gap-4 rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-lift"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span className="font-display flex size-12 items-center justify-center rounded-2xl bg-aurora text-xl font-bold text-ink-foreground shadow-soft">
+                {app.name.slice(0, 1)}
+              </span>
+              <ArrowUpRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-display truncate text-lg font-bold">{app.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{hostOf(app.url)}</p>
+            </div>
+            <StatusPill tone={app.role === "admin" ? "brand" : "muted"} className="self-start">
+              {ROLE_LABELS[app.role]}
+            </StatusPill>
+          </a>
+        ))}
+        {upcoming.map((app) => (
+          <div
+            key={app.key}
+            className="flex flex-col gap-4 rounded-2xl border border-dashed bg-surface/60 p-4 text-muted-foreground"
+          >
+            <span className="font-display flex size-12 items-center justify-center rounded-2xl border border-dashed text-xl font-bold">
+              {app.name.slice(0, 1)}
+            </span>
+            <div className="min-w-0">
+              <p className="font-display truncate text-lg font-bold text-foreground/70">{app.name}</p>
+              <p className="line-clamp-2 text-xs">{app.description}</p>
+            </div>
+            <StatusPill tone="info" className="self-start">
+              <Sparkles /> Segera hadir
+            </StatusPill>
+          </div>
+        ))}
+      </div>
+      {account.apps.length === 0 && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Belum ada aplikasi yang bisa dibuka. Minta admin memberi akses ke aplikasi yang Anda butuhkan.
+        </p>
       )}
     </Section>
   );
@@ -146,22 +245,62 @@ function ProfileSection({ account, onSaved }: { account: Account; onSaved: (a: A
     }
   };
 
+  const methods = [account.hasPassword && "Email & kata sandi", account.google && "Google"].filter(Boolean);
+
   return (
-    <Section icon={<UserRound />} title="Profil" description="Nama ini dipakai di semua aplikasi.">
-      <form onSubmit={submit}>
-        <FieldGroup>
-          <NameField id="profile-name" label="Nama lengkap" value={name} onChange={setName} />
-          {message && <Notice tone={message.tone}>{message.text}</Notice>}
-          <Button type="submit" disabled={busy || name.trim() === account.name}>
-            {busy ? <Spinner /> : "Simpan"}
-          </Button>
-        </FieldGroup>
-      </form>
+    <Section
+      id="profil"
+      icon={<UserRound />}
+      eyebrow="Identitas"
+      title="Profil"
+      description="Nama ini tampil di semua aplikasi workingspace.id."
+    >
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[1.2fr_1fr]">
+        <form onSubmit={submit}>
+          <FieldGroup>
+            <NameField id="profile-name" label="Nama lengkap" value={name} onChange={setName} />
+            {message && <Notice tone={message.tone}>{message.text}</Notice>}
+            <Button type="submit" className="self-start" disabled={busy || name.trim() === account.name}>
+              {busy ? <Spinner /> : "Simpan nama"}
+            </Button>
+          </FieldGroup>
+        </form>
+        <dl className="flex flex-col divide-y rounded-2xl border bg-surface/60 px-4">
+          <InfoRow icon={<AtSign />} label="Email">
+            <span className="truncate">{account.email}</span>
+            {account.emailVerified ? (
+              <StatusPill tone="success">
+                <BadgeCheck /> Terverifikasi
+              </StatusPill>
+            ) : (
+              <StatusPill tone="warning">Belum verifikasi</StatusPill>
+            )}
+          </InfoRow>
+          <InfoRow icon={<KeyRound />} label="Cara masuk">
+            {methods.length ? methods.join(" · ") : "—"}
+          </InfoRow>
+          <InfoRow icon={<Crown />} label="Peran ekosistem">
+            {account.superAdmin ? "Super admin" : "Pengguna"}
+          </InfoRow>
+        </dl>
+      </div>
     </Section>
   );
 }
 
-function PasswordSection({ account }: { account: Account }) {
+function InfoRow({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 py-3 [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground">
+      {icon}
+      <div className="min-w-0 flex-1">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">{children}</dd>
+      </div>
+    </div>
+  );
+}
+
+function PasswordSection({ account, onChanged }: { account: Account; onChanged: () => void }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [busy, setBusy] = useState(false);
@@ -175,7 +314,8 @@ function PasswordSection({ account }: { account: Account }) {
       await api.changePassword(account.hasPassword ? current : undefined, next);
       setCurrent("");
       setNext("");
-      setMessage({ tone: "success", text: "Kata sandi diganti. Sesi di perangkat lain dikeluarkan." });
+      setMessage({ tone: "success", text: "Kata sandi disimpan. Sesi di perangkat lain dikeluarkan." });
+      onChanged();
     } catch (err) {
       setMessage({ tone: "error", text: errorText(err) });
     } finally {
@@ -185,11 +325,13 @@ function PasswordSection({ account }: { account: Account }) {
 
   return (
     <Section
+      id="keamanan"
       icon={<KeyRound />}
+      eyebrow="Keamanan"
       title={account.hasPassword ? "Ganti kata sandi" : "Buat kata sandi"}
       description={
         account.hasPassword
-          ? undefined
+          ? "Mengganti kata sandi mengeluarkan sesi di perangkat lain."
           : "Akun ini masuk lewat Google; kata sandi membuat Anda bisa masuk dengan email juga."
       }
     >
@@ -207,7 +349,7 @@ function PasswordSection({ account }: { account: Account }) {
             hint={PASSWORD_HINT}
           />
           {message && <Notice tone={message.tone}>{message.text}</Notice>}
-          <Button type="submit" disabled={busy || !next}>
+          <Button type="submit" className="self-start" disabled={busy || !next}>
             {busy ? <Spinner /> : "Simpan kata sandi"}
           </Button>
         </FieldGroup>
@@ -238,38 +380,53 @@ function SessionsSection() {
 
   return (
     <Section
+      id="perangkat"
       icon={<LaptopMinimal />}
+      eyebrow="Sesi"
       title="Perangkat yang masuk"
-      description="Sesi halaman akun ini di setiap perangkat."
+      description="Keluarkan perangkat yang tidak Anda kenali."
     >
       {error && <Notice tone="error">{error}</Notice>}
       {!rows ? (
         <Spinner />
       ) : (
-        <ul className="flex flex-col divide-y">
-          {rows.map((row) => (
-            <li key={row.id} className="flex items-center justify-between gap-3 py-2">
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">
-                  {deviceLabel(row.userAgent)}
-                  {row.current && (
-                    <Badge variant="secondary" className="ml-2">
-                      Perangkat ini
-                    </Badge>
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {rows.map((row) => {
+            const Icon = isMobileAgent(row.userAgent) ? Smartphone : LaptopMinimal;
+            return (
+              <li
+                key={row.id}
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl border p-3",
+                  row.current ? "border-primary/30 bg-primary/5" : "bg-surface/60",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                    row.current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
                   )}
+                >
+                  <Icon className="size-5" />
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  Aktif {formatDateTime(row.lastSeenAt)}
-                  {row.ip ? ` · ${row.ip}` : ""}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-sm font-semibold">{deviceLabel(row.userAgent)}</span>
+                    {row.current && <StatusPill tone="brand">Perangkat ini</StatusPill>}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    Aktif {relativeTime(row.lastSeenAt)}
+                    {row.ip ? ` · ${row.ip}` : ""}
+                  </span>
                 </span>
-              </span>
-              {!row.current && (
-                <Button variant="ghost" size="sm" onClick={() => revoke(row.id)}>
-                  Keluarkan
-                </Button>
-              )}
-            </li>
-          ))}
+                {!row.current && (
+                  <Button variant="ghost" size="sm" onClick={() => revoke(row.id)}>
+                    Keluarkan
+                  </Button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </Section>

@@ -90,7 +90,7 @@ ONLYOFFICE Docs (container) ── 3. GET  document.url   → backend /office/fi
 
 - `docker-compose.yml` service `onlyoffice` (container `akasha-onlyoffice`, profile `office`, port 8080, volume
   `akasha-onlyoffice-cache` & `akasha-onlyoffice-logs`, healthcheck `/healthcheck`). `docker compose up -d` biasa
-  **tidak** menyalakannya; nyalakan dengan `docker compose --profile office up -d --wait onlyoffice` (SETUP §4 langkah 6).
+  **tidak** menyalakannya; nyalakan dengan `docker compose --profile office up -d --wait onlyoffice` (SETUP §4 langkah 8).
 - Env dev: `JWT_SECRET` tetap (`akasha-dev-onlyoffice-jwt-secret-…`, nanti = `ONLYOFFICE_JWT_SECRET` backend),
   `JWT_HEADER=AuthorizationJwt` (terpisah dari Bearer Akasha), `ALLOW_PRIVATE_IP_ADDRESS=true`.
 - Terverifikasi: versi **10.0.0-169**, image **arm64** native (± 950 MB), sehat ± 1 menit setelah start, RAM diam

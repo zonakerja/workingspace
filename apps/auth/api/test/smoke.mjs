@@ -377,6 +377,23 @@ ok(
   r.d,
 );
 const adminSelf = (await adm.get("/api/auth/me")).d;
+r = await adm.get("/api/admin/stats");
+ok(
+  "admin stats",
+  r.s === 200 &&
+    r.d.total >= 2 &&
+    r.d.superAdmins >= 1 &&
+    ["active30d", "unverified", "disabled"].every((k) => k in r.d),
+  r.d,
+);
+r = await plain.get("/api/admin/stats");
+ok("admin stats forbidden for member 403", r.s === 403, r);
+r = await adm.get("/api/admin/accounts?status=super");
+ok("admin filter super", r.s === 200 && r.d.items.length >= 1 && r.d.items.every((a) => a.superAdmin), r.d);
+r = await adm.get("/api/admin/accounts?status=unverified");
+ok("admin filter unverified", r.s === 200 && r.d.items.every((a) => !a.emailVerified && !a.disabled), r.d);
+r = await adm.get("/api/admin/accounts?status=salah");
+ok("admin filter invalid 400", r.s === 400, r);
 
 const invited = `smoke-${stamp}-c@example.test`;
 mark = mailMark();
