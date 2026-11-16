@@ -9,6 +9,8 @@ export interface PublicUser {
   address: string | null;
   /** Provider AI yang sedang dipakai (null = AI belum diatur). */
   aiProvider: AiProviderId | null;
+  /** Fitur AI bisa dipakai lewat Akai (tugas Umum/Chat sudah punya model di Akai), walau belum ada key di Model AI. */
+  aiViaAkai?: boolean;
   /** PIN keamanan sudah diatur (membuka item terkunci) */
   hasPin?: boolean;
   /** Punya kata sandi lokal Akasha (akun yang hanya masuk lewat SSO = false) */
@@ -60,7 +62,18 @@ export interface AiProviderInput {
   embeddingModel?: string | null;
 }
 
+/** Akai (gateway model ekosistem): tugas yang punya model di Akai dijawab Akai. */
+export interface AkaiStatus {
+  /** Akai aktif di server & akun masuk lewat SSO */
+  available: boolean;
+  reachable: boolean;
+  webUrl: string | null;
+  /** Jumlah model per tugas di Akai (null = tidak terjangkau / tidak tersedia) */
+  tasks: Record<string, number> | null;
+}
+
 export interface AiSettings {
+  akai: AkaiStatus;
   activeProvider: AiProviderId | null;
   /** Cadangan otomatis ke provider lain yang punya key (kuota habis, tidak terjangkau, lampiran tak didukung). */
   fallbackEnabled: boolean;
@@ -452,11 +465,12 @@ export interface KnowledgeNoteDetail {
 
 export interface AiGenerateResult {
   text: string;
-  provider: AiProviderId;
+  /** "akai" = dijawab gateway Akai */
+  provider: AiProviderId | "akai";
   model: string;
   /** Terisi bila jawaban diberikan provider cadangan, bukan provider aktif. */
   fallback?: {
-    from: AiProviderId;
+    from: AiProviderId | "akai";
     reason: "attachment" | "quota" | "unavailable" | "credential";
     message: string;
   } | null;

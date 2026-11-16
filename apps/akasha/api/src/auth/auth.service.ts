@@ -14,6 +14,7 @@ import { AuthUser } from "../common/types/auth-user";
 import { durationToSeconds } from "../config/duration";
 import { PrismaService } from "../prisma/prisma.service";
 import { toPublicUser } from "../users/user.mapper";
+import { AkaiService } from "../akai/akai.service";
 import { AccessTokenPayload, RefreshTokenPayload } from "./auth.types";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -31,9 +32,10 @@ const REUSE_GRACE_MS = 30_000;
 export type Session = Awaited<ReturnType<AuthService["login"]>>;
 
 /** Sesi token lama (baris sebelum migrasi: id token = id sesi). */
-const sessionOf = (record: { id: string; sessionId: string | null; pinUnlocked: boolean }) => ({
+const sessionOf = (record: { id: string; sessionId: string | null; pinUnlocked: boolean; ssoSid: string | null }) => ({
   sid: record.sessionId ?? record.id,
   pinUnlocked: record.pinUnlocked,
+  ssoSid: record.ssoSid,
 });
 
 @Injectable()
@@ -46,11 +48,17 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly sso: SsoService,
+    private readonly akai: AkaiService,
     config: ConfigService,
   ) {
     this.passwordLogin = config.get<boolean>("PASSWORD_LOGIN") ?? false;
     this.refreshSecret = config.getOrThrow<string>("JWT_REFRESH_SECRET");
     this.refreshTtlSeconds = durationToSeconds(config.getOrThrow<string>("JWT_REFRESH_EXPIRES_IN"));
+  }
+
+  /** User untuk browser + `aiViaAkai` (fitur AI bisa dipakai lewat Akai walau belum ada key di Pengaturan → Model AI). */
+  private async publicUser(user: User) {
+    return { ...toPublicUser(user), aiViaAkai: await this.akai.ready(user) };
   }
 
   async login(dto: LoginDto) {
@@ -117,7 +125,7 @@ export class AuthService {
       where: { id: authUser.id },
     });
     if (!user) throw new NotFoundException("User tidak ditemukan.");
-    return toPublicUser(user);
+    return this.publicUser(user);
   }
 
   async updateProfile(authUser: AuthUser, dto: UpdateProfileDto) {
@@ -129,7 +137,7 @@ export class AuthService {
       where: { id: authUser.id },
       data: { ...dto, email: dto.email?.toLowerCase() },
     });
-    return toPublicUser(user);
+    return this.publicUser(user);
   }
 
   async changePassword(authUser: AuthUser, dto: ChangePasswordDto, currentRefreshToken?: string) {
@@ -179,9 +187,20 @@ export class AuthService {
     });
   }
 
-  /** Sesi baru setelah masuk lewat SSO (cookie diatur controller). */
-  sessionFor(user: User) {
-    return this.createSession(user);
+  /** Sesi baru setelah masuk lewat SSO (cookie diatur controller); `ssoSid` = sesi SSO asal (logout token). */
+  sessionFor(user: User, ssoSid?: string) {
+    return this.createSession(user, { sid: randomUUID(), pinUnlocked: false, ssoSid: ssoSid ?? null });
+  }
+
+  /**
+   * Logout token dari SSO: akhiri semua sesi Akasha yang dibuka dari sesi SSO `ssoSid` (milik akun `ssoSubject` bila ada).
+   * Access token sesi itu ikut ditolak (JwtStrategy memeriksa sesi masih ada).
+   */
+  async endSsoSession(ssoSid: string, ssoSubject?: string) {
+    const { count } = await this.prisma.refreshToken.deleteMany({
+      where: { ssoSid, ...(ssoSubject ? { user: { ssoSubject } } : {}) },
+    });
+    return count;
   }
 
   /** Hapus semua sesi user. (`revokedAt` hanya dipakai untuk token hasil rotasi → deteksi reuse.) */
@@ -200,7 +219,7 @@ export class AuthService {
   }
 
   /** Login = sesi baru (PIN tertutup); rotasi = sesi yang sama, status PIN terbuka ikut terbawa. */
-  private async createSession(user: User, session?: { sid: string; pinUnlocked: boolean }) {
+  private async createSession(user: User, session?: { sid: string; pinUnlocked: boolean; ssoSid?: string | null }) {
     const sid = session?.sid ?? randomUUID();
     const accessPayload: AccessTokenPayload = {
       sub: user.id,
@@ -225,11 +244,12 @@ export class AuthService {
         expiresAt: new Date(Date.now() + this.refreshTtlSeconds * 1000),
         sessionId: sid,
         pinUnlocked: session?.pinUnlocked ?? false,
+        ssoSid: session?.ssoSid ?? null,
       },
     });
 
     return {
-      user: toPublicUser(user),
+      user: await this.publicUser(user),
       accessToken,
       refreshToken,
       refreshTtlSeconds: this.refreshTtlSeconds,

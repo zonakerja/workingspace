@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!-- Tanda Akai: percikan (asisten AI) di atas gradien aurora workingspace.id -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4b44e0"/>
+      <stop offset="0.6" stop-color="#2fb9d8"/>
+      <stop offset="1" stop-color="#b6ec4f"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="11" fill="url(#g)"/>
+  <path d="M20 8c1.2 6.4 5.6 10.8 12 12-6.4 1.2-10.8 5.6-12 12-1.2-6.4-5.6-10.8-12-12 6.4-1.2 10.8-5.6 12-12z" fill="#fff" fill-opacity="0.95"/>
+</svg>

@@ -200,12 +200,15 @@ model RefreshToken {
   // Sesi login (tetap sama saat token dirotasi) — dipakai status "PIN terbuka" sampai logout
   sessionId   String?   @map("session_id")
   pinUnlocked Boolean   @default(false) @map("pin_unlocked")
+  // Sesi SSO asal (OIDC sid) — logout token dari SSO mengakhiri sesi ini (docs/SSO.md §2.4)
+  ssoSid      String?   @map("sso_sid")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
   @@index([sessionId])
+  @@index([ssoSid])
   @@map("refresh_tokens")
 }
 

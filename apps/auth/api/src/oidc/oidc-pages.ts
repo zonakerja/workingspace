@@ -15,12 +15,19 @@ function page(title: string, body: string) {
 /**
  * `form` = formulir bawaan oidc-provider (berisi token xsrf) → ditampilkan dengan tombol Keluar.
  * `form` null = sudah keluar.
+ * `autoNonce` = keluar diminta aplikasi ekosistem yang terdaftar (mis. tombol Keluar Akasha) → formulir dikirim otomatis
+ * (skrip ber-nonce, CSP diatur pemanggil); tanpa JavaScript tetap tampil tombol Keluar.
  */
-export function logoutPage(form: string | null, homeUrl?: string) {
+export function logoutPage(form: string | null, homeUrl?: string, autoNonce?: string) {
   if (form === null)
     return page(
       "Sudah keluar",
       `<h1>Anda sudah keluar</h1><p>Sesi Workingspace di browser ini sudah diakhiri.</p>${homeUrl ? `<a class="btn" href="${escapeHtml(homeUrl)}">Masuk lagi</a>` : ""}`,
+    );
+  if (autoNonce)
+    return page(
+      "Keluar",
+      `<h1>Sedang keluar…</h1><p>Mengakhiri sesi Workingspace di browser ini.</p>${form}<input type="hidden" form="op.logoutForm" name="logout" value="yes"><noscript><button type="submit" form="op.logoutForm" name="logout" value="yes">Keluar</button></noscript><script nonce="${escapeHtml(autoNonce)}">document.getElementById("op.logoutForm").submit()</script>`,
     );
   return page(
     "Keluar",

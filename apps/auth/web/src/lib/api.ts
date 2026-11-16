@@ -60,6 +60,10 @@ export interface Account {
   hasPassword: boolean;
   hasPin: boolean;
   google: boolean;
+  phone: string | null;
+  address: string | null;
+  occupation: string | null;
+  workplace: string | null;
   apps: AppAccess[];
 }
 
@@ -89,6 +93,9 @@ export interface AdminAccount {
   superAdmin: boolean;
   hasPassword: boolean;
   google: boolean;
+  phone: string | null;
+  occupation: string | null;
+  workplace: string | null;
   lastLoginAt: string | null;
   createdAt: string;
   apps: Record<string, AppRole>;
@@ -170,7 +177,8 @@ export const api = {
   verify: (token: string) => request<Account>("POST", "/api/auth/verify", { token }),
   forgot: (email: string) => request<{ message: string }>("POST", "/api/auth/forgot-password", { email }),
   reset: (token: string, password: string) => request<void>("POST", "/api/auth/reset-password", { token, password }),
-  updateProfile: (name: string) => request<Account>("PATCH", "/api/auth/me", { name }),
+  updateProfile: (body: { name?: string; phone?: string; address?: string; occupation?: string; workplace?: string }) =>
+    request<Account>("PATCH", "/api/auth/me", body),
   changePassword: (current: string | undefined, password: string) =>
     request<void>("POST", "/api/auth/change-password", { current, password }),
   sessions: () => request<SessionRow[]>("GET", "/api/auth/sessions"),

@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AiCredential, AiProvider, Prisma } from "../generated/prisma/client";
+import { AkaiError, AkaiService, type AkaiUser } from "../akai/akai.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiCrypto, keyHint } from "./ai-crypto";
 import {
@@ -86,6 +87,14 @@ const supportsOf = (credentials: AiCredential[]) => (provider: AiProvider) => {
 /** Alasan jawaban diberikan oleh provider selain provider aktif. */
 export type AiFallbackReason = "attachment" | "quota" | "unavailable" | "credential";
 
+/** Hasil `generate`: `provider = "akai"` bila dijawab gateway Akai (model = nama model di Akai). */
+export interface AiGenerateResult {
+  text: string;
+  provider: AiProvider | "akai";
+  model: string;
+  fallback: { from: AiProvider | "akai"; reason: AiFallbackReason; message: string } | null;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -96,6 +105,7 @@ export class AiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly indexQueue: AiIndexQueueService,
+    private readonly akai: AkaiService,
     config: ConfigService,
   ) {
     this.crypto = new AiCrypto(config.getOrThrow<string>("AI_ENCRYPTION_KEY"));
@@ -108,13 +118,32 @@ export class AiService {
     const [user, credentials] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-        select: { aiProvider: true, aiFallback: true, aiIndexEnabled: true, aiRouting: true },
+        select: {
+          aiProvider: true,
+          aiFallback: true,
+          aiIndexEnabled: true,
+          aiRouting: true,
+          ssoSubject: true,
+          email: true,
+          name: true,
+        },
       }),
       this.prisma.aiCredential.findMany({ where: { userId } }),
     ]);
     const routing = parseRouting(user.aiRouting);
     const configured = credentials.map((c) => c.provider);
+    const akaiStatus = await this.akai.status(user, true);
     return {
+      /**
+       * Akai (gateway model ekosistem): `available` = Akai aktif di server & akun masuk lewat SSO; `tasks` = jumlah model per
+       * tugas di Akai (null = Akai tidak terjangkau). Tugas Akasha yang punya model di Akai dijawab Akai.
+       */
+      akai: {
+        available: this.akai.enabled && !!user.ssoSubject,
+        reachable: akaiStatus !== null,
+        webUrl: this.akai.webUrl,
+        tasks: akaiStatus,
+      },
       activeProvider: user.aiProvider,
       fallbackEnabled: user.aiFallback,
       indexEnabled: user.aiIndexEnabled,
@@ -390,9 +419,22 @@ export class AiService {
   async ocr(userId: string, data: Buffer, mimeType: string, name: string) {
     const kind = mimeType === "application/pdf" ? "pdf" : "image";
     const [user, credentials] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId }, select: { aiRouting: true } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { aiRouting: true, ssoSubject: true, email: true, name: true },
+      }),
       this.prisma.aiCredential.findMany({ where: { userId } }),
     ]);
+    // Tugas OCR yang diatur di Akai dijawab gateway Akai; Akai tidak terjangkau → jalur lama
+    if (user && (await this.akai.handles(user, "ocr"))) {
+      try {
+        const result = await this.akai.generate(user, "ocr", OCR_PROMPT, [{ kind, mimeType, name, data }]);
+        if (result) return result.text;
+      } catch (error) {
+        if (!(error instanceof AkaiError)) throw error;
+        if (!error.unreachable) throw new AiProviderError(error.status === 429 ? "quota" : "invalid", error.message);
+      }
+    }
     const candidates = ocrCandidates(
       parseRouting(user?.aiRouting),
       credentials.map((c) => c.provider),
@@ -447,14 +489,25 @@ export class AiService {
    * diproses provider lain yang mendukung, dan kuota habis / provider tidak terjangkau dialihkan ke provider berikutnya
    * yang punya key. `fallback` di respons menjelaskan pengalihan agar user tahu siapa yang menjawab.
    */
-  async generate(userId: string, prompt: string, files: AiFile[] = [], task: Exclude<AiTask, "ocr"> = "general") {
+  async generate(
+    userId: string,
+    prompt: string,
+    files: AiFile[] = [],
+    task: Exclude<AiTask, "ocr"> = "general",
+  ): Promise<AiGenerateResult> {
     const [user, credentials] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-        select: { aiProvider: true, aiFallback: true, aiRouting: true },
+        select: { aiProvider: true, aiFallback: true, aiRouting: true, ssoSubject: true, email: true, name: true },
       }),
       this.prisma.aiCredential.findMany({ where: { userId } }),
     ]);
+    const attachments = this.toAttachments(files);
+
+    // Akai lebih dulu: tugas yang sudah diatur pemilik di Akai web dijawab gateway Akai (docs/AKAI.md 6a.4)
+    const viaAkai = await this.generateViaAkai(user, task, prompt, attachments);
+    if (viaAkai && "text" in viaAkai) return viaAkai;
+
     // Provider utama tugas ini (Pengaturan → Model AI → Pembagian tugas); kosong = provider aktif
     const active = taskProvider(
       parseRouting(user.aiRouting),
@@ -463,10 +516,10 @@ export class AiService {
       credentials.map((c) => c.provider),
     );
     if (!active || !credentials.some((c) => c.provider === active)) {
+      if (viaAkai) throw new UnprocessableEntityException(viaAkai.unreachable);
       throw new BadRequestException("AI belum diatur. Pilih provider dan simpan API key di Pengaturan → Model AI.");
     }
 
-    const attachments = this.toAttachments(files);
     const kinds = [...new Set(attachments.map((a) => a.kind))];
     const supports = supportsOf(credentials);
     const candidates = providerCandidates(
@@ -508,6 +561,41 @@ export class AiService {
       }
     }
     throw new UnprocessableEntityException("AI tidak memberikan jawaban.");
+  }
+
+  /**
+   * Jawab lewat Akai bila akun sudah mengatur model untuk tugas ini di Akai. null = Akai tidak dipakai (tidak aktif, akun
+   * tanpa SSO, tugas belum diatur, lampiran audio). `{ unreachable }` = Akai tidak dapat dihubungi → jalur lama dipakai bila
+   * ada key di Pengaturan → Model AI. Galat lain (kuota, key ditolak di Akai) diteruskan: 429 / 422.
+   */
+  private async generateViaAkai(
+    user: AkaiUser,
+    task: AiTask,
+    prompt: string,
+    attachments: AiAttachment[],
+  ): Promise<AiGenerateResult | { unreachable: string } | null> {
+    if (!(await this.akai.handles(user, task))) return null;
+    try {
+      const result = await this.akai.generate(user, task, prompt, attachments);
+      if (!result) return null;
+      return {
+        text: result.text,
+        provider: "akai",
+        model: result.model,
+        fallback: result.fallbackFrom
+          ? {
+              from: "akai",
+              reason: "unavailable",
+              message: `Dijawab ${result.model} (cadangan di Akai) karena ${result.fallbackFrom} tidak dapat dipakai.`,
+            }
+          : null,
+      };
+    } catch (error) {
+      if (!(error instanceof AkaiError)) throw error;
+      if (error.unreachable) return { unreachable: error.message };
+      if (error.status === 429) throw new HttpException(error.message, HttpStatus.TOO_MANY_REQUESTS);
+      throw new UnprocessableEntityException(error.message);
+    }
   }
 
   /**

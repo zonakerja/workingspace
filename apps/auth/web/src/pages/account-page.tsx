@@ -2,24 +2,30 @@ import {
   ArrowUpRight,
   AtSign,
   BadgeCheck,
+  Briefcase,
+  Building2,
   Check,
   Crown,
   KeyRound,
   LaptopMinimal,
   LayoutGrid,
+  MapPin,
+  Phone,
   Smartphone,
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ComponentProps, type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AccountShell } from "@/components/account-shell";
 import { Notice } from "@/components/auth-layout";
-import { UserAvatar } from "@/components/brand";
+import { UserAvatar } from "@workingspace/ui/brand";
 import { NameField, PASSWORD_HINT, PasswordField } from "@/components/form-fields";
 import { Section, StatusPill } from "@/components/section";
 import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { type Account, type SessionRow, api, errorText } from "@/lib/api";
 import { ROLE_LABELS, deviceLabel, isMobileAgent, relativeTime, securityChecks } from "@/lib/format";
@@ -30,7 +36,7 @@ import { PinSection } from "./pin-section";
 /** Aplikasi ekosistem yang sedang dibangun (ditampilkan bila akun belum punya aksesnya). */
 const UPCOMING_APPS = [
   { key: "akai", name: "Akai", description: "Asisten AI: chat & agen untuk semua aplikasi." },
-  { key: "cendikia", name: "Cendikia", description: "Ruang belajar & pengetahuan." },
+  { key: "cendekia", name: "Cendekia", description: "Ruang belajar & pengetahuan." },
 ];
 
 /** Halaman akun: ringkasan, aplikasi, profil, kata sandi, PIN, perangkat. */
@@ -46,7 +52,7 @@ export function AccountPage() {
           <Hero account={account} />
           <AppsSection account={account} />
           <ProfileSection account={account} onSaved={setAccount} />
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div id="keamanan" className="grid scroll-mt-24 grid-cols-1 gap-5 xl:grid-cols-2">
             <PasswordSection account={account} onChanged={() => setAccount({ ...account, hasPassword: true })} />
             <PinSection account={account} onChange={(hasPin) => setAccount({ ...account, hasPin })} />
           </div>
@@ -173,7 +179,7 @@ function AppsSection({ account }: { account: Account }) {
     <Section
       id="aplikasi"
       icon={<LayoutGrid />}
-      eyebrow="Peluncur"
+      eyebrow="Akses"
       title="Aplikasi Anda"
       description="Masuk sekali, buka aplikasi mana pun tanpa login ulang."
     >
@@ -226,18 +232,66 @@ function AppsSection({ account }: { account: Account }) {
   );
 }
 
+type ProfileForm = { name: string; phone: string; occupation: string; workplace: string; address: string };
+
+const profileForm = (a: Account): ProfileForm => ({
+  name: a.name,
+  phone: a.phone ?? "",
+  occupation: a.occupation ?? "",
+  workplace: a.workplace ?? "",
+  address: a.address ?? "",
+});
+
+/** Nomor baku "+6281234567890" ditampilkan seperti diketik orang Indonesia: "0812-3456-7890". */
+const phoneDisplay = (phone: string | null) =>
+  phone?.startsWith("+62") ? `0${phone.slice(3)}`.replace(/^(\d{4})(\d{4})(\d+)$/, "$1-$2-$3") : (phone ?? "");
+
+function IconInput({
+  id,
+  label,
+  icon,
+  value,
+  onChange,
+  ...props
+}: {
+  id: string;
+  label: string;
+  icon: ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+} & Omit<ComponentProps<"input">, "value" | "onChange" | "id">) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <InputGroup className="h-11">
+        <InputGroupAddon>{icon}</InputGroupAddon>
+        <InputGroupInput id={id} value={value} onChange={(e) => onChange(e.target.value)} {...props} />
+      </InputGroup>
+    </Field>
+  );
+}
+
 function ProfileSection({ account, onSaved }: { account: Account; onSaved: (a: Account) => void }) {
-  const [name, setName] = useState(account.name);
+  const [form, setForm] = useState<ProfileForm>(() => ({
+    ...profileForm(account),
+    phone: phoneDisplay(account.phone),
+  }));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
+  const set = (key: keyof ProfileForm) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const saved = { ...profileForm(account), phone: phoneDisplay(account.phone) };
+  const dirty = (Object.keys(form) as (keyof ProfileForm)[]).some((k) => form[k].trim() !== saved[k].trim());
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
     try {
-      onSaved(await api.updateProfile(name));
-      setMessage({ tone: "success", text: "Nama disimpan." });
+      const next = await api.updateProfile(form);
+      onSaved(next);
+      setForm({ ...profileForm(next), phone: phoneDisplay(next.phone) });
+      setMessage({ tone: "success", text: "Profil disimpan." });
     } catch (err) {
       setMessage({ tone: "error", text: errorText(err) });
     } finally {
@@ -253,19 +307,65 @@ function ProfileSection({ account, onSaved }: { account: Account; onSaved: (a: A
       icon={<UserRound />}
       eyebrow="Identitas"
       title="Profil"
-      description="Nama ini tampil di semua aplikasi workingspace.id."
+      description="Data ini dipakai bersama oleh semua aplikasi workingspace.id."
     >
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[1.2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.6fr_1fr]">
         <form onSubmit={submit}>
           <FieldGroup>
-            <NameField id="profile-name" label="Nama lengkap" value={name} onChange={setName} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <NameField id="profile-name" label="Nama lengkap" value={form.name} onChange={set("name")} />
+              <IconInput
+                id="profile-phone"
+                label="Nomor HP"
+                icon={<Phone />}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="0812-3456-7890"
+                maxLength={30}
+                value={form.phone}
+                onChange={set("phone")}
+              />
+              <IconInput
+                id="profile-occupation"
+                label="Pekerjaan / jabatan"
+                icon={<Briefcase />}
+                autoComplete="organization-title"
+                placeholder="Mis. Analis Pengelolaan BMN"
+                maxLength={100}
+                value={form.occupation}
+                onChange={set("occupation")}
+              />
+              <IconInput
+                id="profile-workplace"
+                label="Tempat bekerja"
+                icon={<Building2 />}
+                autoComplete="organization"
+                placeholder="Nama instansi / perusahaan"
+                maxLength={150}
+                value={form.workplace}
+                onChange={set("workplace")}
+              />
+            </div>
+            <Field>
+              <FieldLabel htmlFor="profile-address">Alamat</FieldLabel>
+              <Textarea
+                id="profile-address"
+                rows={3}
+                autoComplete="street-address"
+                placeholder="Jalan, nomor, kelurahan, kecamatan, kota, kode pos"
+                maxLength={300}
+                value={form.address}
+                onChange={(e) => set("address")(e.target.value)}
+              />
+            </Field>
             {message && <Notice tone={message.tone}>{message.text}</Notice>}
-            <Button type="submit" className="self-start" disabled={busy || name.trim() === account.name}>
-              {busy ? <Spinner /> : "Simpan nama"}
+            <Button type="submit" className="self-start" disabled={busy || !dirty || form.name.trim().length < 2}>
+              {busy ? <Spinner /> : "Simpan profil"}
             </Button>
           </FieldGroup>
         </form>
-        <dl className="flex flex-col divide-y rounded-2xl border bg-surface/60 px-4">
+        <dl className="flex flex-col divide-y self-start rounded-2xl border bg-surface/60 px-4">
           <InfoRow icon={<AtSign />} label="Email">
             <span className="truncate">{account.email}</span>
             {account.emailVerified ? (
@@ -281,6 +381,11 @@ function ProfileSection({ account, onSaved }: { account: Account; onSaved: (a: A
           </InfoRow>
           <InfoRow icon={<Crown />} label="Peran ekosistem">
             {account.superAdmin ? "Super admin" : "Pengguna"}
+          </InfoRow>
+          <InfoRow icon={<MapPin />} label="Dibagikan ke aplikasi">
+            <span className="font-normal text-muted-foreground">
+              Nama, email, HP, alamat, pekerjaan & tempat bekerja dikirim ke aplikasi workingspace.id yang Anda buka.
+            </span>
           </InfoRow>
         </dl>
       </div>
@@ -325,7 +430,6 @@ function PasswordSection({ account, onChanged }: { account: Account; onChanged: 
 
   return (
     <Section
-      id="keamanan"
       icon={<KeyRound />}
       eyebrow="Keamanan"
       title={account.hasPassword ? "Ganti kata sandi" : "Buat kata sandi"}

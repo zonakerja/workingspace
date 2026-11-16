@@ -25,8 +25,24 @@ describe("parseClients", () => {
     expect(() => parseClients(JSON.stringify([client, client]), false)).toThrow(/ganda/);
   });
 
-  it("mewajibkan https di production", () => {
-    expect(() => parseClients(JSON.stringify([client]), true)).toThrow(/https/);
+  it("mewajibkan https di production, kecuali localhost / *.localhost (uji stack lokal)", () => {
+    const publicHttp = { ...client, redirect_uris: ["http://akasha.example.com/api/v1/auth/sso/callback"] };
+    expect(() => parseClients(JSON.stringify([publicHttp]), true)).toThrow(/https/);
+    expect(parseClients(JSON.stringify([client]), true)).toHaveLength(1);
+    const sub = { ...client, redirect_uris: ["http://akasha.localhost/api/v1/auth/sso/callback"] };
+    expect(parseClients(JSON.stringify([sub]), true)).toHaveLength(1);
+  });
+});
+
+describe("parseClients backchannel", () => {
+  it("menerima alamat back-channel logout & menolak yang bukan URL", () => {
+    const bc = { ...client, backchannel_logout_uri: "http://localhost:4000/api/v1/auth/sso/backchannel-logout" };
+    expect(parseClients(JSON.stringify([bc]), false)[0].backchannel_logout_uri).toBe(bc.backchannel_logout_uri);
+    expect(() => parseClients(JSON.stringify([{ ...client, backchannel_logout_uri: "ftp://x" }]), false)).toThrow(
+      /backchannel/,
+    );
+    const publicHttp = { ...client, backchannel_logout_uri: "http://akasha.example.com/x" };
+    expect(() => parseClients(JSON.stringify([publicHttp]), true)).toThrow(/https/);
   });
 });
 

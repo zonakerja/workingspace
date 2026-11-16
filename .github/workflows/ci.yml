@@ -48,6 +48,35 @@ jobs:
       - name: API log
         if: failure()
         run: cat apps/akasha/api/api.log
+      # SSO workingspace.id (apps/auth/api): env dev dibuat skrip, database sendiri, smoke end-to-end (OIDC, admin, PIN)
+      - name: SSO migrate, seed & smoke
+        working-directory: apps/auth/api
+        run: |
+          docker compose -f ../../../docker-compose.yml exec -T postgres psql -U postgres -c "CREATE DATABASE workingspace_auth" -c "CREATE DATABASE workingspace_auth_shadow"
+          npm run setup:dev
+          npx prisma migrate deploy
+          npm run prisma:seed
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+          node dist/main.js > auth.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4300/api/health && break; sleep 2; done
+          node test/smoke.mjs
+      - name: SSO log
+        if: failure()
+        run: cat apps/auth/api/auth.log
+      # Akai API (apps/akai/api): gateway model; smoke memakai router tiruan lokal
+      - name: Akai migrate & smoke
+        working-directory: apps/akai/api
+        run: |
+          docker compose -f ../../../docker-compose.yml exec -T postgres psql -U postgres -c "CREATE DATABASE akai" -c "CREATE DATABASE akai_shadow"
+          npm run setup:dev
+          npx prisma migrate deploy
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+          node dist/main.js > akai.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4400/api/health && break; sleep 2; done
+          node test/smoke.mjs
+      - name: Akai log
+        if: failure()
+        run: cat apps/akai/api/akai.log
 
   docker:
     runs-on: ubuntu-24.04
@@ -71,6 +100,30 @@ jobs:
           push: false
           cache-from: type=gha,scope=akasha-web
           cache-to: type=gha,mode=max,scope=akasha-web
+      - name: Build SSO API image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/auth/api/Dockerfile
+          push: false
+          cache-from: type=gha,scope=auth-api
+          cache-to: type=gha,mode=max,scope=auth-api
+      - name: Build SSO web image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/auth/web/Dockerfile
+          push: false
+          cache-from: type=gha,scope=auth-web
+          cache-to: type=gha,mode=max,scope=auth-web
+      - name: Build landing image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/landing/Dockerfile
+          push: false
+          cache-from: type=gha,scope=landing
+          cache-to: type=gha,mode=max,scope=landing
       - name: Build robot image
         uses: docker/build-push-action@v7
         with:

@@ -88,7 +88,7 @@ export function RequestDetailDialog({ requestId, onClose }: { requestId: string 
 
 function RequestDetailBody({ request: r, onDeleted }: { request: RequestDetail; onDeleted: () => void }) {
   const m = useRequestMutations();
-  const aiReady = !!useAuthStore((s) => s.user?.aiProvider);
+  const aiReady = useAuthStore((s) => !!s.user?.aiProvider || !!s.user?.aiViaAkai);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);

@@ -30,6 +30,7 @@ import { SharingModule } from "./sharing/sharing.module";
 import { ObjectStorageModule } from "./storage/object-storage.module";
 import { TrashModule } from "./trash/trash.module";
 import { SecurityModule } from "./security/security.module";
+import { AkaiModule } from "./akai/akai.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { UsersModule } from "./users/users.module";
 
@@ -44,6 +45,7 @@ import { UsersModule } from "./users/users.module";
     ObjectStorageModule,
     TrashModule,
     SecurityModule,
+    AkaiModule,
     HealthModule,
     AuthModule,
     UsersModule,

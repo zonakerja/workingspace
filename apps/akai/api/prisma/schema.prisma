@@ -1,0 +1,186 @@
+// ============================================================================
+// Akai — skema database (DB akai). Gateway model, lalu chat & agen (docs/AKAI.md §3).
+// Konvensi sama dengan Akasha & SSO: model PascalCase, tabel & kolom snake_case, timestamptz(3).
+// ============================================================================
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SourceKind {
+  gemini
+  anthropic
+  openai
+  router
+
+  @@map("source_kind")
+}
+
+enum ApiFormat {
+  openai
+  anthropic
+
+  @@map("api_format")
+}
+
+/// Akun Akai = akun SSO workingspace.id (dibuat saat pertama dipakai). Semua data di bawah milik satu akun.
+model Account {
+  id         String   @id @default(cuid())
+  ssoSubject String   @unique @map("sso_subject")
+  email      String?
+  name       String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sources     AiSource[]
+  models      AiModel[]
+  tasks       AiTaskRoute[]
+  usage       AiUsage[]
+  webSessions WebSession[]
+
+  @@map("accounts")
+}
+
+/// Sumber model: provider resmi (SDK, langsung) atau router (alamat + format). Key terenkripsi AKAI_ENCRYPTION_KEY.
+model AiSource {
+  id         String     @id @default(cuid())
+  accountId  String     @map("account_id")
+  kind       SourceKind
+  /// Router: classai | openrouter | omniroute | custom
+  preset     String?
+  label      String
+  baseUrl    String?    @map("base_url")
+  apiFormat  ApiFormat  @default(openai) @map("api_format")
+  keyEnc     String     @map("key_enc")
+  keyHint    String     @map("key_hint")
+  /// Hasil uji koneksi terakhir: ok | error (null = belum diuji)
+  lastStatus String?    @map("last_status")
+  lastError  String?    @map("last_error")
+  testedAt   DateTime?  @map("tested_at") @db.Timestamptz(3)
+  catalogAt  DateTime?  @map("catalog_at") @db.Timestamptz(3)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  catalog AiCatalogEntry[]
+  models  AiModel[]
+
+  @@index([accountId])
+  @@map("ai_sources")
+}
+
+/// Salinan `GET /models` sumber (dimuat ulang lewat tombol).
+model AiCatalogEntry {
+  id            String   @id @default(cuid())
+  sourceId      String   @map("source_id")
+  modelId       String   @map("model_id")
+  name          String
+  contextLength Int?     @map("context_length")
+  priceIn       Float?   @map("price_in")
+  priceOut      Float?   @map("price_out")
+  currency      String?
+  vision        Boolean  @default(false)
+  tools         Boolean  @default(false)
+  embedding     Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  source AiSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, modelId])
+  @@map("ai_catalog")
+}
+
+/// Model yang dinyalakan pemilik (dipakai pembagian tugas). Kemampuan & harga bisa diubah manual.
+model AiModel {
+  id            String   @id @default(cuid())
+  accountId     String   @map("account_id")
+  sourceId      String   @map("source_id")
+  modelId       String   @map("model_id")
+  label         String
+  contextLength Int?     @map("context_length")
+  priceIn       Float?   @map("price_in")
+  priceOut      Float?   @map("price_out")
+  currency      String?
+  /// Model berpaket (mis. paket token Classai): dipakai lebih dulu, biaya per token 0 selama paket ada
+  packaged      Boolean  @default(false)
+  vision        Boolean  @default(false)
+  pdf           Boolean  @default(false)
+  tools         Boolean  @default(false)
+  embedding     Boolean  @default(false)
+  audio         Boolean  @default(false)
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  source  AiSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, modelId])
+  @@index([accountId])
+  @@map("ai_models")
+}
+
+/// Pembagian tugas: model utama + cadangan berurutan (id AiModel).
+model AiTaskRoute {
+  id        String   @id @default(cuid())
+  accountId String   @map("account_id")
+  /// chat | general | agent | document | ocr | embedding | transcribe
+  task      String
+  modelIds  Json     @map("model_ids")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, task])
+  @@map("ai_task_routes")
+}
+
+/// Log pemakaian gateway (diisi langkah 6a.2).
+model AiUsage {
+  id           String   @id @default(cuid())
+  accountId    String   @map("account_id")
+  clientId     String   @map("client_id")
+  task         String?
+  modelId      String?  @map("model_id")
+  inputTokens  Int?     @map("input_tokens")
+  outputTokens Int?     @map("output_tokens")
+  cachedTokens Int?     @map("cached_tokens")
+  cost         Float?
+  currency     String?
+  durationMs   Int?     @map("duration_ms")
+  ok           Boolean
+  fallbackFrom String?  @map("fallback_from")
+  error        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("ai_usage")
+}
+
+/// Sesi Akai web (masuk lewat SSO). Cookie `akai_sid` berisi token acak; hanya hash-nya yang disimpan.
+model WebSession {
+  id         String   @id @default(cuid())
+  accountId  String   @map("account_id")
+  tokenHash  String   @unique @map("token_hash")
+  /// sid sesi SSO (OIDC Back-Channel Logout: keluar dari SSO = sesi ini dihapus)
+  ssoSid     String?  @map("sso_sid")
+  userAgent  String?  @map("user_agent")
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([ssoSid])
+  @@map("web_sessions")
+}

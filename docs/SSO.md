@@ -19,12 +19,16 @@ di CLAUDE.md §12.
 | Komponen | Folder | Dev | Produksi |
 |---|---|---|---|
 | Layanan SSO (API + OIDC) | `apps/auth/api` (`@workingspace/auth-api`) | `http://localhost:4300` | `auth.workingspace.id/api/*`, `/oidc/*` |
-| Halaman masuk/daftar/akun | `apps/auth/web` (`@workingspace/auth-web`) | `http://auth.localhost:5175` | `auth.workingspace.id` |
-| Halaman depan | `apps/landing` (`@workingspace/landing`) | `http://localhost:5176` | `workingspace.id` |
+| Halaman masuk/daftar/akun | `apps/auth/web` (`@workingspace/auth-web`) | `http://auth.workingspace.localhost:5175` | `auth.workingspace.id` |
+| Halaman depan | `apps/landing` (`@workingspace/landing`) | `http://workingspace.localhost:5176` | `workingspace.id` |
 | Database SSO | DB `workingspace_auth` (+ `workingspace_auth_shadow`) di server PostgreSQL yang sama | 5432 | container postgres produksi yang sama |
 
 Port baru (4300, 5175, 5176) ditambahkan ke aturan port CLAUDE.md §2. `*.localhost` otomatis menuju 127.0.0.1 di Chrome/Edge,
-jadi asal halaman SSO berbeda dari Akasha (`localhost:5173`) tanpa mengubah berkas hosts — sama seperti produksi.
+jadi asal halaman SSO berbeda dari Akasha (`localhost:5173`) tanpa mengubah berkas hosts — sama seperti produksi. Host dev SSO
+`auth.workingspace.localhost` & halaman depan `workingspace.localhost` sengaja satu "situs" (`workingspace.localhost`, sama seperti
+`workingspace.id` / `auth.workingspace.id`) agar cookie SSO terkirim ke permintaan status dari halaman depan (§2.11). Resolver Windows
+tidak mengenal `*.localhost`, jadi proses Node (backend Akasha dev, `sso-smoke.mjs`) memetakan nama itu ke `localhost`
+(`apps/akasha/api/src/common/localhost-dns.ts`, hanya di luar production).
 
 ### 2.2 Protokol: OpenID Connect
 
@@ -100,13 +104,18 @@ mengelola akun, tidak melihat isi data.
 
 ### 2.8 Halaman depan `workingspace.id`
 
-Halaman statis ringan (Vite + React + token desain yang sama): nama ekosistem, kartu aplikasi (Akasha, Akai, Cendikia — yang belum
-ada berlabel "segera"), tombol Masuk / Daftar ke SSO. Tanpa backend. Setelah masuk, halaman akun SSO (`auth.workingspace.id`)
-menampilkan aplikasi yang boleh dibuka.
+Halaman statis ringan (Vite + React + `@workingspace/ui`): hero aurora, kartu aplikasi (Akasha tersedia; Akai, Cendekia "segera
+hadir"), keunggulan (satu akun, PIN bersama, data milik pemilik, Bahasa Indonesia, AI dengan kunci sendiri), sorotan modul
+Akasha, tiga langkah mulai, tanya jawab, ajakan daftar; tombol Masuk / Daftar ke SSO, pengatur tema. Tanpa backend dan tanpa
+membaca sesi (asal berbeda). Alamat dari env build `VITE_AUTH_URL`, `VITE_AKASHA_URL` (`src/config.ts`). Setelah masuk,
+halaman akun SSO menampilkan aplikasi yang boleh dibuka.
 
 ### 2.9 Produksi
 
-Caddy: satu blok per host (`workingspace.id`, `auth.workingspace.id`, `akasha.workingspace.id`, kelak `akai`, `cendikia`).
+Caddy: satu blok per host (`ROOT_DOMAIN`, `www` → dialihkan, `AUTH_DOMAIN`, `APP_DOMAIN`; kelak `akai`, `cendekia`).
+`SITE_SCHEME` (bawaan https) = http hanya untuk uji stack di laptop dengan `*.localhost` (SSO menerima http hanya untuk
+`localhost`/`*.localhost`, `secureOrLocal`). Backend Akasha memanggil SSO lewat alamat publiknya; di jaringan Docker nama
+`AUTH_DOMAIN` adalah alias Caddy. Rahasia SSO dibuat `apps/auth/api/scripts/generate-prod-secrets.mjs`. Panduan: DEPLOYMENT §16.
 `auth.workingspace.id`: `/api/*`, `/oidc/*`, `/interaction/*` → `auth-api:4300`, selebihnya → `auth-web` (nginx). Image:
 `apps/auth/api/Dockerfile` (migrasi saat start) dan `apps/auth/web/Dockerfile` + `nginx.conf` (CSP ketat, `frame-ancestors 'none'`).
 Service baru `auth-api` (Node) + `auth-web` & `landing` (nginx statis). Kunci JWKS & secret klien = env. Backup harian ikut
@@ -124,10 +133,45 @@ Workingspace punya tampilan sendiri, terpisah dari Akasha (keputusan pemilik 202
   `ring-aurora` (tepi bergradien), `shadow-soft`, `shadow-lift`. Nama token shadcn (`--primary`, `--card`, …) tetap.
 - **Komponen bersama**: `components/brand.tsx` (`LogoMark`, `Wordmark`, `UserAvatar` berwarna stabil dari id), `components/section.tsx`
   (`Section`, `StatusPill`), `components/account-shell.tsx` (sidebar desktop / menu geser HP, anchor bagian dengan penanda bagian aktif).
-- **Halaman akun** (`/account`, satu halaman beranchor: `#ringkasan #aplikasi #profil #keamanan #pin #perangkat`): hero dengan skor
-  keamanan (`securityChecks`), peluncur aplikasi + aplikasi yang segera hadir (`UPCOMING_APPS`), profil, kata sandi, PIN, perangkat.
+- **Subjudul logo** = "Single sign on". **Tema** Terang / Gelap / Ikuti sistem (`lib/theme.ts`, `ThemeToggle`; pilihan per peramban di
+  localStorage `workingspace.theme`, bukan per akun karena halaman masuk dipakai sebelum masuk) di sidebar, bilah atas HP, dan panel
+  halaman masuk.
+- **Profil** (`PATCH /api/auth/me`): nama, nomor HP (dibakukan `+62…`, `profile-logic.ts` + test), alamat, pekerjaan / jabatan, tempat
+  bekerja; isian kosong = dihapus. Dibagikan ke aplikasi lewat klaim OIDC: scope `profile` → `occupation`, `workplace` (klaim tambahan
+  Workingspace), scope `phone` → `phone_number`, scope `address` → `address.formatted`. Admin melihat HP, pekerjaan, tempat bekerja di
+  laci Kelola (alamat tidak).
+- **Halaman akun** (`/account`, satu halaman beranchor: `#ringkasan #aplikasi #profil #keamanan` (Kata sandi & PIN, satu menu)
+  `#pin #perangkat`): hero dengan skor
+  keamanan (`securityChecks`), bagian **Akses** (aplikasi yang bisa dibuka) + aplikasi yang segera hadir (`UPCOMING_APPS`), profil, kata sandi, PIN, perangkat.
 - **Halaman admin** (`/admin`, dimuat malas): kartu angka `GET /api/admin/stats` (klik = saring), saring `?status=all|active|unverified|
   disabled|super`, daftar akun, laci Kelola (`Sheet`; anak `SheetContent` wajib `shrink-0` karena isinya digulir), tab Aplikasi.
+
+### 2.11 Keluar lintas aplikasi & status di halaman depan
+
+- **OIDC Back-Channel Logout** (keputusan 2026-11-16, laporan pemilik: keluar dari SSO tetapi Akasha tetap masuk). Klien yang punya
+  `backchannel_logout_uri` di `OIDC_CLIENTS` menerima sid di id_token. Saat aplikasi selesai otorisasi, SSO mencatat tabel
+  `app_session_links` (sesi SSO `ws_sid` ↔ aplikasi + sid). Setiap sesi SSO berakhir — Keluar di halaman akun, keluarkan perangkat,
+  ganti / atur ulang kata sandi, admin menonaktifkan / mengeluarkan akun, `end_session` — SSO mengirim logout token (JWT bertanda
+  tangan, `OidcService.notifyLogout`) ke aplikasi itu **sebelum** sesinya dihapus. Proteksi SSRF bawaan oidc-provider (menolak alamat
+  privat/loopback) dilewati hanya untuk alamat back-channel klien terdaftar (konfigurasi `fetch`).
+- **Akasha** `POST /api/v1/auth/sso/backchannel-logout` (publik, form `logout_token`): tanda tangan diperiksa dengan JWKS SSO (`jose`),
+  iss, aud = `akasha`, umur ≤ 5 menit, lalu `logoutTokenClaims` (event, jti, sid, tanpa nonce) → hapus `refresh_tokens` ber-`sso_sid`
+  itu. `JwtStrategy` kini menolak access token yang sesinya (`sid`) sudah tidak ada (cache 10 dtk), jadi tab yang masih terbuka ikut
+  keluar pada permintaan berikutnya. Sesi Akasha di peramban lain tidak tersentuh.
+- **Masuk SSO = masuk aplikasi**: halaman masuk Akasha (tanpa sesi Akasha) otomatis memeriksa SSO secara diam-diam
+  (`/auth/sso/start?silent=1` → parameter `ws_silent=1`, `extraParams` oidc-provider). SSO sudah masuk → interaksi langsung
+  dilanjutkan (sejak awal: `InteractionController.start` meneruskan sesi `ws_sid` yang sah) dan Akasha masuk tanpa klik; belum masuk / tanpa
+  akses → SSO menjawab `login_required` tanpa menampilkan halaman masuk → Akasha `/login?sso_checked=1` (tidak diperiksa ulang).
+  `prompt=none` sengaja **tidak** dipakai: masuk di halaman SSO hanya membuat sesi `ws_sid`, sesi oidc-provider baru ada setelah
+  interaksi pertama, sehingga `prompt=none` selalu menjawab `login_required`.
+- **Keluar aplikasi = keluar SSO tanpa konfirmasi**: `end_session` yang diminta aplikasi terdaftar (`client_id` / `id_token_hint` sah,
+  `post_logout_redirect_uri` terdaftar) menampilkan halaman yang mengirim formulir keluar otomatis (skrip ber-nonce, CSP sendiri;
+  tanpa JavaScript tetap ada tombol). Dibuka langsung tanpa aplikasi → tetap halaman konfirmasi.
+- **Satu alamat dev**: Vite SSO & halaman depan mengalihkan alamat lain (`localhost:5175`, `auth.localhost:5175`, `localhost:5176`)
+  ke alamat kanonis (`canonicalHost`, `packages/ui/src/vite-canonical-host.ts`), karena cookie sesi terikat nama host.
+- **Status di halaman depan**: SSO `GET /api/auth/status` → `{ signedIn, name }` dengan CORS + cookie hanya untuk `LANDING_URL`; halaman
+  depan (`useSsoStatus`) mengganti Masuk/Daftar menjadi **Dashboard** (→ `/account`) dan tombol hero menjadi Buka dashboard / Buka
+  Akasha. Produksi: CSP `connect-src` halaman depan diisi `AUTH_ORIGIN` (templat nginx `apps/landing/nginx.conf.template`).
 
 ## 3. Urutan kerja
 
@@ -151,5 +195,5 @@ Workingspace punya tampilan sendiri, terpisah dari Akasha (keputusan pemilik 202
 | Rancangan & keputusan | ✅ 2026-11-16 |
 | B1 Layanan SSO | 🚧 inti API ✅ 2026-11-16 (akun, email, sesi, OIDC; unit 10, smoke 54) + halaman web ✅ 2026-11-16 (masuk, daftar, verifikasi, lupa/reset, akun; unit 3; diuji di browser termasuk alur OIDC dari "Akasha", akun tanpa akses, Batal, 375 px); + admin ✅ 2026-11-16 (API `/api/admin/*` + halaman `/admin`; unit +5, smoke ± 84 cek, diuji di browser); + PIN ✅ (`/api/pin`, `/api/pin/verify` antar-server; unit +4, smoke PIN 21 cek) + Dockerfile api & web ✅ 2026-11-16 (image dibangun & dijalankan mode production: migrasi, health, discovery, CSP halaman); sisa: Google (A42) |
 | B2 Akasha memakai SSO | 🚧 langkah 1 ✅ 2026-11-16 (masuk/keluar lewat SSO, tautan akun, role & pencabutan akses; `test/sso-smoke.mjs` 17/17); langkah 2 ✅ 2026-11-16 (PIN lewat SSO, konfirmasi robot dengan PIN, nama/email/role/kata sandi akun SSO hanya di SSO, tawaran PIN setelah masuk; `sso-smoke.mjs` 30 cek) |
-| B3 Halaman depan | belum |
-| B4 Produksi | belum |
+| B3 Halaman depan | ✅ 2026-11-16 `apps/landing` + paket bersama `packages/ui` (token, logo, tema); unit 1, diuji di browser terang/gelap/375 px |
+| B4 Produksi | ✅ 2026-11-16 compose (`auth-api`, `auth-web`, `landing`, env SSO Akasha, database `workingspace_auth` + backup), Caddy tiga host, CI (smoke SSO + image); diuji stack produksi lokal (lihat CLAUDE.md §11). VPS belum dibeli |

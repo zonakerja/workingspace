@@ -11,10 +11,11 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import * as oidc from "openid-client";
 import type { User } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { type SsoClaims, roleFromClaims, safeReturnTo } from "./sso-logic";
+import { type SsoClaims, logoutTokenClaims, roleFromClaims, safeReturnTo } from "./sso-logic";
 
 /** Status akun di SSO di-cache sebentar agar refresh token (tiap ± 15 menit per tab) tidak selalu memanggil SSO. */
 const STATUS_TTL_MS = 60_000;
@@ -52,6 +53,7 @@ export class SsoService {
   private readonly postLogoutUri?: string;
   private readonly flowSecret: string;
   private discovered?: Promise<oidc.Configuration>;
+  private jwks?: ReturnType<typeof createRemoteJWKSet>;
   private readonly statusCache = new Map<string, { at: number; value: AccountStatus | null }>();
 
   constructor(
@@ -78,7 +80,7 @@ export class SsoService {
       throw new ServiceUnavailableException("Masuk lewat akun Workingspace belum diatur di server ini.");
     this.discovered ??= oidc
       .discovery(new URL(this.issuer!), this.clientId!, this.clientSecret!, undefined, {
-        // Dev memakai http://auth.localhost; production wajib https (divalidasi oidc-client)
+        // Dev memakai http://auth.workingspace.localhost; production wajib https (divalidasi oidc-client)
         execute: new URL(this.issuer!).protocol === "http:" ? [oidc.allowInsecureRequests] : [],
       })
       .catch((error: unknown) => {
@@ -90,7 +92,8 @@ export class SsoService {
   }
 
   /** Alamat halaman masuk SSO + cookie alur (ditandatangani) yang dicek saat callback. */
-  async start(returnTo: unknown) {
+  /** `silent` = periksa sesi SSO tanpa menampilkan halaman masuk (`ws_silent=1`); tidak ada sesi → callback login_required. */
+  async start(returnTo: unknown, silent = false) {
     const config = await this.config();
     const flow: FlowState = {
       state: oidc.randomState(),
@@ -105,13 +108,18 @@ export class SsoService {
       code_challenge_method: "S256",
       state: flow.state,
       nonce: flow.nonce,
+      // Pemeriksaan diam-diam: SSO yang sudah masuk langsung melanjutkan; belum masuk → login_required tanpa halaman masuk
+      ...(silent ? { ws_silent: "1" } : {}),
     });
     const cookie = await this.jwt.signAsync(flow, { secret: this.flowSecret, expiresIn: FLOW_TTL_S });
     return { url: url.href, cookie, maxAgeMs: FLOW_TTL_S * 1000 };
   }
 
   /** Tukar kode → klaim → akun Akasha (ditautkan / dibuat) dengan role dari SSO. */
-  async callback(query: string, flowCookie: string | undefined): Promise<{ user: User; returnTo: string }> {
+  async callback(
+    query: string,
+    flowCookie: string | undefined,
+  ): Promise<{ user: User; returnTo: string; ssoSid?: string }> {
     if (!flowCookie) throw new UnauthorizedException("Sesi masuk sudah kedaluwarsa. Coba masuk lagi.");
     let flow: FlowState;
     try {
@@ -140,7 +148,35 @@ export class SsoService {
     const status = await this.accountStatus(claims.sub, true);
     if (status && status !== "missing" && status.hasPin !== user.ssoPin)
       user = await this.prisma.user.update({ where: { id: user.id }, data: { ssoPin: status.hasPin } });
-    return { user, returnTo: flow.returnTo };
+    return { user, returnTo: flow.returnTo, ssoSid: claims.sid };
+  }
+
+  /**
+   * Periksa logout token dari SSO (OIDC Back-Channel Logout): tanda tangan (JWKS SSO), iss, aud = klien Akasha, umur token,
+   * lalu isi (`logoutTokenClaims`). Hasil = sid & sub, galat = BadRequest (spesifikasi: 400).
+   */
+  async verifyLogoutToken(token: string): Promise<{ sid: string; sub?: string }> {
+    const config = await this.config();
+    const meta = config.serverMetadata();
+    if (!meta.jwks_uri) throw new ServiceUnavailableException("JWKS SSO tidak tersedia.");
+    this.jwks ??= createRemoteJWKSet(new URL(meta.jwks_uri));
+    let payload: Record<string, unknown>;
+    try {
+      ({ payload } = await jwtVerify(token, this.jwks, {
+        issuer: meta.issuer,
+        audience: this.clientId,
+        maxTokenAge: "5m",
+      }));
+    } catch (error) {
+      this.logger.warn(`Logout token ditolak: ${String(error)}`);
+      throw new BadRequestException("Logout token tidak valid.");
+    }
+    const result = logoutTokenClaims(payload);
+    if ("error" in result) {
+      this.logger.warn(`Logout token ditolak: ${result.error}`);
+      throw new BadRequestException("Logout token tidak valid.");
+    }
+    return result;
   }
 
   /**

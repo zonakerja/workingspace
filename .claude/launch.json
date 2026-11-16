@@ -4,27 +4,82 @@
     {
       "name": "backend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/akasha/api", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "apps/akasha/api",
+        "run",
+        "dev"
+      ],
       "port": 4000
     },
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/akasha/web", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "apps/akasha/web",
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "auth-api",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/auth/api", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "apps/auth/api",
+        "run",
+        "dev"
+      ],
       "port": 4300
     },
     {
       "name": "auth-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/auth/web", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "apps/auth/web",
+        "run",
+        "dev"
+      ],
       "port": 5175,
-      "url": "http://auth.localhost:5175"
+      "url": "http://auth.workingspace.localhost:5175"
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/landing",
+        "run",
+        "dev"
+      ],
+      "port": 5176,
+      "url": "http://workingspace.localhost:5176"
+    },
+    {
+      "name": "akai-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/akai/api",
+        "run",
+        "dev"
+      ],
+      "port": 4400
+    },
+    {
+      "name": "akai-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/akai/web",
+        "run",
+        "dev"
+      ],
+      "port": 5177,
+      "url": "http://akai.workingspace.localhost:5177"
     }
   ]
 }

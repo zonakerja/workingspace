@@ -6,7 +6,11 @@ import { type Express, json, raw, text } from "express";
 import helmet from "helmet";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
+import { mapLocalhostSubdomains } from "./common/localhost-dns";
 import { PrismaExceptionFilter } from "./common/filters/prisma-exception.filter";
+
+// Development: *.localhost (SSO dev) → localhost (resolver Windows tidak mengenalnya)
+if (process.env.NODE_ENV !== "production") mapLocalhostSubdomains();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });

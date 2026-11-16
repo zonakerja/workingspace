@@ -7,6 +7,7 @@ import { AiCrypto } from "./ai-crypto";
 import { isFallbackError, providerCandidates } from "./ai-routing";
 import { AiService, type AiFile } from "./ai.service";
 import type { AiIndexQueueService } from "./index/ai-index-queue.service";
+import { AkaiError, type AkaiService } from "../akai/akai.service";
 import { AiProviderError } from "./providers/ai-client";
 
 // Klien provider diganti mock: tidak ada panggilan jaringan
@@ -17,6 +18,9 @@ vi.mock("./providers/openai.client", () => ({ openaiClient: clients.openai }));
 
 const KEY = "c".repeat(64);
 const crypto = new AiCrypto(KEY);
+
+/** Akai mati (bawaan) kecuali tes Akai mengisi `akai`. */
+let akai = { handles: vi.fn().mockResolvedValue(false), generate: vi.fn() };
 
 function setup(active: AiProvider | null, configured: AiProvider[], fallback = true) {
   const credentials = configured.map((provider) => ({
@@ -35,7 +39,7 @@ function setup(active: AiProvider | null, configured: AiProvider[], fallback = t
   } as unknown as PrismaService;
   const config = { getOrThrow: () => KEY, get: () => undefined } as unknown as ConfigService;
   const indexQueue = { enqueueRebuild: vi.fn(), enqueuePurge: vi.fn() } as unknown as AiIndexQueueService;
-  return new AiService(prisma, indexQueue, config);
+  return new AiService(prisma, indexQueue, akai as unknown as AkaiService, config);
 }
 
 const audio: AiFile = { originalname: "rekaman.webm", mimetype: "audio/webm", size: 10, buffer: Buffer.from("x") };
@@ -43,6 +47,7 @@ const quota = () => new AiProviderError("quota", "Resource exhausted");
 
 beforeEach(() => {
   for (const fn of Object.values(clients)) fn.mockReset().mockResolvedValue("jawaban");
+  akai = { handles: vi.fn().mockResolvedValue(false), generate: vi.fn() };
 });
 
 describe("providerCandidates", () => {
@@ -122,5 +127,40 @@ describe("AiService.generate", () => {
 
   it("AI belum diatur → 400", async () => {
     await expect(setup(null, []).generate("u1", "halo")).rejects.toThrow(/belum diatur/);
+  });
+});
+
+describe("generate lewat Akai", () => {
+  it("tugas yang diatur di Akai dijawab Akai, key lama tidak dipanggil", async () => {
+    const service = setup("gemini", ["gemini"]);
+    akai.handles.mockResolvedValue(true);
+    akai.generate.mockResolvedValue({ text: "dari akai", model: "Model A", fallbackFrom: "Model B" });
+    const result = await service.generate("u1", "halo", [], "chat");
+    expect(result).toMatchObject({ text: "dari akai", provider: "akai", model: "Model A", fallback: { from: "akai" } });
+    expect(clients.gemini).not.toHaveBeenCalled();
+  });
+
+  it("Akai tanpa key lama tetap bisa dipakai", async () => {
+    const service = setup(null, []);
+    akai.handles.mockResolvedValue(true);
+    akai.generate.mockResolvedValue({ text: "ok", model: "M", fallbackFrom: null });
+    await expect(service.generate("u1", "halo")).resolves.toMatchObject({ text: "ok", fallback: null });
+  });
+
+  it("kuota di Akai → 429, galat lain → 422", async () => {
+    const service = setup("gemini", ["gemini"]);
+    akai.handles.mockResolvedValue(true);
+    akai.generate.mockRejectedValueOnce(new AkaiError(429, "Akai: kuota habis"));
+    await expect(service.generate("u1", "x")).rejects.toMatchObject({ status: 429 });
+    akai.generate.mockRejectedValueOnce(new AkaiError(422, "Akai: key ditolak"));
+    await expect(service.generate("u1", "x")).rejects.toMatchObject({ status: 422 });
+    expect(clients.gemini).not.toHaveBeenCalled();
+  });
+
+  it("Akai tak terjangkau → key lama; tanpa key lama → 422 berpesan Akai", async () => {
+    akai.handles.mockResolvedValue(true);
+    akai.generate.mockRejectedValue(new AkaiError(422, "Akai tidak dapat dihubungi.", true));
+    await expect(setup("gemini", ["gemini"]).generate("u1", "x")).resolves.toMatchObject({ provider: "gemini" });
+    await expect(setup(null, []).generate("u1", "x")).rejects.toThrow(/Akai tidak dapat dihubungi/);
   });
 });

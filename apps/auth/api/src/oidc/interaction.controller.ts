@@ -121,6 +121,16 @@ export class InteractionController {
         // Tidak punya akses / akun bermasalah → halaman masuk menampilkan pesannya
       }
     }
+    // Pemeriksaan diam-diam dari aplikasi (`ws_silent=1`): belum masuk / tanpa akses → kembali ke aplikasi tanpa halaman masuk
+    if (details.params.ws_silent === "1") {
+      const redirectTo = await this.oidc.provider.interactionResult(
+        req,
+        res,
+        { error: "login_required", error_description: "Belum masuk di akun Workingspace." },
+        { mergeWithLastSubmission: false },
+      );
+      return res.redirect(303, redirectTo);
+    }
     return res.redirect(303, `/login?uid=${encodeURIComponent(uid)}`);
   }
 

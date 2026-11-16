@@ -1,12 +1,17 @@
 // Uji ujung-ke-ujung Akasha ↔ SSO workingspace.id (jalankan saat Akasha, frontend Vite, dan SSO menyala):
 //   node test/sso-smoke.mjs
-// Env: APP_URL (bawaan http://localhost:5173), SSO_URL (bawaan http://auth.localhost:5175), SSO_ADMIN_EMAIL/PASSWORD
+// Env: APP_URL (bawaan http://localhost:5173), SSO_URL (bawaan http://auth.workingspace.localhost:5175), SSO_ADMIN_EMAIL/PASSWORD
 // (bawaan seed dev admin@workingspace.id / 123). Membuat akun SSO sementara smoke-sso-*@example.test lalu menghapusnya
 // (SSO lewat database workingspace_auth, Akasha lewat /users).
+import dns from "node:dns";
 import pg from "pg";
 
+// Resolver Windows tidak mengenal *.localhost (Chrome & curl menanganinya sendiri) → arahkan ke localhost
+const lookup = dns.lookup;
+dns.lookup = (hostname, ...rest) => lookup(hostname.endsWith(".localhost") ? "localhost" : hostname, ...rest);
+
 const APP = (process.env.APP_URL ?? "http://localhost:5173").replace(/\/+$/, "");
-const SSO = (process.env.SSO_URL ?? "http://auth.localhost:5175").replace(/\/+$/, "");
+const SSO = (process.env.SSO_URL ?? "http://auth.workingspace.localhost:5175").replace(/\/+$/, "");
 const ADMIN = {
   email: process.env.SSO_ADMIN_EMAIL ?? "admin@workingspace.id",
   password: process.env.SSO_ADMIN_PASSWORD ?? "123",
@@ -68,6 +73,20 @@ class Browser {
   }
 }
 
+/** Pemeriksaan diam-diam: ikuti alur sampai callback Akasha; hasil = tujuan akhir pengalihan callback. */
+async function silentCheck(browser) {
+  let r = await browser.req("GET", `${APP}/api/v1/auth/sso/start?silent=1&returnTo=%2Fplanner`);
+  for (let i = 0; i < 10 && r.location; i++) {
+    if (r.location.includes("/api/v1/auth/sso/callback")) {
+      const done = await browser.req("GET", r.location);
+      return new URL(done.location).pathname + new URL(done.location).search;
+    }
+    if (r.location.includes("/login?uid=")) return "SSO_LOGIN_PAGE";
+    r = await browser.req("GET", r.location);
+  }
+  return null;
+}
+
 /** Masuk Akasha lewat SSO dari awal (halaman login Akasha → SSO → callback). */
 async function ssoSignIn(browser, email, password, returnTo = "/planner") {
   let r = await browser.follow(`${APP}/api/v1/auth/sso/start?returnTo=${encodeURIComponent(returnTo)}`);
@@ -125,6 +144,12 @@ ok("SSO account has no local password", r.s === 401, r);
 // Masuk lagi saat sesi SSO masih ada → tanpa kata sandi
 res = await ssoSignIn(user2, email, "salah-tidak-dipakai");
 ok("single sign-on (no password prompt)", !res.login && user2.jar(APP).has("akasha_rt"), res.login);
+
+// Pemeriksaan diam-diam (halaman masuk Akasha): SSO sudah masuk → Akasha langsung masuk; belum → kembali tanpa halaman masuk SSO
+let silent = await silentCheck(user2);
+ok("silent check with SSO session → signed in", silent === "/planner" && user2.jar(APP).has("akasha_rt"), silent);
+silent = await silentCheck(new Browser());
+ok("silent check without SSO session → /login?sso_checked=1", silent === "/login?sso_checked=1", silent);
 
 // ---------------------------------------------------------------- PIN & akun dikelola SSO (B2 langkah 2)
 const at2 = (await user2.req("POST", `${APP}/api/v1/auth/refresh`)).d.accessToken;
@@ -184,6 +209,27 @@ await new Promise((x) => setTimeout(x, 65_000));
 r = await user2.req("POST", `${APP}/api/v1/auth/refresh`);
 ok("role synced from SSO on refresh", r.s === 200 && r.d.user.role === "admin", r.d?.user?.role);
 
+// Keluar dari halaman SSO → SSO mengirim logout token ke Akasha → sesi Akasha dari sesi SSO itu berakhir
+const user3 = new Browser();
+res = await ssoSignIn(user3, email, password);
+ok("second browser signed in", user3.jar(APP).has("akasha_rt"), res.final?.s);
+const at3 = (await user3.req("POST", `${APP}/api/v1/auth/refresh`)).d.accessToken;
+r = await user3.req("POST", `${SSO}/api/auth/logout`);
+ok("SSO logout", r.s === 204, r);
+await new Promise((x) => setTimeout(x, 1000));
+r = await user3.req("POST", `${APP}/api/v1/auth/refresh`);
+ok("back-channel logout → Akasha refresh 401", r.s === 401, r);
+const me3 = await fetch(`${APP}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${at3}` } });
+ok("back-channel logout → open tab access token 401", me3.status === 401, me3.status);
+r = await user2.req("POST", `${APP}/api/v1/auth/refresh`);
+ok("other browser's Akasha session untouched", r.s === 200, r.s);
+r = await fetch(`${APP}/api/v1/auth/sso/backchannel-logout`, {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: "logout_token=palsu",
+});
+ok("forged logout token 400", r.status === 400, r.status);
+
 // Akses dicabut di SSO → sesi Akasha berakhir
 r = await admin.req("DELETE", `${SSO}/api/admin/accounts/${accountId}/apps/akasha`);
 await new Promise((x) => setTimeout(x, 65_000));
@@ -197,6 +243,19 @@ ok(
   r.s === 200 && String(r.d.ssoLogoutUrl).startsWith(`${SSO}/oidc/session/end`),
   r.d,
 );
+// Halaman keluar SSO dari aplikasi terdaftar: dikirim otomatis (tanpa tombol konfirmasi), skrip ber-nonce
+{
+  const page = await fetch(r.d.ssoLogoutUrl, {
+    headers: { Cookie: [...user2.jar(r.d.ssoLogoutUrl)].map(([k, v]) => `${k}=${v}`).join("; ") },
+  });
+  const html = await page.text();
+  const csp = page.headers.get("content-security-policy") ?? "";
+  ok(
+    "SSO logout page auto-submits (no confirmation)",
+    page.status === 200 && html.includes('getElementById("op.logoutForm").submit()') && /script-src 'nonce-/.test(csp),
+    { status: page.status, csp },
+  );
+}
 
 // Callback tanpa cookie alur / state palsu → ditolak dengan pesan
 r = await new Browser().req("GET", `${APP}/api/v1/auth/sso/callback?code=palsu&state=palsu`);

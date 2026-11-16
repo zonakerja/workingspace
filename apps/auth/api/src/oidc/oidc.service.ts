@@ -1,7 +1,9 @@
+import { randomBytes } from "node:crypto";
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Provider, { type Configuration, interactionPolicy, type KoaContextWithOIDC } from "oidc-provider";
 import { SESSION_COOKIE, hashToken } from "../common/http";
+import type { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { createOidcAdapter } from "./oidc-adapter";
 import { appClaims, parseClients, parseJwks } from "./oidc-config";
@@ -27,6 +29,9 @@ export class OidcService implements OnModuleDestroy {
     const secure = config.get<boolean>("COOKIE_SECURE") ?? production;
     this.issuer = `${publicUrl}/oidc`;
     const clients = parseClients(config.getOrThrow<string>("OIDC_CLIENTS"), production);
+    const trustedBackchannel = new Set(
+      clients.flatMap((c) => (c.backchannel_logout_uri ? [new URL(c.backchannel_logout_uri).href] : [])),
+    );
 
     // Sumber kebenaran sesi = cookie ws_sid (halaman SSO). Sesi oidc-provider hanya cermin: bila ws_sid sudah tidak
     // berlaku (keluar dari halaman akun, reset kata sandi, akun dinonaktifkan) atau milik akun lain, masuk diminta ulang.
@@ -53,8 +58,21 @@ export class OidcService implements OnModuleDestroy {
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],
         token_endpoint_auth_method: "client_secret_basic",
+        // Aplikasi dengan alamat back-channel menerima logout token (+ sid) saat sesi SSO berakhir
+        ...(c.backchannel_logout_uri ? { backchannel_logout_session_required: true } : {}),
       })),
       jwks: parseJwks(config.getOrThrow<string>("OIDC_JWKS")) as Configuration["jwks"],
+      // Proteksi SSRF bawaan menolak alamat privat/loopback. Alamat back-channel logout klien = aplikasi sendiri dari env
+      // operator (jaringan internal Docker / localhost dev), jadi hanya alamat itu yang dikecualikan; selain itu tetap dilindungi.
+      fetch: (url, options) => {
+        const target = String(url);
+        if (trustedBackchannel.has(target)) {
+          const rest: RequestInit & { dispatcher?: unknown } = { ...options };
+          delete rest.dispatcher;
+          return globalThis.fetch(target, rest);
+        }
+        return globalThis.fetch(url, options);
+      },
       cookies: {
         keys: config
           .getOrThrow<string>("OIDC_COOKIE_KEYS")
@@ -64,11 +82,14 @@ export class OidcService implements OnModuleDestroy {
         short: { signed: true, secure, sameSite: "lax" },
       },
       pkce: { required: () => true },
-      scopes: ["openid", "offline_access", "email", "profile", "apps"],
+      scopes: ["openid", "offline_access", "email", "profile", "phone", "address", "apps"],
       claims: {
         openid: ["sub"],
         email: ["email", "email_verified"],
-        profile: ["name"],
+        // occupation & workplace = klaim tambahan Workingspace (pekerjaan, tempat bekerja)
+        profile: ["name", "occupation", "workplace"],
+        phone: ["phone_number"],
+        address: ["address"],
         apps: ["apps", "super_admin"],
       },
       // Klaim profil ikut di id_token agar aplikasi tidak perlu memanggil userinfo saat masuk
@@ -83,11 +104,17 @@ export class OidcService implements OnModuleDestroy {
             email: account.email,
             email_verified: !!account.emailVerifiedAt,
             name: account.name,
+            occupation: account.occupation ?? undefined,
+            workplace: account.workplace ?? undefined,
+            phone_number: account.phone ?? undefined,
+            address: account.address ? { formatted: account.address } : undefined,
             apps: appClaims(account.memberships),
             super_admin: account.superAdmin,
           }),
         };
       },
+      // ws_silent=1: pemeriksaan sesi diam-diam dari aplikasi (InteractionController.start)
+      extraParams: ["ws_silent"],
       interactions: { policy, url: (_ctx, interaction) => `/interaction/${interaction.uid}` },
       // Semua klien = aplikasi ekosistem sendiri (first-party) → tanpa layar persetujuan; grant dibuat otomatis
       loadExistingGrant: async (ctx: KoaContextWithOIDC) => {
@@ -110,10 +137,22 @@ export class OidcService implements OnModuleDestroy {
       features: {
         devInteractions: { enabled: false },
         revocation: { enabled: true },
+        backchannelLogout: { enabled: true },
         rpInitiatedLogout: {
           enabled: true,
+          // Diminta aplikasi terdaftar (client_id sah; post_logout_redirect_uri sudah divalidasi oidc-provider) → langsung keluar
+          // tanpa konfirmasi. Tanpa klien (alamat dibuka langsung) → tetap konfirmasi.
           logoutSource: (ctx, form) => {
-            ctx.body = logoutPage(form);
+            if (!ctx.oidc.client) {
+              ctx.body = logoutPage(form);
+              return;
+            }
+            const nonce = randomBytes(16).toString("base64");
+            ctx.set(
+              "Content-Security-Policy",
+              `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'`,
+            );
+            ctx.body = logoutPage(form, undefined, nonce);
           },
           postLogoutSuccessSource: (ctx) => {
             ctx.body = logoutPage(null, publicUrl);
@@ -148,7 +187,52 @@ export class OidcService implements OnModuleDestroy {
           .deleteMany({ where: { tokenHash: hashToken(token) } })
           .catch((error) => this.logger.warn(`Hapus sesi SSO gagal: ${String(error)}`));
     });
+    // Catat aplikasi yang dibuka dari sesi SSO ini (ws_sid) beserta sid OIDC-nya → dasar logout token saat sesi berakhir
+    this.provider.on("authorization.success", (ctx: KoaContextWithOIDC) => {
+      void this.linkAppSession(ctx).catch((error) => this.logger.warn(`Catat sesi aplikasi gagal: ${String(error)}`));
+    });
+    this.provider.on("backchannel.error", (_ctx, error, client) =>
+      this.logger.warn(`Logout token ke ${client?.clientId} gagal: ${String(error)}`),
+    );
     this.sweeper = setInterval(() => void this.sweep(), SWEEP_MS);
+  }
+
+  private async linkAppSession(ctx: KoaContextWithOIDC) {
+    const session = ctx.oidc.session;
+    const client = ctx.oidc.client;
+    const token = ctx.cookies.get(SESSION_COOKIE, { signed: false });
+    if (!session?.accountId || !client?.backchannelLogoutUri || !token) return;
+    const sid = session.sidFor(client.clientId);
+    const authSession = await this.prisma.authSession.findUnique({ where: { tokenHash: hashToken(token) } });
+    if (!sid || !authSession || authSession.accountId !== session.accountId) return;
+    await this.prisma.appSessionLink.upsert({
+      where: { authSessionId_clientId: { authSessionId: authSession.id, clientId: client.clientId } },
+      create: { authSessionId: authSession.id, accountId: session.accountId, clientId: client.clientId, sid },
+      update: { sid },
+    });
+  }
+
+  /**
+   * Kirim logout token ke aplikasi yang dibuka dari sesi SSO yang akan diakhiri (dipanggil SEBELUM sesinya dihapus;
+   * baris tautan ikut terhapus bersama sesi). Galat pengiriman dicatat, tidak menggagalkan logout.
+   */
+  async notifyLogout(where: Prisma.AppSessionLinkWhereInput) {
+    const links = await this.prisma.appSessionLink.findMany({ where });
+    await Promise.allSettled(
+      links.map(async (link) => {
+        try {
+          // backchannelLogout ada di Client oidc-provider (fitur backchannelLogout) tetapi tidak di deklarasi tipenya
+          const client = (await this.provider.Client.find(link.clientId)) as
+            | (Awaited<ReturnType<Provider["Client"]["find"]>> & {
+                backchannelLogout(sub: string, sid: string): Promise<void>;
+              })
+            | undefined;
+          if (client?.backchannelLogoutUri) await client.backchannelLogout(link.accountId, link.sid);
+        } catch (error) {
+          this.logger.warn(`Logout token ke ${link.clientId} gagal: ${String(error)}`);
+        }
+      }),
+    );
   }
 
   /** Hapus baris oidc_payloads yang sudah kedaluwarsa. */

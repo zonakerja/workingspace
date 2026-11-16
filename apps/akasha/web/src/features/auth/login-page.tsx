@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Activity, AtSign, Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useLocation, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { appLogoUrl, useAppSettings } from "@/data/use-app-settings";
 import { useLogin, useSsoConfig } from "@/data/use-auth";
 import { rememberSsoLogin } from "@/features/security/pin-prompt";
+import { markSilentSso, silentSsoAllowed } from "./silent-sso";
 import { API_BASE_URL } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -34,9 +35,26 @@ function LoginPage() {
   const ssoError = params.get("sso_error");
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: "", password: "" } });
+  const [silentAllowed] = useState(() => silentSsoAllowed());
 
   const from = (location.state as { from?: string } | null)?.from ?? "/";
+  // Sudah masuk di akun Workingspace (SSO) → Akasha ikut masuk tanpa klik. Tidak dilakukan setelah pemeriksaan gagal
+  // (`sso_checked`), saat ada galat SSO, atau bila baru saja dicoba di tab ini.
+  const silentCheck = !isAuthenticated && !!sso?.enabled && silentAllowed && !params.get("sso_checked") && !ssoError;
+  useEffect(() => {
+    if (!silentCheck) return;
+    markSilentSso();
+    window.location.replace(`${API_BASE_URL}/auth/sso/start?silent=1&returnTo=${encodeURIComponent(from)}`);
+  }, [silentCheck, from]);
+
   if (isAuthenticated) return <Navigate to={from} replace />;
+  if (silentCheck)
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 bg-background text-sm text-muted-foreground">
+        <Spinner />
+        Memeriksa akun Workingspace…
+      </div>
+    );
 
   // Masuk lewat SSO = navigasi penuh (bukan fetch): SSO mengarahkan kembali ke /api/v1/auth/sso/callback
   const startSso = () => {

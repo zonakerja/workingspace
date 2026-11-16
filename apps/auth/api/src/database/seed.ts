@@ -6,7 +6,7 @@ import { createPrismaAdapter } from "../prisma/prisma-adapter";
 
 /**
  * Seed SSO.
- * - development: aplikasi ekosistem + akun demo `admin@workingspace.id` (super admin) & `user@workingspace.id` (member Akasha),
+ * - development: aplikasi ekosistem + akun demo `admin@workingspace.id` (super admin) & `user@workingspace.id` (member Akasha & Akai),
  *   kata sandi `123` (khusus dev, aturan kata sandi dilewati).
  * - production: aplikasi + super admin dari SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (aturan kata sandi berlaku).
  * Aman dijalankan ulang (upsert; kata sandi akun yang sudah ada tidak diubah).
@@ -21,25 +21,29 @@ const APPS = [
     url: process.env.SEED_AKASHA_URL ?? (production ? "https://akasha.workingspace.id" : "http://localhost:5173"),
     description: "Ruang kerja: Planner, Notes, Working Space, File Control, Knowledge, AI Agent",
   },
+  {
+    key: "akai",
+    name: "Akai",
+    url:
+      process.env.SEED_AKAI_URL ??
+      (production ? "https://akai.workingspace.id" : "http://akai.workingspace.localhost:5177"),
+    description: "Asisten AI: model, chat & agen untuk semua aplikasi",
+  },
 ];
 
-async function account(
-  email: string,
-  name: string,
-  password: string,
-  superAdmin: boolean,
-  akashaRole?: "admin" | "member",
-) {
+type Roles = Partial<Record<"akasha" | "akai", "admin" | "member">>;
+
+async function account(email: string, name: string, password: string, superAdmin: boolean, roles: Roles = {}) {
   const normalized = normalizeEmail(email);
   const row = await prisma.account.upsert({
     where: { email: normalized },
     create: { email: normalized, name, passwordHash: await hash(password), emailVerifiedAt: new Date(), superAdmin },
     update: { superAdmin },
   });
-  if (akashaRole)
+  for (const [appKey, role] of Object.entries(roles))
     await prisma.appMembership.upsert({
-      where: { accountId_appKey: { accountId: row.id, appKey: "akasha" } },
-      create: { accountId: row.id, appKey: "akasha", role: akashaRole },
+      where: { accountId_appKey: { accountId: row.id, appKey } },
+      create: { accountId: row.id, appKey, role },
       update: {},
     });
   console.log(`akun ${normalized}${superAdmin ? " (super admin)" : ""}`);
@@ -57,11 +61,11 @@ async function main() {
       throw new Error("SEED_ADMIN_EMAIL dan SEED_ADMIN_PASSWORD wajib diisi untuk seed production.");
     const problem = passwordProblem(password, { email });
     if (problem) throw new Error(`SEED_ADMIN_PASSWORD: ${problem}`);
-    await account(email, "Super Admin", password, true, "admin");
+    await account(email, "Super Admin", password, true, { akasha: "admin", akai: "admin" });
     return;
   }
-  await account("admin@workingspace.id", "Admin Workingspace", "123", true, "admin");
-  await account("user@workingspace.id", "User Workingspace", "123", false, "member");
+  await account("admin@workingspace.id", "Admin Workingspace", "123", true, { akasha: "admin", akai: "admin" });
+  await account("user@workingspace.id", "User Workingspace", "123", false, { akasha: "member", akai: "member" });
 }
 
 main()

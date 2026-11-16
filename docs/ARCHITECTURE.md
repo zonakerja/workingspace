@@ -12,9 +12,13 @@ Browser (React SPA)
 NestJS API ──── PostgreSQL (+pgvector)      data domain, user, aset, audit, kredensial AI, indeks RAG (ai_chunks)
    │      ├──── Redis (BullMQ + status)     antrian ekstraksi dokumen & pengindeksan RAG
    │      ├──── S3-compatible storage       berkas upload (SeaweedFS dev / S3, R2, B2 prod)
-   │      └──── Provider AI (HTTPS)         Gemini / Claude / OpenAI dengan API key milik user
+   │      ├──── Akai API (4400)             gateway model ekosistem: router/key model & pembagian tugas per akun SSO
+   │      └──── Provider AI (HTTPS)         Gemini / Claude / OpenAI dengan API key milik user (tugas yang belum diatur di Akai)
    └── Worker ekstraksi & indeks RAG (BullMQ, in-process)
 ```
+
+Ekosistem workingspace.id (monorepo): SSO `apps/auth` (docs/SSO.md), halaman depan `apps/landing`, Akai `apps/akai/{api,web}`
+(docs/AKAI.md), paket identitas visual bersama `packages/ui`.
 
 Prinsip:
 - **Satu kontrak data domain** `/records/:type` — frontend menulis per item (upsert/soft delete) dengan ID buatan client;
@@ -66,6 +70,8 @@ Sumber kebenaran versi: `package-lock.json` (root workspace: apps/akasha/api, ap
 | | Redis | **8.10** (`redis:8.10-alpine`) | Antrian BullMQ; cache/rate-limit/sesi chat (rencana) |
 | | SeaweedFS | 4.48 | S3-compatible self-host (dev & default produksi) |
 | Edge | Caddy / nginx | 2.11 / 1.30 (stable) | HTTPS otomatis + reverse proxy / sajian SPA + CSP |
+| Ekosistem (SSO & Akai) | `oidc-provider` (server OIDC SSO, tersertifikasi OpenID) / `openid-client` (klien OIDC Akasha & Akai) / `jose` (verifikasi logout token, cookie alur Akai) / `nodemailer` (email SSO) | 9.13 / 6.8.9 / 6.2 / 10.3 | `apps/auth/api` (docs/SSO.md), masuk SSO di `apps/akasha/api` & `apps/akai/api` (docs/AKAI.md); stack backend/frontend Akai & SSO sama dengan Akasha |
+| Monorepo | Turborepo | 2.11.10 | `turbo run lint typecheck test build`, `turbo prune` untuk image Docker |
 | Agen | Hermes Agent (`nousresearch/hermes-agent:v0.22.2`, image resmi, amd64+arm64) | 0.22.2 | Service `hermes` (profile `agent`): API server OpenAI-compatible + MCP klien ke Akasha; skill di `apps/akai/agent/skills/` (§3.11) |
 | Sinkron vault | Syncthing (`syncthing/syncthing:2.1.6`, image resmi, amd64+arm64) | 2.1.6 | Service `syncthing` (profile `sync`, produksi saja): vault Obsidian laptop/HP ↔ `./knowledge-vaults` VPS (DEPLOYMENT §10); Obsidian tidak berjalan di server |
 | Robot | Playwright + Chromium (`mcr.microsoft.com/playwright:v1.63.0-noble`, paket `playwright` **1.63.0** — versi keduanya wajib sama) | 1.63 | Service `services/robot/` (TypeScript, Node bawaan image): browser jarak jauh & eksplor halaman konektor SRIKANDI/e-Kinerja (§3.10) |
@@ -149,6 +155,12 @@ unduhan disensor; health check tidak dicatat.
 | `POST /ai/settings/:provider/test` | uji key & model dengan prompt singkat (10/menit) |
 | `POST /ai/generate` (multipart: `prompt` + `files[]`) | jawab prompt → `{ text, provider, model, fallback }` (30/menit) |
 
+- **Lewat Akai lebih dulu** (2026-11-16, `src/akai/`, rinci di `docs/AKAI.md` §4): Akai = backend sendiri ekosistem
+  (`apps/akai/api`, port 4400, DB `akai`) yang menyimpan sumber model (router / API key resmi), model yang dinyalakan, dan
+  pembagian tugas + cadangan **per akun SSO**. `generate` & `ocr` memanggil gateway Akai (`POST /gateway/v1/chat/completions`,
+  HTTP Basic klien `akasha` + `X-Akai-Subject`) untuk tugas chat / general / document / ocr yang sudah punya model di Akai;
+  selain itu jalur di bawah (key di Pengaturan → Model AI) tetap dipakai. Agen Hermes, embedding, transkrip belum lewat Akai
+  (6a.4 tahap 2). Respons `provider: "akai"`.
 - **Jalur lewat router** (`ai-endpoint.ts`): kredensial dengan `base_url` dipanggil lewat router pihak ketiga — format OpenAI
   Chat Completions (`openai-compatible.client.ts`, embedding `/embeddings`) atau Anthropic Messages (SDK Claude + `baseURL`,
   fitur beta yang ditolak router → diulang tanpa fitur itu). Lampiran lewat format OpenAI: gambar, PDF, teks (tanpa audio).
@@ -1030,4 +1042,6 @@ jaringan internal: postgres · redis (password) · SeaweedFS S3 · backup harian
   (§3.9), robot e-Kinerja & SRIKANDI termasuk Register Naskah Keluar ✅ (§3.10), Hermes tahap pertama ✅ (§3.11).
   Berikutnya ([AI-AGENT.md](AI-AGENT.md) §22): skill Hermes per jenis dokumen, integrasi OnTrack (SIMAN/MyIntress); RAG
   tahap 3: Redis untuk cache embedding pertanyaan, batas pemakaian harian, penyimpanan throttler.
+- Akai ([AKAI.md](AKAI.md) §5): 6a.4 tahap 2 (agen & embedding lewat Akai, Model AI Akasha → tautan ke Akai), lalu chat Akai
+  (6b) dan loop agen sendiri (6c).
 - Upgrade tech stack yang masih tertunda: lihat [UPGRADE-PLAN.md](UPGRADE-PLAN.md).

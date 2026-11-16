@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
-import { Wordmark } from "./brand";
+import { Wordmark } from "@workingspace/ui/brand";
+import { ThemeToggle } from "@workingspace/ui/theme-toggle";
 
 const POINTS = ["Satu akun untuk semua aplikasi", "PIN keamanan bersama", "Keluar sekali, keluar di mana-mana"];
 
@@ -24,7 +25,10 @@ export function AuthLayout({
         <section className="relative flex flex-col justify-between gap-10 overflow-hidden bg-aurora p-8 text-ink-foreground md:p-10">
           <div className="pointer-events-none absolute inset-0 bg-grid" />
           <div className="pointer-events-none absolute -right-16 -bottom-24 size-72 rounded-full bg-lime/20 blur-3xl" />
-          <Wordmark subtitle="Akun ekosistem" className="relative" />
+          <div className="relative flex items-center justify-between gap-3">
+            <Wordmark subtitle="Single sign on" />
+            <ThemeToggle onDark />
+          </div>
           <div className="relative">
             <p className="font-display text-2xl leading-tight font-bold md:text-3xl">
               Satu akun untuk <span className="text-gradient">semua ruang kerja</span> Anda.

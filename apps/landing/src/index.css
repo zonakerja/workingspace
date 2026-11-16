@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* Identitas visual bersama (token, huruf, utility aurora) — packages/ui */
+@import "@workingspace/ui/brand.css";
+@source "../../../packages/ui/src";
+
+html {
+  scroll-behavior: smooth;
+}

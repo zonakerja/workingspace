@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { messageOf } from "./api";
-import { avatarTone, initials } from "../components/brand";
+import { avatarTone, initials } from "@workingspace/ui/brand";
 import { deviceLabel, relativeTime, safeNext, securityChecks } from "./format";
 
 describe("deviceLabel", () => {

@@ -37,6 +37,8 @@ async function waitForTranscript(uploadId: string, isActive: () => boolean) {
  */
 export function useAi() {
   const provider = useAuthStore((s) => s.user?.aiProvider ?? null);
+  // Akun yang sudah mengatur model di Akai bisa memakai AI walau belum menyimpan key di Pengaturan → Model AI
+  const viaAkai = useAuthStore((s) => !!s.user?.aiViaAkai);
 
   const generate = useCallback(async (prompt: string, files: Blob[] = []) => {
     const result = await aiApi.generate(prompt, files);
@@ -50,5 +52,5 @@ export function useAi() {
     [],
   );
 
-  return { isConfigured: !!provider, provider, generate, transcribe };
+  return { isConfigured: !!provider || viaAkai, provider, generate, transcribe };
 }

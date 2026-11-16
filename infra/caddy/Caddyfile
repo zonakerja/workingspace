@@ -1,18 +1,51 @@
-# Reverse proxy produksi: HTTPS otomatis (Let's Encrypt) untuk APP_DOMAIN.
-#   /api/*    → backend (NestJS)
-#   /office/* → ONLYOFFICE Docs (opsional, profile "office"; halaman bawaan/admin ditutup)
-#   lainnya   → frontend (nginx, SPA statis)
+# Reverse proxy produksi workingspace.id: HTTPS otomatis (Let's Encrypt) untuk tiga host.
+#   ROOT_DOMAIN  → halaman depan (landing, nginx statis); www.ROOT_DOMAIN dialihkan ke ROOT_DOMAIN
+#   AUTH_DOMAIN  → SSO: /api/*, /oidc/*, /interaction/* → auth-api; lainnya → auth-web (nginx)
+#   APP_DOMAIN   → Akasha: /api/* → backend, /office/* → ONLYOFFICE (opsional), lainnya → frontend
+# SITE_SCHEME = https (bawaan). http HANYA untuk uji stack di laptop dengan host *.localhost (DEPLOYMENT §0.4).
 {
 	email {$ACME_EMAIL}
 }
 
-{$APP_DOMAIN} {
+(common) {
 	encode zstd gzip
-
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$SITE_SCHEME}://{$ROOT_DOMAIN} {
+	import common
+	reverse_proxy landing:80
+}
+
+{$SITE_SCHEME}://www.{$ROOT_DOMAIN} {
+	redir {$SITE_SCHEME}://{$ROOT_DOMAIN}{uri} permanent
+}
+
+{$SITE_SCHEME}://{$AUTH_DOMAIN} {
+	import common
+
+	@sso path /api/* /oidc/* /interaction/*
+	handle @sso {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy auth-api:4300
+	}
+
+	handle {
+		reverse_proxy auth-web:80
+	}
+}
+
+{$SITE_SCHEME}://{$APP_DOMAIN} {
+	import common
 
 	handle /api/* {
 		# Batas body sedikit di atas UPLOAD_MAX_MB backend (default 300 MiB ≈ 315 MB)
@@ -41,10 +74,5 @@
 
 	handle {
 		reverse_proxy frontend:80
-	}
-
-	log {
-		output stdout
-		format json
 	}
 }

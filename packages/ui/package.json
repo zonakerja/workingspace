@@ -1,0 +1,36 @@
+{
+  "name": "@workingspace/ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Identitas visual bersama workingspace.id: token & utility CSS, logo, avatar, tema terang/gelap (sumber TS/CSS langsung, tanpa build).",
+  "exports": {
+    "./brand.css": "./src/brand.css",
+    "./brand": "./src/brand.tsx",
+    "./theme": "./src/theme.ts",
+    "./theme-toggle": "./src/theme-toggle.tsx",
+    "./vite-canonical-host": "./src/vite-canonical-host.ts"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "typecheck": "tsc --noEmit -p .",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
+    "cn": "^0.4.0",
+    "lucide-react": "^1.53.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "oxlint": "^1.81.0",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.0"
+  }
+}

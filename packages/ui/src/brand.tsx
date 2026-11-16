@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 
 /** Tanda Workingspace: dua blok bertumpuk (ruang kerja) di atas gradien aurora. */
 export function LogoMark({ className }: { className?: string }) {
@@ -25,12 +25,14 @@ export function Wordmark({ className, subtitle }: { className?: string; subtitle
   return (
     <span className={cn("flex min-w-0 items-center gap-2.5", className)}>
       <LogoMark />
-      <span className="min-w-0 leading-none">
-        <span className="font-display block truncate text-[17px] font-bold tracking-tight">
+      <span className="min-w-0">
+        <span className="font-display block truncate text-[17px] leading-[1.3] font-bold tracking-tight">
           workingspace<span className="text-gradient">.id</span>
         </span>
         {subtitle && (
-          <span className="mt-1 block truncate text-[11px] font-medium tracking-wide opacity-70">{subtitle}</span>
+          <span className="block truncate text-[11px] leading-[1.4] font-medium tracking-wide opacity-70">
+            {subtitle}
+          </span>
         )}
       </span>
     </span>

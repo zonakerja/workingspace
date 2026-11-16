@@ -5,13 +5,11 @@ import { AccountPage } from "./pages/account-page";
 import { LoginPage } from "./pages/login-page";
 import { RegisterPage } from "./pages/register-page";
 import { ForgotPasswordPage, ResetPasswordPage, VerifyPage } from "./pages/token-pages";
+import { initTheme } from "@workingspace/ui/theme";
 import "./index.css";
 
-// Tema mengikuti sistem (halaman SSO tanpa pengaturan tema sendiri)
-const dark = window.matchMedia("(prefers-color-scheme: dark)");
-const applyTheme = () => document.documentElement.classList.toggle("dark", dark.matches);
-applyTheme();
-dark.addEventListener("change", applyTheme);
+// Tema: Terang / Gelap / Ikuti sistem (pilihan per peramban, lib/theme.ts)
+initTheme();
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/account" replace /> },

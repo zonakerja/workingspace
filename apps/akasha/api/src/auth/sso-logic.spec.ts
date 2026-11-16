@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { roleFromClaims, safeReturnTo, ssoErrorMessage } from "./sso-logic";
+import {
+  BACKCHANNEL_LOGOUT_EVENT,
+  isSilentSsoMiss,
+  logoutTokenClaims,
+  roleFromClaims,
+  safeReturnTo,
+  ssoErrorMessage,
+} from "./sso-logic";
 
 describe("roleFromClaims", () => {
   it("super admin, admin, member, tanpa akses", () => {
@@ -28,5 +35,26 @@ describe("ssoErrorMessage", () => {
     expect(ssoErrorMessage("access_denied", "Masuk dibatalkan.")).toBe("Masuk dibatalkan.");
     expect(ssoErrorMessage("login_required")).toBe("Silakan masuk lagi.");
     expect(ssoErrorMessage("server_error")).toMatch(/gagal/);
+  });
+});
+
+describe("isSilentSsoMiss", () => {
+  it("hanya galat 'perlu masuk' dari prompt=none", () => {
+    expect(isSilentSsoMiss("login_required")).toBe(true);
+    expect(isSilentSsoMiss("interaction_required")).toBe(true);
+    expect(isSilentSsoMiss("access_denied")).toBe(false);
+  });
+});
+
+describe("logoutTokenClaims", () => {
+  const ok = { events: { [BACKCHANNEL_LOGOUT_EVENT]: {} }, jti: "j1", sid: "s1", sub: "u1" };
+  it("menerima logout token yang sah", () => {
+    expect(logoutTokenClaims(ok)).toEqual({ sid: "s1", sub: "u1" });
+  });
+  it("menolak tanpa event, dengan nonce, tanpa jti / sid", () => {
+    expect(logoutTokenClaims({ ...ok, events: {} })).toHaveProperty("error");
+    expect(logoutTokenClaims({ ...ok, nonce: "n" })).toHaveProperty("error");
+    expect(logoutTokenClaims({ ...ok, jti: undefined })).toHaveProperty("error");
+    expect(logoutTokenClaims({ ...ok, sid: "" })).toHaveProperty("error");
   });
 });

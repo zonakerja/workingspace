@@ -73,13 +73,20 @@ prune_stamped_dirs() { # <rclone-path> <hari>
   done
 }
 
+dump_one() { # <database> <file>
+  pg_dump --format=custom --no-owner --dbname="$1" --file="$2.partial" || { rm -f "$2.partial"; return 1; }
+  pg_restore --list "$2.partial" >/dev/null || { rm -f "$2.partial"; log "dump $1 tidak valid" >&2; return 1; }
+  mv "$2.partial" "$2" || return 1
+  log "database $1: $(du -h "$2" | cut -f1) → $(basename "$2")"
+}
+
+# Database utama (PGDATABASE) → db-<stamp>.dump; EXTRA_DATABASES (spasi/koma) → db-<nama>-<stamp>.dump
 backup_database() { # <stamp>
-  file="$DIR/db-$1.dump"
-  pg_dump --format=custom --no-owner --file="$file.partial" || { rm -f "$file.partial"; return 1; }
-  pg_restore --list "$file.partial" >/dev/null || { rm -f "$file.partial"; log "dump tidak valid" >&2; return 1; }
-  mv "$file.partial" "$file" || return 1
+  dump_one "${PGDATABASE:-akasha}" "$DIR/db-$1.dump" || return 1
+  for extra in $(echo "${EXTRA_DATABASES:-}" | tr ',' ' '); do
+    dump_one "$extra" "$DIR/db-$extra-$1.dump" || return 1
+  done
   find "$DIR" -maxdepth 1 -type f -name 'db-*.dump' -mtime "+$RETENTION_DAYS" -delete || return 1
-  log "database: $(du -h "$file" | cut -f1) → $(basename "$file")"
 }
 
 backup_storage() { # <stamp>

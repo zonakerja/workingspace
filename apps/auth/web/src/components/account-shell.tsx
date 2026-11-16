@@ -1,6 +1,5 @@
 import {
   AppWindow,
-  Fingerprint,
   KeyRound,
   LayoutDashboard,
   LaptopMinimal,
@@ -14,7 +13,8 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { Spinner } from "@/components/ui/spinner";
 import { type Account, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { UserAvatar, Wordmark } from "./brand";
+import { UserAvatar, Wordmark } from "@workingspace/ui/brand";
+import { ThemeToggle } from "@workingspace/ui/theme-toggle";
 
 interface NavItem {
   to: string;
@@ -28,8 +28,7 @@ export const ACCOUNT_SECTIONS: NavItem[] = [
   { to: "/account", hash: "ringkasan", label: "Ringkasan", icon: <LayoutDashboard /> },
   { to: "/account", hash: "aplikasi", label: "Aplikasi", icon: <AppWindow /> },
   { to: "/account", hash: "profil", label: "Profil", icon: <UserRound /> },
-  { to: "/account", hash: "keamanan", label: "Kata sandi", icon: <KeyRound /> },
-  { to: "/account", hash: "pin", label: "PIN keamanan", icon: <Fingerprint /> },
+  { to: "/account", hash: "keamanan", label: "Kata sandi & PIN", icon: <KeyRound /> },
   { to: "/account", hash: "perangkat", label: "Perangkat", icon: <LaptopMinimal /> },
 ];
 
@@ -113,7 +112,7 @@ export function AccountShell({
       {/* Sidebar desktop */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-card/70 backdrop-blur-xl lg:flex">
         <Link to="/account" className="px-5 pt-5 pb-6">
-          <Wordmark subtitle="Akun ekosistem" />
+          <Wordmark subtitle="Single sign on" />
         </Link>
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
           <p className="px-3 pb-1 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground/80 uppercase">
@@ -133,6 +132,10 @@ export function AccountShell({
             </>
           )}
         </nav>
+        <div className="flex items-center justify-between gap-2 px-6 pt-3">
+          <span className="text-xs font-medium text-muted-foreground">Tema</span>
+          <ThemeToggle />
+        </div>
         {account && (
           <div className="m-3 flex items-center gap-3 rounded-2xl border bg-background/60 p-3">
             <UserAvatar name={account.name} seed={account.id} className="size-9 text-xs" />
@@ -160,14 +163,18 @@ export function AccountShell({
           <Link to="/account" className="min-w-0">
             <Wordmark />
           </Link>
-          <button
-            type="button"
-            onClick={logout}
-            disabled={leaving}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            {leaving ? <Spinner /> : <LogOut className="size-4" />} Keluar
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={logout}
+              disabled={leaving}
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              {leaving ? <Spinner /> : <LogOut className="size-4" />}
+              <span className="hidden sm:inline">Keluar</span>
+            </button>
+          </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
           {items.map((item) => (

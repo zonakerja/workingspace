@@ -78,6 +78,8 @@ export function AiSettingsTab() {
       description="Pilih provider AI dan simpan API key milik Anda. Key hanya berlaku untuk akun Anda."
     >
       <div className="flex flex-col gap-4">
+        <AkaiCard akai={data.akai} />
+
         <div
           className={cn(
             "flex items-start gap-3 rounded-2xl p-4 text-sm",
@@ -131,6 +133,65 @@ export function AiSettingsTab() {
         </div>
       </div>
     </SectionCard>
+  );
+}
+
+/** Tugas Akasha yang bisa dijawab Akai (urutan tampil). Agen & embedding masih memakai pengaturan di halaman ini. */
+const AKAI_TASKS = [
+  { key: "chat", label: "Chat & asisten" },
+  { key: "general", label: "Umum" },
+  { key: "document", label: "Rapikan dokumen" },
+  { key: "ocr", label: "Baca gambar (OCR)" },
+] as const;
+
+/**
+ * Akai = tempat mengatur router & API key model untuk semua aplikasi workingspace.id. Tugas yang sudah punya model di Akai
+ * dijawab Akai; sisanya memakai pengaturan di halaman ini.
+ */
+function AkaiCard({ akai }: { akai: AiSettings["akai"] }) {
+  if (!akai.webUrl) return null;
+  const manage = `${akai.webUrl}/models?tab=tasks`;
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border bg-module-soft/40 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <Network className="size-4 text-module" /> Akai — model AI untuk semua aplikasi
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Atur router & API key sekali di Akai. Tugas yang sudah punya model di Akai dijawab Akai; tugas lain memakai
+            pengaturan di bawah.
+          </p>
+        </div>
+        {akai.available && (
+          <Button size="sm" variant="outline" asChild>
+            <a href={manage} target="_blank" rel="noreferrer">
+              Atur di Akai <ExternalLink data-icon="inline-end" />
+            </a>
+          </Button>
+        )}
+      </div>
+      {!akai.available ? (
+        <p className="text-xs text-muted-foreground">
+          Tersedia untuk akun yang masuk lewat akun Workingspace (SSO). Akun ini masuk dengan kata sandi lokal.
+        </p>
+      ) : !akai.reachable ? (
+        <p className="flex items-center gap-1.5 text-xs text-warning">
+          <TriangleAlert className="size-3.5" /> Akai tidak dapat dihubungi — semua tugas memakai pengaturan di bawah.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {AKAI_TASKS.map(({ key, label }) => {
+            const models = akai.tasks?.[key] ?? 0;
+            return (
+              <Badge key={key} variant={models > 0 ? "default" : "outline"} className="font-normal">
+                {label}: {models > 0 ? `Akai · ${models} model` : "pengaturan di bawah"}
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

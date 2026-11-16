@@ -5,6 +5,8 @@ export interface OidcClientConfig {
   client_secret: string;
   redirect_uris: string[];
   post_logout_redirect_uris: string[];
+  /** Alamat server aplikasi yang menerima logout token saat sesi SSO berakhir (OIDC Back-Channel Logout); opsional */
+  backchannel_logout_uri?: string;
 }
 
 const isUrl = (value: unknown) => {
@@ -16,6 +18,14 @@ const isUrl = (value: unknown) => {
     return false;
   }
 };
+
+/** https, atau http ke localhost / *.localhost (uji stack produksi di laptop; tidak terjangkau dari luar). */
+export function secureOrLocal(url: string): boolean {
+  const { protocol, hostname } = new URL(url);
+  return (
+    protocol === "https:" || (protocol === "http:" && (hostname === "localhost" || hostname.endsWith(".localhost")))
+  );
+}
 
 /** `OIDC_CLIENTS` = JSON array. Setiap klien = satu aplikasi (client_id = kunci aplikasi di tabel apps). */
 export function parseClients(raw: string, production: boolean): OidcClientConfig[] {
@@ -43,13 +53,17 @@ export function parseClients(raw: string, production: boolean): OidcClientConfig
       throw new Error(`${where}.redirect_uris wajib berisi alamat http(s).`);
     if (!Array.isArray(logouts) || !logouts.every(isUrl))
       throw new Error(`${where}.post_logout_redirect_uris tidak valid.`);
-    if (production && [...redirects, ...logouts].some((u) => new URL(u).protocol !== "https:"))
-      throw new Error(`${where}: alamat wajib https di production.`);
+    const backchannel = c.backchannel_logout_uri;
+    if (backchannel !== undefined && !isUrl(backchannel))
+      throw new Error(`${where}.backchannel_logout_uri tidak valid.`);
+    if (production && [...redirects, ...logouts, ...(backchannel ? [backchannel] : [])].some((u) => !secureOrLocal(u)))
+      throw new Error(`${where}: alamat wajib https di production (http hanya untuk localhost / *.localhost).`);
     return {
       client_id: c.client_id,
       client_secret: c.client_secret,
       redirect_uris: redirects,
       post_logout_redirect_uris: logouts,
+      ...(backchannel ? { backchannel_logout_uri: backchannel } : {}),
     };
   });
 }

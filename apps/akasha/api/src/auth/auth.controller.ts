@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -23,7 +24,7 @@ import { ChangePasswordDto } from "./dto/change-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { REFRESH_COOKIE, clearRefreshCookie, readCookie, readRefreshCookie, setRefreshCookie } from "./refresh-cookie";
-import { ssoErrorMessage } from "./sso-logic";
+import { isSilentSsoMiss, ssoErrorMessage } from "./sso-logic";
 import { SsoService } from "./sso.service";
 
 /** Cookie alur masuk SSO (state, nonce, PKCE verifier bertanda tangan), hanya dikirim ke /api/v1/auth/sso. */
@@ -96,8 +97,12 @@ export class AuthController {
   /** Mulai masuk lewat SSO: cookie alur + alihkan ke halaman masuk akun Workingspace. */
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Get("sso/start")
-  async ssoStart(@Query("returnTo") returnTo: string | undefined, @Res() res: Response) {
-    const flow = await this.sso.start(returnTo);
+  async ssoStart(
+    @Query("returnTo") returnTo: string | undefined,
+    @Query("silent") silent: string | undefined,
+    @Res() res: Response,
+  ) {
+    const flow = await this.sso.start(returnTo, silent === "1");
     res.cookie(SSO_FLOW_COOKIE, flow.cookie, {
       httpOnly: true,
       secure: this.secureCookie,
@@ -124,16 +129,33 @@ export class AuthController {
     });
     const fail = (message: string) => res.redirect(302, `/login?sso_error=${encodeURIComponent(message)}`);
     const error = params.get("error");
+    // Pemeriksaan diam-diam tanpa sesi SSO → halaman masuk Akasha biasa (penanda agar tidak diperiksa ulang terus-menerus)
+    if (error && isSilentSsoMiss(error)) return res.redirect(302, "/login?sso_checked=1");
     if (error) return fail(ssoErrorMessage(error, params.get("error_description")));
     try {
-      const { user, returnTo } = await this.sso.callback(query, flowCookie);
-      const session = await this.auth.sessionFor(user);
+      const { user, returnTo, ssoSid } = await this.sso.callback(query, flowCookie);
+      const session = await this.auth.sessionFor(user, ssoSid);
       setRefreshCookie(res, session.refreshToken, session.refreshTtlSeconds, this.secureCookie);
       return res.redirect(302, returnTo);
     } catch (err) {
       const message = err instanceof Error && "getStatus" in err ? err.message : "Masuk lewat akun Workingspace gagal.";
       return fail(message);
     }
+  }
+
+  /**
+   * OIDC Back-Channel Logout: SSO mengirim logout token (server ke server) saat sesi SSO berakhir → sesi Akasha dari sesi SSO
+   * itu dihapus. Tanpa cookie/Bearer; keaslian dari tanda tangan token. Spesifikasi: 200 + no-store, galat 400.
+   */
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Post("sso/backchannel-logout")
+  @HttpCode(200)
+  async ssoBackchannelLogout(@Body("logout_token") token: unknown, @Res({ passthrough: true }) res: Response) {
+    res.setHeader("Cache-Control", "no-store");
+    if (typeof token !== "string" || !token) throw new BadRequestException("logout_token wajib diisi.");
+    const { sid, sub } = await this.sso.verifyLogoutToken(token);
+    await this.auth.endSsoSession(sid, sub);
+    return {};
   }
 
   @ApiBearerAuth()

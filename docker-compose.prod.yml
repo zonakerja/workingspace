@@ -1,8 +1,12 @@
 # ============================================================================
-# Akasha — deployment PRODUKSI (VPS). Panduan lengkap: docs/DEPLOYMENT.md
+# workingspace.id — deployment PRODUKSI (VPS). Panduan lengkap: docs/DEPLOYMENT.md
+#   ROOT_DOMAIN (workingspace.id)        → halaman depan (landing)
+#   AUTH_DOMAIN (auth.workingspace.id)   → SSO: auth-api + auth-web (docs/SSO.md)
+#   APP_DOMAIN  (akasha.workingspace.id) → Akasha: backend + frontend
 #
 #   cp .env.example .env        # isi domain, secret, password
 #   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml exec auth-api node dist/database/seed.js  # sekali: aplikasi + super admin SSO
 #   docker compose -f docker-compose.prod.yml exec backend node dist/database/seed.js   # sekali
 #
 # Hanya Caddy yang membuka port (80/443, HTTPS otomatis). Database, Redis, dan
@@ -27,9 +31,21 @@ services:
     depends_on:
       backend: { condition: service_healthy }
       frontend: { condition: service_started }
+      auth-api: { condition: service_healthy }
+      auth-web: { condition: service_started }
+      landing: { condition: service_started }
     environment:
+      ROOT_DOMAIN: ${ROOT_DOMAIN:?Set ROOT_DOMAIN di .env}
+      AUTH_DOMAIN: ${AUTH_DOMAIN:?Set AUTH_DOMAIN di .env}
       APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN di .env}
+      # https (bawaan) = sertifikat otomatis; http HANYA untuk uji stack di laptop (*.localhost, DEPLOYMENT §0.4)
+      SITE_SCHEME: ${SITE_SCHEME:-https}
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL di .env}
+    networks:
+      default:
+        # Backend memanggil SSO (issuer OIDC) dan SSO memanggil backend (logout token) lewat alamat publik;
+        # alias ini menjawabnya di jaringan internal
+        aliases: ["${AUTH_DOMAIN}", "${APP_DOMAIN}"]
     ports:
       - "80:80"
       - "443:443"
@@ -73,7 +89,7 @@ services:
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:?Set AI_ENCRYPTION_KEY di .env}
-      CORS_ORIGIN: https://${APP_DOMAIN}
+      CORS_ORIGIN: ${SITE_SCHEME:-https}://${APP_DOMAIN}
       TRUST_PROXY: "true"
       # Kosong = Secure (HTTPS). Set false HANYA untuk uji coba tanpa domain/HTTPS (lihat DEPLOYMENT.md §0.4)
       COOKIE_SECURE: ${COOKIE_SECURE:-}
@@ -89,6 +105,14 @@ services:
       UPLOAD_MAX_MB: ${UPLOAD_MAX_MB:-300}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      # Masuk lewat SSO workingspace.id (docs/SSO.md). Secret = klien "akasha" di OIDC_CLIENTS service auth-api
+      SSO_ISSUER: ${SITE_SCHEME:-https}://${AUTH_DOMAIN}/oidc
+      SSO_CLIENT_ID: akasha
+      SSO_CLIENT_SECRET: ${SSO_AKASHA_CLIENT_SECRET:?Set SSO_AKASHA_CLIENT_SECRET di .env}
+      SSO_REDIRECT_URI: ${SITE_SCHEME:-https}://${APP_DOMAIN}/api/v1/auth/sso/callback
+      SSO_POST_LOGOUT_URI: ${SITE_SCHEME:-https}://${APP_DOMAIN}/login
+      # Masuk dengan kata sandi lokal Akasha (bawaan mati di production; semua akun lewat SSO)
+      PASSWORD_LOGIN: ${AKASHA_PASSWORD_LOGIN:-}
       # Editor ONLYOFFICE (kosong = nonaktif). URL publik = https://<APP_DOMAIN>/office (Caddy, satu domain)
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-}
       ONLYOFFICE_INTERNAL_URL: ${ONLYOFFICE_URL:+http://onlyoffice}
@@ -131,6 +155,76 @@ services:
     deploy: { resources: { limits: { memory: "${BACKEND_MEM_LIMIT:-768m}" } } }
     logging: *logging
 
+  auth-api:
+    # SSO workingspace.id (akun, OIDC, PIN, admin). Migrasi database dijalankan saat start. docs/SSO.md
+    build:
+      context: .
+      dockerfile: apps/auth/api/Dockerfile
+    image: workingspace-auth-api:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=${AUTH_HEAP_MB:-192}
+      PORT: 4300
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://akasha:${POSTGRES_PASSWORD}@postgres:5432/workingspace_auth?schema=public
+      PUBLIC_URL: ${SITE_SCHEME:-https}://${AUTH_DOMAIN}
+      TRUST_PROXY: "true"
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      # Kunci penanda tangan token & cookie (buat dengan: node apps/auth/api/scripts/generate-prod-secrets.mjs)
+      OIDC_JWKS: ${OIDC_JWKS:?Set OIDC_JWKS di .env}
+      OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?Set OIDC_COOKIE_KEYS di .env}
+      # Klien OIDC = aplikasi ekosistem. Aplikasi baru → tambahkan objek baru di array ini
+      OIDC_CLIENTS: >-
+        [{"client_id":"akasha","client_secret":"${SSO_AKASHA_CLIENT_SECRET}",
+        "redirect_uris":["${SITE_SCHEME:-https}://${APP_DOMAIN}/api/v1/auth/sso/callback"],
+        "post_logout_redirect_uris":["${SITE_SCHEME:-https}://${APP_DOMAIN}/login"],
+        "backchannel_logout_uri":"${SITE_SCHEME:-https}://${APP_DOMAIN}/api/v1/auth/sso/backchannel-logout"}]
+      # Halaman depan yang boleh membaca status masuk (tombol Dashboard)
+      LANDING_URL: ${SITE_SCHEME:-https}://${ROOT_DOMAIN}
+      # Email verifikasi & reset (Titan, noreply@workingspace.id)
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST di .env}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-Workingspace <noreply@workingspace.id>}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Seed produksi: super admin pertama ekosistem + alamat aplikasi
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_AKASHA_URL: ${SITE_SCHEME:-https}://${APP_DOMAIN}
+    deploy: { resources: { limits: { memory: "${AUTH_MEM_LIMIT:-256m}" } } }
+    logging: *logging
+
+  auth-web:
+    # Halaman masuk, daftar, akun, admin SSO (nginx statis)
+    build:
+      context: .
+      dockerfile: apps/auth/web/Dockerfile
+    image: workingspace-auth-web:${APP_VERSION:-latest}
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 32m } } }
+    logging: *logging
+
+  landing:
+    # Halaman depan workingspace.id (nginx statis). Alamat SSO & Akasha ditanam saat build
+    build:
+      context: .
+      dockerfile: apps/landing/Dockerfile
+      args:
+        VITE_AUTH_URL: ${SITE_SCHEME:-https}://${AUTH_DOMAIN}
+        VITE_AKASHA_URL: ${SITE_SCHEME:-https}://${APP_DOMAIN}
+    image: workingspace-landing:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      # Alamat SSO yang boleh dipanggil halaman (CSP connect-src, status masuk)
+      AUTH_ORIGIN: ${SITE_SCHEME:-https}://${AUTH_DOMAIN}
+    deploy: { resources: { limits: { memory: 32m } } }
+    logging: *logging
+
   postgres:
     # PostgreSQL major baru = volume baru + dump/restore (docs/DEPLOYMENT.md §8), bukan sekadar ganti tag.
     image: pgvector/pgvector:0.8.7-pg18
@@ -156,6 +250,8 @@ services:
     volumes:
       # Image 18+: mount ke /var/lib/postgresql (PGDATA = /var/lib/postgresql/18/docker)
       - postgres18-data:/var/lib/postgresql
+      # Hanya dijalankan pada volume kosong: membuat database SSO workingspace_auth (volume lama: DEPLOYMENT §16)
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U akasha -d akasha"]
       interval: 10s
@@ -333,6 +429,8 @@ services:
       PGHOST: postgres
       PGUSER: akasha
       PGDATABASE: akasha
+      # Database lain yang ikut di-dump (db-<nama>-<waktu>.dump)
+      EXTRA_DATABASES: workingspace_auth
       PGPASSWORD: ${POSTGRES_PASSWORD}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}

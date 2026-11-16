@@ -12,7 +12,10 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import { ConfigService } from "@nestjs/config";
 import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { PROFILE_LIMITS } from "./profile-logic";
+import { landingOrigins } from "./landing-origins";
 import type { Request, Response } from "express";
 import { clientInfo } from "../common/http";
 import { AccountsService } from "./accounts.service";
@@ -73,10 +76,31 @@ class ChangePasswordDto {
 }
 
 class ProfileDto {
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  name: string;
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.phone)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.address)
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.occupation)
+  occupation?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.workplace)
+  workplace?: string;
 }
 
 const GENERIC_SENT = { message: "Bila email terdaftar, tautan sudah dikirim. Cek kotak masuk (dan folder spam)." };
@@ -84,10 +108,15 @@ const GENERIC_SENT = { message: "Bila email terdaftar, tautan sudah dikirim. Cek
 /** Akun & sesi halaman SSO (`/api/auth/*`). Halaman aplikasi masuk lewat OIDC, bukan endpoint ini. */
 @Controller("api/auth")
 export class AccountsController {
+  private readonly landingOrigins: string[];
+
   constructor(
     private readonly accounts: AccountsService,
     private readonly sessions: SessionsService,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.landingOrigins = landingOrigins(config.get<string>("LANDING_URL"));
+  }
 
   private async requireSession(req: Request) {
     const session = await this.sessions.current(req);
@@ -140,6 +169,23 @@ export class AccountsController {
     await this.sessions.destroy(req, res);
   }
 
+  /**
+   * Status masuk untuk halaman depan workingspace.id (tombol Masuk/Daftar ↔ Dashboard). Dibaca lintas asal dengan cookie
+   * sesi; CORS hanya untuk LANDING_URL. Hanya nama yang dikirim.
+   */
+  @Get("status")
+  async status(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const origin = req.headers.origin;
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Cache-Control", "no-store");
+    if (origin && this.landingOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
+    const session = await this.sessions.current(req);
+    return session ? { signedIn: true, name: session.account.name } : { signedIn: false };
+  }
+
   @Get("me")
   async me(@Req() req: Request) {
     const session = await this.requireSession(req);
@@ -149,7 +195,8 @@ export class AccountsController {
   @Patch("me")
   async updateMe(@Body() dto: ProfileDto, @Req() req: Request) {
     const session = await this.requireSession(req);
-    await this.accounts.updateProfile(session.accountId, dto.name);
+    const { name, ...profile } = dto;
+    await this.accounts.updateProfile(session.accountId, name, profile);
     return this.accounts.view(session.accountId);
   }
 

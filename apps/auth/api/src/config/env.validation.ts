@@ -32,9 +32,9 @@ class EnvironmentVariables {
   @IsString()
   DATABASE_URL: string;
 
-  /** Alamat publik halaman SSO (dev http://auth.localhost:5175, produksi https://auth.workingspace.id) */
+  /** Alamat publik halaman SSO (dev http://auth.workingspace.localhost:5175, produksi https://auth.workingspace.id) */
   @IsString()
-  PUBLIC_URL = "http://auth.localhost:5175";
+  PUBLIC_URL = "http://auth.workingspace.localhost:5175";
 
   /** JWKS privat penanda tangan token (JSON `{ "keys": [...] }`); kunci pertama dipakai menandatangani */
   @IsString()
@@ -89,6 +89,12 @@ class EnvironmentVariables {
 
   @IsString()
   MAIL_DIR = ".mail";
+
+  /** Halaman depan yang boleh membaca status masuk (GET /api/auth/status, CORS + cookie); dipisah koma, kosong = tidak ada */
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  LANDING_URL?: string;
 
   // Masuk dengan Google (kosong = tombol disembunyikan)
   @IsOptional()

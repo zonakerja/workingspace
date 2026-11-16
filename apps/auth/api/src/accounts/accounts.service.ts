@@ -5,8 +5,10 @@ import type { Account, EmailTokenKind } from "../generated/prisma/client";
 import { type ClientInfo, hashToken, newToken } from "../common/http";
 import { inviteEmail, resetPassword, verifyEmail } from "../mail/mail-templates";
 import { MailService } from "../mail/mail.service";
+import { OidcService } from "../oidc/oidc.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { normalizeEmail, passwordProblem } from "./password-policy";
+import { type ProfileInput, profileChanges } from "./profile-logic";
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -23,6 +25,10 @@ export interface AccountView {
   hasPassword: boolean;
   hasPin: boolean;
   google: boolean;
+  phone: string | null;
+  address: string | null;
+  occupation: string | null;
+  workplace: string | null;
   apps: { key: string; name: string; url: string; role: "admin" | "member" }[];
 }
 
@@ -33,6 +39,7 @@ export class AccountsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly oidc: OidcService,
     config: ConfigService,
   ) {
     this.publicUrl = config.getOrThrow<string>("PUBLIC_URL").replace(/\/+$/, "");
@@ -52,6 +59,10 @@ export class AccountsService {
       hasPassword: !!account.passwordHash,
       hasPin: !!account.pinHash,
       google: account.identities.some((i) => i.provider === "google"),
+      phone: account.phone,
+      address: account.address,
+      occupation: account.occupation,
+      workplace: account.workplace,
       apps: account.memberships
         .map((m) => ({ key: m.app.key, name: m.app.name, url: m.app.url, role: m.role }))
         .sort((a, b) => a.name.localeCompare(b.name)),
@@ -176,6 +187,7 @@ export class AccountsService {
     const account = await this.prisma.account.findUniqueOrThrow({ where: { id: accountId } });
     const problem = passwordProblem(password, { email: account.email, name: account.name });
     if (problem) throw new BadRequestException(problem);
+    await this.oidc.notifyLogout({ accountId });
     await this.prisma.$transaction([
       this.prisma.account.update({
         where: { id: accountId },
@@ -201,6 +213,7 @@ export class AccountsService {
       throw new BadRequestException("Kata sandi saat ini salah.");
     const problem = passwordProblem(next, { email: account.email, name: account.name });
     if (problem) throw new BadRequestException(problem);
+    await this.oidc.notifyLogout({ accountId, authSessionId: { not: keepSessionId } });
     await this.prisma.$transaction([
       this.prisma.account.update({ where: { id: accountId }, data: { passwordHash: await hash(next) } }),
       this.prisma.authSession.deleteMany({ where: { accountId, id: { not: keepSessionId } } }),
@@ -215,8 +228,9 @@ export class AccountsService {
     await this.mail.send(account.email, invite ? inviteEmail(account.name, url) : resetPassword(account.name, url));
   }
 
-  /** Cabut semua sesi SSO akun (sesi halaman akun + sesi oidc-provider). Sesi di aplikasi diperiksa ulang aplikasinya. */
+  /** Cabut semua sesi SSO akun (sesi halaman akun + sesi oidc-provider); aplikasi yang dibuka dari sesi itu ikut dikeluarkan. */
   async revokeAllSessions(accountId: string) {
+    await this.oidc.notifyLogout({ accountId });
     await this.prisma.$transaction([
       this.prisma.authSession.deleteMany({ where: { accountId } }),
       this.prisma.oidcPayload.deleteMany({
@@ -225,7 +239,12 @@ export class AccountsService {
     ]);
   }
 
-  async updateProfile(accountId: string, name: string) {
-    await this.prisma.account.update({ where: { id: accountId }, data: { name: name.trim() } });
+  async updateProfile(accountId: string, name: string | undefined, profile: ProfileInput) {
+    const result = profileChanges(profile);
+    if ("error" in result) throw new BadRequestException(result.error);
+    await this.prisma.account.update({
+      where: { id: accountId },
+      data: { name: name?.trim(), ...result.fields },
+    });
   }
 }

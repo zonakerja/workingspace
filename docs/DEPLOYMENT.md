@@ -1,21 +1,35 @@
-# Deployment ke VPS
+# Deployment ke VPS (workingspace.id: halaman depan, SSO, Akasha)
 
 Panduan memasang Akasha di satu VPS Linux memakai `docker-compose.prod.yml`.
+
+> **Akai belum termasuk stack produksi** (per 2026-11-16): service `akai-api`/`akai-web`, host `akai.workingspace.id`, database `akai`,
+> dan env `AKAI_*` backend Akasha dirancang di `docs/AKAI.md` §7 butir 5. Tanpa Akai, Akasha tetap berjalan penuh (env `AKAI_URL` kosong
+> = AI memakai key di Pengaturan → Model AI).
 
 ## Arsitektur produksi
 
 ```
-Internet ──► Caddy :80/:443 (HTTPS otomatis Let's Encrypt, HSTS, kompresi)
-               ├── /api/*    ──► backend    (NestJS, migrasi otomatis saat start, log JSON)
-               ├── /office/* ──► onlyoffice (editor dokumen, opsional — §9)
-               └── lainnya   ──► frontend   (nginx: SPA statis + CSP & header keamanan)
+Internet ──► Caddy :80/:443 (HTTPS otomatis Let's Encrypt untuk tiga host, HSTS, kompresi)
+               ROOT_DOMAIN  (workingspace.id)        ──► landing   (nginx: halaman depan statis)
+               www.ROOT_DOMAIN                       ──► dialihkan ke ROOT_DOMAIN
+               AUTH_DOMAIN  (auth.workingspace.id)
+                 ├── /api/* /oidc/* /interaction/*   ──► auth-api  (SSO: akun, OIDC, PIN, admin; migrasi saat start)
+                 └── lainnya                         ──► auth-web  (nginx: halaman masuk, akun, admin)
+               APP_DOMAIN   (akasha.workingspace.id)
+                 ├── /api/*    ──► backend    (Akasha NestJS, migrasi otomatis saat start, log JSON)
+                 ├── /office/* ──► onlyoffice (editor dokumen, opsional — §9)
+                 └── lainnya   ──► frontend   (nginx: SPA statis + CSP & header keamanan)
              jaringan internal Docker (tidak terbuka ke internet):
-               postgres (pgvector) · redis (password) · storage (SeaweedFS S3) · backup (harian → S3 luar server)
+               postgres (pgvector; DB akasha + workingspace_auth) · redis (password) · storage (SeaweedFS S3) ·
+               backup (harian → S3 luar server)
 ```
 
 | Service | Image | Data |
 |---|---|---|
 | caddy | `caddy` (alpine) | volume `caddy-data` (sertifikat) |
+| landing | dibangun dari `apps/landing/Dockerfile` (alamat SSO & Akasha ditanam saat build) | — |
+| auth-api | dibangun dari `apps/auth/api/Dockerfile` (user non-root) | database `workingspace_auth` |
+| auth-web | dibangun dari `apps/auth/web/Dockerfile` | — |
 | frontend | dibangun dari `apps/akasha/web/Dockerfile` | — |
 | backend | dibangun dari `apps/akasha/api/Dockerfile` (user non-root) | — |
 | postgres | `pgvector/pgvector` (PostgreSQL + pgvector) | volume `postgres18-data` (nomor major di nama volume, lihat §8) |
@@ -54,24 +68,33 @@ Fitur tambahan yang berguna: snapshot/backup VPS dari penyedia, dan firewall di 
 
    | Tipe | Nama | Nilai | Keterangan |
    |---|---|---|---|
-   | A | `akasha` (atau `@` untuk domain utama) | IP publik VPS | wajib |
-   | AAAA | sama | IPv6 VPS | hanya bila VPS punya IPv6 |
+   | A | `@` (domain utama, halaman depan) | IP publik VPS | wajib |
+   | A | `www` | IP publik VPS | wajib (dialihkan ke domain utama) |
+   | A | `auth` (SSO) | IP publik VPS | wajib |
+   | A | `akasha` | IP publik VPS | wajib |
+   | AAAA | sama dengan di atas | IPv6 VPS | hanya bila VPS punya IPv6 |
+
+   Record MX/SPF/DKIM/DMARC dari panel Titan (email `noreply@`) **tidak** diubah oleh baris di atas — tambahkan sesuai
+   petunjuk Titan agar email verifikasi tidak masuk spam.
 
    Bila memakai Cloudflare, set proxy **"DNS only" (awan abu-abu)** saat pertama kali agar Caddy bisa menerbitkan
    sertifikat Let's Encrypt.
 3. Tunggu propagasi (beberapa menit – beberapa jam), lalu cek dari laptop: `nslookup akasha.namakamu.id` harus
    menampilkan IP VPS.
-4. Domain inilah yang diisi ke `APP_DOMAIN` di `.env` (tanpa `https://`).
+4. Nama host diisi ke `.env` tanpa `https://`: `ROOT_DOMAIN=workingspace.id`, `AUTH_DOMAIN=auth.workingspace.id`,
+   `APP_DOMAIN=akasha.workingspace.id`.
 
 ### 0.3 Yang perlu disiapkan untuk `.env`
 
 | Variabel | Isi |
 |---|---|
-| `APP_DOMAIN` | domain/subdomain dari langkah 0.2, mis. `akasha.namakamu.id` |
+| `ROOT_DOMAIN`, `AUTH_DOMAIN`, `APP_DOMAIN` | host dari langkah 0.2 (halaman depan, SSO, Akasha) |
+| `OIDC_JWKS`, `OIDC_COOKIE_KEYS`, `SSO_AKASHA_CLIENT_SECRET` | rahasia SSO: jalankan `node apps/auth/api/scripts/generate-prod-secrets.mjs` sekali (di laptop atau VPS) lalu tempel ketiga baris hasilnya. **Jangan diganti** setelah dipakai (semua orang harus masuk ulang) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | akun email Titan `noreply@workingspace.id` (`smtp.titan.email`, port 465) untuk email verifikasi & lupa kata sandi — **diketik pemilik sendiri**, jangan dikirim lewat chat |
 | `ACME_EMAIL` | email aktif (notifikasi sertifikat Let's Encrypt) |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `S3_SECRET_ACCESS_KEY` | string acak masing-masing berbeda: jalankan `openssl rand -hex 32` di VPS untuk tiap variabel |
 | `AI_ENCRYPTION_KEY` | kunci enkripsi API key AI milik user: `openssl rand -hex 32` (tepat 64 karakter hex). **Jangan diganti** setelah dipakai — key AI yang sudah tersimpan tidak bisa dibaca lagi dan setiap user harus memasukkannya ulang |
-| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | akun super admin pertama (password ≥ 8 karakter, ganti setelah login pertama) |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | super admin pertama ekosistem (SSO) & Akasha — email yang sama (kata sandi ≥ 8 karakter, bukan kata sandi umum; ganti setelah login pertama) |
 
 Simpan salinan `.env` di password manager — tanpa `POSTGRES_PASSWORD` & secret yang sama, backup database tetap bisa
 dipulihkan tetapi sesi login lama tidak berlaku, dan tanpa `AI_ENCRYPTION_KEY` yang sama API key AI milik user harus
@@ -80,17 +103,35 @@ dimasukkan ulang.
 ### 0.4 Checklist hari-H
 
 - [ ] VPS aktif, bisa SSH (`ssh root@<IP>`), buat user non-root bila perlu.
-- [ ] DNS `APP_DOMAIN` sudah mengarah ke IP VPS (cek `nslookup`).
+- [ ] DNS `ROOT_DOMAIN`, `www`, `AUTH_DOMAIN`, `APP_DOMAIN` sudah mengarah ke IP VPS (cek `nslookup` masing-masing).
 - [ ] Ikuti §1 (Docker + firewall) → §2 (instalasi) di bawah.
-- [ ] Login di `https://<APP_DOMAIN>`, ganti password admin, hapus `SEED_ADMIN_PASSWORD` dari `.env`.
+- [ ] Buka `https://<ROOT_DOMAIN>` → Masuk (SSO) dengan `SEED_ADMIN_*` → ganti kata sandi di halaman akun → buka Akasha dari
+      bagian Akses; hapus `SEED_ADMIN_PASSWORD` dari `.env`.
+- [ ] Coba daftar akun baru dengan email sungguhan (email verifikasi dari Titan sampai, tidak di spam).
 - [ ] Jalankan smoke test dari laptop (§5) untuk memastikan semuanya berfungsi.
 - [ ] Isi `OFFSITE_S3_*` + `BACKUP_ENCRYPTION_PASSWORD` (backup luar server) dan `BACKUP_HEALTHCHECK_URL` (§4, §5).
 - [ ] Daftarkan pemantau uptime untuk `https://<APP_DOMAIN>/api/v1/health` (§5).
 
-**Belum punya domain?** Untuk uji coba sementara, aplikasi bisa dijalankan tanpa HTTPS dengan
-`APP_DOMAIN=http://<IP-VPS>` dan `COOKIE_SECURE=false` di `.env`. **Jangan dipakai untuk data sungguhan**: password dan
-sesi dikirim tanpa enkripsi. Setelah domain siap, ubah `APP_DOMAIN` ke domain, hapus `COOKIE_SECURE`, lalu
-`docker compose -f docker-compose.prod.yml up -d`.
+**Belum punya domain?** Stack ini butuh tiga nama host (halaman depan, SSO, Akasha) dan SSO hanya menerima http untuk
+`localhost` / `*.localhost`, jadi uji tanpa domain dilakukan **di laptop**, bukan di VPS ber-IP:
+
+```bash
+# .env uji (jangan dipakai untuk data sungguhan)
+ROOT_DOMAIN=workingspace.localhost
+AUTH_DOMAIN=auth.workingspace.localhost
+APP_DOMAIN=akasha.workingspace.localhost
+SITE_SCHEME=http
+COOKIE_SECURE=false           # http tanpa TLS: cookie tanpa tanda Secure (pustaka OIDC menolaknya)
+SMTP_HOST=smtp.invalid        # email tidak terkirim; masuk dengan akun seed
+docker compose -p akasha-prodtest --env-file <env-uji> -f docker-compose.prod.yml up -d --build --wait
+docker compose -p akasha-prodtest --env-file <env-uji> -f docker-compose.prod.yml exec auth-api node dist/database/seed.js
+docker compose -p akasha-prodtest --env-file <env-uji> -f docker-compose.prod.yml exec backend node dist/database/seed.js
+```
+
+Lalu buka `http://workingspace.localhost` (halaman depan) → Masuk → `http://auth.workingspace.localhost` → buka Akasha
+`http://akasha.workingspace.localhost`. Ketiganya satu "situs" (`workingspace.localhost`) seperti `workingspace.id` di produksi, jadi
+halaman depan bisa membaca status masuk SSO.
+Selesai: `docker compose -p akasha-prodtest … down -v`.
 
 ## 1. Persiapan VPS
 
@@ -177,18 +218,22 @@ kembali setelah reboot otomatis.
 ## 2. Instalasi
 
 ```bash
-git clone https://github.com/zonakerja/workingspace.git && cd akasha
+git clone https://github.com/zonakerja/workingspace.git && cd workingspace
 cp .env.example .env
-nano .env        # isi APP_DOMAIN, ACME_EMAIL, semua secret & password (openssl rand -hex 32)
+node apps/auth/api/scripts/generate-prod-secrets.mjs   # salin 3 baris hasilnya ke .env (bagian SSO)
+nano .env        # isi domain, ACME_EMAIL, SMTP Titan, semua secret & password (openssl rand -hex 32)
 chmod 600 .env
 
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps          # tunggu semua healthy
-docker compose -f docker-compose.prod.yml exec backend node dist/database/seed.js   # super admin dari SEED_ADMIN_*
+docker compose -f docker-compose.prod.yml exec auth-api node dist/database/seed.js  # aplikasi + super admin SSO
+docker compose -f docker-compose.prod.yml exec backend node dist/database/seed.js   # super admin Akasha (email sama)
 ```
 
-Buka `https://<APP_DOMAIN>` dan login dengan `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`. Setelah login pertama,
-ganti password lewat **menu user (kiri bawah) → Profil Saya** lalu hapus `SEED_ADMIN_PASSWORD` dari `.env`.
+Buka `https://<ROOT_DOMAIN>` → **Masuk** dengan `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (halaman SSO). Ganti kata
+sandi di halaman akun SSO, lalu buka Akasha dari bagian Akses (akun Akasha tertaut otomatis lewat email). Hapus
+`SEED_ADMIN_PASSWORD` dari `.env`. Pengguna lain mendaftar sendiri di halaman SSO atau ditambahkan super admin di
+**Kelola ekosistem**; akses Akasha diberikan di sana (atau otomatis bila "Akun yang mendaftar sendiri" diaktifkan).
 
 > Alias praktis: `alias dc='docker compose -f docker-compose.prod.yml'`.
 
@@ -551,3 +596,35 @@ memanggil `http://converter:4200`. Tanpa service ini Akasha tetap berjalan (pemb
 5. **Pembaruan**: naikkan `docling`/`markitdown` di `services/converter/requirements.txt` dan tanggal `--exclude-newer` di
    `services/converter/Dockerfile` (rilis ≥ 2 minggu), lalu build ulang; jalankan `python -m pytest tests` di image dan coba beberapa berkas di
    Tools → Markdown Converter → Dokumen.
+
+## 16. SSO workingspace.id & halaman depan
+
+Rancangan & keputusan: [SSO.md](SSO.md). Service `auth-api`, `auth-web`, `landing` selalu menyala (bukan profile).
+
+- **Database** `workingspace_auth` dibuat otomatis oleh `infra/postgres/init/10-workingspace-auth.sql` **hanya pada volume
+  PostgreSQL yang masih kosong**. Server yang sudah berjalan sebelum SSO ditambahkan: buat sekali secara manual, lalu
+  nyalakan ulang `auth-api` (migrasi berjalan saat start):
+
+  ```bash
+  docker compose -f docker-compose.prod.yml exec postgres psql -U akasha -d akasha -c "CREATE DATABASE workingspace_auth"
+  docker compose -f docker-compose.prod.yml up -d auth-api
+  ```
+
+- **Backup**: `backup.sh` ikut men-dump `EXTRA_DATABASES` (`workingspace_auth`) menjadi `db-workingspace_auth-<waktu>.dump`,
+  ikut retensi & salinan luar server yang sama. Restore:
+  `docker compose -f docker-compose.prod.yml exec -T postgres pg_restore -U akasha -d workingspace_auth --clean --if-exists < backups/db-workingspace_auth-<waktu>.dump`.
+- **Rahasia**: `OIDC_JWKS` (kunci penanda tangan token), `OIDC_COOKIE_KEYS`, `SSO_AKASHA_CLIENT_SECRET` dari
+  `generate-prod-secrets.mjs`. Rotasi kunci token: tambahkan kunci baru **di depan** array `keys` (kunci lama tetap untuk
+  verifikasi), rotasi cookie: tambahkan kunci baru di depan `OIDC_COOKIE_KEYS`.
+- **Aplikasi baru** (Akai, Cendekia): objek baru di `OIDC_CLIENTS` (`docker-compose.prod.yml`, service `auth-api`) + entri di
+  seed SSO + blok host baru di `infra/caddy/Caddyfile` + record DNS.
+- **Email**: tanpa SMTP yang benar pendaftaran & lupa kata sandi gagal mengirim (log `auth-api`). Uji dengan mendaftar
+  akun baru setelah deploy.
+- **Akasha** masuk lewat SSO (`SSO_*` diisi compose dari domain); login kata sandi lokal Akasha mati di production
+  (`AKASHA_PASSWORD_LOGIN=true` hanya untuk darurat). Backend memanggil SSO lewat alamat publiknya; di jaringan internal
+  nama `AUTH_DOMAIN` dijawab Caddy (alias jaringan), jadi tidak bergantung pada DNS luar.
+- **Keluar lintas aplikasi**: klien Akasha di `OIDC_CLIENTS` membawa `backchannel_logout_uri` (`https://<APP_DOMAIN>/api/v1/auth/sso/backchannel-logout`);
+  `auth-api` memanggilnya lewat alias jaringan Caddy `APP_DOMAIN`. Keluar dari halaman akun SSO = Akasha ikut keluar (SSO.md §2.11).
+- **Status di halaman depan**: `auth-api` `LANDING_URL` (= `https://<ROOT_DOMAIN>`) boleh membaca status masuk; `landing` mendapat
+  `AUTH_ORIGIN` untuk CSP `connect-src` (templat nginx).
+- Pemantau uptime: tambahkan `https://<AUTH_DOMAIN>/api/health` dan `https://<ROOT_DOMAIN>`.

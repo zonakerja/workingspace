@@ -16,7 +16,7 @@ import {
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { AccountShell } from "@/components/account-shell";
 import { Notice } from "@/components/auth-layout";
-import { UserAvatar } from "@/components/brand";
+import { UserAvatar } from "@workingspace/ui/brand";
 import { EmailField, NameField, PasswordField } from "@/components/form-fields";
 import { Section, StatusPill } from "@/components/section";
 import { Button } from "@/components/ui/button";
@@ -604,6 +604,35 @@ function ManageAccount({
         <div className="px-5 pt-4">
           <Notice tone={message.tone}>{message.text}</Notice>
         </div>
+      )}
+
+      {(account.phone || account.occupation || account.workplace) && (
+        <DrawerBlock title="Kontak & pekerjaan">
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            {account.occupation && (
+              <div>
+                <dt className="text-xs text-muted-foreground">Pekerjaan / jabatan</dt>
+                <dd className="font-medium">{account.occupation}</dd>
+              </div>
+            )}
+            {account.workplace && (
+              <div>
+                <dt className="text-xs text-muted-foreground">Tempat bekerja</dt>
+                <dd className="font-medium">{account.workplace}</dd>
+              </div>
+            )}
+            {account.phone && (
+              <div>
+                <dt className="text-xs text-muted-foreground">Nomor HP</dt>
+                <dd className="font-medium">
+                  <a href={`tel:${account.phone}`} className="text-primary hover:underline">
+                    {account.phone}
+                  </a>
+                </dd>
+              </div>
+            )}
+          </dl>
+        </DrawerBlock>
       )}
 
       <DrawerBlock title="Profil & status">

@@ -9,8 +9,12 @@
   "workspaces": [
     "apps/akasha/api",
     "apps/akasha/web",
+    "apps/akai/api",
+    "apps/akai/web",
     "apps/auth/api",
     "apps/auth/web",
+    "apps/landing",
+    "packages/ui",
     "services/robot"
   ],
   "scripts": {

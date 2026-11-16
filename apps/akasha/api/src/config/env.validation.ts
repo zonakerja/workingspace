@@ -295,7 +295,7 @@ class EnvironmentVariables {
 
   /**
    * SSO workingspace.id (docs/SSO.md). Kosong = masuk hanya dengan kata sandi lokal. Issuer = alamat OIDC SSO
-   * (dev `http://auth.localhost:5175/oidc`, produksi `https://auth.workingspace.id/oidc`).
+   * (dev `http://auth.workingspace.localhost:5175/oidc`, produksi `https://auth.workingspace.id/oidc`).
    */
   @Transform(emptyToUndefined)
   @IsOptional()
@@ -338,6 +338,31 @@ class EnvironmentVariables {
   @IsBoolean()
   PASSWORD_LOGIN?: boolean;
 
+  // ---- Akai (gateway model ekosistem, docs/AKAI.md §5 langkah 6a.4). Kosong = AI hanya memakai key di Pengaturan → Model AI.
+  /** Alamat Akai API dari backend, mis. http://localhost:4400 (production: http://akai-api:4400) */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: "AKAI_URL harus URL http(s)." })
+  AKAI_URL?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  AKAI_CLIENT_ID?: string;
+
+  /** = client_secret aplikasi "akasha" di AKAI_CLIENTS Akai */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  AKAI_CLIENT_SECRET?: string;
+
+  /** Alamat Akai web untuk tautan "Atur di Akai", mis. https://akai.workingspace.id */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: "AKAI_WEB_URL harus URL http(s)." })
+  AKAI_WEB_URL?: string;
+
   /** true bila API berada di belakang reverse proxy (nginx) agar IP klien asli terbaca (rate limit). */
   @Transform(({ value }) => value === true || ["true", "1"].includes(String(value).toLowerCase()))
   @IsBoolean()
@@ -359,6 +384,10 @@ export function validateEnv(config: Record<string, unknown>) {
     throw new Error(
       "Konfigurasi environment tidak valid:\n- SSO_ISSUER, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_REDIRECT_URI harus diisi bersamaan.",
     );
+  }
+
+  if (env.AKAI_URL && !env.AKAI_CLIENT_SECRET) {
+    throw new Error("Konfigurasi environment tidak valid:\n- AKAI_CLIENT_SECRET wajib diisi bila AKAI_URL diisi.");
   }
 
   if (env.ONLYOFFICE_URL && !env.ONLYOFFICE_JWT_SECRET) {

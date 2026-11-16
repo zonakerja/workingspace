@@ -4,7 +4,7 @@ Dokumen kerja (2026-11-15). Permintaan pemilik: domain **workingspace.id** sudah
 dengan satu akun (SSO `auth.workingspace.id`) dan halaman depan `workingspace.id`. LifeOS berganti nama total menjadi
 **Akasha** ("ruang" untuk mengelola pekerjaan, kehidupan, dan sumber daya) di `akasha.workingspace.id`. Agen Hermes
 dikembangkan menjadi **Akasha AI / Akai** (chat sekaligus agen, backend sendiri) di `akai.workingspace.id` yang juga dipakai
-dari dalam aplikasi lain. Aplikasi berikutnya: **Cendikia** (ruang kerja sekolah/kuliah), lalu aplikasi lain.
+dari dalam aplikasi lain. Aplikasi berikutnya: **Cendekia** (ruang kerja sekolah/kuliah), lalu aplikasi lain.
 
 Status: **rencana, belum ada kode yang diubah.** Keputusan pemilik dicatat di §5 lalu di CLAUDE.md §12.
 
@@ -85,7 +85,7 @@ workingspace/
 │   │   ├── api/                   backend Akai: router & katalog model, percakapan, proyek, memori, artifact, agen — baru
 │   │   ├── web/                   aplikasi chat & agen mandiri (akai.workingspace.id) — baru
 │   │   └── agent/                 runtime agen: konfigurasi Hermes + skill (sekarang infra/hermes + agents/hermes)
-│   ├── cendikia/{api,web}         (prioritas ketiga, dibangun baru di stack yang sama)
+│   ├── cendekia/{api,web}         (prioritas ketiga, dibangun baru di stack yang sama)
 │   └── <aplikasi lain>/{api,web}  pola sama untuk setiap aplikasi baru
 ├── services/
 │   ├── robot/                     Playwright (sekarang robot/)
@@ -93,7 +93,7 @@ workingspace/
 ├── packages/
 │   ├── ui/                        komponen shadcn + token desain bersama semua aplikasi
 │   ├── auth-client/               verifikasi token SSO (backend) + sesi (frontend) — dipakai semua aplikasi
-│   ├── akai-client/               klien API Akai (chat tersemat di Akasha, Cendikia, dll.)
+│   ├── akai-client/               klien API Akai (chat tersemat di Akasha, Cendekia, dll.)
 │   └── config/                    tsconfig, oxlint, prettier bersama
 ├── infra/                         Caddy (satu blok per subdomain), backup, onlyoffice, seaweedfs, knowledge-vaults
 ├── docker-compose.yml · docker-compose.prod.yml   tetap di root
@@ -111,15 +111,15 @@ Catatan rancangan:
 - **Landing `workingspace.id`**: halaman statis ringan (daftar aplikasi, penjelasan singkat, tombol Masuk ke SSO). Dibangun
   bersama SSO karena keduanya pintu masuk ekosistem.
 - **Akai = backend sendiri, "otak" ekosistem**: router & katalog model (§2) tinggal di Akai, sehingga API key & pilihan model
-  diatur sekali untuk semua aplikasi. Akasha, Cendikia, dan aplikasi lain menjadi **penyedia alat MCP** bagi Akai (Akasha
+  diatur sekali untuk semua aplikasi. Akasha, Cendekia, dan aplikasi lain menjadi **penyedia alat MCP** bagi Akai (Akasha
   sudah punya MCP server). Fitur AI internal Akasha (Notes AI, OCR, rapikan dokumen, AI ONLYOFFICE) bertahap memanggil gateway
   model Akai. Target fitur ala asisten AI modern: percakapan & proyek tersimpan, lampiran berkas, artifact, memori, konektor
   MCP, pencarian web, tugas agen panjang, banyak model — dirancang dari kebutuhan & dokumentasi publik, **bukan** menyalin
   kode atau API privat produk lain.
 - **Turborepo di atas npm workspaces**, dipasang saat restrukturisasi (cache build/test, `turbo prune --docker` untuk image).
   Biner Turborepo Windows ARM64 dicek saat mulai; bila tidak ada, workspaces tetap jalan tanpa Turborepo.
-- **Cendikia**: repo lama (`zonakerja/hacktiv8-capstone-cendikia-ai`: NestJS 10, Prisma 6, Better Auth, React 18, Tailwind 3)
-  **tidak di-upgrade**; `apps/cendikia` dibangun baru di stack yang sama. Chat/RAG/Gemini lama diganti Akai, Better Auth diganti
+- **Cendekia**: repo lama (`zonakerja/hacktiv8-capstone-cendikia-ai`: NestJS 10, Prisma 6, Better Auth, React 18, Tailwind 3)
+  **tidak di-upgrade**; `apps/cendekia` dibangun baru di stack yang sama. Chat/RAG/Gemini lama diganti Akai, Better Auth diganti
   SSO, yang dipindahkan = modul `learning` (Learning Manager) & notebook.
 - Port dev tetap (§2 CLAUDE.md); port baru per aplikasi ditetapkan saat aplikasi dibuat (5174 & 3000 dipakai OnTrack).
 
@@ -146,14 +146,19 @@ Catatan rancangan:
    ikut diperbarui; memori Claude lokal disalin ke folder proyek baru; pekerjaan berikutnya dilanjutkan di sesi Claude baru
    yang dibuka di folder itu.
 5b. ✅ (2026-11-16) **GitHub**: repo `zonakerja/lifeos` di-rename menjadi `zonakerja/workingspace` (riwayat, CI, Dependabot tetap; alamat
-   lama otomatis dialihkan GitHub) lalu `git remote set-url origin`. Repo Cendikia lama dibiarkan sebagai arsip.
+   lama otomatis dialihkan GitHub) lalu `git remote set-url origin`. Repo Cendekia lama dibiarkan sebagai arsip.
 
 **Tahap B — Akai & pintu masuk ekosistem**
-5. 🚧 SSO `auth.workingspace.id` + landing `workingspace.id`; Akasha login lewat SSO — rancangan, keputusan & status: `docs/SSO.md`.
-6. `apps/akai/api`: modul AI/agen dipindah dari Akasha + router & katalog model (§2).
-7. `apps/akai/web`: chat & agen mandiri + chat Akai tersemat di Akasha.
+5. 🚧 SSO `auth.workingspace.id` ✅ + landing `workingspace.id` ✅ + produksi (compose, Caddy) ✅; Akasha login lewat SSO ✅ — DNS email Titan ✅ (2026-11-16: MX, SPF, DKIM `titan1`, DMARC terverifikasi); sisa uji kirim email SMTP Titan & login Google (pemilik, TODO-USER A42). Rancangan & status: `docs/SSO.md`.
+6. 🚧 `apps/akai/api`: modul AI/agen dipindah dari Akasha + router & katalog model (§2) — rancangan, keputusan & status: `docs/AKAI.md` (6a.1 gateway sumber & model ✅, 6a.2 gateway chat/embedding ✅, 6a.3 Akai web pengaturan model ✅, 6a.4 tahap 1 Akasha memakai Akai ✅; **berikutnya 6a.4 tahap 2**).
+7. `apps/akai/web`: chat & agen mandiri + chat Akai tersemat di Akasha (6b/6c; kerangka web + masuk SSO + Pengaturan Model sudah ada sejak 6a.3).
 
-**Tahap C — Cendikia** (dibangun baru, modul learning & notebook dipindah dari repo lama).
+**Tahap C — Cendekia** (dibangun baru, modul learning & notebook dipindah dari repo lama).
+
+**Rencana — `mail.workingspace.id`** (permintaan pemilik 2026-11-16, belum dirancang): platform email ekosistem di atas layanan Titan
+(`workingspace.id`, MX ke Titan; TODO-USER A43). Masuk lewat SSO; email tetap disimpan Titan, platform membaca/mengirim lewat
+IMAP/SMTP Titan atau API resminya (perlu dicek: apa yang Titan izinkan untuk klien pihak ketiga, dan apakah tiap pengguna memakai kata
+sandi kotak surat sendiri). Dirancang setelah tahap B; DNS `mail` (A ke VPS) dibuat saat VPS siap.
 
 **Tahap D — Deploy VPS** semua subdomain sekaligus. Konfigurasi produksi (Caddy, compose, backup) diperbarui dan diuji
 dengan stack produksi lokal di setiap tahap, sehingga VPS tinggal dipasang.
@@ -163,11 +168,11 @@ dengan stack produksi lokal di setiap tahap, sehingga VPS tinggal dipasang.
 - 2026-11-15: satu repo ekosistem `workingspace` yang bisa memuat banyak aplikasi.
 - 2026-11-15: **rebrand total**, termasuk konstanta & kunci enkripsi (mencabut keputusan "dibekukan").
 - 2026-11-15: **database dimulai ulang** setelah rebrand; berkas uji dikumpulkan dulu, dihapus setelah diuji.
-- 2026-11-15: **Akai punya backend sendiri** (mencabut "pakai API Akasha dulu"), karena Cendikia punya backend sendiri dan
+- 2026-11-15: **Akai punya backend sendiri** (mencabut "pakai API Akasha dulu"), karena Cendekia punya backend sendiri dan
   Akai ditargetkan sekuat asisten AI modern.
 - 2026-11-15: **Turborepo** dipasang saat restrukturisasi.
 - 2026-11-15: **SSO `auth.workingspace.id`** dan **landing `workingspace.id`**.
-- 2026-11-15: Cendikia prioritas ketiga, dibangun baru (bukan upgrade repo lama); deploy VPS setelah semuanya selesai.
+- 2026-11-15: Cendekia prioritas ketiga, dibangun baru (bukan upgrade repo lama); deploy VPS setelah semuanya selesai.
 - 2026-11-15: folder proyek lokal menjadi **`D:\Development\Application\workingspace`** (tanpa spasi); repo GitHub di-rename
   menjadi `zonakerja/workingspace` (bukan repo baru).
 - Domain ditulis `akasha.workingpace.id` di permintaan awal → dianggap salah ketik `akasha.workingspace.id`.

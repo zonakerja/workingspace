@@ -349,8 +349,8 @@ r = await d.get(
 );
 const xsrf = String(r.d).match(/name="xsrf" value="([^"]+)"/)?.[1];
 ok(
-  "end_session confirmation page",
-  r.s === 200 && !!xsrf && /Keluar dari Workingspace/.test(r.d),
+  "end_session from registered app auto-submits (no confirmation)",
+  r.s === 200 && !!xsrf && String(r.d).includes('getElementById("op.logoutForm").submit()'),
   String(r.d).slice(0, 200),
 );
 r = await d.req("POST", "/oidc/session/end/confirm", new URLSearchParams({ xsrf, logout: "yes" }).toString());
@@ -377,6 +377,23 @@ ok(
   r.d,
 );
 const adminSelf = (await adm.get("/api/auth/me")).d;
+r = await adm.req("PATCH", "/api/auth/me", {
+  phone: "0812-3456-7890",
+  occupation: "  Analis  BMN ",
+  workplace: "Uji Smoke",
+  address: "Jl. Uji No. 1",
+});
+ok(
+  "profile saved & phone normalized",
+  r.s === 200 && r.d.phone === "+6281234567890" && r.d.occupation === "Analis BMN" && r.d.name === adminSelf.name,
+  r.d,
+);
+r = await adm.req("PATCH", "/api/auth/me", { phone: "abc" });
+ok("profile invalid phone 400", r.s === 400, r);
+r = await adm.get("/api/admin/accounts?q=admin%40workingspace.id");
+ok("admin list shows profile", r.d.items?.[0]?.workplace === "Uji Smoke", r.d);
+r = await adm.req("PATCH", "/api/auth/me", { phone: "", occupation: "", workplace: "", address: "" });
+ok("profile cleared", r.s === 200 && r.d.phone === null && r.d.address === null, r.d);
 r = await adm.get("/api/admin/stats");
 ok(
   "admin stats",

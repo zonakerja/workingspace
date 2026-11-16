@@ -45,6 +45,11 @@ model Account {
   pinHash         String?   @map("pin_hash")
   pinFailed       Int       @default(0) @map("pin_failed")
   pinBlockedUntil DateTime? @map("pin_blocked_until") @db.Timestamptz(3)
+  /// Profil (diisi pemilik di halaman akun; opsional, dibagikan ke aplikasi lewat klaim OIDC)
+  phone           String?
+  address         String?
+  occupation      String?
+  workplace       String?
   lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -74,7 +79,7 @@ model AccountIdentity {
   @@map("account_identities")
 }
 
-/// Aplikasi ekosistem (Akasha, Akai, Cendikia, …)
+/// Aplikasi ekosistem (Akasha, Akai, Cendekia, …)
 model App {
   key         String   @id
   name        String
@@ -134,9 +139,28 @@ model AuthSession {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  appLinks AppSessionLink[]
 
   @@index([accountId])
   @@map("auth_sessions")
+}
+
+/// Aplikasi yang dibuka dari satu sesi SSO (sid OIDC per aplikasi). Sesi SSO berakhir → logout token dikirim ke aplikasi itu
+/// (OIDC Back-Channel Logout), lalu baris ikut terhapus bersama sesinya.
+model AppSessionLink {
+  id            String   @id @default(cuid())
+  authSessionId String   @map("auth_session_id")
+  accountId     String   @map("account_id")
+  clientId      String   @map("client_id")
+  sid           String
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  authSession AuthSession @relation(fields: [authSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([authSessionId, clientId])
+  @@index([accountId])
+  @@map("app_session_links")
 }
 
 /// Penyimpanan oidc-provider (kode otorisasi, sesi, grant, interaksi, …) — satu tabel untuk semua model

@@ -5,7 +5,7 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
 
 - Kerjakan berurutan dari **Bagian A** (bisa sekarang, gratis, di laptop) lalu **Bagian B** (butuh VPS & domain).
 - Centang `[x]` di daftar ringkas setelah selesai (atau minta Claude mencentangnya).
-- Bila ada langkah yang macet, cukup tulis ke Claude: *"Saya di langkah B6.4, muncul pesan …"*.
+- Bila ada langkah yang macet, cukup tulis ke Claude: _"Saya di langkah B6.4, muncul pesan …"_.
 - Dokumen teknis untuk pengembang tetap di `docs/DEPLOYMENT.md`, `docs/SETUP.md`, `docs/AI-AGENT.md`; dokumen ini
   merujuk ke sana bila perlu perintah lengkap.
 
@@ -18,6 +18,20 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
 
 ### A. Sekarang (di laptop, tanpa biaya tambahan)
 
+- [ ] **A44** Coba **Akai** sebagai tempat API key model: nyalakan Akai API & Akai web (SETUP.md tab G & H), buka
+      http://akai.workingspace.localhost:5177 → masuk dengan akun Workingspace → **Sumber**: Tambah sumber (router, mis. Classai, atau
+      key Gemini/Claude/OpenAI langsung; key diketik sendiri) → **Uji** → **Muat katalog** → tab **Model**: Nyalakan model → tab
+      **Pembagian tugas**: pilih model utama + cadangan untuk Umum, Chat, Rapikan dokumen, OCR. Di Akasha, Pengaturan → Model AI
+      menampilkan kartu **Akai** dengan tugas yang sudah dijawab Akai; tugas lain tetap memakai key di Akasha. Tab **Pemakaian** Akai
+      menampilkan panggilan & perkiraan biaya. (Akun harus masuk lewat SSO; agen & embedding belum lewat Akai.)
+- [x] **A43** (✅ 2026-11-16: MX, SPF, DKIM `titan1`, DMARC terverifikasi; sisa uji kirim email SSO di A42) Aktifkan email Titan `workingspace.id` di DNS (Clientzone Rumahweb → Domain → Manage → Settings → **DNS Management**;
+      domain harus memakai nameserver Rumahweb — **jangan** klik "Ubah Nameserver" bila domain sedang diarahkan ke nameserver lain seperti
+      Cloudflare, atur di panel itu): hapus MX lama bila ada, tambah MX `@` → `mx1.titan.email` (priority 10) & `mx2.titan.email` (priority 20),
+      TXT `@` → `v=spf1 include:spf.titan.email ~all` (hanya **satu** record SPF; gabungkan bila sudah ada), DKIM dari panel Titan
+      (manage.titan.email → **Reputasi Email**: host & nilai TXT disalin persis → Verifikasi), lalu TXT `_dmarc` →
+      `v=DMARC1; p=none; rua=mailto:<alamat Anda>@workingspace.id` (naikkan ke `p=quarantine` setelah beberapa minggu tanpa masalah). TTL
+      14400, propagasi 1–24 jam. Setelah aktif, buat kotak surat `noreply@workingspace.id` di panel Titan (dipakai SSO, A42). Nameserver
+      pribadi (ns1.workingspace.id) **tidak** diperlukan.
 - [ ] **A42** (SSO, `docs/SSO.md` §2.5–§2.6) Siapkan untuk login ekosistem: (1) **OAuth client Google** "Web application" di Google Cloud Console dengan redirect URI `http://localhost:4300/api/google/callback` (dev) dan `https://auth.workingspace.id/api/google/callback` (produksi), lalu isi `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` di `apps/auth/api/.env`; (2) kredensial SMTP Titan untuk `noreply@workingspace.id` (host `smtp.titan.email`, port 465) di `SMTP_USER` / `SMTP_PASSWORD` berkas yang sama — **diketik sendiri, jangan dikirim lewat chat**; (3) record DNS SPF, DKIM, DMARC dari panel Titan untuk domain `workingspace.id`.
 - [ ] **A41** Setelah rebrand Akasha (database dimulai dari nol, 2026-11-15): (1) masuk dengan `admin@workingspace.id` / `123` lalu ganti kata sandi & email di **Profil Saya**; (2) isi ulang API key / router di **Pengaturan → Model AI** + pembagian tugas; (3) ~~unggah ulang 29 templat~~ dan (4) ~~pilih vault `Pengetahuan-BMN`~~ sudah dikerjakan Claude 2026-11-16 di akun admin dev; (5) **AI Agent → Siapkan agen**; (6) login ulang robot SRIKANDI / e-Kinerja / SIMAN dan simpan kredensialnya; (7) sambungkan ulang aplikasi MCP; (8) atur PIN bila perlu. Setelah selesai, beri tahu Claude agar folder `_uji/` dihapus.
 - [ ] **A1** Isi API key AI (OpenAI & Gemini) dan atur pembagian tugas AI
@@ -28,23 +42,23 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
 - [ ] **A6** Coba satu alur Approval (pengajuan) sampai dokumen jadi
 - [ ] **A7** Siapkan agen Hermes di laptop (model AI + token Akasha) lalu coba **Asisten Agen** & **Kerjakan dengan agen**
 - [ ] **A10** Coba menu **Knowledge** (sidebar Workspace): jelajahi vault, sunting catatan, lihat Graf, kurasi Inbox. Perubahan
-  langsung ditulis ke berkas vault dan tersinkron ke Obsidian; hapus = pindah ke folder `.trash` vault.
+      langsung ditulis ke berkas vault dan tersinkron ke Obsidian; hapus = pindah ke folder `.trash` vault.
 - [ ] **A12** Coba **Catatan hari ini** (menu Knowledge, atau ikon kalender di Planner → Harian): berkas `Harian/YYYY-MM-DD.md` berisi
-  agenda, to-do, dan task hari itu. Opsional: buat templat sendiri `90-Templat/Harian.md` dan taruh `{{akasha}}` di tempat ringkasan.
-  Panel Info catatan kini punya **Catatan serupa** — bila tertulis "belum tersedia", jalankan **Indeks ulang** di Tools → Indeks
-  Pengetahuan (butuh key embedding Gemini/OpenAI yang aktif).
+      agenda, to-do, dan task hari itu. Opsional: buat templat sendiri `90-Templat/Harian.md` dan taruh `{{akasha}}` di tempat ringkasan.
+      Panel Info catatan kini punya **Catatan serupa** — bila tertulis "belum tersedia", jalankan **Indeks ulang** di Tools → Indeks
+      Pengetahuan (butuh key embedding Gemini/OpenAI yang aktif).
 - [ ] **A40** Bersihkan **Tools → ONLYOFFICE → Dokumen**: tiga berkas lama yang tidak dipakai di mana pun dipindah ke sana (2× `Mohammad_Yusuf_CV.pdf` dari form Resource yang ditutup 10 Okt, `Dokumen Rusak Tanpa Styles.docx` = berkas uji lama). Hapus yang tidak diperlukan (masuk Sampah, bisa dipulihkan 30 hari). Mulai sekarang dokumen ONLYOFFICE yang sudah Anda isi lalu form-nya ditutup tanpa disimpan otomatis masuk ke sana.
 - [ ] **A39** Coba **Kirim Penilaian Ke Atasan dengan PIN** (e-Kinerja → tab **Penilaian**, pada bulan berlabel draf). Syarat: PIN keamanan sudah diatur (A36), sesi e-Kinerja aktif, dan bulan itu draf di e-Kinerja dengan semua isian Akasha **Terisi** (jalankan Kirim perubahan lalu **Pantau** dulu; tombol nonaktif menjelaskan alasannya). Klik **Kirim Penilaian** → **Periksa dulu (tanpa kirim)** → **Lihat hasil periksa** (tombol Kirim Penilaiaan Ke Atasan ditandai garis merah, belum diklik) → bila benar, ketik PIN → **Kirim Penilaian**. Pengiriman sungguhan **belum pernah diuji** (Claude dilarang mengirim): lakukan pertama kali pada bulan yang memang akan Anda ajukan, lalu cek e-Kinerja dan **Riwayat** di tab Connector. Bila robot berhenti dengan pesan "dialog yang tidak dikenali", kirim teks pesannya ke Claude agar dialog konfirmasi e-Kinerja dipetakan.
 - [ ] **A38** Coba **Kirim Konsep dengan PIN** (SRIKANDI → Register Naskah Keluar). Syarat: PIN keamanan sudah diatur (A36) dan sesi SRIKANDI aktif. Pada entri **Terdaftar di SRIKANDI** yang memang siap dikirim, klik **Kirim Konsep** → **Periksa dulu (tanpa kirim)** → **Lihat hasil periksa** (tombol Kirim Konsep ditandai garis merah, belum diklik) → bila benar, ketik PIN → **Kirim Konsep**. Pengiriman sungguhan **belum pernah diuji** (Claude dilarang mengirim): untuk pengiriman pertama pilih naskah yang memang akan Anda kirim, lalu cek **Log Naskah Keluar** di SRIKANDI dan **Riwayat** di tab Connector. Bila robot berhenti dengan pesan "dialog yang tidak dikenali", kirim teks pesannya ke Claude agar dialog konfirmasi SRIKANDI dipetakan. Konsep uji `[UJI Akasha] Uji edit register v2 - abaikan` **jangan** dikirim — hapus di SRIKANDI bila sudah tidak dipakai.
-- [ ] **A37** Coba **Tools → Markdown Converter** (service menyala di laptop: MarkItDown + Docling). (1) Di tab **Dokumen** unggah beberapa berkas kerja Anda — PDF biasa, PDF hasil scan, foto dokumen, Word, Excel, PowerPoint — dan periksa hasil Markdown-nya (terutama tabel & hasil OCR scan); (2) bila hasil bagus, di tab **Pengaturan** → **Berkas tersimpan** klik **Baca ulang** pada *Semua berkas lama* agar berkas lama juga menjadi Markdown (berjalan di latar belakang; indeks pengetahuan ikut diperbarui); (3) bila ingin hasil lebih rapi, nyalakan **Rapikan dengan AI** (bawaan hanya untuk hasil OCR gambar/scan) — memakai token sekali per berkas lewat tugas **Rapikan dokumen** di Pengaturan → Model AI (untuk uji Claude mengarahkannya ke **Google Gemini**; ganti bila perlu). Centang **Bandingkan token** saat mengunggah di tab Dokumen untuk melihat token berkas mentah vs Markdown; (4) putuskan **Cadangan OCR AI**: biarkan menyala bila foto/tulisan tangan yang tidak terbaca boleh dibaca AI (memakai token), matikan bila berkas tidak boleh dikirim ke AI sama sekali. Laporkan ke Claude berkas yang hasilnya kurang rapi. Converter memakai ± 1,2 GB RAM: matikan bila tidak dipakai (`docker compose --profile converter stop`, ikut di perintah "matikan semua").
-- [ ] **A36** Siapkan Canva untuk Hermes (hasil desain langsung masuk Akasha, tanpa Anda membuka Canva): (1) di **Aplikasi MCP → Canva** nyalakan **Izinkan agen memakai aplikasi ini** dan **Izinkan aksi yang mengubah data**; (2) di daftar alat, nyalakan **Izinkan agen menjalankan alat ini** untuk `commit-editing-transaction` (menyimpan hasil sunting) dan `autofill-design` (mengisi templat brand) — dua alat lain bertanda Hapus (`merge-designs`, `cancel-editing-transaction`) biarkan mati kecuali perlu; (3) di Canva siapkan **Brand Kit** (logo, warna, font instansi) dan beberapa **templat brand** (slide, poster, sertifikat) — hasil paling bagus datang dari templat; (4) pastikan izin **Aplikasi MCP** sudah dicentang di **Siapkan agen** (A34) lalu restart Hermes. Coba di AI Agent → Chat: *"buat poster HUT instansi dari templat brand, simpan ke Akasha"*. Hasilnya muncul di **Working Space → Resources** bertag **Hasil Agen** (bisa dibatalkan di AI Agent → Riwayat Aksi). Pemakaian fitur AI Canva mengikuti kuota paket Canva Anda.
+- [ ] **A37** Coba **Tools → Markdown Converter** (service menyala di laptop: MarkItDown + Docling). (1) Di tab **Dokumen** unggah beberapa berkas kerja Anda — PDF biasa, PDF hasil scan, foto dokumen, Word, Excel, PowerPoint — dan periksa hasil Markdown-nya (terutama tabel & hasil OCR scan); (2) bila hasil bagus, di tab **Pengaturan** → **Berkas tersimpan** klik **Baca ulang** pada _Semua berkas lama_ agar berkas lama juga menjadi Markdown (berjalan di latar belakang; indeks pengetahuan ikut diperbarui); (3) bila ingin hasil lebih rapi, nyalakan **Rapikan dengan AI** (bawaan hanya untuk hasil OCR gambar/scan) — memakai token sekali per berkas lewat tugas **Rapikan dokumen** di Pengaturan → Model AI (untuk uji Claude mengarahkannya ke **Google Gemini**; ganti bila perlu). Centang **Bandingkan token** saat mengunggah di tab Dokumen untuk melihat token berkas mentah vs Markdown; (4) putuskan **Cadangan OCR AI**: biarkan menyala bila foto/tulisan tangan yang tidak terbaca boleh dibaca AI (memakai token), matikan bila berkas tidak boleh dikirim ke AI sama sekali. Laporkan ke Claude berkas yang hasilnya kurang rapi. Converter memakai ± 1,2 GB RAM: matikan bila tidak dipakai (`docker compose --profile converter stop`, ikut di perintah "matikan semua").
+- [ ] **A36** Siapkan Canva untuk Hermes (hasil desain langsung masuk Akasha, tanpa Anda membuka Canva): (1) di **Aplikasi MCP → Canva** nyalakan **Izinkan agen memakai aplikasi ini** dan **Izinkan aksi yang mengubah data**; (2) di daftar alat, nyalakan **Izinkan agen menjalankan alat ini** untuk `commit-editing-transaction` (menyimpan hasil sunting) dan `autofill-design` (mengisi templat brand) — dua alat lain bertanda Hapus (`merge-designs`, `cancel-editing-transaction`) biarkan mati kecuali perlu; (3) di Canva siapkan **Brand Kit** (logo, warna, font instansi) dan beberapa **templat brand** (slide, poster, sertifikat) — hasil paling bagus datang dari templat; (4) pastikan izin **Aplikasi MCP** sudah dicentang di **Siapkan agen** (A34) lalu restart Hermes. Coba di AI Agent → Chat: _"buat poster HUT instansi dari templat brand, simpan ke Akasha"_. Hasilnya muncul di **Working Space → Resources** bertag **Hasil Agen** (bisa dibatalkan di AI Agent → Riwayat Aksi). Pemakaian fitur AI Canva mengikuti kuota paket Canva Anda.
 - [ ] **A36** Atur **PIN keamanan**: **Profil Saya → PIN Keamanan** → isi PIN 6 angka (bukan angka sama / berurutan), ulangi, kata sandi akun → **Aktifkan PIN**. Lalu kunci item pribadi dengan ikon gembok di kartunya: Area/Project (Working Space), baris Resource, kartu Catatan Bebas / Notes AI / List, menu ⋮ kartu Notebook. Gembok di header = **Kunci sekarang** / buka dengan PIN. Lupa PIN → atur ulang di kartu yang sama dengan kata sandi akun. Ingat: PIN bukan enkripsi (data tetap di server & backup), dan agen Hermes tidak bisa membaca item terkunci.
-- [ ] **A35** Sambungkan Google Workspace (Gmail, Calendar, Drive, Docs, Sheets, Slides, Chat, Kontak) — server MCP resmi Google masih **Developer Preview**: (1) daftar di https://developers.google.com/workspace/preview dengan akun Google yang akan disambungkan dan tunggu diterima; (2) di https://console.cloud.google.com buat project → **APIs & Services → Library** → aktifkan API MCP layanan yang dipakai (mis. *Gmail MCP API*, *Google Drive MCP API*, *Google Calendar MCP API*) dan API utamanya (Gmail API, Drive API, …); (3) **OAuth consent screen**: External (atau Internal bila akun kantor Workspace), tambahkan email Anda sebagai *test user*; (4) **Credentials → Create credentials → OAuth client ID → Web application**, *Authorized redirect URI* = alamat callback yang tampil di formulir Akasha (dev: `http://localhost:5173/api/v1/mcp-connections/oauth/callback`; di VPS nanti alamat domain Anda — tambahkan juga); (5) di Akasha **Aplikasi MCP → Google Workspace → Gmail → Sambungkan**, tempel Client ID & Client Secret → izinkan di jendela Google. Layanan Google berikutnya cukup klik Sambungkan (client yang sama dipakai otomatis). Scope bawaan hanya baca + buat (tanpa hapus); ubah di **Pengaturan OAuth** halaman aplikasi bila perlu. **GitHub**: pakai *Personal Access Token* (classic: centang `repo`, `read:org`, `read:user`; fine-grained: pilih repositori + izin Contents, Issues, Pull requests, Metadata) dan biarkan **Cara masuk = Token akses**. Bila tetap gagal, kirim pesan galat yang tampil di halaman aplikasinya ke Claude.
-- [ ] **A34** Izinkan Hermes mengatur Aplikasi MCP: **AI Agent → Status & Skill → Siapkan agen** → centang izin **Aplikasi MCP** → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Setelah itu Anda bisa meminta di Chat, misalnya *"sambungkan Notion untuk mencatat notulen"* atau *"saya perlu kamu bisa membuat desain di Canva"*. Hermes tidak langsung menambah apa pun: muncul kartu **Permintaan Aplikasi MCP dari agen** di **Aplikasi MCP → Aplikasi** dan **Approval → Usulan Agen** → klik **Setujui** atau **Tolak**. Koneksi yang disetujui dibuat **belum tersambung**: buka halaman aplikasinya lalu klik **Sambungkan** (masuk dengan akun / isi token oleh Anda sendiri — Hermes tidak pernah menerima kredensial). Workflow buatan Hermes yang memakai aplikasi tampil di tab **Aplikasi MCP → Workflow** setelah Anda setujui.
-- [ ] **A33** Izinkan Hermes memakai robot SIMAN: **AI Agent → Status & Skill → Siapkan agen** → centang izin **SIMAN** → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Syaratnya sudah login SIMAN (A28). Setelah itu, saat mengajarkan proses PSP (A25), Anda bisa meminta di Chat, misalnya *"baca halaman daftar tiket SIMAN https://siman.kemenkeu.go.id/…"*: Hermes membuka halaman itu dan membaca isinya **tanpa mengklik apa pun**, lalu menyusun skill + workflow SIMAN yang tampil di tab **SIMAN → Workflow** setelah Anda setujui di **Approval → Usulan Agen**. Robot belum bisa menulis/mengunggah apa pun ke SIMAN.
-- [ ] **A32** Izinkan Hermes memakai robot SRIKANDI: **AI Agent → Status & Skill → Siapkan agen** → centang izin **SRIKANDI** (jalankan robot baca & periksa Register) → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Setelah itu Anda bisa meminta di Chat, misalnya *"ambil naskah keluar yang sudah ditandatangani"* atau *"siapkan register nota dinas dari pengajuan X lalu periksa di SRIKANDI"*. Hermes hanya membaca SRIKANDI dan mengisi formulir tanpa menyimpan. Pendaftaran muncul sebagai kartu **Permintaan daftarkan naskah ke SRIKANDI dari agen** di **Approval → Usulan Agen** dan di **SRIKANDI → Register / Workflow**; robot baru menyimpan konsep di Log Naskah Keluar setelah Anda klik **Setujui & daftarkan**. **Kirim Konsep tetap Anda lakukan di SRIKANDI.** Workflow buatan Hermes untuk SRIKANDI tampil di tab **SRIKANDI → Workflow** setelah Anda setujui. Uji ke SRIKANDI sungguhan tetap menunggu keputusan uji robot (data dummy dulu).
+- [ ] **A35** Sambungkan Google Workspace (Gmail, Calendar, Drive, Docs, Sheets, Slides, Chat, Kontak) — server MCP resmi Google masih **Developer Preview**: (1) daftar di https://developers.google.com/workspace/preview dengan akun Google yang akan disambungkan dan tunggu diterima; (2) di https://console.cloud.google.com buat project → **APIs & Services → Library** → aktifkan API MCP layanan yang dipakai (mis. _Gmail MCP API_, _Google Drive MCP API_, _Google Calendar MCP API_) dan API utamanya (Gmail API, Drive API, …); (3) **OAuth consent screen**: External (atau Internal bila akun kantor Workspace), tambahkan email Anda sebagai _test user_; (4) **Credentials → Create credentials → OAuth client ID → Web application**, _Authorized redirect URI_ = alamat callback yang tampil di formulir Akasha (dev: `http://localhost:5173/api/v1/mcp-connections/oauth/callback`; di VPS nanti alamat domain Anda — tambahkan juga); (5) di Akasha **Aplikasi MCP → Google Workspace → Gmail → Sambungkan**, tempel Client ID & Client Secret → izinkan di jendela Google. Layanan Google berikutnya cukup klik Sambungkan (client yang sama dipakai otomatis). Scope bawaan hanya baca + buat (tanpa hapus); ubah di **Pengaturan OAuth** halaman aplikasi bila perlu. **GitHub**: pakai _Personal Access Token_ (classic: centang `repo`, `read:org`, `read:user`; fine-grained: pilih repositori + izin Contents, Issues, Pull requests, Metadata) dan biarkan **Cara masuk = Token akses**. Bila tetap gagal, kirim pesan galat yang tampil di halaman aplikasinya ke Claude.
+- [ ] **A34** Izinkan Hermes mengatur Aplikasi MCP: **AI Agent → Status & Skill → Siapkan agen** → centang izin **Aplikasi MCP** → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Setelah itu Anda bisa meminta di Chat, misalnya _"sambungkan Notion untuk mencatat notulen"_ atau _"saya perlu kamu bisa membuat desain di Canva"_. Hermes tidak langsung menambah apa pun: muncul kartu **Permintaan Aplikasi MCP dari agen** di **Aplikasi MCP → Aplikasi** dan **Approval → Usulan Agen** → klik **Setujui** atau **Tolak**. Koneksi yang disetujui dibuat **belum tersambung**: buka halaman aplikasinya lalu klik **Sambungkan** (masuk dengan akun / isi token oleh Anda sendiri — Hermes tidak pernah menerima kredensial). Workflow buatan Hermes yang memakai aplikasi tampil di tab **Aplikasi MCP → Workflow** setelah Anda setujui.
+- [ ] **A33** Izinkan Hermes memakai robot SIMAN: **AI Agent → Status & Skill → Siapkan agen** → centang izin **SIMAN** → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Syaratnya sudah login SIMAN (A28). Setelah itu, saat mengajarkan proses PSP (A25), Anda bisa meminta di Chat, misalnya _"baca halaman daftar tiket SIMAN https://siman.kemenkeu.go.id/…"_: Hermes membuka halaman itu dan membaca isinya **tanpa mengklik apa pun**, lalu menyusun skill + workflow SIMAN yang tampil di tab **SIMAN → Workflow** setelah Anda setujui di **Approval → Usulan Agen**. Robot belum bisa menulis/mengunggah apa pun ke SIMAN.
+- [ ] **A32** Izinkan Hermes memakai robot SRIKANDI: **AI Agent → Status & Skill → Siapkan agen** → centang izin **SRIKANDI** (jalankan robot baca & periksa Register) → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Setelah itu Anda bisa meminta di Chat, misalnya _"ambil naskah keluar yang sudah ditandatangani"_ atau _"siapkan register nota dinas dari pengajuan X lalu periksa di SRIKANDI"_. Hermes hanya membaca SRIKANDI dan mengisi formulir tanpa menyimpan. Pendaftaran muncul sebagai kartu **Permintaan daftarkan naskah ke SRIKANDI dari agen** di **Approval → Usulan Agen** dan di **SRIKANDI → Register / Workflow**; robot baru menyimpan konsep di Log Naskah Keluar setelah Anda klik **Setujui & daftarkan**. **Kirim Konsep tetap Anda lakukan di SRIKANDI.** Workflow buatan Hermes untuk SRIKANDI tampil di tab **SRIKANDI → Workflow** setelah Anda setujui. Uji ke SRIKANDI sungguhan tetap menunggu keputusan uji robot (data dummy dulu).
 - [ ] **A31** (setelah VPS) Uji asal pembuka tautan bukti: isi satu renaksi ke e-Kinerja dengan bukti **Brankas digital**, buka tautannya **dari halaman e-Kinerja** (klik), lalu sekali lagi dengan **menempel tautan** di tab baru. Lihat log akses brankas di **e-Kinerja → Rencana Aksi → ikon brankas**: baris "Asal: e-Kinerja (…)" berarti e-Kinerja mengirim asalnya dan pembatasan "hanya dari e-Kinerja" (tahap 2) bisa dibangun. Bila tertulis "Tanpa asal" padahal diklik dari e-Kinerja, pembatasan seperti itu tidak bisa dipakai. Minta juga atasan membuka bukti seperti biasa saat menilai, lalu laporkan hasilnya ke Claude.
-- [ ] **A30** Izinkan Hermes memakai robot e-Kinerja: **AI Agent → Status & Skill → Siapkan agen** → centang izin **"Jalankan robot e-Kinerja"** → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Setelah itu Anda bisa meminta di Chat, misalnya *"pantau Rencana Aksi e-Kinerja 2026"* atau *"periksa renaksi November lalu ajukan pengisiannya"*. Hermes hanya membaca e-Kinerja. Pengisian muncul sebagai kartu **Permintaan isi e-Kinerja dari agen** di **Approval → Usulan Agen** dan di **e-Kinerja → Rencana Aksi**, dan robot baru mengisi setelah Anda klik **Setujui & isi**. Workflow yang dibuat Hermes khusus untuk e-Kinerja tampil di tab **e-Kinerja → Workflow** setelah Anda setujui. Setelah izin aktif, buka **e-Kinerja → Rencana Aksi**, pilih bulan, atur dulu **Semua cakupan** (lepas centang Area/Project pribadi atau titipan), lalu klik **Generate usulan**: Hermes memetakan kegiatan Working Space bulan itu ke RHK dan menyusun Renaksi & Realisasi. Periksa setiap usulan, **centang** yang ingin dimasukkan (bisa **Ubah** dulu atau **Abaikan**; tombol **+** = tambah butir sendiri). Working Space kini tidak punya tombol renaksi lagi. Sesuai keputusan Anda, uji ke e-Kinerja sungguhan tetap menunggu Knowledge & AI Agent matang (A8).
+- [ ] **A30** Izinkan Hermes memakai robot e-Kinerja: **AI Agent → Status & Skill → Siapkan agen** → centang izin **"Jalankan robot e-Kinerja"** → simpan, lalu restart Hermes (`docker restart akasha-hermes`, tunggu ± 20 detik). Setelah itu Anda bisa meminta di Chat, misalnya _"pantau Rencana Aksi e-Kinerja 2026"_ atau _"periksa renaksi November lalu ajukan pengisiannya"_. Hermes hanya membaca e-Kinerja. Pengisian muncul sebagai kartu **Permintaan isi e-Kinerja dari agen** di **Approval → Usulan Agen** dan di **e-Kinerja → Rencana Aksi**, dan robot baru mengisi setelah Anda klik **Setujui & isi**. Workflow yang dibuat Hermes khusus untuk e-Kinerja tampil di tab **e-Kinerja → Workflow** setelah Anda setujui. Setelah izin aktif, buka **e-Kinerja → Rencana Aksi**, pilih bulan, atur dulu **Semua cakupan** (lepas centang Area/Project pribadi atau titipan), lalu klik **Generate usulan**: Hermes memetakan kegiatan Working Space bulan itu ke RHK dan menyusun Renaksi & Realisasi. Periksa setiap usulan, **centang** yang ingin dimasukkan (bisa **Ubah** dulu atau **Abaikan**; tombol **+** = tambah butir sendiri). Working Space kini tidak punya tombol renaksi lagi. Sesuai keputusan Anda, uji ke e-Kinerja sungguhan tetap menunggu Knowledge & AI Agent matang (A8).
 - [ ] **A29** Sambungkan aplikasi lewat MCP: menu **Connection & MCP → Aplikasi MCP** → pilih Canva (atau Notion/Linear) → **Sambungkan** → izinkan di jendela yang terbuka. GitHub memakai token akses pribadi (lihat A35). Google Workspace: lihat A35. Aplikasi muncul di daftar **Aplikasi tersambung**; klik **Atur** untuk membuka pengaturannya dan coba satu alat baca dengan tombol **Coba**. Agar Hermes bisa memakainya: nyalakan **Izinkan agen** di halaman aplikasi, lalu **AI Agent → Siapkan agen** dengan izin "Pakai alat aplikasi MCP" dan restart Hermes. Bila alamat katalog berubah, pakai **Aplikasi lain** dengan alamat dari dokumentasi aplikasinya.
 - [ ] **A28** Login SIMAN: menu **SIMAN → Connector** → **Login otomatis**. Robot membuka halaman SIMAN, mengklik Login, lalu mengisi Username & Password di KemenkeuID; ketik **OTP** saat diminta. Bila gagal, pakai **Login manual (tayangan)**. Alamat sudah terisi otomatis.
 - [ ] **A27** Coba Sampah & persetujuan hapus: buka **Approval → Usulan Agen**, ada permintaan hapus uji dari Hermes ("[UJI-HERMES] Cek Sampah"). Setujui → buka **Tools → Sampah** → **Pulihkan**, lalu hapus lagi bila tidak perlu. Riwayat perubahan agen ada di **AI Agent → Riwayat Aksi** (tombol Batalkan). Semua yang Anda hapus sendiri juga masuk Sampah selama 30 hari.
@@ -55,42 +69,42 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
 - [ ] **A22** Coba di menu Knowledge (layar ≥ 1280 px): **Ctrl+klik** tautan atau catatan di penjelajah = dua catatan berdampingan; klik di salah satu panel menjadikannya aktif. **Ctrl+P** → **Pecah catatan ini per judul…** (cek daftar catatan di pratinjau sebelum menekan tombol), **Pecah catatan di posisi kursor…** (mode sunting), dan saat menggabung/mengekstrak pilih posisi **Akhir bagian: judul**.
 - [ ] **A21** Coba di catatan Knowledge: ketik `/` → **Diagram Mermaid** (mis. alur PSP), `==sorotan==`, `%%komentar%%`, dan **Catatan kaki**; jumlah kata tampil di header & editor. Ganti nama tag: tab **Tag** di panel kiri → ikon pensil di samping tag. Diagram & sintaks yang sama terbaca di Obsidian.
 - [ ] **A20** Coba **Note composer** di menu Knowledge: mode sunting → pilih teks → Ctrl+P → "Ekstrak teks terpilih ke catatan…"; atau klik kanan catatan di penjelajah →
-  **Gabungkan ke…**. Catatan sumber masuk `.trash` vault dan isi sebelumnya ada di Riwayat versi. Opsional: templat `90-Templat/Note Composer.md`.
+      **Gabungkan ke…**. Catatan sumber masuk `.trash` vault dan isi sebelumnya ada di Riwayat versi. Opsional: templat `90-Templat/Note Composer.md`.
 - [ ] **A19** Coba catatan **mingguan/bulanan** di menu Knowledge: panah di samping **Catatan hari ini** → **Mingguan** / **Bulanan**
-  (atau Ctrl+P → "Catatan minggu ini"). Opsional: buat templat `90-Templat/Mingguan.md` / `Bulanan.md` dengan `{{akasha}}`.
-  Sematkan canvas di catatan dengan `![[Nama.canvas]]`, dan coba tanya chatbot tentang isi sebuah canvas.
+      (atau Ctrl+P → "Catatan minggu ini"). Opsional: buat templat `90-Templat/Mingguan.md` / `Bulanan.md` dengan `{{akasha}}`.
+      Sematkan canvas di catatan dengan `![[Nama.canvas]]`, dan coba tanya chatbot tentang isi sebuah canvas.
 - [ ] **A18** Coba tab **Canvas** di menu Knowledge: **Baru** → tambah kartu **Teks**, **Catatan**, **Tautan**, atau **Grup** →
-  seret kartu untuk memindah, seret titik bulat di sisi kanan kartu ke kartu lain untuk membuat garis, klik dua kali kartu teks untuk
-  menulis. Berkas `.canvas`-nya juga terbuka di Canvas Obsidian.
+      seret kartu untuk memindah, seret titik bulat di sisi kanan kartu ke kartu lain untuk membuat garis, klik dua kali kartu teks untuk
+      menulis. Berkas `.canvas`-nya juga terbuka di Canvas Obsidian.
 - [ ] **A17** Coba **Riwayat versi** di menu Knowledge: buka catatan → tombol ⋯ → **Riwayat versi** (atau Ctrl+P → "riwayat").
-  Pilih versi untuk melihat perubahannya, lalu **Pulihkan** bila perlu. Di tab **Bases**, nilai properti kini bisa diubah langsung
-  di sel tabel, ringkasan kolom diatur di **Atur tampilan**, dan base bisa ditampilkan di catatan dengan `![[Nama.base]]`.
+      Pilih versi untuk melihat perubahannya, lalu **Pulihkan** bila perlu. Di tab **Bases**, nilai properti kini bisa diubah langsung
+      di sel tabel, ringkasan kolom diatur di **Atur tampilan**, dan base bisa ditampilkan di catatan dengan `![[Nama.base]]`.
 - [ ] **A16** Coba tab **Bases** di menu Knowledge: **Baru** → beri nama (mis. "Regulasi berlaku") → **Atur tampilan** → tambah
-  kondisi (mis. jenis sama dengan peraturan, status sama dengan berlaku), pilih kolom, urutan, dan kelompok. Berkas `.base`-nya juga
-  terbuka di Obsidian (Obsidian 1.9 ke atas).
+      kondisi (mis. jenis sama dengan peraturan, status sama dengan berlaku), pilih kolom, urutan, dan kelompok. Berkas `.base`-nya juga
+      terbuka di Obsidian (Obsidian 1.9 ke atas).
 - [ ] **A15** Coba **sematan bagian & blok** di menu Knowledge: di editor ketik `[[Nama Catatan#` untuk memilih judul atau
-  `[[Nama Catatan#^` untuk memilih satu paragraf/butir (Akasha memberi penanda `^id` otomatis). Awali dengan `!` untuk menampilkan
-  isinya di catatan Anda, mis. `![[PMK 181#Pasal 5]]`.
+      `[[Nama Catatan#^` untuk memilih satu paragraf/butir (Akasha memberi penanda `^id` otomatis). Awali dengan `!` untuk menampilkan
+      isinya di catatan Anda, mis. `![[PMK 181#Pasal 5]]`.
 - [ ] **A14** Coba tab **Tugas** di menu Knowledge: tulis di catatan mana pun `- [ ] Kirim laporan 📅 2026-11-10` (tambahan
-  opsional: ⏫ prioritas tinggi, 🔁 every week, #tag). Semua tugas vault terkumpul di tab Tugas dan yang jatuh tempo hari itu tampil
-  di Planner Harian; mencentang di Akasha menulis `[x] … ✅ tanggal` ke berkasnya (format plugin Tasks Obsidian).
+      opsional: ⏫ prioritas tinggi, 🔁 every week, #tag). Semua tugas vault terkumpul di tab Tugas dan yang jatuh tempo hari itu tampil
+      di Planner Harian; mencentang di Akasha menulis `[x] … ✅ tanggal` ke berkasnya (format plugin Tasks Obsidian).
 - [ ] **A13** Coba **palet perintah** di menu Knowledge: tekan **Ctrl+P** (atau tombol **Perintah**) lalu ketik apa yang ingin
-  dilakukan (mis. "sunting", "harian kemarin", "acak"). Saat menyunting catatan, ketik **/** di awal baris untuk menyisipkan tabel,
-  callout, daftar tugas, tanggal, atau templat dari `90-Templat`.
+      dilakukan (mis. "sunting", "harian kemarin", "acak"). Saat menyunting catatan, ketik **/** di awal baris untuk menyisipkan tabel,
+      callout, daftar tugas, tanggal, atau templat dari `90-Templat`.
 - [ ] **A11** Lihat hasil kerja Akasha di Obsidian: Tools → Basis Pengetahuan → kartu **Cermin hasil kerja ke Obsidian** (di akun
-  admin dev sudah menyala) → buka folder `80-Akasha` di Obsidian & Graf. Jangan menyunting berkas di folder itu (ditimpa saat
-  sinkron) — tulis catatan sendiri di folder lain lalu tautkan `[[…]]`. Atur tampilan graf di tab Graf → Pengaturan graf.
+      admin dev sudah menyala) → buka folder `80-Akasha` di Obsidian & Graf. Jangan menyunting berkas di folder itu (ditimpa saat
+      sinkron) — tulis catatan sendiri di folder lain lalu tautkan `[[…]]`. Atur tampilan graf di tab Graf → Pengaturan graf.
 - [ ] **A9** (opsional, hemat biaya) Pakai **router AI** untuk Claude / OpenAI / Gemini: Pengaturan → Model AI → kartu provider →
-  **Lewat router** → isi alamat API (mis. `https://router.classai.id/v1`), key router, dan **ID model sesuai dokumentasi router**
-  (mis. `claude-opus-5.5`) → Simpan → **Uji koneksi**. Untuk Claude pilih format **Anthropic Messages**. Ingat: isi permintaan AI
-  melewati server router — pertimbangkan sebelum memakainya untuk data kantor.
+      **Lewat router** → isi alamat API (mis. `https://router.classai.id/v1`), key router, dan **ID model sesuai dokumentasi router**
+      (mis. `claude-opus-5.5`) → Simpan → **Uji koneksi**. Untuk Claude pilih format **Anthropic Messages**. Ingat: isi permintaan AI
+      melewati server router — pertimbangkan sebelum memakainya untuk data kantor.
 - [ ] **A8** (Ditunda atas keputusan Anda: uji robot setelah Knowledge & AI Agent matang, dimulai dengan data dummy) Hubungkan SRIKANDI & e-Kinerja ke Konektor Robot, lalu rekam halaman yang ingin diotomasi
 
 ### B. Saat siap online (butuh biaya: VPS, domain, WhatsApp)
 
 - [ ] **B1** Beli VPS
 - [ ] **B2** Beli domain & arahkan DNS
-- [ ] **B3** Pasang Akasha di VPS
+- [ ] **B3** Pasang workingspace.id di VPS (halaman depan, SSO, Akasha)
 - [ ] **B4** Aktifkan backup luar server & pemantauan
 - [ ] **B5** Sinkronkan vault Obsidian laptop/HP ↔ VPS (Syncthing)
 - [ ] **B6** Daftarkan WhatsApp Business Cloud API dan sambungkan bot
@@ -103,10 +117,10 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
 - [ ] **C3** Uji tulisan tangan S Pen di HP Android (Catatan Bebas)
 - [ ] **C4** Push ke GitHub bila ingin cadangan kode (minta Claude, lalu cek tab Actions)
 - [ ] **C5** Siapkan contoh nyata (surat permohonan + lampiran + dokumen jadi yang sudah disetujui) untuk **PSP** dan
-  **panitia penghapusan** — bahan skill Hermes pertama (keputusan AG-22…25 sudah disetujui 31 Okt 2026)
+      **panitia penghapusan** — bahan skill Hermes pertama (keputusan AG-22…25 sudah disetujui 31 Okt 2026)
 - [x] **C6** ~~Jawab keputusan **persetujuan otomatis**~~ (diputuskan 6 Nov 2026; templat Telaah Staf tetap perlu diunggah) (`docs/AI-AGENT.md` §24.5): AG-26 arti "75% benar" & aset yang masuk
-  PSP, AG-27 batas kirim ke SRIKANDI, AG-28 urutan kerja, AG-29 kabar WhatsApp ke pemohon. Siapkan juga **templat Telaah Staf**
-  (unggah di Tools → ONLYOFFICE → Dokumen → Templat dokumen)
+      PSP, AG-27 batas kirim ke SRIKANDI, AG-28 urutan kerja, AG-29 kabar WhatsApp ke pemohon. Siapkan juga **templat Telaah Staf**
+      (unggah di Tools → ONLYOFFICE → Dokumen → Templat dokumen)
 - [ ] **C7** Coba **Kebijakan Otomatis** di Approval: templat Register → aturan Shadow → (minta Claude membatasi alat Hermes) → Otomatis
 
 ---
@@ -148,9 +162,9 @@ folder catatan itu (disebut **vault**) dan menjadikannya bahan jawaban AI.
 2. Pastikan lingkungan Akasha menyala (minta Claude "nyalakan lingkungan pengembangan").
 3. Di Akasha: **Tools → Basis Pengetahuan** → **Buat vault baru dari templat** → beri nama folder, mis. `bmn` →
    **Buat**. Akasha membuat folder `D:\Development\Application\workingspace\infra\knowledge-vaults\bmn` lengkap dengan
-   struktur folder `00-Inbox`, `10-Peraturan`, … dan catatan *Mulai di sini*.
-4. Buka Obsidian → **Open folder as vault** → pilih folder di langkah 3 → **Open**. Bila ditanya *Trust author and
-   enable plugins?* pilih **Trust** (vault ini milik Anda sendiri).
+   struktur folder `00-Inbox`, `10-Peraturan`, … dan catatan _Mulai di sini_.
+4. Buka Obsidian → **Open folder as vault** → pilih folder di langkah 3 → **Open**. Bila ditanya _Trust author and
+   enable plugins?_ pilih **Trust** (vault ini milik Anda sendiri).
 5. Tulis/ubah catatan di Obsidian → simpan otomatis → dalam beberapa detik Akasha membacanya (Tools → Basis
    Pengetahuan menampilkan jumlah catatan). Tombol **Pindai** memaksa baca ulang.
 
@@ -180,13 +194,13 @@ dasar_hukum:
 
 Arti properti:
 
-| Properti | Isi | Pengaruh |
-|---|---|---|
-| `status` | `berlaku` / `draf` / `dicabut` | Hanya `berlaku` dipakai menjawab; `dicabut` tidak pernah dipakai |
-| `publik` | `true` / `false` | `true` = boleh dipakai **bot WhatsApp** untuk semua kontak. Default `false` (hanya untuk Anda) |
-| `grup` | daftar kode grup, mis. `[UMUM]` | Catatan hanya dipakai bot untuk anggota grup itu (mis. info khusus satker tertentu / masyarakat) |
-| `diperbarui` | tanggal | Disebut bot sebagai "diperbarui …" |
-| `dasar_hukum` | daftar | Disebut sebagai dasar; tautan `[[…]]` ke catatan peraturan ikut dibaca |
+| Properti      | Isi                             | Pengaruh                                                                                         |
+| ------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `status`      | `berlaku` / `draf` / `dicabut`  | Hanya `berlaku` dipakai menjawab; `dicabut` tidak pernah dipakai                                 |
+| `publik`      | `true` / `false`                | `true` = boleh dipakai **bot WhatsApp** untuk semua kontak. Default `false` (hanya untuk Anda)   |
+| `grup`        | daftar kode grup, mis. `[UMUM]` | Catatan hanya dipakai bot untuk anggota grup itu (mis. info khusus satker tertentu / masyarakat) |
+| `diperbarui`  | tanggal                         | Disebut bot sebagai "diperbarui …"                                                               |
+| `dasar_hukum` | daftar                          | Disebut sebagai dasar; tautan `[[…]]` ke catatan peraturan ikut dibaca                           |
 
 Yang perlu Anda tulis (prioritas):
 
@@ -218,7 +232,7 @@ Akasha mengisi templat Word (DOCX) secara otomatis dari data pengajuan.
 **Grup** = kelompok pengguna bot (satker, instansi, masyarakat umum, unit layanan, …). Grup yang Anda pilih untuk sebuah
 nomor menentukan **data apa yang boleh diakses** nomor itu lewat bot.
 
-1. **Approval → Grup & Kontak → Profil layanan bot** → isi **Nama layanan** (mis. *Layanan Informasi BMN Kantor X*)
+1. **Approval → Grup & Kontak → Profil layanan bot** → isi **Nama layanan** (mis. _Layanan Informasi BMN Kantor X_)
    dan **Topik yang dilayani** → **Simpan**. Pertanyaan di luar topik ditolak sopan oleh bot.
 2. **+ Grup** → isi:
    - **Kode** (untuk satker pakai kode satker SIMAN/SAKTI; untuk lainnya bebas, mis. `UMUM`) dan **Nama**,
@@ -229,12 +243,12 @@ nomor menentukan **data apa yang boleh diakses** nomor itu lewat bot.
 3. **+ Kontak** → nama, nomor WhatsApp (format bebas, mis. `0812-3456-7890`), jabatan/keterangan, pilih **grup**,
    centang **Terverifikasi** hanya bila Anda yakin nomor itu benar milik orang tersebut.
 4. **Approval → Percakapan WA → Simulator** → pilih kontak → coba kirim:
-   - pertanyaan, mis. *"Apa syarat PSP laptop?"* (dijawab dari catatan `publik: true` atau berproperti `grup` = kode
+   - pertanyaan, mis. _"Apa syarat PSP laptop?"_ (dijawab dari catatan `publik: true` atau berproperti `grup` = kode
      grup kontak, dan `status: berlaku`),
    - `#status` (pengajuan seluruh grup atau milik sendiri, sesuai pengaturan grup),
    - berkas PDF/foto + keterangan (menjadi **pengajuan baru** di Antrian Verifikasi).
 5. Pertanyaan yang tidak bisa dijawab bot muncul dengan tanda **Perlu dijawab** → tulis balasan → **Kirim** (opsional
-   centang *Simpan juga sebagai FAQ*).
+   centang _Simpan juga sebagai FAQ_).
 6. Selama WhatsApp belum disambungkan (B6), semua balasan berstatus **Simulasi** — tidak terkirim ke siapa pun.
 
 ## A6. Coba alur Approval (pengajuan)
@@ -258,7 +272,7 @@ terminal atau API key yang perlu diketik di Hermes. Yang perlu **Anda** lakukan 
    boleh dibiarkan "Ikuti provider aktif"; model Flash (`gemini-3.8-flash`) disarankan karena agen boros token.
 2. **AI Agent → Asisten Agen → Status & Skill** → kartu **Siapkan agen** → tombol **Siapkan agen** → biarkan semua izin
    tercentang → **Simpan izin**. Ketiga langkah di kartu harus hijau.
-3. Tab **Chat**: coba *"Pengajuan apa saja yang ada di Approval?"*. Bila muncul error "high demand" (503) dari Gemini, itu
+3. Tab **Chat**: coba _"Pengajuan apa saja yang ada di Approval?"_. Bila muncul error "high demand" (503) dari Gemini, itu
    gangguan sementara di Google — coba lagi beberapa menit kemudian.
 4. Buka **Approval** → pengajuan **[UJI] Permohonan PSP laptop Satker Contoh** → **Kerjakan dengan agen** →
    `telaah-pengajuan` → **Jalankan** (beberapa menit) → periksa Catatan, Telaah, Konsep jawaban, Riwayat ("oleh agen AI").
@@ -280,6 +294,7 @@ dari key itu.
 
 **Robot** = browser otomatis milik Akasha. Robot mendaftarkan konsep naskah di SRIKANDI (Register Naskah Keluar), mengambil
 naskah ber-TTD, dan mengisi rencana aksi bulanan e-Kinerja. Agar bisa, robot butuh **sesi login Anda**. Ada dua cara:
+
 - **Login otomatis** (disarankan): simpan nama pengguna & kata sandi di **brankas terenkripsi** Akasha; robot mengisinya
   sendiri, Anda cukup mengetik **CAPTCHA** (gambar tampil di Akasha) dan **kode OTP Authenticator** bila diminta
   (SRIKANDI: saat login pertama, lalu ± sebulan sekali).
@@ -295,6 +310,7 @@ naskah ber-TTD, dan mengisi rencana aksi bulanan e-Kinerja. Agar bisa, robot but
    ```
 
    Pertama kali butuh unduhan ± 2 GB. Kartu **Service robot aktif** di tab Connector (Laporan Kinerja / SRIKANDI) berwarna hijau bila siap.
+
 2. **Laporan Kinerja → Connector (kartu e-Kinerja; SRIKANDI di SRIKANDI → Connector)** → isi **Alamat sistem** (alamat e-Kinerja yang biasa Anda buka di browser,
    mis. `https://…`) → **Simpan pengaturan**. SRIKANDI sudah terisi `https://srikandi.arsip.go.id`.
    Bila halaman login e-Kinerja/SRIKANDI ada di alamat lain (SSO), isi alamat itu di **Host tambahan**.
@@ -314,10 +330,10 @@ naskah ber-TTD, dan mengisi rencana aksi bulanan e-Kinerja. Agar bisa, robot but
 7. **Rekam halaman untuk dipetakan** (bahan untuk Claude membangun alur pengisian):
    - SRIKANDI: ~~halaman membuat naskah keluar~~ — sudah dipetakan Claude 31 Okt 2026 (tidak perlu direkam),
    - e-Kinerja: halaman **realisasi bulanan / rencana aksi** (form uraian, jumlah dokumen, link dokumen).
-   Cara merekam (halaman apa pun, termasuk formulir/modal **Tambah**): klik **Login manual (tayangan)** →
-   buka menu & klik tombolnya di tayangan sampai formulirnya tampil → klik **Rekam halaman ini** (bawah tayangan) →
-   **jangan klik Simpan/Kirim** di sistem → tutup dengan **Batal** atau **Selesai & simpan sesi**.
-   Lalu beri tahu Claude: *"halaman SRIKANDI/e-Kinerja sudah direkam, lanjut tahap 6b"*.
+     Cara merekam (halaman apa pun, termasuk formulir/modal **Tambah**): klik **Login manual (tayangan)** →
+     buka menu & klik tombolnya di tayangan sampai formulirnya tampil → klik **Rekam halaman ini** (bawah tayangan) →
+     **jangan klik Simpan/Kirim** di sistem → tutup dengan **Batal** atau **Selesai & simpan sesi**.
+     Lalu beri tahu Claude: _"halaman SRIKANDI/e-Kinerja sudah direkam, lanjut tahap 6b"_.
 
    **e-Kinerja — Rencana Aksi (yang perlu direkam sekarang)**. Daftar SKP (`/skp`) sudah direkam: setiap SKP punya
    tautan **Rencana Aksi** `/skp/renaksi/<nomor SKP>`. SKP 2026 masih **Draft** sehingga Rencana Aksi-nya belum bisa
@@ -326,64 +342,68 @@ naskah ber-TTD, dan mengisi rencana aksi bulanan e-Kinerja. Agar bisa, robot but
    - [ ] halaman Rencana Aksi SKP itu (daftar Rencana Hasil Kerja + rencana aksi per bulan),
    - [ ] formulir **tambah/ubah rencana aksi** yang muncul setelah klik tombolnya (rekam saat formulir terbuka, lalu Batal),
    - [ ] (bila ada) halaman **Detail SKP** SKP 2026 `/skp/detail/545406` — daftar Rencana Hasil Kerja yang nanti diisi aksinya.
-   Setelah SKP 2026 disetujui atasan, rekam juga Rencana Aksi 2026 agar Claude bisa memastikan formulirnya sama.
+         Setelah SKP 2026 disetujui atasan, rekam juga Rencana Aksi 2026 agar Claude bisa memastikan formulirnya sama.
 
    **Siapkan isi Renaksi di Akasha** (bisa mulai sekarang):
    - [ ] **AI Agent → Laporan Kinerja → kartu SKP & RHK** → **Ambil dari e-Kinerja** (robot membaca daftar SKP dan RHK
-     setiap SKP tahun itu; sesi e-Kinerja harus aktif). Ulangi bila RHK di e-Kinerja berubah atau SKP baru dibuat.
-     Satu tahun bisa beberapa SKP — Akasha memilih SKP sesuai bulan rencana aksi.
+         setiap SKP tahun itu; sesi e-Kinerja harus aktif). Ulangi bila RHK di e-Kinerja berubah atau SKP baru dibuat.
+         Satu tahun bisa beberapa SKP — Akasha memilih SKP sesuai bulan rencana aksi.
    - [ ] Setiap bulan: buka Project/Area → klik ikon **papan klip** pada Action/Task, Agenda, atau Kegiatan yang ingin
-     dilaporkan → pilih **bulan**, **RHK**, centang **indikator** (bawaan semua), tulis **rencana aksi** dan **realisasi**
-     (indikator waktu otomatis "Penyampaian tepat waktu"), pilih **bukti data dukung** — **Brankas digital** (bawaan): centang
-     berkas lampiran / unggah berkas lain → satu tautan untuk poin itu → **Simpan ke renaksi**.
+         dilaporkan → pilih **bulan**, **RHK**, centang **indikator** (bawaan semua), tulis **rencana aksi** dan **realisasi**
+         (indikator waktu otomatis "Penyampaian tepat waktu"), pilih **bukti data dukung** — **Brankas digital** (bawaan): centang
+         berkas lampiran / unggah berkas lain → satu tautan untuk poin itu → **Simpan ke renaksi**.
    - [ ] Pantau siapa membuka bukti: **Laporan Kinerja** → baris entri → **Brankas** → Log akses (waktu, IP, perkiraan lokasi).
-     Bila tautan tersebar ke pihak yang tidak berwenang → **Ganti tautan**, lalu **Kirim perubahan** ke e-Kinerja.
-   - [ ] Cek menu **AI Agent → Laporan Kinerja**: semua entri bulan itu berstatus **Siap diisikan** (yang *Belum lengkap* menyebut kekurangannya).
-     Entri yang dibuat sebelum 31 Okt 2026 perlu dilengkapi **realisasi**-nya.
+         Bila tautan tersebar ke pihak yang tidak berwenang → **Ganti tautan**, lalu **Kirim perubahan** ke e-Kinerja.
+   - [ ] Cek menu **AI Agent → Laporan Kinerja**: semua entri bulan itu berstatus **Siap diisikan** (yang _Belum lengkap_ menyebut kekurangannya).
+         Entri yang dibuat sebelum 31 Okt 2026 perlu dilengkapi **realisasi**-nya.
    - [ ] Klik **Isi ke e-Kinerja** → robot mencentang indikator & menambah butir sebagai **draf** (± 10–20 detik per butir).
-     Periksa di e-Kinerja, lalu tekan **Kirim Penilaian Ke Atasan sendiri** — robot tidak pernah mengirim. Butir di
-     e-Kinerja tidak bisa diubah satu per satu: periksa isian sebelum mengisi; salah ketik dihapus lewat **Edit Rencana Aksi
-     Kerja** (lepas centang indikator → isinya terhapus) lalu isi ulang.
+         Periksa di e-Kinerja, lalu tekan **Kirim Penilaian Ke Atasan sendiri** — robot tidak pernah mengirim. Butir di
+         e-Kinerja tidak bisa diubah satu per satu: periksa isian sebelum mengisi; salah ketik dihapus lewat **Edit Rencana Aksi
+         Kerja** (lepas centang indikator → isinya terhapus) lalu isi ulang.
    - [ ] **Pantau e-Kinerja** (tombol di Laporan Kinerja, hanya membaca): keadaan tiap bulan — draf / sudah dikirim ke atasan
-     (tanggal & hari kerja) / sudah dinilai (predikat) — beserta isi per indikator & feedback. Isian yang Anda ketik langsung di
-     e-Kinerja ikut masuk ke Akasha. Bulan yang sudah dikirim **terkunci** di Akasha.
+         (tanggal & hari kerja) / sudah dinilai (predikat) — beserta isi per indikator & feedback. Isian yang Anda ketik langsung di
+         e-Kinerja ikut masuk ke Akasha. Bulan yang sudah dikirim **terkunci** di Akasha.
    - [ ] Mengubah isian yang sudah terkirim: ubah entri di Akasha → status **Berubah — perlu dikirim** (hapus → **Akan dihapus**) →
-     **Periksa** (lihat rencana robot tanpa mengubah) → **Kirim perubahan**. Karena e-Kinerja tidak punya ubah per butir, robot
-     melepas centang baris indikator itu, mencentang lagi, lalu mengisi ulang semua butirnya dari Akasha. Kirim Penilaian tetap Anda.
-   Catatan: selama Akasha masih di laptop, tautan publik berawalan `localhost` — penilai di e-Kinerja baru bisa membukanya
-   setelah Akasha dipasang di VPS (B1–B3).
+         **Periksa** (lihat rencana robot tanpa mengubah) → **Kirim perubahan**. Karena e-Kinerja tidak punya ubah per butir, robot
+         melepas centang baris indikator itu, mencentang lagi, lalu mengisi ulang semua butirnya dari Akasha. Kirim Penilaian tetap Anda.
+         Catatan: selama Akasha masih di laptop, tautan publik berawalan `localhost` — penilai di e-Kinerja baru bisa membukanya
+         setelah Akasha dipasang di VPS (B1–B3).
+
 8. **Tautan publik** (untuk link dokumen e-Kinerja): buka berkas bukti di Akasha (pratinjau) → **Tautan publik** → pilih masa
    berlaku → **Buat** → salin tautan (hanya tampil sekali). Tautan bisa dicabut kapan saja.
 
 **SRIKANDI → Daftar Naskah Keluar** (bisa dipakai sekarang):
+
 - [ ] Klik **Ambil dari SRIKANDI** (sesi SRIKANDI harus aktif di tab Connector). Naskah yang sudah ditandatangani diambil PDF-nya
-  **beserta lampirannya**, otomatis masuk **Resource Global** (tag *Dokumen Final*) dan **File Control → Gantung**. Tautan ke
-  konsep/dokumen mentahnya dibuat lewat **Register Naskah Keluar → Tautkan final**.
+      **beserta lampirannya**, otomatis masuk **Resource Global** (tag _Dokumen Final_) dan **File Control → Gantung**. Tautan ke
+      konsep/dokumen mentahnya dibuat lewat **Register Naskah Keluar → Tautkan final**.
 - [ ] Buka **File Control → Gantung** → lengkapi klasifikasi & JRA naskah/lampiran tersebut (pemberkasan tetap oleh Anda).
 - [ ] **SRIKANDI → Referensi → Ambil referensi** (± 1–2 menit): penandatangan, tujuan, verifikator, tembusan & grup diambil
-  dari menu Pengguna SRIKANDI — dipakai nanti di **Register Naskah Keluar** (akan dibangun bersama Claude dengan panduan Anda).
+      dari menu Pengguna SRIKANDI — dipakai nanti di **Register Naskah Keluar** (akan dibangun bersama Claude dengan panduan Anda).
 
 **SRIKANDI → Register Naskah Keluar** (bisa dipakai; robot sudah diuji ke SRIKANDI sungguhan 31 Okt 2026):
+
 - [ ] Ambil referensi dulu (tab Referensi), lalu **Register baru** — atau dari **Approval → dokumen → SRIKANDI**. Isi formulir
-  (sama dengan formulir SRIKANDI; ketik Jenis/Sifat/Klasifikasi/Unit **persis** seperti di SRIKANDI, mis. `Nota Dinas`,
-  `Biasa`, `KU.204 - Laporan Keuangan`, `Bagian Keuangan Setditjen Hubud`), pilih file naskah (maks. 5 MB) & lampiran → **Simpan**.
+      (sama dengan formulir SRIKANDI; ketik Jenis/Sifat/Klasifikasi/Unit **persis** seperti di SRIKANDI, mis. `Nota Dinas`,
+      `Biasa`, `KU.204 - Laporan Keuangan`, `Bagian Keuangan Setditjen Hubud`), pilih file naskah (maks. 5 MB) & lampiran → **Simpan**.
 - [x] **Referensi → Klasifikasi → Ambil klasifikasi** (sudah diambil 31 Okt 2026: 1.048 klasifikasi, ± 1 menit). Ulangi bila klasifikasi di SRIKANDI berubah.
 - [ ] (Opsional) menu ⋯ → **Periksa di SRIKANDI (tanpa simpan)** → lihat tangkapan layar formulir yang diisi robot.
 - [ ] **Daftarkan ke SRIKANDI** → robot menyimpan **konsep** di SRIKANDI → Log Naskah Keluar. Buka SRIKANDI, periksa konsepnya,
-  lalu tekan **Kirim Konsep sendiri** — robot tidak pernah mengirim. Setelah ditandatangani: **Daftar Naskah Keluar → Ambil
-  dari SRIKANDI**, lalu di Register klik **Tautkan final**.
+      lalu tekan **Kirim Konsep sendiri** — robot tidak pernah mengirim. Setelah ditandatangani: **Daftar Naskah Keluar → Ambil
+      dari SRIKANDI**, lalu di Register klik **Tautkan final**.
 
 **Jadwal otomatis** (tab **Connector** → sub-tab **Otomasi terjadwal** di menu Laporan Kinerja & SRIKANDI; login & alamat ada di
 sub-tab **Pengaturan koneksi**):
+
 - [ ] Nyalakan sakelar jadwal yang Anda inginkan. Jadwal bawaan sudah terisi: Ambil SKP & RHK setiap hari 07.00, Pantau
-  Rencana Aksi setiap hari 07.05, Daftar Naskah Keluar tiap jam 07.00–17.00 Senin–Jumat, referensi setiap hari 07.00,
-  klasifikasi setiap Senin 07.00 (semua WIB). Ubah lewat **Ubah jadwal** bila perlu.
+      Rencana Aksi setiap hari 07.05, Daftar Naskah Keluar tiap jam 07.00–17.00 Senin–Jumat, referensi setiap hari 07.00,
+      klasifikasi setiap Senin 07.00 (semua WIB). Ubah lewat **Ubah jadwal** bila perlu.
 - [ ] Pada jam jadwal laptop/server, Docker, dan robot harus menyala. Bila baris jadwal menampilkan **Gagal … sesi
-  kedaluwarsa**, klik **Login ulang** (CAPTCHA/OTP Anda ketik) — jadwal berikutnya berjalan lagi.
+      kedaluwarsa**, klik **Login ulang** (CAPTCHA/OTP Anda ketik) — jadwal berikutnya berjalan lagi.
 - Tombol sinkron di menu asal tetap bisa dipakai kapan saja; **Jalankan sekarang** = sekali jalan tanpa menunggu jadwal.
 - [ ] Nyalakan juga **Jaga sesi login** untuk sistem yang jadwalnya aktif (tiap jam kerja): sesi diperbarui & disimpan, dan
-  bila habis Anda langsung mendapat notifikasi (lonceng 🔔 + pesan di layar). Klik **Aktifkan notifikasi browser** di kartu
-  Cara kerja otomasi (Connector → Otomasi terjadwal) agar diberi tahu juga saat tab Akasha tidak sedang dibuka. Selama sesi habis, jadwal sistem itu **dijeda** otomatis.
+      bila habis Anda langsung mendapat notifikasi (lonceng 🔔 + pesan di layar). Klik **Aktifkan notifikasi browser** di kartu
+      Cara kerja otomasi (Connector → Otomasi terjadwal) agar diberi tahu juga saat tab Akasha tidak sedang dibuka. Selama sesi habis, jadwal sistem itu **dijeda** otomatis.
 
 Catatan: rekaman halaman bisa memuat data kerja Anda (tersimpan hanya di Akasha Anda). Hapus rekaman yang tidak perlu
 dari **Riwayat robot**.
@@ -396,15 +416,15 @@ dari **Riwayat robot**.
 
 **Spesifikasi yang disarankan**
 
-| Pemakaian | RAM / CPU | Disk |
-|---|---|---|
-| Akasha + bot WhatsApp | 4 GB / 2 vCPU | ≥ 40 GB SSD |
-| + ONLYOFFICE (editor dokumen) | **8 GB / 4 vCPU** (disarankan) | ≥ 60 GB |
-| + Hermes pribadi + robot (nanti) | 12–16 GB / 4–6 vCPU | ≥ 80 GB |
+| Pemakaian                        | RAM / CPU                      | Disk        |
+| -------------------------------- | ------------------------------ | ----------- |
+| Akasha + bot WhatsApp            | 4 GB / 2 vCPU                  | ≥ 40 GB SSD |
+| + ONLYOFFICE (editor dokumen)    | **8 GB / 4 vCPU** (disarankan) | ≥ 60 GB     |
+| + Hermes pribadi + robot (nanti) | 12–16 GB / 4–6 vCPU            | ≥ 80 GB     |
 
 Syarat penyedia: sistem operasi **Ubuntu 24.04 LTS**, akses **root/SSH** penuh (bukan shared hosting/cPanel), **IPv4
 publik**, port **80 & 443** tidak diblokir, lokasi **Jakarta** (atau Singapura). Bandingkan beberapa penyedia VPS lokal
-maupun internasional; pilih yang punya fitur *snapshot*.
+maupun internasional; pilih yang punya fitur _snapshot_.
 
 **Langkah**
 
@@ -415,13 +435,14 @@ maupun internasional; pilih yang punya fitur *snapshot*.
    ssh-keygen -t ed25519
    ```
 
-   Tekan Enter untuk lokasi bawaan, isi *passphrase* (catat di password manager). Lalu tampilkan kunci publiknya:
+   Tekan Enter untuk lokasi bawaan, isi _passphrase_ (catat di password manager). Lalu tampilkan kunci publiknya:
 
    ```powershell
    Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub
    ```
 
    Salin teks yang muncul ke kolom **SSH key** saat membuat VPS.
+
 3. Selesaikan pembayaran → catat **alamat IP** VPS.
 4. Coba masuk: `ssh root@<IP-VPS>` (ketik `yes` saat ditanya). Berhasil = muncul prompt `root@…`.
 
@@ -429,10 +450,12 @@ maupun internasional; pilih yang punya fitur *snapshot*.
 
 1. Beli domain di registrar (penjual domain) mana pun, mis. `namaanda.id` atau `.com`. Bisa juga memakai subdomain
    dari domain yang sudah Anda punya.
-2. Di panel DNS registrar, tambahkan **record A**: Nama `akasha` (atau `@`) → Nilai = **IP VPS**. Bila memakai
-   Cloudflare, set ke **DNS only** (awan abu-abu).
-3. Tunggu beberapa menit, lalu cek di PowerShell: `nslookup akasha.namaanda.id` → harus menampilkan IP VPS.
-4. Alamat aplikasi nanti: `https://akasha.namaanda.id`.
+2. Di panel DNS domain `workingspace.id`, tambahkan empat **record A** yang semuanya bernilai **IP VPS**: `@` (halaman
+   depan), `www`, `auth` (SSO), `akasha`. Bila memakai Cloudflare, set ke **DNS only** (awan abu-abu). Record email Titan
+   (MX, SPF, DKIM, DMARC) tetap dipasang sesuai petunjuk Titan.
+3. Tunggu beberapa menit, lalu cek di PowerShell: `nslookup workingspace.id`, `nslookup auth.workingspace.id`,
+   `nslookup akasha.workingspace.id` → semuanya menampilkan IP VPS.
+4. Alamat nanti: `https://workingspace.id` (halaman depan), `https://auth.workingspace.id` (akun), `https://akasha.workingspace.id`.
 
 ## B3. Pasang Akasha di VPS
 
@@ -441,9 +464,12 @@ Ikuti `docs/DEPLOYMENT.md` §0.4 → §1 → §1.2 → §2 (perintah bisa disali
 1. Masuk VPS (`ssh root@<IP>`), buat user biasa, pasang Docker, nyalakan firewall (§1).
 2. Amankan SSH (§1.2).
 3. `git clone https://github.com/zonakerja/workingspace.git`, salin `.env.example` → `.env`, isi domain, email, dan semua
-   rahasia (`openssl rand -hex 32` untuk tiap rahasia). **Simpan salinan `.env` di password manager.**
-4. `docker compose -f docker-compose.prod.yml up -d --build`, lalu buat akun admin (§2).
-5. Buka `https://<domain>` → login → ganti password admin.
+   rahasia (`openssl rand -hex 32` untuk tiap rahasia; tiga rahasia SSO dari
+   `node apps/auth/api/scripts/generate-prod-secrets.mjs`), dan kata sandi email Titan `noreply@workingspace.id` (diketik
+   sendiri). **Simpan salinan `.env` di password manager.**
+4. `docker compose -f docker-compose.prod.yml up -d --build`, lalu jalankan dua perintah seed (SSO & Akasha, §2).
+5. Buka `https://workingspace.id` → **Masuk** → ganti kata sandi di halaman akun → buka Akasha dari bagian Akses.
+   Coba juga **Daftar** dengan email lain untuk memastikan email verifikasi sampai.
 6. ONLYOFFICE (bila VPS 8 GB): §9. Isi API key AI lagi di Pengaturan → Model AI (server baru).
 
 Tidak yakin? Minta Claude memandu sambil Anda menjalankan perintah, satu per satu.
@@ -451,7 +477,7 @@ Tidak yakin? Minta Claude memandu sambil Anda menjalankan perintah, satu per sat
 ## B4. Backup luar server & pemantauan
 
 1. Buat akun **Cloudflare** → **R2** → buat bucket (mis. `akasha-backup`) → buat **API token R2** (izin
-   *Object Read & Write*) → catat *Access Key ID*, *Secret*, dan *endpoint*. Detail: DEPLOYMENT §4.1.
+   _Object Read & Write_) → catat _Access Key ID_, _Secret_, dan _endpoint_. Detail: DEPLOYMENT §4.1.
 2. Isi `OFFSITE_S3_*` dan `BACKUP_ENCRYPTION_PASSWORD` di `.env` → `docker compose -f docker-compose.prod.yml up -d`.
    **Simpan `BACKUP_ENCRYPTION_PASSWORD` di password manager** — tanpa ini backup tidak bisa dibuka.
 3. Buat akun **healthchecks.io** → buat check harian → isi URL-nya ke `BACKUP_HEALTHCHECK_URL` (§5.1).
@@ -467,7 +493,7 @@ Tidak yakin? Minta Claude memandu sambil Anda menjalankan perintah, satu per sat
 3. **VPS**: ikuti DEPLOYMENT §10 (Syncthing berjalan sebagai container: tambahkan `sync` ke `COMPOSE_PROFILES` di
    `.env`; antarmukanya dibuka hanya lewat tunnel SSH, lalu pasang user/password antarmuka). Obsidian **tidak** dipasang
    di VPS.
-4. Di laptop: **Add Remote Device** → masukkan *Device ID* VPS (dan HP). Lalu bagikan folder vault Anda ke perangkat
+4. Di laptop: **Add Remote Device** → masukkan _Device ID_ VPS (dan HP). Lalu bagikan folder vault Anda ke perangkat
    tersebut; di VPS arahkan ke `/var/syncthing/knowledge-vaults/<nama folder>`.
 5. Di Akasha (VPS): **Tools → Basis Pengetahuan → Pakai folder yang sudah ada** → pilih folder itu.
 
@@ -482,10 +508,10 @@ Nama menu Meta bisa sedikit berubah; ikuti yang paling mirip. Panduan resmi: <ht
 1. **Akun Meta Business**: buka <https://business.facebook.com> → buat akun bisnis (nama instansi/unit kerja, email
    dinas).
 2. **Aplikasi Meta**: <https://developers.facebook.com> → **My Apps → Create App** → pilih kegunaan yang
-   berhubungan dengan **WhatsApp** (*Connect with customers through WhatsApp*) → pilih akun bisnis dari langkah 1.
+   berhubungan dengan **WhatsApp** (_Connect with customers through WhatsApp_) → pilih akun bisnis dari langkah 1.
 3. Di aplikasi → **WhatsApp → API Setup**: Meta memberi **nomor uji** gratis. Catat **Phone number ID**. Tambahkan
    nomor HP Anda sebagai penerima uji untuk mencoba.
-4. **Tambahkan nomor asli**: di halaman yang sama → **Add phone number** → isi nama tampilan (mis. *Layanan BMN …*),
+4. **Tambahkan nomor asli**: di halaman yang sama → **Add phone number** → isi nama tampilan (mis. _Layanan BMN …_),
    verifikasi lewat SMS/telepon → nama tampilan menunggu persetujuan Meta. Catat **Phone number ID** nomor asli.
 5. **Token permanen**: <https://business.facebook.com> → **Settings → Users → System users** → **Add** (peran Admin) →
    **Assign assets**: aplikasi (Full control) dan akun WhatsApp → **Generate token** → pilih aplikasi, izin
@@ -503,9 +529,10 @@ Nama menu Meta bisa sedikit berubah; ikuti yang paling mirip. Panduan resmi: <ht
    ```
 
    lalu `docker compose -f docker-compose.prod.yml up -d`.
+
 9. **Daftarkan webhook**: di aplikasi Meta → **WhatsApp → Configuration → Webhook → Edit** → Callback URL
    `https://<domain>/api/v1/whatsapp/webhook`, Verify token = isi langkah 7 → **Verify and save** → pada daftar
-   *Webhook fields* **Subscribe** `messages`.
+   _Webhook fields_ **Subscribe** `messages`.
 10. Di Akasha **Approval → Percakapan WA** kartu status berubah menjadi **Bot WhatsApp aktif**. Dari HP lain yang
     sudah didaftarkan sebagai kontak terverifikasi (A5), kirim pesan ke nomor bot → balasan muncul di WhatsApp dan di
     Akasha.
@@ -513,6 +540,7 @@ Nama menu Meta bisa sedikit berubah; ikuti yang paling mirip. Panduan resmi: <ht
 12. Umumkan nomor bot ke pengguna (satker/masyarakat) beserta cara pakainya: bertanya, `#status`, kirim berkas pengajuan.
 
 Hal yang perlu diketahui:
+
 - **Biaya**: Meta menagih per pesan sesuai kategori; membalas pesan satker dalam 24 jam (pesan layanan) umumnya tidak
   dikenai biaya. Cek halaman harga WhatsApp Business Platform sebelum go-live.
 - **Jendela 24 jam**: Akasha hanya bisa mengirim pesan bebas ≤ 24 jam sejak satker terakhir mengirim pesan. Kabar status
@@ -531,7 +559,7 @@ Telegram Anda yang diizinkan. Minta Claude menyiapkan service otomatis (systemd)
 ## C. Lain-lain
 
 - **C1 OnTrack**: selesaikan prototipe modul SIMAN/MyIntress + REST API ber-API key + MCP di repo OnTrack (port
-  5174/3000/5433/6380). Setelah siap, minta Claude: *"lanjut tahap 5b konektor OnTrack"*.
+  5174/3000/5433/6380). Setelah siap, minta Claude: _"lanjut tahap 5b konektor OnTrack"_.
 - **C2 Izin otomasi**: sampaikan ke admin SRIKANDI instansi dan Biro SDM (e-Kinerja) bahwa Anda memakai alat bantu
   pengisian dengan akun sendiri (login, CAPTCHA, OTP, dan tanda tangan tetap oleh Anda). Mintalah persetujuan tertulis
   bila diperlukan. Server robot sebaiknya VPS di Indonesia (B1).
@@ -546,74 +574,78 @@ Telegram Anda yang diizinkan. Minta Claude menyiapkan service otomatis (systemd)
      ke MCP Akasha saja.
   4. Mode Otomatis hanya menyimpan **konsep** di SRIKANDI setelah masa tunda (bisa dibatalkan di detail pengajuan).
      Kirim Konsep & tanda tangan tetap Anda. Sakelar darurat menghentikan semuanya seketika.
-- **C4 GitHub**: minta Claude *"push ke GitHub"*, lalu buka tab **Actions** di repo untuk memastikan centang hijau.
+- **C4 GitHub**: minta Claude _"push ke GitHub"_, lalu buka tab **Actions** di repo untuk memastikan centang hijau.
 
 ---
 
 ## Riwayat dokumen
 
-| Tanggal | Perubahan |
-|---|---|
-| 2026-10-24 | Dibuat: to-do AI (A1–A7), VPS & online (B1–B7, termasuk WhatsApp Cloud API), lain-lain (C1–C4) |
-| 2026-10-24 | A3 & A5 diperbarui: grup kontak umum (bukan hanya satker), profil layanan bot, properti `grup` |
-| 2026-10-25 | A8 baru (Konektor Robot SRIKANDI & e-Kinerja, rekam halaman, tautan publik); C2 = izin otomasi |
-| 2026-10-25 | A8: brankas kredensial + login otomatis (CAPTCHA & OTP diketik), peringatan ganti kata sandi |
-| 2026-10-25 | A8: "Rekam halaman ini" di tayangan (formulir/modal); daftar rekaman Rencana Aksi e-Kinerja |
-| 2026-10-25 | A8: isi RHK 2026 & pilih item Working Space ke Renaksi (bulan, RHK, uraian, link dokumen) |
-| 2026-10-25 | A8: RHK diambil robot (Ambil dari e-Kinerja), tab bernama Laporan Kinerja, beberapa SKP per tahun |
-| 2026-10-25 | Menu AI Agent (Approval, Laporan Kinerja, SRIKANDI); Eksplor halaman diganti Rekam halaman ini |
-| 2026-10-25 | Connector pindah ke Laporan Kinerja & SRIKANDI; SRIKANDI → Naskah Keluar → Ambil dari SRIKANDI (PDF ber-TTD) |
-| 2026-10-25 | Ambil dari SRIKANDI juga mengambil lampiran naskah |
+| Tanggal    | Perubahan                                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-24 | Dibuat: to-do AI (A1–A7), VPS & online (B1–B7, termasuk WhatsApp Cloud API), lain-lain (C1–C4)                                          |
+| 2026-10-24 | A3 & A5 diperbarui: grup kontak umum (bukan hanya satker), profil layanan bot, properti `grup`                                          |
+| 2026-10-25 | A8 baru (Konektor Robot SRIKANDI & e-Kinerja, rekam halaman, tautan publik); C2 = izin otomasi                                          |
+| 2026-10-25 | A8: brankas kredensial + login otomatis (CAPTCHA & OTP diketik), peringatan ganti kata sandi                                            |
+| 2026-10-25 | A8: "Rekam halaman ini" di tayangan (formulir/modal); daftar rekaman Rencana Aksi e-Kinerja                                             |
+| 2026-10-25 | A8: isi RHK 2026 & pilih item Working Space ke Renaksi (bulan, RHK, uraian, link dokumen)                                               |
+| 2026-10-25 | A8: RHK diambil robot (Ambil dari e-Kinerja), tab bernama Laporan Kinerja, beberapa SKP per tahun                                       |
+| 2026-10-25 | Menu AI Agent (Approval, Laporan Kinerja, SRIKANDI); Eksplor halaman diganti Rekam halaman ini                                          |
+| 2026-10-25 | Connector pindah ke Laporan Kinerja & SRIKANDI; SRIKANDI → Naskah Keluar → Ambil dari SRIKANDI (PDF ber-TTD)                            |
+| 2026-10-25 | Ambil dari SRIKANDI juga mengambil lampiran naskah                                                                                      |
 | 2026-10-25 | Naskah ber-TTD & lampiran otomatis ke Resource Global (Dokumen Final) + File Control (Gantung) — beri klasifikasi & JRA di File Control |
-| 2026-10-25 | Tab Daftar Naskah Keluar & Referensi SRIKANDI; tautan ke konsep menunggu Register Naskah Keluar |
-| 2026-10-31 | Laporan Kinerja per indikator (rencana aksi + realisasi + bukti) & tombol Isi ke e-Kinerja (draf, Anda yang mengirim) |
-| 2026-10-31 | Approval kembali ke Workspace; dokumen bertemplat akan ditangani skill Hermes — C5 (keputusan AG-22…25 & contoh dokumen) |
-| 2026-11-06 | C6 selesai; C7 baru: cara memakai Kebijakan Otomatis (templat Register, shadow → otomatis, batasi alat Hermes) |
-| 2026-10-31 | A7 diganti: Hermes terpasang sebagai container — jalankan setup.sh (model + token), coba Asisten Agen & Kerjakan dengan agen |
-| 2026-10-31 | A7 disederhanakan: setup.sh dihapus — simpan key Gemini di Pengaturan → Model AI lalu tombol **Siapkan agen** di Asisten Agen |
-| 2026-10-31 | A8: rekam formulir Registrasi Naskah Keluar SRIKANDI + 3 pertanyaan untuk Register Naskah Keluar |
-| 2026-10-31 | A8: tab Register Naskah Keluar bisa dicoba (isi, Tandai terdaftar, Tautkan final); robot menyusul |
-| 2026-10-31 | A8: Pantau e-Kinerja (status bulan, isi, feedback) + ubah isian terkirim → Kirim perubahan |
-| 2026-10-31 | A8: Klasifikasi arsip SRIKANDI jadi referensi (Ambil klasifikasi) |
-| 2026-10-31 | A8: robot Daftarkan ke SRIKANDI (konsep, tanpa Kirim Konsep) + Periksa; tugas rekam formulir dihapus (sudah dipetakan Claude) |
-| 2026-10-31 | A8: bukti renaksi lewat Brankas digital (satu tautan per poin, log akses IP + lokasi, Ganti tautan) |
-| 2026-11-01 | A8: jadwal otomatis sinkron e-Kinerja & SRIKANDI (Tools → Otomasi) — nyalakan sakelar yang diinginkan |
-| 2026-11-01 | A8: Jaga sesi login + notifikasi sesi kedaluwarsa (lonceng, toast, browser) |
-| 2026-11-01 | C6: keputusan persetujuan otomatis (Kebijakan Otomatis, alur Generasi PSP) + templat Telaah Staf |
-| 2026-11-06 | A9 baru: provider AI lewat router (alamat API + key router + ID model router) |
-| 2026-11-06 | A10 baru: coba menu Knowledge (antarmuka Obsidian di Akasha) |
-| 2026-11-06 | A11 baru: cermin hasil kerja Akasha ke Obsidian (`80-Akasha`) |
-| 2026-11-06 | A8: jadwal otomatis kini hanya di tab Connector Laporan Kinerja & SRIKANDI (sub menu Tools → Otomasi dihapus) |
-| 2026-11-06 | Tab Connector dibagi: sub-tab Pengaturan koneksi (login, alamat) dan Otomasi terjadwal (jadwal) |
-| 2026-11-06 | A12 baru: catatan harian & catatan serupa di menu Knowledge |
-| 2026-11-07 | A13 baru: palet perintah Ctrl+P & perintah `/` di editor Knowledge |
-| 2026-11-07 | A14 baru: tab Tugas (tugas lintas vault) di Knowledge & Planner Harian |
-| 2026-11-07 | A15 baru: sematan bagian & blok di Knowledge |
-| 2026-11-07 | A16 baru: tab Bases (tampilan tersimpan .base) di Knowledge |
-| 2026-11-07 | A17 baru: riwayat versi catatan & lanjutan Bases |
-| 2026-11-07 | A18 baru: tab Canvas di Knowledge |
-| 2026-11-07 | A19 baru: catatan mingguan/bulanan, sematan & pencarian canvas |
-| 2026-11-09 | A20 baru: Note composer (gabung & ekstrak) |
-| 2026-11-09 | A21 baru: Mermaid, sorotan, komentar, catatan kaki, ganti nama tag |
-| 2026-11-09 | A22 baru: dua catatan berdampingan, pecah catatan, sisip di bawah judul |
-| 2026-11-09 | A23 baru: pastikan penanda templat yang diisi SRIKANDI, setelah uji agen menyeluruh |
-| 2026-11-09 | A23 dipersempit (empat penanda dipastikan milik SRIKANDI); A24 baru: unggah templat lewat ONLYOFFICE |
-| 2026-11-09 | A8 ditandai ditunda sesuai keputusan uji robot |
-| 2026-11-09 | A25 baru: ajarkan proses PSP dari tiket SIMAN |
-| 2026-11-09 | A26 baru: tandai bidang pengetahuan |
-| 2026-11-10 | A27 baru: coba Sampah & persetujuan hapus dari agen |
-| 2026-11-10 | A28 baru: login SIMAN lewat KemenkeuID |
-| 2026-11-10 | A29 baru: sambungkan aplikasi lewat MCP (Canva dsb.) |
-| 2026-11-12 | A30 baru: izinkan Hermes memakai robot e-Kinerja (e-Kinerja menjadi fitur terbuka) |
-| 2026-11-12 | A30 diperluas: renaksi diusulkan Hermes dari menu e-Kinerja (tombol di Working Space dihapus) |
-| 2026-11-13 | A32 baru: izinkan Hermes memakai robot SRIKANDI (SRIKANDI menjadi fitur terbuka) |
-| 2026-11-13 | A33 baru: izinkan Hermes memakai robot SIMAN (SIMAN menjadi fitur terbuka) |
-| 2026-11-13 | A37 baru: coba Markdown Converter & baca ulang berkas lama |
-| 2026-11-13 | A36 baru: siapkan Canva untuk Hermes (izin alat, Brand Kit, templat) |
-| 2026-11-13 | A35 baru: sambungkan Google Workspace (OAuth client sendiri) & cara token GitHub |
-| 2026-11-14 | A36 baru: atur PIN keamanan & kunci item pribadi |
-| 2026-11-13 | A34 baru: izinkan Hermes mengatur Aplikasi MCP (Aplikasi MCP menjadi fitur terbuka) |
-| 2026-11-15 | A38 baru: coba Kirim Konsep dengan PIN (pengiriman sungguhan pertama oleh Anda) |
-| 2026-11-15 | A40 baru: bersihkan berkas lama yang dipindah ke Tools → ONLYOFFICE → Dokumen |
-| 2026-11-15 | A39 baru: coba Kirim Penilaian Ke Atasan dengan PIN (pengiriman sungguhan pertama oleh Anda) |
-| 2026-11-12 | A31 baru: uji asal pembuka tautan bukti dari e-Kinerja (setelah VPS) |
+| 2026-10-25 | Tab Daftar Naskah Keluar & Referensi SRIKANDI; tautan ke konsep menunggu Register Naskah Keluar                                         |
+| 2026-10-31 | Laporan Kinerja per indikator (rencana aksi + realisasi + bukti) & tombol Isi ke e-Kinerja (draf, Anda yang mengirim)                   |
+| 2026-10-31 | Approval kembali ke Workspace; dokumen bertemplat akan ditangani skill Hermes — C5 (keputusan AG-22…25 & contoh dokumen)                |
+| 2026-11-06 | C6 selesai; C7 baru: cara memakai Kebijakan Otomatis (templat Register, shadow → otomatis, batasi alat Hermes)                          |
+| 2026-10-31 | A7 diganti: Hermes terpasang sebagai container — jalankan setup.sh (model + token), coba Asisten Agen & Kerjakan dengan agen            |
+| 2026-10-31 | A7 disederhanakan: setup.sh dihapus — simpan key Gemini di Pengaturan → Model AI lalu tombol **Siapkan agen** di Asisten Agen           |
+| 2026-10-31 | A8: rekam formulir Registrasi Naskah Keluar SRIKANDI + 3 pertanyaan untuk Register Naskah Keluar                                        |
+| 2026-10-31 | A8: tab Register Naskah Keluar bisa dicoba (isi, Tandai terdaftar, Tautkan final); robot menyusul                                       |
+| 2026-10-31 | A8: Pantau e-Kinerja (status bulan, isi, feedback) + ubah isian terkirim → Kirim perubahan                                              |
+| 2026-10-31 | A8: Klasifikasi arsip SRIKANDI jadi referensi (Ambil klasifikasi)                                                                       |
+| 2026-10-31 | A8: robot Daftarkan ke SRIKANDI (konsep, tanpa Kirim Konsep) + Periksa; tugas rekam formulir dihapus (sudah dipetakan Claude)           |
+| 2026-10-31 | A8: bukti renaksi lewat Brankas digital (satu tautan per poin, log akses IP + lokasi, Ganti tautan)                                     |
+| 2026-11-01 | A8: jadwal otomatis sinkron e-Kinerja & SRIKANDI (Tools → Otomasi) — nyalakan sakelar yang diinginkan                                   |
+| 2026-11-01 | A8: Jaga sesi login + notifikasi sesi kedaluwarsa (lonceng, toast, browser)                                                             |
+| 2026-11-01 | C6: keputusan persetujuan otomatis (Kebijakan Otomatis, alur Generasi PSP) + templat Telaah Staf                                        |
+| 2026-11-06 | A9 baru: provider AI lewat router (alamat API + key router + ID model router)                                                           |
+| 2026-11-06 | A10 baru: coba menu Knowledge (antarmuka Obsidian di Akasha)                                                                            |
+| 2026-11-06 | A11 baru: cermin hasil kerja Akasha ke Obsidian (`80-Akasha`)                                                                           |
+| 2026-11-06 | A8: jadwal otomatis kini hanya di tab Connector Laporan Kinerja & SRIKANDI (sub menu Tools → Otomasi dihapus)                           |
+| 2026-11-06 | Tab Connector dibagi: sub-tab Pengaturan koneksi (login, alamat) dan Otomasi terjadwal (jadwal)                                         |
+| 2026-11-06 | A12 baru: catatan harian & catatan serupa di menu Knowledge                                                                             |
+| 2026-11-07 | A13 baru: palet perintah Ctrl+P & perintah `/` di editor Knowledge                                                                      |
+| 2026-11-07 | A14 baru: tab Tugas (tugas lintas vault) di Knowledge & Planner Harian                                                                  |
+| 2026-11-07 | A15 baru: sematan bagian & blok di Knowledge                                                                                            |
+| 2026-11-07 | A16 baru: tab Bases (tampilan tersimpan .base) di Knowledge                                                                             |
+| 2026-11-07 | A17 baru: riwayat versi catatan & lanjutan Bases                                                                                        |
+| 2026-11-07 | A18 baru: tab Canvas di Knowledge                                                                                                       |
+| 2026-11-07 | A19 baru: catatan mingguan/bulanan, sematan & pencarian canvas                                                                          |
+| 2026-11-09 | A20 baru: Note composer (gabung & ekstrak)                                                                                              |
+| 2026-11-09 | A21 baru: Mermaid, sorotan, komentar, catatan kaki, ganti nama tag                                                                      |
+| 2026-11-09 | A22 baru: dua catatan berdampingan, pecah catatan, sisip di bawah judul                                                                 |
+| 2026-11-09 | A23 baru: pastikan penanda templat yang diisi SRIKANDI, setelah uji agen menyeluruh                                                     |
+| 2026-11-09 | A23 dipersempit (empat penanda dipastikan milik SRIKANDI); A24 baru: unggah templat lewat ONLYOFFICE                                    |
+| 2026-11-09 | A8 ditandai ditunda sesuai keputusan uji robot                                                                                          |
+| 2026-11-09 | A25 baru: ajarkan proses PSP dari tiket SIMAN                                                                                           |
+| 2026-11-09 | A26 baru: tandai bidang pengetahuan                                                                                                     |
+| 2026-11-10 | A27 baru: coba Sampah & persetujuan hapus dari agen                                                                                     |
+| 2026-11-10 | A28 baru: login SIMAN lewat KemenkeuID                                                                                                  |
+| 2026-11-10 | A29 baru: sambungkan aplikasi lewat MCP (Canva dsb.)                                                                                    |
+| 2026-11-12 | A30 baru: izinkan Hermes memakai robot e-Kinerja (e-Kinerja menjadi fitur terbuka)                                                      |
+| 2026-11-12 | A30 diperluas: renaksi diusulkan Hermes dari menu e-Kinerja (tombol di Working Space dihapus)                                           |
+| 2026-11-13 | A32 baru: izinkan Hermes memakai robot SRIKANDI (SRIKANDI menjadi fitur terbuka)                                                        |
+| 2026-11-13 | A33 baru: izinkan Hermes memakai robot SIMAN (SIMAN menjadi fitur terbuka)                                                              |
+| 2026-11-13 | A37 baru: coba Markdown Converter & baca ulang berkas lama                                                                              |
+| 2026-11-13 | A36 baru: siapkan Canva untuk Hermes (izin alat, Brand Kit, templat)                                                                    |
+| 2026-11-13 | A35 baru: sambungkan Google Workspace (OAuth client sendiri) & cara token GitHub                                                        |
+| 2026-11-14 | A36 baru: atur PIN keamanan & kunci item pribadi                                                                                        |
+| 2026-11-13 | A34 baru: izinkan Hermes mengatur Aplikasi MCP (Aplikasi MCP menjadi fitur terbuka)                                                     |
+| 2026-11-15 | A38 baru: coba Kirim Konsep dengan PIN (pengiriman sungguhan pertama oleh Anda)                                                         |
+| 2026-11-15 | A40 baru: bersihkan berkas lama yang dipindah ke Tools → ONLYOFFICE → Dokumen                                                           |
+| 2026-11-16 | A43 baru: DNS email Titan (MX, SPF, DKIM, DMARC) di Rumahweb                                                                            |
+| 2026-11-16 | A43 selesai (DNS email Titan terverifikasi) |
+| 2026-11-16 | A44 baru: coba Akai (sumber model, pembagian tugas) — Akasha memakainya untuk tugas yang diatur di Akai                                 |
+| 2026-11-16 | B2/B3 diperbarui: empat record DNS (halaman depan, www, auth, akasha), rahasia SSO & email Titan saat pasang di VPS                     |
+| 2026-11-15 | A39 baru: coba Kirim Penilaian Ke Atasan dengan PIN (pengiriman sungguhan pertama oleh Anda)                                            |
+| 2026-11-12 | A31 baru: uji asal pembuka tautan bukti dari e-Kinerja (setelah VPS)                                                                    |

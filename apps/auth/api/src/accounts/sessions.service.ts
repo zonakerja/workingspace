@@ -10,6 +10,7 @@ import {
   readCookie,
   sessionCookieOptions,
 } from "../common/http";
+import { OidcService } from "../oidc/oidc.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -23,6 +24,7 @@ export class SessionsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly oidc: OidcService,
     config: ConfigService,
   ) {
     this.secure = config.get<boolean>("COOKIE_SECURE") ?? config.get<string>("NODE_ENV") === "production";
@@ -59,7 +61,11 @@ export class SessionsService {
 
   async destroy(req: Request, res: Response) {
     const token = readCookie(req, SESSION_COOKIE);
-    if (token) await this.prisma.authSession.deleteMany({ where: { tokenHash: hashToken(token) } });
+    if (token) {
+      const tokenHash = hashToken(token);
+      await this.oidc.notifyLogout({ authSession: { tokenHash } });
+      await this.prisma.authSession.deleteMany({ where: { tokenHash } });
+    }
     clearSessionCookie(res, this.secure);
   }
 
@@ -71,7 +77,8 @@ export class SessionsService {
     });
   }
 
-  revoke(accountId: string, sessionId: string) {
+  async revoke(accountId: string, sessionId: string) {
+    await this.oidc.notifyLogout({ accountId, authSessionId: sessionId });
     return this.prisma.authSession.deleteMany({ where: { accountId, id: sessionId } });
   }
 }
