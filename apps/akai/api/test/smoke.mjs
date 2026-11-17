@@ -3,6 +3,7 @@
 // Memakai router tiruan lokal (tanpa key sungguhan), akun sementara smoke-akai-* yang dihapus di akhir.
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import * as fs from "node:fs";
 import { join, resolve } from "node:path";
 import pg from "pg";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -150,6 +151,25 @@ data: ${JSON.stringify({ type, ...data })}
         const lastMsg = body.messages?.at(-1);
         const searchTool = (body.tools ?? []).find((t) => t.function?.name?.endsWith("__cari_catatan"));
         const skillTool = (body.tools ?? []).find((t) => t.function?.name === "akai__skill");
+        const pluginTool = (body.tools ?? []).find((t) => t.function?.name === "p_hari_kerja__hitung_hari_kerja");
+        if (pluginTool && JSON.stringify(lastMsg?.role === "user" ? lastMsg.content : "").includes("UJI-PLUGIN")) {
+          res.write(
+            chunk({
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_plugin",
+                  type: "function",
+                  function: {
+                    name: pluginTool.function.name,
+                    arguments: JSON.stringify({ mulai: "2026-11-16", selesai: "2026-11-22" }),
+                  },
+                },
+              ],
+            }),
+          );
+          return res.end("data: [DONE]\n\n");
+        }
         const skillAsk = /UJI-SKILL ([a-z0-9-]+)/.exec(JSON.stringify(lastMsg?.role === "user" ? lastMsg.content : ""));
         if (skillTool && skillAsk) {
           res.write(
@@ -609,6 +629,9 @@ try {
       await probe.end();
       // Sumber & rute tiruan untuk akun itu (lewat API aplikasi)
       const asWeb = (method, path, body) => call(method, path, body, webSubject);
+      const leftovers = (await asWeb("GET", "/api/sources")).d;
+      for (const old of Array.isArray(leftovers) ? leftovers : [])
+        if (String(old.label).startsWith("Smoke chat")) await asWeb("DELETE", `/api/sources/${old.id}`);
       const src = (
         await asWeb("POST", "/api/sources", {
           kind: "router",
@@ -942,6 +965,73 @@ try {
       x = await web("DELETE", `/api/connectors/${connector}`);
       ok("connector: delete", x.s === 204, x);
       await web("DELETE", `/api/chat/conversations/${tconv}`);
+
+      // ---- Paket plugin (6b.7): instruksi + skill + konektor MCP yang dibuat bersama paket
+      const pkgCode = JSON.stringify({
+        type: "akai-package",
+        name: `paket-uji-${stamp}`,
+        title: "Paket Uji",
+        description: "Paket uji smoke",
+        instructions: "PENANDA-INSTRUKSI-PAKET",
+        skills: [
+          { name: "rangkum", description: "Merangkum catatan paket uji smoke", instructions: "PENANDA-SKILL-PAKET" },
+        ],
+        connectors: [{ name: "MCP Paket", url: mcpUrl, auth: "token" }],
+      });
+      x = await web("POST", "/api/plugins", { code: "{ rusak" });
+      ok("package: invalid JSON rejected", x.s === 400 && /JSON/.test(x.d.message), x.d);
+      x = await web("POST", "/api/plugins", { code: pkgCode });
+      ok(
+        "package: install creates connector awaiting token",
+        x.s === 201 &&
+          x.d.kind === "package" &&
+          x.d.connectors?.length === 1 &&
+          x.d.connectors[0].status === "auth_required" &&
+          !x.d.connectors[0].hasToken,
+        x.d,
+      );
+      const pkgId = x.d.id;
+      const pkgConn = x.d.connectors?.[0]?.id;
+      x = await web("PATCH", `/api/connectors/${pkgConn}`, { token: "smoke-mcp-token-123" });
+      ok(
+        "package: connector connects after owner sets token",
+        x.d.status === "connected" && x.d.pluginId === pkgId,
+        x.d,
+      );
+      x = await web("GET", "/api/skills");
+      ok(
+        "package: skill listed under plugins",
+        (x.d.plugins ?? []).some((sk) => sk.name === `paket-uji-${stamp}-rangkum`),
+        x.d.plugins,
+      );
+      const pconv2 = (await web("POST", "/api/chat/conversations", {})).d.id;
+      await web("POST", `/api/chat/conversations/${pconv2}/messages`, { content: "Halo paket" });
+      const psys = gw.lastChatBody()?.messages?.[0]?.content ?? "";
+      ok(
+        "package: instructions in system prompt, connector tools offered",
+        psys.includes("PENANDA-INSTRUKSI-PAKET") &&
+          (gw.lastChatBody()?.tools ?? []).some((t) => t.function.name.startsWith("mcp_paket__")),
+        psys.slice(-300),
+      );
+      x = await web("PATCH", `/api/plugins/${pkgId}`, { enabled: false });
+      await web("POST", `/api/chat/conversations/${pconv2}/messages`, { content: "Halo lagi" });
+      const psys2 = gw.lastChatBody()?.messages?.[0]?.content ?? "";
+      ok(
+        "package: disabled = no instructions, connector disabled",
+        x.d.enabled === false &&
+          x.d.connectors?.[0]?.enabled === false &&
+          !psys2.includes("PENANDA-INSTRUKSI-PAKET") &&
+          !(gw.lastChatBody()?.tools ?? []).some((t) => t.function.name.startsWith("mcp_paket__")),
+        x.d,
+      );
+      await web("DELETE", `/api/chat/conversations/${pconv2}`);
+      x = await web("DELETE", `/api/plugins/${pkgId}`);
+      const left = await web("GET", "/api/connectors");
+      ok(
+        "package: delete removes its connectors",
+        x.s === 204 && !(left.d.connectors ?? []).some((c) => c.id === pkgConn),
+        left.d,
+      );
     } finally {
       mcpHttp.close();
     }
@@ -1008,7 +1098,10 @@ try {
 
       // Model tanpa dukungan alat → skill yang cocok disisipkan langsung ke prompt sistem
       const models = (await web("GET", "/api/models")).d;
-      const ma = (Array.isArray(models) ? models : []).find((m) => m.modelId === "model-a" && m.tools);
+      const chatRoute = ((await web("GET", "/api/tasks")).d ?? []).find?.((t) => t.task === "chat");
+      const ma = (Array.isArray(models) ? models : []).find(
+        (m) => m.modelId === "model-a" && m.tools && (chatRoute?.modelIds ?? []).includes(m.id),
+      );
       if (ma) {
         await web("PATCH", `/api/models/${ma.id}`, { tools: false });
         x = await web("POST", `/api/chat/conversations/${sconv}/messages`, {
@@ -1034,10 +1127,186 @@ try {
       ok("skill: delete", x.s === 204, x.d);
       await web("DELETE", `/api/chat/conversations/${sconv}`);
     } finally {
-      for (const n of builtinNames)
-        await web("PATCH", `/api/skills/builtin/${n}`, { enabled: !builtinWasOff.has(n) });
+      for (const n of builtinNames) await web("PATCH", `/api/skills/builtin/${n}`, { enabled: !builtinWasOff.has(n) });
       for (const id of customWasOn) await web("PATCH", `/api/skills/${id}`, { enabled: true });
     }
+
+    // ---- Plugin JavaScript (6b.7)
+    const dataHttp = createServer((req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ nilai: 42, path: req.url }));
+    });
+    await new Promise((r) => dataHttp.listen(0, "127.0.0.1", r));
+    const dataPort = dataHttp.address().port;
+    try {
+      x = await web("GET", "/api/plugins");
+      ok(
+        "plugin: list catalog & template",
+        x.s === 200 && x.d.catalog?.length >= 2 && x.d.template?.includes("definePlugin"),
+        x.d,
+      );
+      x = await call("GET", "/api/plugins");
+      ok("plugin: app caller forbidden", x.s === 403, x.d);
+      x = await web("POST", "/api/plugins", { code: "definePlugin({" });
+      ok("plugin: syntax error rejected", x.s === 400 && /SyntaxError/.test(x.d.message), x.d);
+      x = await web("POST", "/api/plugins", { code: "while (true) {}" });
+      ok("plugin: endless loop stopped", x.s === 400 && /batas waktu/.test(x.d.message), x.d);
+      x = await web("POST", "/api/plugins", { catalogKey: "hari-kerja" });
+      ok("plugin: install from catalog", x.s === 201 && x.d.name === "hari-kerja" && x.d.tools?.length === 2, x.d);
+      const hk = x.d.id;
+      x = await web("POST", "/api/plugins", { catalogKey: "hari-kerja" });
+      ok("plugin: duplicate 409", x.s === 409, x.d);
+      x = await web("POST", `/api/plugins/${hk}/test`, {
+        tool: "hitung_hari_kerja",
+        input: { mulai: "2026-11-16", selesai: "2026-11-22" },
+      });
+      ok("plugin: test tool runs in sandbox", x.s === 200 && !x.d.isError && JSON.parse(x.d.text).hariKerja === 5, x.d);
+      x = await web("PATCH", `/api/plugins/${hk}`, { config: { libur: "2026-11-18" } });
+      const t2 = await web("POST", `/api/plugins/${hk}/test`, {
+        tool: "hitung_hari_kerja",
+        input: { mulai: "2026-11-16", selesai: "2026-11-22" },
+      });
+      ok(
+        "plugin: config used (holiday)",
+        x.d.config?.libur === "2026-11-18" && JSON.parse(t2.d.text).hariKerja === 4,
+        t2.d,
+      );
+
+      const netCode = `definePlugin({ name: "uji-net-${stamp}", description: "Uji jaringan", hosts: ["localhost"],
+        config: [{ key: "token", secret: true, required: true }],
+        tools: [
+          { name: "ambil", description: "Ambil data", readOnly: true,
+            run: async (input, akai) => { const r = await akai.fetch("http://localhost:${dataPort}/data?t=" + akai.config.token); return r.json(); } },
+          { name: "luar", description: "Host lain", readOnly: true,
+            run: async (input, akai) => (await akai.fetch("https://example.com/")).status },
+          { name: "ubah", description: "Ubah sesuatu", run: async () => "diubah" }
+        ] });`;
+      x = await web("POST", "/api/plugins", { code: netCode });
+      ok(
+        "plugin: install network plugin, required config missing",
+        x.s === 201 && x.d.missingConfig?.length === 1 && x.d.tools.find((t) => t.name === "ubah")?.usable === false,
+        x.d,
+      );
+      const net = x.d.id;
+      x = await web("PATCH", `/api/plugins/${net}`, { config: { token: "rahasia-123" } });
+      ok("plugin: secret config masked", x.d.config?.token === "••••••" && x.d.missingConfig.length === 0, x.d);
+      x = await web("POST", `/api/plugins/${net}/test`, { tool: "ambil", input: {} });
+      ok(
+        "plugin: akai.fetch to allowed host",
+        !x.d.isError && JSON.parse(x.d.text).nilai === 42 && JSON.parse(x.d.text).path === "/data?t=rahasia-123",
+        x.d,
+      );
+      x = await web("POST", `/api/plugins/${net}/test`, { tool: "luar", input: {} });
+      ok("plugin: fetch to unlisted host refused", x.d.isError && /tidak ada di izin/.test(x.d.text), x.d);
+
+      const pconv = (await web("POST", "/api/chat/conversations", {})).d.id;
+      x = await web("POST", `/api/chat/conversations/${pconv}/messages`, { content: "UJI-PLUGIN hitung hari kerja" });
+      const ptools = (gw.lastChatBody()?.tools ?? []).map((t) => t.function.name);
+      ok(
+        "plugin: tools offered in chat (write tool only when allowed)",
+        ptools.includes("p_hari_kerja__hitung_hari_kerja") &&
+          ptools.includes(`p_uji_net_${stamp}__ambil`.slice(0, 64)) &&
+          !ptools.some((n) => n.endsWith("__ubah")),
+        ptools,
+      );
+      ok(
+        "plugin: chat calls plugin tool",
+        x.s === 200 && x.text.includes('"akai_tool"') && x.text.includes("hariKerja"),
+        x.text.slice(0, 600),
+      );
+      await web("PATCH", `/api/plugins/${net}`, { allowWrite: true });
+      await web("POST", `/api/chat/conversations/${pconv}/messages`, { content: "Halo" });
+      ok(
+        "plugin: write tool offered after allowWrite",
+        (gw.lastChatBody()?.tools ?? []).some((t) => t.function.name.endsWith("__ubah")),
+        gw.lastChatBody()?.tools?.map((t) => t.function.name),
+      );
+      await web("DELETE", `/api/chat/conversations/${pconv}`);
+      x = await web("DELETE", `/api/plugins/${net}`);
+      const x2 = await web("DELETE", `/api/plugins/${hk}`);
+      ok("plugin: delete", x.s === 204 && x2.s === 204, [x.s, x2.s]);
+    } finally {
+      dataHttp.close();
+    }
+
+    // ---- Tugas terjadwal (6b.8)
+    x = await call("GET", "/api/schedules");
+    ok("schedule: app caller forbidden", x.s === 403, x.d);
+    x = await web("POST", "/api/schedules", { name: "Uji", prompt: "Halo", schedule: { kind: "daily", time: "7:00" } });
+    ok("schedule: invalid time rejected", x.s === 400, x.d);
+    x = await web("POST", "/api/schedules", {
+      name: `Uji jadwal ${stamp}`,
+      prompt: "Rangkum agenda hari ini",
+      schedule: { kind: "weekly", time: "07:30", days: [1, 3] },
+      email: true,
+    });
+    ok(
+      "schedule: create (next run computed)",
+      x.s === 201 && !!x.d.nextRunAt && x.d.describe === "Setiap Senin, Rabu pukul 07:30 WIB",
+      x.d,
+    );
+    const task = x.d.id;
+    const mailDir = new URL("../.mail/", import.meta.url);
+    const mailsBefore = fs.existsSync(mailDir) ? fs.readdirSync(mailDir).length : 0;
+    x = await web("POST", `/api/schedules/${task}/run`);
+    ok("schedule: run now accepted", x.s === 202, x.d);
+    let runs = [];
+    for (let i = 0; i < 30 && !runs.length; i++) {
+      await new Promise((r) => setTimeout(r, 300));
+      const list = (await web("GET", "/api/schedules")).d.tasks ?? [];
+      if (list.find((t) => t.id === task)?.lastStatus) runs = (await web("GET", `/api/schedules/${task}/runs`)).d;
+    }
+    ok("schedule: run produced unread conversation", runs.length === 1 && runs[0].unread === true, runs);
+    const rconv = runs[0]?.id;
+    x = await web("GET", `/api/chat/conversations/${rconv}`);
+    ok(
+      "schedule: result answer saved, opened = read",
+      x.d.messages?.[0]?.content === "Rangkum agenda hari ini" &&
+        x.d.messages?.[1]?.content === "jawaban A" &&
+        x.d.scheduledTaskId === task &&
+        x.d.title.startsWith(`Uji jadwal ${stamp}`),
+      x.d,
+    );
+    x = await web("GET", `/api/schedules/${task}/runs`);
+    ok("schedule: unread cleared", x.d[0]?.unread === false, x.d);
+    const mailsAfter = fs.existsSync(mailDir) ? fs.readdirSync(mailDir) : [];
+    const mailFile = mailsAfter.sort().at(-1);
+    ok(
+      "schedule: result emailed (mail dir in dev)",
+      mailsAfter.length === mailsBefore + 1 &&
+        fs.readFileSync(new URL(mailFile, mailDir), "utf8").includes(`[Akai] Uji jadwal ${stamp}`),
+      mailsAfter.length,
+    );
+    if (mailFile) fs.rmSync(new URL(mailFile, mailDir));
+    // Jatuh tempo: penjadwal menjalankan sendiri (pemeriksaan tiap 30 dtk)
+    const sdb = new pg.Client({ connectionString: env.DATABASE_URL.replace(/\?schema=public$/, "") });
+    await sdb.connect();
+    await sdb.query(
+      "UPDATE scheduled_tasks SET next_run_at = now() - interval '1 minute', email = false WHERE id = $1",
+      [task],
+    );
+    let due = null;
+    for (let i = 0; i < 45 && !(due?.runCount >= 2); i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      due = ((await web("GET", "/api/schedules")).d.tasks ?? []).find((t) => t.id === task);
+    }
+    await sdb.end();
+    ok(
+      "schedule: due task run by scheduler, next run moved forward",
+      due?.runCount >= 2 && new Date(due.nextRunAt) > new Date(),
+      due,
+    );
+    x = await web("PATCH", `/api/schedules/${task}`, { enabled: false });
+    ok("schedule: disabled = no next run", x.d.enabled === false && x.d.nextRunAt === null, x.d);
+    x = await web("DELETE", `/api/schedules/${task}`);
+    const resultConv = await web("GET", `/api/chat/conversations/${rconv}`);
+    ok(
+      "schedule: delete keeps result conversations",
+      x.s === 204 && resultConv.s === 200 && resultConv.d.scheduledTaskId === null,
+      resultConv.d,
+    );
+    for (const c of (await web("GET", "/api/chat/conversations")).d ?? [])
+      if (c.title?.startsWith(`Uji jadwal ${stamp}`)) await web("DELETE", `/api/chat/conversations/${c.id}`);
 
     if (globalThis.__chatCleanup) await globalThis.__chatCleanup();
     const cleanDb = new pg.Client({ connectionString: env.DATABASE_URL.replace(/\?schema=public$/, "") });

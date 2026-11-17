@@ -17,6 +17,11 @@ import { ConnectorsController } from "./connectors/connectors.controller";
 import { ConnectorsService } from "./connectors/connectors.service";
 import { MemoryController } from "./memory/memory.controller";
 import { MemoryService } from "./memory/memory.service";
+import { MailService } from "./schedules/mail.service";
+import { SchedulesController } from "./schedules/schedules.controller";
+import { SchedulesService } from "./schedules/schedules.service";
+import { PluginsController } from "./plugins/plugins.controller";
+import { PluginsService } from "./plugins/plugins.service";
 import { SkillsController } from "./skills/skills.controller";
 import { SkillsService } from "./skills/skills.service";
 import { ProjectsController } from "./projects/projects.controller";
@@ -46,6 +51,8 @@ import { UsageController } from "./usage/usage.controller";
     MemoryController,
     ConnectorsController,
     SkillsController,
+    PluginsController,
+    SchedulesController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -60,6 +67,9 @@ import { UsageController } from "./usage/usage.controller";
     MemoryService,
     ConnectorsService,
     SkillsService,
+    PluginsService,
+    MailService,
+    SchedulesService,
   ],
 })
 export class AppModule {}

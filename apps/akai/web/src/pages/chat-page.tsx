@@ -10,6 +10,7 @@ import {
   Paperclip,
   RefreshCw,
   Sparkles,
+  Puzzle,
   Square,
   TriangleAlert,
   Wrench,
@@ -76,7 +77,7 @@ function greeting(name: string | null) {
 export function ChatPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { me, reloadConversations } = useShell();
+  const { me, conversations, reloadConversations } = useShell();
   const location = useLocation();
   // Pertanyaan pertama dari halaman Proyek (percakapan baru di proyek) dikirim otomatis sekali
   const initialRef = useRef<string | null>((location.state as { initial?: string } | null)?.initial ?? null);
@@ -110,6 +111,12 @@ export function ChatPage() {
       .then((list) => setModels(list.filter((m) => m.enabled && !m.embedding)))
       .catch(() => setModels([]));
   }, []);
+
+  // Hasil tugas terjadwal dibuka: server sudah menandainya dibaca, sidebar dimuat ulang agar penanda hilang
+  const openedUnread = !!id && conversation?.id === id && !!conversations.find((c) => c.id === id)?.unread;
+  useEffect(() => {
+    if (openedUnread) void reloadConversations();
+  }, [openedUnread, reloadConversations]);
 
   // Pindah percakapan: keadaan disetel ulang saat render (pola React "menyesuaikan state saat props berubah")
   const [shownId, setShownId] = useState(id);
@@ -597,6 +604,8 @@ function ToolRuns({ runs }: { runs: ToolRun[] }) {
               <TriangleAlert className="size-3.5 text-destructive" />
             ) : run.connector === "Skill" ? (
               <Sparkles className="size-3.5 text-primary" />
+            ) : run.connector.startsWith("Plugin ") ? (
+              <Puzzle className="size-3.5 text-primary" />
             ) : (
               <Wrench className="size-3.5 text-primary" />
             )}

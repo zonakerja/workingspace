@@ -20,6 +20,8 @@ async function bootstrap() {
   app.use(helmet({ contentSecurityPolicy: false }));
   // Gateway: riwayat percakapan + gambar base64 bisa besar; API pengaturan cukup kecil
   app.use("/gateway", json({ limit: "30mb" }));
+  // Skill: instruksi 30 rb + 10 berkas × 50 rb karakter (huruf non-ASCII bisa 3 byte) → di atas 1 MB
+  app.use("/api/skills", json({ limit: "2mb" }));
   app.use(json({ limit: "1mb" }));
   // Logout token OIDC Back-Channel Logout dikirim SSO sebagai form-urlencoded
   app.use("/api/auth/sso/backchannel-logout", urlencoded({ extended: false, limit: "64kb" }));

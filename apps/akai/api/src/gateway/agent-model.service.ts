@@ -37,6 +37,9 @@ const AGENT_TIMEOUT_MS = 10 * 60_000;
  */
 @Injectable()
 export class AgentModelService {
+  /** fetch keluar yang dijaga (dipasang GatewayService dari SourcesService.outbound). */
+  outbound: typeof fetch = fetch;
+
   private readonly logger = new Logger(AgentModelService.name);
   /** Blok pemikiran per akun di memori satu proses (hilang saat restart = API menurunkan pemikiran giliran itu, tidak galat). */
   private readonly claudeTurns = new ClaudeTurnMemory();
@@ -78,6 +81,7 @@ export class AgentModelService {
       baseURL: anthropicBaseUrl(endpoint.baseUrl),
       timeout: AGENT_TIMEOUT_MS,
       maxRetries: 1,
+      fetch: this.outbound,
     });
     const controller = new AbortController();
     let closed = false;
@@ -139,6 +143,7 @@ export class AgentModelService {
       baseURL: endpoint.baseUrl,
       timeout: AGENT_TIMEOUT_MS,
       maxRetries: 1,
+      fetch: this.outbound,
     });
     const controller = new AbortController();
     let closed = false;

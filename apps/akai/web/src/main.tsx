@@ -24,6 +24,11 @@ const router = createBrowserRouter([
         path: "/connectors",
         lazy: async () => ({ Component: (await import("./pages/connectors-page")).ConnectorsPage }),
       },
+      { path: "/plugins", lazy: async () => ({ Component: (await import("./pages/plugins-page")).PluginsPage }) },
+      {
+        path: "/schedules",
+        lazy: async () => ({ Component: (await import("./pages/schedules-page")).SchedulesPage }),
+      },
       { path: "/skills", lazy: async () => ({ Component: (await import("./pages/skills-page")).SkillsPage }) },
       { path: "/memory", lazy: async () => ({ Component: (await import("./pages/memory-page")).MemoryPage }) },
       { path: "/models", lazy: async () => ({ Component: (await import("./pages/models-page")).ModelsPage }) },

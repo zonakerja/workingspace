@@ -32,16 +32,16 @@ enum ApiFormat {
 
 /// Akun Akai = akun SSO workingspace.id (dibuat saat pertama dipakai). Semua data di bawah milik satu akun.
 model Account {
-  id            String   @id @default(cuid())
-  ssoSubject    String   @unique @map("sso_subject")
-  email         String?
-  name          String?
+  id             String   @id @default(cuid())
+  ssoSubject     String   @unique @map("sso_subject")
+  email          String?
+  name           String?
   /// Memori chat (6b.3): Akai mencatat & memakai fakta tentang pengguna lintas percakapan
-  memoryEnabled Boolean  @default(true) @map("memory_enabled")
+  memoryEnabled  Boolean  @default(true) @map("memory_enabled")
   /// Skill bawaan yang dimatikan pemilik (6b.6): daftar nama
-  disabledSkills Json    @default("[]") @map("disabled_skills")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  disabledSkills Json     @default("[]") @map("disabled_skills")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   sources         AiSource[]
   models          AiModel[]
@@ -54,6 +54,8 @@ model Account {
   memories        Memory[]
   connectors      Connector[]
   skills          Skill[]
+  plugins         Plugin[]
+  scheduledTasks  ScheduledTask[]
 
   @@map("accounts")
 }
@@ -197,23 +199,28 @@ model WebSession {
 
 /// Percakapan chat Akai web (6b.1). model_id = model Akai pilihan pemilik (null = tugas "chat" + cadangannya).
 model Conversation {
-  id        String   @id @default(cuid())
-  accountId String   @map("account_id")
-  title     String   @default("Percakapan baru")
-  modelId   String?  @map("model_id")
+  id              String   @id @default(cuid())
+  accountId       String   @map("account_id")
+  title           String   @default("Percakapan baru")
+  modelId         String?  @map("model_id")
   /// Proyek pemilik percakapan (hapus proyek = percakapan tetap, keluar dari proyek)
-  projectId String?  @map("project_id")
-  pinned    Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  projectId       String?  @map("project_id")
+  pinned          Boolean  @default(false)
+  /// Hasil tugas terjadwal (6b.8): tugas asal (hapus tugas = percakapan tetap) & penanda belum dibuka
+  scheduledTaskId String?  @map("scheduled_task_id")
+  unread          Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  account     Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  project     Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  messages    ChatMessage[]
-  attachments ChatAttachment[]
+  account       Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  project       Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  scheduledTask ScheduledTask?   @relation(fields: [scheduledTaskId], references: [id], onDelete: SetNull)
+  messages      ChatMessage[]
+  attachments   ChatAttachment[]
 
   @@index([accountId, updatedAt])
   @@index([projectId])
+  @@index([scheduledTaskId])
   @@map("conversations")
 }
 
@@ -329,12 +336,16 @@ model Connector {
   status        String    @default("new")
   statusMessage String?   @map("status_message")
   checkedAt     DateTime? @map("checked_at") @db.Timestamptz(3)
+  /// Konektor bagian dari paket plugin (6b.7): ikut dimatikan / dihapus bersama paketnya
+  pluginId      String?   @map("plugin_id")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  plugin  Plugin? @relation(fields: [pluginId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, slug])
+  @@index([pluginId])
   @@map("connectors")
 }
 
@@ -355,4 +366,58 @@ model Skill {
 
   @@unique([accountId, name])
   @@map("skills")
+}
+
+/// Plugin JavaScript (6b.7): kode milik pemilik yang dijalankan di sandbox QuickJS (WASM) untuk menambah alat (+ skill) di chat.
+/// manifest = hasil definePlugin tanpa fungsi (alat, izin host, isian konfigurasi, skill). configEnc = nilai konfigurasi terenkripsi.
+model Plugin {
+  id          String   @id @default(cuid())
+  accountId   String   @map("account_id")
+  name        String
+  /// code = JavaScript di sandbox; package = paket JSON (instruksi + skill + konektor), seperti plugin Claude
+  kind        String   @default("code")
+  title       String
+  description String
+  version     String   @default("1.0.0")
+  code        String
+  manifest    Json
+  configEnc   String?  @map("config_enc")
+  enabled     Boolean  @default(true)
+  allowWrite  Boolean  @default(false) @map("allow_write")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  connectors Connector[]
+
+  @@unique([accountId, name])
+  @@map("plugins")
+}
+
+/// Tugas terjadwal (6b.8): prompt yang dijalankan Akai menurut jadwal; hasil = percakapan baru (+ email opsional).
+/// schedule = { kind: hourly|daily|weekly|monthly, time "HH:mm", days [0-6], dayOfMonth 1-28, everyHours }.
+model ScheduledTask {
+  id         String    @id @default(cuid())
+  accountId  String    @map("account_id")
+  name       String
+  prompt     String
+  schedule   Json
+  timezone   String    @default("Asia/Jakarta")
+  modelId    String?   @map("model_id")
+  projectId  String?   @map("project_id")
+  email      Boolean   @default(false)
+  enabled    Boolean   @default(true)
+  nextRunAt  DateTime? @map("next_run_at") @db.Timestamptz(3)
+  lastRunAt  DateTime? @map("last_run_at") @db.Timestamptz(3)
+  lastStatus String?   @map("last_status")
+  lastError  String?   @map("last_error")
+  runCount   Int       @default(0) @map("run_count")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@index([enabled, nextRunAt])
+  @@map("scheduled_tasks")
 }

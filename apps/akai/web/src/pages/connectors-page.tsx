@@ -117,7 +117,11 @@ export function ConnectorsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {data.connectors.map((c) => {
-            const status = STATUS[c.status];
+            // Konektor yang belum pernah diberi token (mis. dari paket) = perlu token, bukan "ditolak"
+            const status =
+              c.status === "auth_required" && !c.hasToken
+                ? { label: "Perlu token", className: STATUS.auth_required.className }
+                : STATUS[c.status];
             const usable = c.tools.filter((t) => toolUsable(t, c.allowWrite)).length;
             return (
               <section key={c.id} className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
@@ -136,6 +140,11 @@ export function ConnectorsPage() {
                       <p className="flex flex-wrap items-center gap-2 font-semibold">
                         {c.name}
                         <Badge className={cn("font-normal", status.className)}>{status.label}</Badge>
+                        {c.pluginId && (
+                          <Badge variant="outline" className="font-normal" title="Dibuat oleh paket di menu Plugin">
+                            Dari paket
+                          </Badge>
+                        )}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {c.url ?? "—"} · {c.hasToken ? `token …${c.tokenHint ?? ""}` : "tanpa token"}

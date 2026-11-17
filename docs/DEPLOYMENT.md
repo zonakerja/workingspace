@@ -731,6 +731,8 @@ Rancangan: [AKAI.md](AKAI.md). Service `akai-api` dan `akai-web` selalu menyala 
   (`https://<AKAI_DOMAIN>/api/auth/sso/backchannel-logout`), dijawab lewat alias jaringan Caddy `AKAI_DOMAIN`.
 - **Backup**: `EXTRA_DATABASES=workingspace_auth,akai` → `db-akai-<waktu>.dump` ikut retensi & salinan luar server. Isinya
   API key model terenkripsi: tanpa `AKAI_ENCRYPTION_KEY` yang sama, dump itu tidak membuka key (simpan kunci di password manager).
+- **Email tugas terjadwal Akai** (6b.8): `akai-api` memakai `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` yang sama dengan SSO (Titan) dan `AKAI_WEB_URL` = `https://AKAI_DOMAIN` (compose). SMTP kosong = email tidak terkirim (hanya ditulis ke folder di container). Penjadwal berjalan di proses `akai-api` — **jangan** menjalankan lebih dari satu replika `akai-api`.
+- **Plugin Akai** (6b.7): kode JavaScript dijalankan di sandbox WebAssembly di dalam `akai-api` (tanpa layanan tambahan; maks. 4 bersamaan); permintaan jaringan plugin keluar dari container `akai-api` ke host yang diizinkan plugin. Paket JSON tidak menjalankan kode; konektor bawaannya memakai aturan konektor biasa. Semua permintaan Akai ke alamat milik pengguna (router model, server MCP, plugin) menolak IP jaringan lokal di production (dicek di DNS koneksi).
 - **Konektor Akasha** di chat Akai: `AKASHA_MCP_URL=http://backend:4000/api/v1/mcp` (compose, jaringan internal); pemilik membuat token
   akses di Akasha → Pengaturan → Integrasi lalu menempelnya di Akai → Konektor.
 - Pemantau uptime: tambahkan `https://<AKAI_DOMAIN>/api/health`.

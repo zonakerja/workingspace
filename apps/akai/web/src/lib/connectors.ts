@@ -17,6 +17,8 @@ export interface Connector {
   url: string | null;
   hasToken: boolean;
   tokenHint: string | null;
+  /** Konektor bawaan paket plugin (ikut dimatikan / dihapus bersama paketnya) */
+  pluginId?: string | null;
   enabled: boolean;
   allowWrite: boolean;
   tools: ConnectorTool[];

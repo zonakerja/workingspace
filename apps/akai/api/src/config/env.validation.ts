@@ -91,6 +91,44 @@ class EnvironmentVariables {
   @Transform(emptyToUndefined)
   @IsUrl({ require_tld: false, protocols: ["http", "https"] })
   AKASHA_MCP_URL?: string;
+
+  // ---- Email hasil tugas terjadwal (6b.8). Kosong = email ditulis ke MAIL_DIR (development)
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  SMTP_HOST?: string;
+
+  @Transform(({ value }) => Number(value ?? 465))
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  SMTP_PORT = 465;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  SMTP_USER?: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  SMTP_PASSWORD?: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  MAIL_FROM?: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  MAIL_DIR?: string;
+
+  /** Alamat Akai web untuk tautan di email, mis. https://akai.workingspace.id (kosong = dari SSO_REDIRECT_URI). */
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsUrl({ require_tld: false, protocols: ["http", "https"] })
+  AKAI_WEB_URL?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

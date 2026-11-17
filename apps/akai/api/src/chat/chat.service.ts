@@ -26,6 +26,7 @@ import {
   type SkillDef,
 } from "../skills/skill-logic";
 import { SkillsService } from "../skills/skills.service";
+import { PluginsService, type PluginBinding } from "../plugins/plugins.service";
 import {
   ATTACHMENT_LIMITS,
   MAX_ATTACHMENTS_PER_MESSAGE,
@@ -94,6 +95,7 @@ export class ChatService {
     private readonly memory: MemoryService,
     private readonly connectors: ConnectorsService,
     private readonly skills: SkillsService,
+    private readonly plugins: PluginsService,
   ) {}
 
   private requireWeb(caller: Caller) {
@@ -122,6 +124,8 @@ export class ChatService {
         pinned: true,
         modelId: true,
         projectId: true,
+        unread: true,
+        scheduledTaskId: true,
         updatedAt: true,
         createdAt: true,
       },
@@ -145,7 +149,8 @@ export class ChatService {
         ? this.prisma.project.findUnique({ where: { id: conversation.projectId }, select: { id: true, name: true } })
         : null,
     ]);
-    return { ...conversation, project, messages };
+    if (conversation.unread) await this.prisma.conversation.update({ where: { id }, data: { unread: false } });
+    return { ...conversation, unread: false, project, messages };
   }
 
   private async checkModel(caller: Caller, modelId: string) {
@@ -232,7 +237,7 @@ export class ChatService {
   async send(
     caller: Caller,
     id: string,
-    input: { content?: string; attachmentIds?: string[]; regenerate?: boolean },
+    input: { content?: string; attachmentIds?: string[]; regenerate?: boolean; skipMemory?: boolean },
     res: Response,
   ) {
     const conversation = await this.own(caller, id);
@@ -280,16 +285,17 @@ export class ChatService {
 
     let messages = await this.buildMessages(caller, id, conversation.projectId);
     // Konektor aktif / skill aktif → loop alat (model boleh memanggil alat aplikasi lain & memuat skill sebelum menjawab)
-    const [toolset, skills] = await Promise.all([
+    const [toolset, skills, pluginSet] = await Promise.all([
       this.connectors.toolset(caller.account.id),
       this.skills.active(caller.account.id),
+      this.plugins.toolset(caller.account.id),
     ]);
-    if (toolset.tools.length || skills.length) {
+    if (toolset.tools.length || skills.length || pluginSet.tools.length) {
       try {
-        return await this.sendWithTools(caller, id, conversation.modelId, messages, toolset, skills, res, {
+        return await this.sendWithTools(caller, id, conversation.modelId, messages, toolset, skills, pluginSet, res, {
           firstMessage,
           content,
-          regenerate: !!input.regenerate,
+          regenerate: !!input.regenerate || !!input.skipMemory,
         });
       } catch (error) {
         if (!(error instanceof NoToolModelError)) throw error;
@@ -350,7 +356,7 @@ export class ChatService {
       await this.prisma.conversation.update({ where: { id }, data: { updatedAt: new Date() } });
       if (firstMessage && state.text) void this.autoTitle(caller, id, content, state.text);
       // Memori: dicatat di latar belakang dari pertukaran ini (bukan saat mengulang jawaban)
-      if (!input.regenerate && !failure && state.text)
+      if (!input.regenerate && !input.skipMemory && !failure && state.text)
         void this.memory.learn(caller, id, saved.id, content, state.text);
     }
   }
@@ -368,11 +374,21 @@ export class ChatService {
     history: Record<string, unknown>[],
     toolset: { tools: Record<string, unknown>[]; map: Map<string, ToolBinding> },
     skills: SkillDef[],
+    pluginSet: { tools: Record<string, unknown>[]; map: Map<string, PluginBinding> },
     res: Response,
     opts: { firstMessage: boolean; content: string; regenerate: boolean },
   ) {
-    const connectorNames = [...new Set([...toolset.map.values()].map((b) => b.connectorName))];
-    const tools = skills.length ? [skillToolDefinition(skills.map((s) => s.name)), ...toolset.tools] : toolset.tools;
+    const connectorNames = [
+      ...new Set([
+        ...[...toolset.map.values()].map((b) => b.connectorName),
+        ...[...pluginSet.map.values()].map((b) => `plugin ${b.pluginTitle}`),
+      ]),
+    ];
+    const tools = [
+      ...(skills.length ? [skillToolDefinition(skills.map((s) => s.name))] : []),
+      ...pluginSet.tools,
+      ...toolset.tools,
+    ];
     const skillByName = new Map(skills.map((s) => [s.name, s]));
     const messages = [...history];
     const extra = [skillCatalog(skills), toolGuidance(connectorNames)].filter(Boolean).join("\n\n");
@@ -481,6 +497,27 @@ export class ChatService {
             messages.push({ role: "tool", tool_call_id: call.id, content: result.text });
             continue;
           }
+          const plugin = pluginSet.map.get(call.name);
+          if (plugin) {
+            // Alat plugin JavaScript (sandbox QuickJS)
+            const run: ToolRun = {
+              id: call.id,
+              connector: `Plugin ${plugin.pluginTitle}`,
+              tool: plugin.tool,
+              title: null,
+              status: "running",
+              input: excerpt(args),
+              output: null,
+            };
+            runs.push(run);
+            send({ akai_tool: run });
+            const result = await this.plugins.call(caller.account.id, plugin, args);
+            run.status = result.isError ? "error" : "done";
+            run.output = excerpt(result.text, 1500);
+            send({ akai_tool: run });
+            messages.push({ role: "tool", tool_call_id: call.id, content: result.text });
+            continue;
+          }
           const binding = toolset.map.get(call.name);
           const run: ToolRun = {
             id: call.id,
@@ -554,12 +591,13 @@ export class ChatService {
     );
     // Proyek: instruksi + pengetahuan (potongan dipilih menurut pesan pengguna terakhir bila pengetahuan besar)
     const lastUser = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
-    const [project, memory] = await Promise.all([
+    const [project, memory, packages] = await Promise.all([
       this.projects.contextFor(caller.account.id, projectId, lastUser),
       this.memory.promptBlock(caller.account.id),
+      this.plugins.instructions(caller.account.id),
     ]);
     return buildChatMessages(
-      [systemPrompt(new Date(), caller.account.name), memory, project].filter(Boolean).join("\n\n"),
+      [systemPrompt(new Date(), caller.account.name), packages, memory, project].filter(Boolean).join("\n\n"),
       history.map((m) => ({
         role: m.role,
         content: m.content,
@@ -585,7 +623,8 @@ export class ChatService {
       });
       const choice = (json.choices as { message?: { content?: unknown } }[] | undefined)?.[0];
       const title = cleanTitle(typeof choice?.message?.content === "string" ? choice.message.content : null);
-      if (title) await this.prisma.conversation.update({ where: { id }, data: { title } });
+      // Hasil tugas terjadwal memakai judul nama tugas + waktu (tidak diganti judul otomatis)
+      if (title) await this.prisma.conversation.updateMany({ where: { id, scheduledTaskId: null }, data: { title } });
     } catch (error) {
       this.logger.warn(`Judul otomatis gagal: ${String(error)}`);
     }

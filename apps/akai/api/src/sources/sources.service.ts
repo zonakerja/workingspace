@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { createSafeFetch } from "../common/safe-fetch";
 import { ConfigService } from "@nestjs/config";
 import { AkaiCrypto } from "../common/crypto";
 import { ApiFormat, type AiSource, Prisma, SourceKind } from "../generated/prisma/client";
@@ -59,7 +60,11 @@ export class SourcesService {
   ) {
     this.crypto = new AkaiCrypto(config.getOrThrow<string>("AKAI_ENCRYPTION_KEY"));
     this.production = config.get<string>("NODE_ENV") === "production";
+    this.outbound = createSafeFetch(!this.production);
   }
+
+  /** fetch keluar ke sumber model (router milik pengguna): IP jaringan lokal ditolak di production (anti-SSRF). */
+  readonly outbound: typeof fetch;
 
   private view(source: AiSource) {
     const { keyEnc: _keyEnc, accountId: _accountId, ...rest } = source;
@@ -204,7 +209,7 @@ export class SourcesService {
       : { Authorization: `Bearer ${apiKey}` };
     let res: Response;
     try {
-      res = await fetch(`${base}/models`, {
+      res = await this.outbound(`${base}/models`, {
         headers,
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         redirect: "error",

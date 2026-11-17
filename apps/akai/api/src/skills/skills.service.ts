@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import type { Caller } from "../common/caller";
 import type { Prisma } from "../generated/prisma/client";
+import { PluginsService } from "../plugins/plugins.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BUILTIN_SKILLS } from "./builtin-skills";
 import {
@@ -57,7 +58,10 @@ const disabledOf = (value: Prisma.JsonValue | undefined) =>
  */
 @Injectable()
 export class SkillsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly plugins: PluginsService,
+  ) {}
 
   private requireWeb(caller: Caller) {
     if (caller.clientId !== "web") throw new ForbiddenException("Skill hanya untuk Akai web.");
@@ -79,12 +83,25 @@ export class SkillsService {
 
   async list(caller: Caller) {
     this.requireWeb(caller);
-    const [account, rows] = await Promise.all([
+    const [account, rows, fromPlugins] = await Promise.all([
       this.prisma.account.findUnique({ where: { id: caller.account.id }, select: { disabledSkills: true } }),
       this.prisma.skill.findMany({ where: { accountId: caller.account.id }, orderBy: { name: "asc" } }),
+      this.plugins.skills(caller.account.id),
     ]);
     const disabled = disabledOf(account?.disabledSkills);
     return {
+      /** Skill dari plugin yang menyala (diatur lewat menu Plugin) */
+      plugins: fromPlugins.map((s) => ({
+        id: null,
+        name: s.name,
+        description: s.description,
+        instructions: s.instructions,
+        files: [],
+        enabled: true,
+        builtin: false,
+        plugin: s.plugin,
+        updatedAt: null,
+      })),
       builtin: BUILTIN_SKILLS.map((s) => ({
         id: null,
         name: s.name,
@@ -199,12 +216,13 @@ export class SkillsService {
 
   /** Skill aktif akun (bawaan yang tidak dimatikan + buatan pemilik yang menyala), isi lengkap — dipakai chat. */
   async active(accountId: string): Promise<SkillDef[]> {
-    const [account, rows] = await Promise.all([
+    const [account, rows, fromPlugins] = await Promise.all([
       this.prisma.account.findUnique({ where: { id: accountId }, select: { disabledSkills: true } }),
       this.prisma.skill.findMany({ where: { accountId, enabled: true }, orderBy: { name: "asc" } }),
+      this.plugins.skills(accountId),
     ]);
     const disabled = disabledOf(account?.disabledSkills);
-    return [
+    const all: SkillDef[] = [
       ...BUILTIN_SKILLS.filter((s) => !disabled.has(s.name)),
       ...rows.map((r) => ({
         name: r.name,
@@ -212,6 +230,15 @@ export class SkillsService {
         instructions: r.instructions,
         files: filesOf(r.files),
       })),
+      ...fromPlugins.map((s) => ({
+        name: s.name,
+        description: s.description,
+        instructions: s.instructions,
+        files: s.files,
+      })),
     ];
+    // Nama ganda (mis. skill paket bernama sama dengan skill sendiri): yang lebih dulu menang, agar alat akai__skill tidak rancu
+    const seen = new Set<string>();
+    return all.filter((skill) => !seen.has(skill.name) && seen.add(skill.name));
   }
 }

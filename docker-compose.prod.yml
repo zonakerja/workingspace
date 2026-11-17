@@ -254,6 +254,13 @@ services:
       SSO_POST_LOGOUT_URI: ${SITE_SCHEME:-https}://${AKAI_DOMAIN}/login
       # Konektor Akasha di chat Akai (MCP Akasha lewat jaringan internal; token akses dibuat pemilik di Akasha)
       AKASHA_MCP_URL: http://backend:4000/api/v1/mcp
+      # Email hasil tugas terjadwal (SMTP sama dengan SSO)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: "Akai <${SMTP_USER:-noreply@workingspace.id}>"
+      AKAI_WEB_URL: ${SITE_SCHEME:-https}://${AKAI_DOMAIN}
     deploy: { resources: { limits: { memory: "${AKAI_MEM_LIMIT:-448m}" } } }
     logging: *logging
 

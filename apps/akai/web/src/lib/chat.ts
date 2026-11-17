@@ -14,6 +14,9 @@ export interface ConversationSummary {
   pinned: boolean;
   modelId: string | null;
   projectId?: string | null;
+  /** Hasil tugas terjadwal yang belum dibuka */
+  unread?: boolean;
+  scheduledTaskId?: string | null;
   updatedAt: string;
   createdAt: string;
 }

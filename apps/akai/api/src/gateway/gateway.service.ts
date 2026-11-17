@@ -49,7 +49,9 @@ export class GatewayService {
     private readonly prisma: PrismaService,
     private readonly sources: SourcesService,
     private readonly agent: AgentModelService,
-  ) {}
+  ) {
+    this.agent.outbound = this.sources.outbound;
+  }
 
   /** Model untuk permintaan: `model` (id model Akai / id di sumber) = satu model tanpa cadangan; selain itu tugas. */
   private async candidates(accountId: string, body: Json): Promise<{ task: AiTask | null; list: Candidate[] }> {
@@ -108,7 +110,7 @@ export class GatewayService {
   private async fetchJson(url: string, init: RequestInit, timeoutMs: number) {
     let res: globalThis.Response;
     try {
-      res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs), redirect: "error" });
+      res = await this.sources.outbound(url, { ...init, signal: AbortSignal.timeout(timeoutMs), redirect: "error" });
     } catch (error) {
       throw new UpstreamFailure(503, `Sumber model tidak dapat dihubungi (${String(error).slice(0, 120)}).`, true);
     }

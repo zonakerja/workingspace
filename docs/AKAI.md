@@ -192,6 +192,8 @@ Dibangun bertahap; tiap tahap berdiri sendiri dan memakai gateway yang sama (pem
 | 6b.4 | **Artifact**: model membuat dokumen/kode/HTML/SVG/Mermaid sebagai artifact di panel samping (iframe sandbox, versi, salin/unduh) | ✅ 2026-11-16 |
 | 6b.5 | **Alat & konektor (plugin)**: loop alat di Akai (pencarian web lewat provider, memori, artifact), konektor MCP — Akasha (Knowledge, agenda, to-do, … dengan token akses per akun) dan aplikasi MCP lain; izin per konektor seperti Aplikasi MCP Akasha | ✅ 2026-11-16 (konektor MCP + loop alat; pencarian web belum) |
 | 6b.6 | **Skill**: kumpulan instruksi + berkas (format SKILL.md, sama dengan skill Hermes) yang dimuat otomatis saat relevan; skill bawaan + buatan pemilik | ✅ 2026-11-17 |
+| 6b.7 | **Plugin**: (a) **kode** JavaScript milik pemilik yang menambah alat (+ skill), dijalankan di sandbox QuickJS (WASM) dengan izin host jaringan & pengaturan terenkripsi; (b) **paket** JSON seperti plugin Claude = instruksi tetap + skill (+ berkas) + konektor MCP yang dipasang bersama | ✅ 2026-11-17 |
+| 6b.8 | **Tugas terjadwal**: perintah yang dijalankan Akai menurut jadwal (tiap N jam / harian / mingguan / bulanan, WIB/WITA/WIT) → percakapan baru bertanda belum dibuka + email opsional | ✅ 2026-11-17 |
 
 **6b.1 — rincian teknis** (`apps/akai/api/src/chat/`, `apps/akai/web/src/pages/chat-page.tsx`):
 
@@ -330,6 +332,100 @@ Dibangun bertahap; tiap tahap berdiri sendiri dan memakai gateway yang sama (pem
   instruksinya; HP 375 px tanpa luberan. Data uji (skill, percakapan, memori yang tercatat) dihapus.
 - Belum: berkas biner/skrip yang dijalankan (Akai tidak menjalankan kode skill), skill per proyek, skill bersama antar akun, Hermes
   membaca skill Akai (folder skill Hermes tetap terpisah — pindahkan lewat Unduh/Impor SKILL.md).
+
+**6b.7 — rincian teknis** (`apps/akai/api/src/plugins/`, `apps/akai/web/src/pages/plugins-page.tsx`, keputusan pemilik: plugin = kode JavaScript):
+
+- **Sandbox** `quickjs-emscripten` 0.32 (mesin QuickJS di WebAssembly; murni WASM → jalan di Windows ARM64 & VPS; `isolated-vm` ditolak karena
+  native tanpa prebuilt arm64). Setiap pemanggilan = runtime baru: memori 32 MB, batas waktu 30 dtk (memuat kode 2 dtk), tanpa `require`,
+  `process`, `fetch`, berkas, atau modul — satu-satunya jalan keluar = fungsi host. `plugin-sandbox.ts` (`inspectPlugin`, `runPluginTool`).
+- **Format plugin**: `definePlugin({ name, title, description, version, hosts, config, skills, tools: [{ name, description, input (JSON Schema),
+  readOnly, destructive, run: async (input, akai) => … }] })`. Objek `akai`: `akai.fetch(url, { method, headers, body })` →
+  `{ status, ok, url, headers, text(), json() }`, `akai.config` (nilai pengaturan), `akai.log(...)` (≤ 50 baris, tampil saat uji). Prelude & aturan
+  manifest di `plugin-logic.ts` (+ test): name slug ≤ 40, ≤ 30 alat, ≤ 20 host, ≤ 20 isian pengaturan, ≤ 10 skill, kode ≤ 200 rb karakter.
+- **Jaringan** (`plugin-fetch.ts`): https saja (http://localhost hanya di luar production), host wajib di `hosts` (`*.domain` = subdomain),
+  alamat hasil DNS jaringan lokal/khusus ditolak di `lookup` koneksi itu sendiri (tahan DNS rebinding), pengalihan maks. 3 (diperiksa ulang),
+  ≤ 10 permintaan per pemanggilan, jawaban ≤ 1 MB, 15 dtk per permintaan, header cookie/host dibuang.
+- **Data**: tabel `plugins` (kode, `manifest` hasil pemeriksaan tanpa fungsi, `config_enc` = nilai pengaturan terenkripsi `AKAI_ENCRYPTION_KEY`,
+  `enabled`, `allow_write`), maks. 30 per akun. Migrasi `20261117120000_plugins_schedules`. Isian rahasia tidak pernah dikembalikan (`••••••`).
+- **Chat**: alat plugin masuk loop alat 6b.5 sebagai `p_<plugin>__<alat>` (izin sama dengan konektor: baca selalu, ubah bila "Izinkan alat
+  yang mengubah data", hapus tidak pernah; plugin dengan pengaturan wajib kosong dilewati); jejak "Plugin <judul> · alat". Skill plugin ikut
+  daftar skill (nama `<plugin>-<skill>`, tampil di `GET /api/skills` → `plugins`).
+- **Katalog contoh** (`plugin-catalog.ts`): Hari Kerja (tanpa jaringan, pengaturan hari libur) & Kurs Mata Uang (`open.er-api.com`) + templat
+  kosong. Dipasang = salinan milik akun.
+- Endpoint sesi web: `GET /api/plugins` (+ katalog & templat), `GET|PATCH|DELETE /api/plugins/:id`, `POST /api/plugins { code | catalogKey }`,
+  `POST /api/plugins/:id/test { tool, input }` (hasil + catatan + md). Aplikasi 403.
+- Akai web: menu **Plugin** (terpasang: sakelar, host, alat Baca/Ubah/Hapus, peringatan pengaturan belum lengkap; Uji alat (JSON + hasil +
+  akai.log), Pengaturan (isian + izin ubah), Ubah kode (editor), Unduh .js, Hapus; contoh plugin; Tulis plugin / Unggah .js).
+- Uji: unit (plugin-logic 3 + sandbox 4: alat, config, log, fetch host, galat, tanpa akses Node, loop tanpa akhir), smoke (+16: katalog, 403,
+  galat sintaks, loop dihentikan, pasang, ganda 409, uji alat, pengaturan hari libur, plugin berjaringan ke server lokal + rahasia disamarkan +
+  host lain ditolak, alat ditawarkan di chat & alat ubah hanya bila diizinkan, chat memanggil alat plugin, hapus), browser: pasang dari
+  katalog, uji Kurs ke open.er-api.com sungguhan (129 md), chat Claude Sonnet 5.5 memanggil dua plugin sekaligus (23 hari kerja Des 2026 ✔).
+  Plugin contoh Hari Kerja & Kurs Mata Uang dibiarkan terpasang di akun admin dev.
+- Belum: modul/impor antar berkas (satu berkas JS), timer (`setTimeout`) di sandbox, berbagi plugin antar akun, tanda tangan/verifikasi
+  plugin dari pihak luar.
+
+**6b.7 lanjutan — Paket (seperti plugin Claude, 2026-11-17)** (`plugin-logic.ts` `validatePackage`, `plugins.service.ts`, `connectors.service.ts`):
+
+- Satu berkas JSON `{ "type": "akai-package", name, title, description, version, instructions, skills: [{ name, description,
+  instructions, files: [{ path, content }] }], connectors: [{ name, preset: "akasha" } | { name, url, auth: none|token, allowWrite }] }`.
+  Dikenali dari isi (diawali `{`), **tidak menjalankan kode**. Batas: instruksi 4 rb karakter, ≤ 10 skill (aturan & batas sama dengan skill
+  buatan pemilik, `validateSkill`), ≤ 5 konektor, seluruh isi ≤ 200 rb karakter. Kolom `plugins.kind` code | package; manifest tersimpan dibaca
+  lewat `normalizeManifest` (manifest lama = kode). Migrasi `20261117150000_plugin_packages` (+ `connectors.plugin_id`, hapus berantai).
+- **Instruksi** paket yang menyala masuk prompt sistem (`packageInstructionsBlock`, sebelum memori & proyek). **Skill** paket bernama
+  `<paket>-<skill>` ikut daftar skill (nama ganda: yang lebih dulu menang). **Konektor** dibuat saat paket dipasang
+  (`ConnectorsService.createForPlugin`, alamat diperiksa `cleanUrl` dulu lewat `checkPackageConnectors`, kuota 20 konektor dihitung): **token
+  tidak pernah dari berkas paket** — konektor bertoken mulai `auth_required` "Perlu token", diisi pemilik di halaman Konektor. Matikan paket =
+  konektornya mati; ubah isi paket = konektor disamakan (baru dibuat, yang hilang dari paket dihapus); hapus paket = konektornya ikut terhapus.
+  Konektor gagal dibuat = paket tidak jadi dipasang.
+- Katalog: paket **Akasha Harian** (instruksi + skill rangkuman-harian & rencana-mingguan + konektor preset akasha) + templat paket
+  (`PACKAGE_TEMPLATE`). Akai web: tombol **Buat paket** / **Tulis kode** / **Unggah berkas** (.json/.js), lencana Paket/Kode, rincian paket
+  (instruksi, skill + jumlah berkas, konektor + status + tautan "Isi token di Konektor"), unduh .json; halaman Konektor: lencana "Dari paket",
+  label "Perlu token" untuk konektor yang belum pernah diberi token (dulu "Token ditolak").
+- Uji: unit (package-logic 4), smoke (+7: JSON rusak, pasang → konektor menunggu token, token diisi → tersambung & `pluginId`, skill di daftar,
+  instruksi di prompt + alat konektor ditawarkan, mati = tanpa instruksi & konektor mati, hapus = konektor ikut terhapus), browser (pasang paket
+  katalog → rincian + "Perlu token" → lencana "Dari paket" di Konektor → dilepas; HP 375 px).
+
+**Audit keamanan & galat Akai (2026-11-17)** — diperbaiki:
+
+1. **SSRF lewat DNS** (tinggi): alamat router model & server MCP hanya diperiksa dari tulisan host, sehingga domain publik yang DNS-nya menunjuk
+   ke IP internal (127.x, 10.x, 169.254.169.254, …) lolos di production. Kini satu `createSafeFetch` (`src/common/safe-fetch.ts` + test)
+   memeriksa IP hasil DNS **di koneksi itu sendiri** (tahan DNS rebinding), juga IP yang ditulis langsung & setiap pengalihan — dipakai katalog
+   model, gateway, SDK Claude/OpenAI jalur agen (opsi `fetch`), dan konektor MCP (opsi `fetch` transport). Konektor Akasha (alamat internal dari env
+   server) dan seluruh development boleh jaringan lokal. Smoke memakai jalur yang sama di dev.
+2. **Tugas terjadwal tetap jalan untuk akun yang dinonaktifkan / aksesnya dicabut di SSO** (sedang): kini dicek `SsoService.stillAllowed`
+   sebelum dijalankan (tidak memakai kuota model, tidak mengirim email; status terakhir = galat).
+3. **Sandbox plugin tanpa batas bersamaan** (sedang, memori): maks. 4 berjalan + 32 antre per proses, sisanya ditolak "Plugin sedang sibuk".
+4. **Batas body `/api/skills`** 1 MB < batas isi skill (huruf non-ASCII 3 byte) → 413 tanpa pesan; dinaikkan 2 MB.
+5. **Nama skill ganda** (skill paket = nama skill sendiri) membuat alat `akai__skill` rancu → yang lebih dulu menang.
+6. Smoke tahan sisa run yang berhenti di tengah (sumber "Smoke chat" lama dihapus dulu, model uji dari rute tugas Chat); sisa dua run di akun
+   uji `user@workingspace.id` dibersihkan (4 sumber, skill bawaan yang tertinggal mati).
+
+Diperiksa & aman: hak akses lampiran chat / berkas proyek / proyek percakapan (selalu per akun), pemilihan `model` gateway (hanya model akun
+itu), `returnTo` masuk SSO (jalur relatif saja), Markdown (tanpa HTML mentah), Mermaid `securityLevel: strict`, bingkai artifact (sumber pesan
+diperiksa dua arah, CSP sendiri, `frame-ancestors 'self'`), cookie sesi (httpOnly, SameSite Lax, Secure di production), helmet & CSP nginx.
+
+**6b.8 — rincian teknis** (`apps/akai/api/src/schedules/`, `apps/akai/web/src/pages/schedules-page.tsx`):
+
+- Tabel `scheduled_tasks` (nama, prompt ≤ 8 rb, `schedule` jsonb `{ kind: hourly|daily|weekly|monthly, time, days, dayOfMonth 1–28,
+  everyHours }`, zona `Asia/Jakarta|Makassar|Jayapura` = selisih tetap, model & proyek opsional, `email`, `enabled`, `next_run_at`,
+  status terakhir, `run_count`), maks. 20 per akun. `conversations.scheduled_task_id` (SetNull) + `unread`. Logika murni + test
+  `schedule-logic.ts` (`validateSchedule`, `nextRun`, `describeSchedule`, `resultMail`).
+- **Penjadwal** di proses Akai API: pemeriksa tiap 30 dtk mengambil tugas jatuh tempo (≤ 5), **mengklaim** dengan menggeser `next_run_at`
+  bersyarat (tidak jalan dua kali), lalu menjalankan prompt lewat `ChatService.send` (StreamSink sebagai Response) — skill, konektor,
+  plugin, proyek, memori ikut dipakai, tetapi **memori tidak dicatat** (`skipMemory`) dan judul tidak diganti judul otomatis. Hasil =
+  percakapan "<nama> · <waktu>" bertanda belum dibuka (titik di sidebar; dibuka = dibaca). Satu instans Akai API (seperti robot Akasha).
+- **Email** (`schedules/mail.service.ts`, nodemailer, SMTP Titan sama dengan SSO): env baru opsional `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+  `SMTP_PASSWORD`, `MAIL_FROM`, `MAIL_DIR` (dev `.mail`, di-ignore git), `AKAI_WEB_URL` (tautan; kosong = asal `SSO_REDIRECT_URI`). Tanpa SMTP
+  email ditulis ke `MAIL_DIR`. Penerima = email akun SSO. Subjek `[Akai] <nama>` / `[Akai] Gagal: <nama>`, isi jawaban + tautan.
+- Endpoint sesi web: `GET|POST /api/schedules`, `PATCH|DELETE /api/schedules/:id` (hapus = percakapan hasil tetap), `POST /:id/run` (202, latar
+  belakang), `GET /:id/runs` (30 percakapan terakhir). Aplikasi 403.
+- Akai web: menu **Terjadwal** (daftar: sakelar, keterangan jadwal, berikutnya/terakhir/status, Jalankan sekarang, Riwayat, Ubah, Hapus; dipantau
+  tiap 3 dtk selama ada yang berjalan; formulir nama, perintah, jadwal, hari, zona, model, proyek, email).
+- Uji: unit (schedule-logic 4), smoke (+11: 403, validasi, buat + keterangan, jalankan → percakapan belum dibuka, jawaban tersimpan & dibuka =
+  dibaca, email ke folder dev, **tugas jatuh tempo dijalankan penjadwal** & jadwal berikutnya maju, mati = tanpa jadwal, hapus = hasil tetap),
+  browser: buat lewat formulir + email → Jalankan sekarang → Sonnet memakai plugin Kurs → titik belum dibuka di sidebar → email berisi
+  jawaban + tautan; dibuka = titik hilang. Data uji dihapus.
+- Belum: notifikasi selain email (mis. WhatsApp / push), jadwal cron bebas, menjalankan di beberapa instans Akai API.
 
 **Pengaturan model akun admin dev (2026-11-16, riset harga router.classai.id/model + peringkat November 2026):**
 

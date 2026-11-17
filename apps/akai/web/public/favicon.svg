@@ -1,12 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
-  <!-- Tanda Akai: percikan (asisten AI) di atas gradien aurora workingspace.id -->
+  <!-- Tanda Akai: monogram "A" (gerbang langit) + titik lime di atas kotak tinta; salinan components/akai-mark.tsx -->
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4b44e0"/>
-      <stop offset="0.6" stop-color="#2fb9d8"/>
-      <stop offset="1" stop-color="#b6ec4f"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d2350"/>
+      <stop offset="1" stop-color="#0f1330"/>
+    </linearGradient>
+    <linearGradient id="a" x1="11" y1="31" x2="29" y2="9" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5b55f0"/>
+      <stop offset="0.55" stop-color="#3cc4e2"/>
+      <stop offset="1" stop-color="#c3f05a"/>
     </linearGradient>
   </defs>
-  <rect width="40" height="40" rx="11" fill="url(#g)"/>
-  <path d="M20 8c1.2 6.4 5.6 10.8 12 12-6.4 1.2-10.8 5.6-12 12-1.2-6.4-5.6-10.8-12-12 6.4-1.2 10.8-5.6 12-12z" fill="#fff" fill-opacity="0.95"/>
+  <rect width="40" height="40" rx="11" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="39" height="39" rx="10.5" fill="none" stroke="#fff" stroke-opacity="0.14"/>
+  <path d="M11 30.5 19.1 10.6a1 1 0 0 1 1.8 0L29 30.5" fill="none" stroke="url(#a)" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="20" cy="24.2" r="3.1" fill="#c3f05a"/>
 </svg>

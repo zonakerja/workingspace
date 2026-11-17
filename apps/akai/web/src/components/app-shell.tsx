@@ -1,6 +1,8 @@
 import {
   Brain,
   Sparkles,
+  Puzzle,
+  CalendarClock,
   Check,
   ExternalLink,
   FolderKanban,
@@ -229,6 +231,28 @@ function Sidebar({
           <Sparkles className="size-4" /> Skill
         </NavLink>
         <NavLink
+          to="/plugins"
+          className={({ isActive }) =>
+            cn(
+              "-mt-1.5 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent",
+              isActive && "bg-accent font-medium",
+            )
+          }
+        >
+          <Puzzle className="size-4" /> Plugin
+        </NavLink>
+        <NavLink
+          to="/schedules"
+          className={({ isActive }) =>
+            cn(
+              "-mt-1.5 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent",
+              isActive && "bg-accent font-medium",
+            )
+          }
+        >
+          <CalendarClock className="size-4" /> Terjadwal
+        </NavLink>
+        <NavLink
           to="/connectors"
           className={({ isActive }) =>
             cn(
@@ -299,8 +323,13 @@ function Sidebar({
                     activeId === c.id && "bg-accent font-medium",
                   )}
                 >
-                  <NavLink to={`/chat/${c.id}`} className="min-w-0 flex-1 truncate px-2 py-1.5" title={c.title}>
-                    {c.title}
+                  <NavLink
+                    to={`/chat/${c.id}`}
+                    className={cn("flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5", c.unread && "font-semibold")}
+                    title={c.unread ? `${c.title} (hasil tugas terjadwal, belum dibuka)` : c.title}
+                  >
+                    {c.unread && <span className="size-2 shrink-0 rounded-full bg-primary" aria-label="Belum dibuka" />}
+                    <span className="truncate">{c.title}</span>
                   </NavLink>
                   <div className="absolute right-1 flex items-center gap-0.5 rounded-md bg-accent pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100">
                     <Button

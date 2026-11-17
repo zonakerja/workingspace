@@ -7,6 +7,7 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { createSafeFetch } from "../common/safe-fetch";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -16,6 +17,7 @@ import type { Connector, Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { keyHint, normalizeBaseUrl } from "../sources/source-logic";
 import { type ConnectorTool, buildToolset, connectorSlug, summarizeTools, toolResultText } from "./connector-logic";
+import type { PackageConnector } from "../plugins/plugin-logic";
 
 const CONNECT_TIMEOUT_MS = 15_000;
 const LIST_TIMEOUT_MS = 30_000;
@@ -53,6 +55,9 @@ export class ConnectorsService {
   private readonly logger = new Logger(ConnectorsService.name);
   private readonly crypto: AkaiCrypto;
   private readonly production: boolean;
+  /** fetch untuk alamat MCP isian pengguna (IP jaringan lokal ditolak) dan untuk alamat internal dari env server. */
+  private readonly publicFetch: typeof fetch;
+  private readonly internalFetch: typeof fetch;
   readonly akashaUrl: string | null;
 
   constructor(
@@ -61,6 +66,8 @@ export class ConnectorsService {
   ) {
     this.crypto = new AkaiCrypto(config.getOrThrow<string>("AKAI_ENCRYPTION_KEY"));
     this.production = config.get<string>("NODE_ENV") === "production";
+    this.publicFetch = createSafeFetch(false);
+    this.internalFetch = createSafeFetch(true);
     this.akashaUrl = config.get<string>("AKASHA_MCP_URL")?.replace(/\/+$/, "") ?? null;
   }
 
@@ -136,6 +143,68 @@ export class ConnectorsService {
     return this.view(await this.refreshRow(row));
   }
 
+  /** Periksa konektor bawaan paket sebelum paket dipasang (alamat MCP sah, preset tersedia, kuota). */
+  async checkPackageConnectors(accountId: string, specs: PackageConnector[], replacing = 0) {
+    if (specs.some((c) => c.preset === "akasha") && !this.akashaUrl)
+      throw new BadRequestException("Paket membutuhkan konektor Akasha, tetapi AKASHA_MCP_URL belum diatur di server.");
+    for (const c of specs) if (!c.preset) this.cleanUrl(c.url ?? "");
+    const count = await this.prisma.connector.count({ where: { accountId } });
+    if (count - replacing + specs.length > MAX_CONNECTORS)
+      throw new BadRequestException(
+        `Paket membawa ${specs.length} konektor; maks. ${MAX_CONNECTORS} konektor per akun.`,
+      );
+  }
+
+  /**
+   * Konektor bawaan paket plugin (6b.7): dibuat tanpa token — pemilik mengisi token di halaman Konektor (tidak pernah dari berkas
+   * paket). Ikut dimatikan / dihapus bersama paketnya (`plugin_id`, hapus berantai).
+   */
+  async createForPlugin(accountId: string, pluginId: string, spec: PackageConnector) {
+    const url = spec.preset ? null : this.cleanUrl(spec.url ?? "");
+    const base = connectorSlug(spec.name);
+    let slug = base;
+    for (let n = 2; await this.prisma.connector.findFirst({ where: { accountId, slug } }); n++)
+      slug = `${base.slice(0, 17)}_${n}`;
+    const needsToken = spec.auth === "token";
+    const row = await this.prisma.connector.create({
+      data: {
+        accountId,
+        pluginId,
+        name: spec.name,
+        slug,
+        kind: spec.preset ? "akasha" : "custom",
+        url,
+        allowWrite: spec.allowWrite,
+        status: needsToken ? "auth_required" : "new",
+        statusMessage: needsToken ? "Isi token akses di halaman Konektor agar alat paket ini bisa dipakai." : null,
+      },
+    });
+    return needsToken ? row : this.refreshRow(row);
+  }
+
+  /** Nyalakan / matikan semua konektor bawaan satu paket. */
+  async setPluginEnabled(pluginId: string, enabled: boolean) {
+    await this.prisma.connector.updateMany({ where: { pluginId }, data: { enabled } });
+  }
+
+  /** Konektor bawaan paket (untuk halaman Plugin). */
+  async forPlugin(accountId: string, pluginId: string) {
+    const rows = await this.prisma.connector.findMany({
+      where: { accountId, pluginId },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      kind: r.kind,
+      status: r.status,
+      statusMessage: r.statusMessage,
+      hasToken: !!r.tokenEnc,
+      enabled: r.enabled,
+      tools: (r.tools as unknown as ConnectorTool[]).length,
+    }));
+  }
+
   async update(
     caller: Caller,
     id: string,
@@ -183,10 +252,11 @@ export class ConnectorsService {
   private async withClient<T>(row: Connector, fn: (client: Client) => Promise<T>, timeout: number) {
     const { url, token } = this.endpoint(row);
     const requestInit = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+    const fetch = row.kind === "akasha" || !this.production ? this.internalFetch : this.publicFetch;
     let client = new Client({ name: "akai", version: "1.0.0" });
     try {
       await withTimeout(
-        client.connect(new StreamableHTTPClientTransport(url, { requestInit })),
+        client.connect(new StreamableHTTPClientTransport(url, { requestInit, fetch })),
         CONNECT_TIMEOUT_MS,
         "Sambungan",
       );
@@ -194,7 +264,7 @@ export class ConnectorsService {
       if (isAuthError(error)) throw error;
       client = new Client({ name: "akai", version: "1.0.0" });
       await withTimeout(
-        client.connect(new SSEClientTransport(url, { requestInit })),
+        client.connect(new SSEClientTransport(url, { requestInit, fetch })),
         CONNECT_TIMEOUT_MS,
         "Sambungan",
       ).catch((sseError: unknown) => {
