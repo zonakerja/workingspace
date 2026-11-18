@@ -1,7 +1,19 @@
-import { ChevronDown, KeyRound, Plug, Plus, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ExternalLink,
+  KeyRound,
+  LayoutGrid,
+  Plug,
+  Plus,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AkaiMark } from "@/components/akai-mark";
+import { AppAvatar, CatalogPicker, OAuthSettingsForm, useConnectFlow } from "@/components/connector-catalog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { errorText } from "@/lib/api";
-import { type Connector, connectorsApi, toolAccess, toolUsable } from "@/lib/connectors";
+import { type Connector, type ConnectorAuth, connectorsApi, toolAccess, toolUsable } from "@/lib/connectors";
 import { cn } from "@/lib/utils";
 
 const STATUS: Record<Connector["status"], { label: string; className: string }> = {
@@ -36,24 +48,47 @@ const ACCESS = {
 
 /** Konektor MCP Akai (6b.5): alat dari Akasha & aplikasi lain yang bisa dipakai Akai saat chat, dengan izin per konektor. */
 export function ConnectorsPage() {
-  const [data, setData] = useState<{ akashaAvailable: boolean; connectors: Connector[] } | null>(null);
-  const [adding, setAdding] = useState<"akasha" | "custom" | null>(null);
+  const [data, setData] = useState<Awaited<ReturnType<typeof connectorsApi.list>> | null>(null);
+  const [adding, setAdding] = useState<"akasha" | "custom" | "catalog" | null>(null);
   const [deleting, setDeleting] = useState<Connector | null>(null);
+  const [oauthEditing, setOauthEditing] = useState<Connector | null>(null);
 
   useEffect(() => {
+    // Kembali dari halaman izin aplikasi (di jendela izin): beri tahu jendela Akai pembuka lalu tutup diri
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    const failed = params.get("error");
+    if (connected || failed) {
+      window.history.replaceState(null, "", window.location.pathname);
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: "akai-connector", connected, error: failed }, window.location.origin);
+        window.close();
+      } else if (connected) toast.success("Aplikasi tersambung.");
+      else toast.error(failed);
+    }
     let alive = true;
     connectorsApi
       .list()
       .then((value) => alive && setData(value))
       .catch((error: unknown) => alive && toast.error(errorText(error)));
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || (event.data as { type?: string })?.type !== "akai-connector")
+        return;
+      const message = event.data as { connected?: string; error?: string };
+      if (message.error) toast.error(message.error);
+      void connectorsApi.list().then((value) => alive && setData(value));
+    };
+    window.addEventListener("message", onMessage);
     return () => {
       alive = false;
+      window.removeEventListener("message", onMessage);
     };
   }, []);
 
   const reload = async () => setData(await connectorsApi.list());
   const replace = (c: Connector) =>
     setData((d) => (d ? { ...d, connectors: d.connectors.map((x) => (x.id === c.id ? c : x)) } : d));
+  const connect = useConnectFlow(replace);
 
   async function patch(c: Connector, body: Parameters<typeof connectorsApi.update>[1]) {
     try {
@@ -85,8 +120,8 @@ export function ConnectorsPage() {
               <Plug className="size-6" /> Konektor
             </h1>
             <p className="mt-1 max-w-2xl text-sm opacity-80">
-              Sambungkan Akai ke Akasha dan aplikasi lain (protokol MCP) agar Akai bisa mencari dan memakai data Anda
-              saat menjawab — mis. catatan Knowledge, agenda, dan to-do.
+              Sambungkan Akai ke Akasha dan aplikasi lain (Canva, Notion, GitHub, Google, Jira, Slack, …) lewat protokol
+              MCP agar Akai bisa mencari dan memakai data Anda saat menjawab.
             </p>
           </div>
           <div className="flex gap-2">
@@ -95,8 +130,11 @@ export function ConnectorsPage() {
                 <Plus data-icon="inline-start" /> Akasha
               </Button>
             )}
+            <Button variant="secondary" onClick={() => setAdding("catalog")}>
+              <LayoutGrid data-icon="inline-start" /> Tambah aplikasi
+            </Button>
             <Button variant="secondary" onClick={() => setAdding("custom")}>
-              <Plus data-icon="inline-start" /> Server MCP lain
+              <Plus data-icon="inline-start" /> Alamat sendiri
             </Button>
           </div>
         </div>
@@ -108,20 +146,28 @@ export function ConnectorsPage() {
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed py-12 text-center text-sm text-muted-foreground">
           <Plug className="size-8" />
           Belum ada konektor.
-          {data.akashaAvailable && (
-            <Button onClick={() => setAdding("akasha")}>
-              <Plus data-icon="inline-start" /> Sambungkan Akasha
+          <div className="flex flex-wrap justify-center gap-2">
+            {data.akashaAvailable && (
+              <Button variant="outline" onClick={() => setAdding("akasha")}>
+                <Plus data-icon="inline-start" /> Sambungkan Akasha
+              </Button>
+            )}
+            <Button onClick={() => setAdding("catalog")}>
+              <LayoutGrid data-icon="inline-start" /> Tambah aplikasi
             </Button>
-          )}
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {data.connectors.map((c) => {
             // Konektor yang belum pernah diberi token (mis. dari paket) = perlu token, bukan "ditolak"
             const status =
-              c.status === "auth_required" && !c.hasToken
-                ? { label: "Perlu token", className: STATUS.auth_required.className }
-                : STATUS[c.status];
+              c.status === "auth_required" && c.authType === "oauth"
+                ? { label: c.authorized ? "Izin kedaluwarsa" : "Perlu izin", className: STATUS.auth_required.className }
+                : c.status === "auth_required" && !c.hasToken
+                  ? { label: "Perlu token", className: STATUS.auth_required.className }
+                  : STATUS[c.status];
+            const needsConnect = c.authType === "oauth" && c.status !== "connected";
             const usable = c.tools.filter((t) => toolUsable(t, c.allowWrite)).length;
             return (
               <section key={c.id} className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
@@ -131,6 +177,8 @@ export function ConnectorsPage() {
                       <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-sm font-bold text-primary">
                         Ak
                       </span>
+                    ) : c.preset ? (
+                      <AppAvatar name={c.name} />
                     ) : (
                       <span className="flex size-10 items-center justify-center rounded-xl bg-muted">
                         <Plug className="size-5" />
@@ -147,15 +195,38 @@ export function ConnectorsPage() {
                         )}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {c.url ?? "—"} · {c.hasToken ? `token …${c.tokenHint ?? ""}` : "tanpa token"}
+                        {c.url ?? "—"} ·{" "}
+                        {c.authType === "oauth"
+                          ? c.authorized
+                            ? "masuk lewat akun"
+                            : "belum diberi izin"
+                          : c.hasToken
+                            ? `token …${c.tokenHint ?? ""}`
+                            : "tanpa token"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
+                    {needsConnect && (
+                      <Button size="sm" onClick={() => void connect(c)}>
+                        <ExternalLink data-icon="inline-start" /> Sambungkan
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => void refresh(c)}>
                       <RefreshCw data-icon="inline-start" /> Muat ulang
                     </Button>
-                    <TokenButton connector={c} onSaved={replace} />
+                    {c.authType === "oauth" ? (
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Pengaturan OAuth"
+                        onClick={() => setOauthEditing(c)}
+                      >
+                        <Settings2 />
+                      </Button>
+                    ) : (
+                      <TokenButton connector={c} onSaved={replace} />
+                    )}
                     <Button
                       size="icon-sm"
                       variant="ghost"
@@ -167,7 +238,11 @@ export function ConnectorsPage() {
                     </Button>
                   </div>
                 </div>
-                {c.statusMessage && <p className="text-xs text-destructive">{c.statusMessage}</p>}
+                {c.statusMessage && (
+                  <p className={cn("text-xs", c.status === "error" ? "text-destructive" : "text-muted-foreground")}>
+                    {c.statusMessage}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
                   <label className="flex items-center gap-2">
                     <Switch checked={c.enabled} onCheckedChange={(enabled) => void patch(c, { enabled })} />
@@ -215,22 +290,50 @@ export function ConnectorsPage() {
         <ShieldCheck className="mt-0.5 size-4 shrink-0" />
         <p>
           Alat bertanda <b>Baca</b> selalu boleh dipakai Akai; alat <b>Ubah</b> hanya bila Anda mengizinkannya; alat{" "}
-          <b>Hapus</b> tidak pernah dipakai dari chat (aplikasi lain tidak punya Sampah Akai). Token disimpan
-          terenkripsi dan tidak pernah dikirim ke browser maupun ke model.
+          <b>Hapus</b> tidak pernah dipakai dari chat (aplikasi lain tidak punya Sampah Akai). Token & izin masuk
+          (OAuth) disimpan terenkripsi di Akai dan tidak pernah dikirim ke browser maupun ke model.
         </p>
       </section>
 
       <Dialog open={!!adding} onOpenChange={(open) => !open && setAdding(null)}>
-        <DialogContent className="sm:max-w-lg">
-          {adding && (
+        <DialogContent className={cn(adding === "catalog" ? "sm:max-w-2xl" : "sm:max-w-lg")}>
+          {adding === "catalog" && (
+            <CatalogPicker
+              existing={data?.connectors ?? []}
+              connect={connect}
+              onCancel={() => setAdding(null)}
+              onAdded={(c) => {
+                setAdding(null);
+                setData((d) => (d ? { ...d, connectors: [...d.connectors, c] } : d));
+              }}
+            />
+          )}
+          {(adding === "akasha" || adding === "custom") && (
             <AddConnectorForm
               kind={adding}
               onCancel={() => setAdding(null)}
-              onAdded={async (c) => {
+              onAdded={async (c, win) => {
                 setAdding(null);
                 await reload();
-                if (c.status === "connected") toast.success(`${c.name} tersambung: ${c.tools.length} alat.`);
+                if (c.authType === "oauth") await connect(c, win);
+                else if (c.status === "connected") toast.success(`${c.name} tersambung: ${c.tools.length} alat.`);
                 else toast.error(c.statusMessage ?? "Konektor ditambahkan tetapi belum tersambung.");
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!oauthEditing} onOpenChange={(open) => !open && setOauthEditing(null)}>
+        <DialogContent className="sm:max-w-lg">
+          {oauthEditing && (
+            <OAuthSettingsForm
+              connector={oauthEditing}
+              redirectUrl={data?.redirectUrl ?? null}
+              onCancel={() => setOauthEditing(null)}
+              onSaved={(c) => {
+                replace(c);
+                setOauthEditing(null);
               }}
             />
           )}
@@ -266,19 +369,26 @@ function AddConnectorForm({
 }: {
   kind: "akasha" | "custom";
   onCancel: () => void;
-  onAdded: (c: Connector) => Promise<void>;
+  onAdded: (c: Connector, win?: Window | null) => Promise<void>;
 }) {
   const [name, setName] = useState(kind === "akasha" ? "Akasha" : "");
   const [url, setUrl] = useState("");
   const [token, setToken] = useState("");
+  const [authType, setAuthType] = useState<ConnectorAuth>(kind === "akasha" ? "token" : "none");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
+    const win = authType === "oauth" ? window.open("about:blank", "_blank", "width=560,height=720") : null;
     try {
-      await onAdded(await connectorsApi.create({ kind, name, url, token }));
+      const body =
+        kind === "akasha"
+          ? { kind, name, token }
+          : { kind, name, url, authType, token: authType === "token" ? token : undefined };
+      await onAdded(await connectorsApi.create(body), win);
     } catch (error) {
+      win?.close();
       toast.error(errorText(error));
       setBusy(false);
     }
@@ -294,7 +404,7 @@ function AddConnectorForm({
         <DialogDescription>
           {kind === "akasha"
             ? "Akai memakai MCP Akasha (Knowledge, agenda, to-do, pengajuan) dengan token akses pribadi Anda."
-            : "Alamat server MCP (Streamable HTTP atau SSE) dan token aksesnya bila diperlukan."}
+            : "Alamat server MCP (Streamable HTTP atau SSE) untuk aplikasi yang belum ada di katalog."}
         </DialogDescription>
       </DialogHeader>
       <FieldGroup>
@@ -322,30 +432,68 @@ function AddConnectorForm({
             </Field>
           </>
         )}
-        <Field>
-          <FieldLabel htmlFor="c-token">Token akses{kind === "custom" ? " (opsional)" : ""}</FieldLabel>
-          <Input
-            id="c-token"
-            type="password"
-            autoComplete="off"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder={kind === "akasha" ? "akasha_pat_…" : "Bearer token"}
-            className="font-mono"
-          />
-          {kind === "akasha" && (
-            <FieldDescription>
-              Buat di Akasha → Pengaturan → Integrasi → Buat token. Centang izin yang boleh dipakai Akai, mis. Basis
-              pengetahuan (baca), Data kerja (baca), dan Data kerja (tulis) bila Akai boleh membuat to-do.
-            </FieldDescription>
-          )}
-        </Field>
+        {kind === "custom" && (
+          <Field>
+            <FieldLabel>Cara masuk</FieldLabel>
+            <div className="flex gap-1">
+              {(
+                [
+                  ["none", "Tanpa login"],
+                  ["token", "Token"],
+                  ["oauth", "Masuk akun (OAuth)"],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="xs"
+                  variant={authType === value ? "secondary" : "ghost"}
+                  onClick={() => setAuthType(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+            {authType === "oauth" && (
+              <FieldDescription>
+                Akai mendaftar otomatis ke aplikasi itu lalu membuka jendela izin. Bila aplikasi menolak pendaftaran
+                otomatis, isi Client ID & Secret lewat tombol pengaturan OAuth di kartu konektor.
+              </FieldDescription>
+            )}
+          </Field>
+        )}
+        {(kind === "akasha" || authType === "token") && (
+          <Field>
+            <FieldLabel htmlFor="c-token">Token akses</FieldLabel>
+            <Input
+              id="c-token"
+              type="password"
+              autoComplete="off"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder={kind === "akasha" ? "akasha_pat_…" : "Bearer token"}
+              className="font-mono"
+            />
+            {kind === "akasha" && (
+              <FieldDescription>
+                Buat di Akasha → Pengaturan → Integrasi → Buat token. Centang izin yang boleh dipakai Akai, mis. Basis
+                pengetahuan (baca), Data kerja (baca), dan Data kerja (tulis) bila Akai boleh membuat to-do.
+              </FieldDescription>
+            )}
+          </Field>
+        )}
       </FieldGroup>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Batal
         </Button>
-        <Button type="submit" disabled={busy || (kind === "akasha" ? !token.trim() : !name.trim() || !url.trim())}>
+        <Button
+          type="submit"
+          disabled={
+            busy ||
+            (kind === "akasha" ? !token.trim() : !name.trim() || !url.trim() || (authType === "token" && !token.trim()))
+          }
+        >
           {busy && <Spinner />} Sambungkan
         </Button>
       </DialogFooter>

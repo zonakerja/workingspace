@@ -8,7 +8,6 @@ import { DAILY_MARKER, dailyPath, longDate } from "./vault-daily";
  * agenda & task periode itu + tautan ke catatan harian / mingguan di dalamnya. Setelah dibuat milik user — tidak pernah ditimpa.
  */
 export type PeriodKind = "week" | "month";
-export const PERIOD_KINDS: readonly PeriodKind[] = ["week", "month"];
 
 const MONTHS = [
   "Januari",

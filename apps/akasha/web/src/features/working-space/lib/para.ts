@@ -22,7 +22,7 @@ export const projectColorClass = (id?: string) => {
   return PROJECT_COLORS[Math.abs(hash) % PROJECT_COLORS.length];
 };
 
-export type TaskKind = "project-action" | "area-task" | "unknown";
+type TaskKind = "project-action" | "area-task" | "unknown";
 
 export interface EnrichedTask extends ProjectTask {
   kind: TaskKind;

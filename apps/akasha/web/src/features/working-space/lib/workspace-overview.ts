@@ -19,7 +19,7 @@ export interface ProjectHealth {
 }
 
 /** Selisih waktu berjalan − progres task yang dianggap berisiko (poin persen). */
-export const RISK_GAP = 25;
+const RISK_GAP = 25;
 
 export function projectHealth(project: Project, tasks: ProjectTask[], today: Date): ProjectHealth {
   const own = tasks.filter((t) => t.projectId === project.id);

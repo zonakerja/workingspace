@@ -6,8 +6,8 @@ import { splitFrontmatter } from "./vault-parser";
  * bentuk Dataview `[due:: 2026-11-10]`. Logika murni: membaca & menulis baris tanpa menyentuh berkas.
  */
 
-export type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";
-export type TaskPriority = "highest" | "high" | "medium" | "low" | "lowest";
+type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";
+type TaskPriority = "highest" | "high" | "medium" | "low" | "lowest";
 
 export interface VaultTask {
   /** Urutan tugas di catatan (0 = tugas pertama) */

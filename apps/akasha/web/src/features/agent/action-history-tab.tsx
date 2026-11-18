@@ -92,8 +92,9 @@ export function ActionHistoryTab() {
                       )}
                     </ul>
                   )}
-                  {["ekinerja_fill", "srikandi_register", "mcp_connect", "mcp_access"].includes(action.kind) &&
-                    action.reason && <p className="mt-2 text-xs text-muted-foreground">{action.reason}</p>}
+                  {["ekinerja_fill", "srikandi_register"].includes(action.kind) && action.reason && (
+                    <p className="mt-2 text-xs text-muted-foreground">{action.reason}</p>
+                  )}
                   {action.kind === "delete" && (
                     <p className="mt-2 text-xs text-muted-foreground">
                       {action.reason}
@@ -121,12 +122,6 @@ export function ActionHistoryTab() {
                         <Link to="/srikandi/register">Buka SRIKANDI</Link>
                       </Button>
                     )}
-                    {action.status === "approved" &&
-                      (action.kind === "mcp_connect" || action.kind === "mcp_access") && (
-                        <Button size="sm" variant="ghost" asChild>
-                          <Link to="/mcp/apps">Buka Aplikasi MCP</Link>
-                        </Button>
-                      )}
                     {action.status === "approved" && action.kind === "delete" && (
                       <Button size="sm" variant="ghost" asChild>
                         <Link to="/tools/trash">Buka Sampah</Link>

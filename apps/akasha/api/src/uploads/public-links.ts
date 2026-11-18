@@ -31,10 +31,10 @@ import { fileHeaders } from "./file-headers";
  */
 const TOKEN_PREFIX = "lp_";
 const MAX_LINKS_PER_FILE = 20;
-export const PUBLIC_FILE_PATH = "/api/v1/public/files/";
+const PUBLIC_FILE_PATH = "/api/v1/public/files/";
 
 export const hashPublicToken = (token: string) => createHash("sha256").update(token).digest("hex");
-export const newPublicToken = () => `${TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
+const newPublicToken = () => `${TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
 
 export class CreatePublicLinkDto {
   @ApiPropertyOptional({ description: "Masa berlaku (hari); kosong/null = tanpa batas", nullable: true })

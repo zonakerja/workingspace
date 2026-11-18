@@ -26,7 +26,7 @@ interface Owned {
 
 export type AgendaColor = "planner" | "notes" | "overview" | "working-space" | "files" | "settings";
 /** Key ikon dari paket ikon aplikasi (`lib/icons/icon-registry.ts`), mis. "briefcase". */
-export type AgendaIcon = string;
+type AgendaIcon = string;
 
 /** Tipe agenda (Meeting, Kuliah, ...). */
 export interface AgendaType extends Owned {
@@ -220,7 +220,7 @@ export interface Resource extends Owned {
 // Working Space (PARA) — dilengkapi saat porting modul Working Space
 // ============================================================================
 
-export type ParaStatus = "active" | "completed" | "on-hold" | "archived" | string;
+type ParaStatus = "active" | "completed" | "on-hold" | "archived" | string;
 
 export interface Area extends Owned {
   id: string;
@@ -280,10 +280,10 @@ export interface ProjectTask extends Owned {
   createdAt?: string;
 }
 
-export type ArchiveOriginalType = "project" | "area" | "resource" | "activity";
+type ArchiveOriginalType = "project" | "area" | "resource" | "activity";
 
 /** Turunan yang ikut diarsipkan bersama item induk (dipulihkan bersamaan). */
-export interface ParaArchiveRelated {
+interface ParaArchiveRelated {
   projects?: Project[];
   activities?: Activity[];
   /** Action milik project & task milik kegiatan */
@@ -399,7 +399,7 @@ export interface ActionPlanEntry extends Owned {
 }
 
 /** Keadaan bulan Rencana Aksi di e-Kinerja. */
-export type ActionPlanMonthStatus = "empty" | "unavailable" | "draft" | "submitted" | "rated";
+type ActionPlanMonthStatus = "empty" | "unavailable" | "draft" | "submitted" | "rated";
 
 /** Potret satu bulan Rencana Aksi di e-Kinerja (dibaca robot "Ambil dari e-Kinerja"). */
 export interface ActionPlanMonth extends Owned {
@@ -504,7 +504,7 @@ export interface SrikandiReference extends Owned {
 }
 
 /** Tipe form Registrasi Naskah Keluar SRIKANDI: verifikasi & TTE di SRIKANDI, atau naskah sudah final di luar SRIKANDI. */
-export type SrikandiFormType = "keluar" | "final";
+type SrikandiFormType = "keluar" | "final";
 
 /** Berkas di entri register (berkas Akasha). `owned` = diunggah lewat register → ikut dihapus bersama entri. */
 export interface SrikandiOutgoingFile {
@@ -522,7 +522,7 @@ export interface SrikandiPick {
 }
 
 /** Status yang disimpan; "belum lengkap / siap" dihitung dari isian (`registerStatus`). */
-export type SrikandiOutgoingStage = "draft" | "submitted" | "done";
+type SrikandiOutgoingStage = "draft" | "submitted" | "done";
 
 /**
  * Register Naskah Keluar: gerbang Akasha sebelum naskah didaftarkan ke SRIKANDI. Isian mengikuti formulir Registrasi
@@ -715,7 +715,7 @@ export interface FreeList extends Owned {
 
 export type ArchivalStatus = "pending" | "physical" | "digital" | "none";
 /** Status siklus hidup yang disimpan. `expired` hanya hasil hitung (lihat computeDynamicStatus). */
-export type ArchiveLifecycle = "active" | "inactive" | "static" | "destroyed";
+type ArchiveLifecycle = "active" | "inactive" | "static" | "destroyed";
 export type DynamicStatus = ArchiveLifecycle | "expired";
 /** Jenis penyusutan: pemusnahan ("destroy") atau penyerahan statis ("transfer"). */
 export type DispositionType = "destroy" | "transfer";
@@ -773,7 +773,7 @@ export interface ArchiveClassification extends Owned {
   namaItem: string;
 }
 
-export type JraKeterangan = "Musnah" | "Permanen" | "Dinilai Kembali" | string;
+type JraKeterangan = "Musnah" | "Permanen" | "Dinilai Kembali" | string;
 
 export interface ArchiveJra extends Owned {
   id: string;
@@ -805,7 +805,7 @@ export interface ArchiveItemRef {
   archiveRegId?: string;
 }
 
-export type BorrowingStatus = "active" | "returned" | "cancelled";
+type BorrowingStatus = "active" | "returned" | "cancelled";
 
 export interface ArchiveBorrowing extends Owned {
   /** BAP-PINJAM-<ts> */

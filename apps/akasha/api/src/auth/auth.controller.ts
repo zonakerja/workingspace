@@ -20,8 +20,6 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
 import { AuthService, type Session } from "./auth.service";
-import { ChangePasswordDto } from "./dto/change-password.dto";
-import { LoginDto } from "./dto/login.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { REFRESH_COOKIE, clearRefreshCookie, readCookie, readRefreshCookie, setRefreshCookie } from "./refresh-cookie";
 import { isSilentSsoMiss, ssoErrorMessage } from "./sso-logic";
@@ -35,7 +33,6 @@ const SSO_FLOW_PATH = "/api/v1/auth/sso";
 @Controller("auth")
 export class AuthController {
   private readonly secureCookie: boolean;
-  private readonly passwordLogin: boolean;
 
   constructor(
     private readonly auth: AuthService,
@@ -43,20 +40,12 @@ export class AuthController {
     config: ConfigService,
   ) {
     this.secureCookie = config.getOrThrow<boolean>("COOKIE_SECURE");
-    this.passwordLogin = config.get<boolean>("PASSWORD_LOGIN") ?? false;
   }
 
   /** Refresh token dikirim sebagai cookie httpOnly; body hanya berisi user + access token. */
   private respond(res: Response, session: Session) {
     setRefreshCookie(res, session.refreshToken, session.refreshTtlSeconds, this.secureCookie);
     return { user: session.user, accessToken: session.accessToken };
-  }
-
-  @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  @HttpCode(200)
-  @Post("login")
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    return this.respond(res, await this.auth.login(dto));
   }
 
   @ApiCookieAuth(REFRESH_COOKIE)
@@ -88,10 +77,10 @@ export class AuthController {
     return { success: true, ssoLogoutUrl: await this.sso.logoutUrl() };
   }
 
-  /** Cara masuk yang tersedia (publik, untuk halaman login). */
+  /** Konfigurasi masuk (publik, untuk halaman login). Akasha hanya bisa dimasuki lewat SSO workingspace.id. */
   @Get("sso/config")
   ssoConfig() {
-    return { enabled: this.sso.enabled, passwordLogin: this.passwordLogin, accountUrl: this.sso.accountUrl };
+    return { enabled: this.sso.enabled, accountUrl: this.sso.accountUrl };
   }
 
   /** Mulai masuk lewat SSO: cookie alur + alihkan ke halaman masuk akun Workingspace. */
@@ -170,14 +159,5 @@ export class AuthController {
   @Patch("me")
   updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.auth.updateProfile(user, dto);
-  }
-
-  /** Ganti password; semua sesi lain dicabut, sesi perangkat ini tetap aktif. */
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(200)
-  @Post("change-password")
-  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto, @Req() req: Request) {
-    return this.auth.changePassword(user, dto, readRefreshCookie(req));
   }
 }

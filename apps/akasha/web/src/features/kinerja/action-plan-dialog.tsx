@@ -64,7 +64,7 @@ const MANUAL = "__manual";
 const VAULT = "__vault";
 const nowIso = () => new Date().toISOString();
 
-export const STATUS_STYLE: Record<ActionPlanEntry["status"], string> = {
+const STATUS_STYLE: Record<ActionPlanEntry["status"], string> = {
   draft: "bg-warning/15 text-warning",
   ready: "bg-info/15 text-info",
   filled: "bg-success/15 text-success",

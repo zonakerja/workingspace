@@ -7,7 +7,7 @@ const POLL_MS = 1500;
 const TIMEOUT_MS = 300_000;
 
 /** Format yang bisa dibaca langsung oleh model AI (cadangan bila ekstraksi server tidak menghasilkan teks). */
-export const AI_READABLE = (mime: string) =>
+const AI_READABLE = (mime: string) =>
   mime === "application/pdf" || mime.startsWith("image/") || mime.startsWith("text/");
 
 /**

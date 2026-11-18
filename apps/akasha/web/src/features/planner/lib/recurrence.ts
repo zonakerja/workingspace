@@ -148,11 +148,11 @@ const SHARED_KEYS = [
   "projectId",
 ] as const satisfies readonly (keyof Schedule)[];
 
-export const sharedFields = (s: Schedule): Partial<Schedule> =>
+const sharedFields = (s: Schedule): Partial<Schedule> =>
   Object.fromEntries(SHARED_KEYS.map((k) => [k, s[k]])) as Partial<Schedule>;
 
 /** Agenda untuk satu tanggal pertemuan berdasarkan templat (`base`). */
-export const occurrenceFrom = (base: Schedule, date: string, id: string, extra: Partial<Schedule> = {}): Schedule => ({
+const occurrenceFrom = (base: Schedule, date: string, id: string, extra: Partial<Schedule> = {}): Schedule => ({
   ...base,
   id,
   startDate: date,

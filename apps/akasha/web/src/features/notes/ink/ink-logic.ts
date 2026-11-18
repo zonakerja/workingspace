@@ -48,7 +48,7 @@ export const INK_COLOR_LABEL: Record<InkColorId, string> = {
 export const PEN_SIZES = [3, 5, 9] as const;
 export const HIGHLIGHT_SIZES = [16, 24, 34] as const;
 /** Radius penghapus (satuan logis). */
-export const ERASER_RADIUS = 12;
+const ERASER_RADIUS = 12;
 
 export const PAPER_LABEL: Record<PaperStyle, string> = {
   plain: "Polos",
@@ -153,7 +153,7 @@ const outlineOptions = (stroke: Pick<InkStroke, "tool" | "size" | "pressure">, c
 const average = (a: number, b: number) => (a + b) / 2;
 
 /** Outline polygon perfect-freehand → path SVG (kurva kuadratik halus). */
-export const outlineToPath = (outline: number[][]) => {
+const outlineToPath = (outline: number[][]) => {
   const len = outline.length;
   if (len < 4) return "";
   let a = outline[0];

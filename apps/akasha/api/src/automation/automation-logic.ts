@@ -5,8 +5,8 @@ import type { RobotSystem } from "../robot/robot-logic";
  * Jadwal otomasi (tab Connector Laporan Kinerja & SRIKANDI). Disimpan terstruktur agar mudah diatur dari UI, lalu diterjemahkan ke pola cron
  * BullMQ. Semua bentuk dibatasi **paling sering sekali per jam** — robot membuka sistem pemerintah, jangan dibanjiri.
  */
-export const AUTOMATION_TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
-export type AutomationTimezone = (typeof AUTOMATION_TIMEZONES)[number];
+const AUTOMATION_TIMEZONES = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"] as const;
+type AutomationTimezone = (typeof AUTOMATION_TIMEZONES)[number];
 
 export type AutomationSchedule =
   /** Setiap hari terpilih pada jam `time` (HH:mm). Mingguan = satu hari terpilih. */

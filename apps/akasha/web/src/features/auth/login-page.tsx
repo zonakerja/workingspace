@@ -1,40 +1,25 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Activity, AtSign, Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
+import { AkashaMark } from "@workingspace/ui/brand";
+import { ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
 import { Navigate, useLocation, useSearchParams } from "react-router";
-import { toast } from "sonner";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { appLogoUrl, useAppSettings } from "@/data/use-app-settings";
-import { useLogin, useSsoConfig } from "@/data/use-auth";
+import { useSsoConfig } from "@/data/use-auth";
 import { rememberSsoLogin } from "@/features/security/pin-prompt";
-import { markSilentSso, silentSsoAllowed } from "./silent-sso";
 import { API_BASE_URL } from "@/lib/api/client";
-import { errorMessage } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { markSilentSso, silentSsoAllowed } from "./silent-sso";
 
-const schema = z.object({
-  email: z.string().trim().min(1, "Email wajib diisi.").email("Format email tidak valid."),
-  password: z.string().min(1, "Password wajib diisi."),
-});
-
-type FormValues = z.infer<typeof schema>;
-
+/** Halaman masuk Akasha: hanya lewat akun Workingspace (SSO). Tidak ada kata sandi lokal. */
 function LoginPage() {
   const { settings } = useAppSettings();
   const logoUrl = appLogoUrl(settings);
   const isAuthenticated = useAuthStore((s) => s.status === "authenticated");
   const location = useLocation();
-  const login = useLogin();
-  const { data: sso } = useSsoConfig();
+  const { data: sso, isLoading } = useSsoConfig();
   const [params] = useSearchParams();
   const ssoError = params.get("sso_error");
-  const [showPassword, setShowPassword] = useState(false);
-  const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: "", password: "" } });
   const [silentAllowed] = useState(() => silentSsoAllowed());
 
   const from = (location.state as { from?: string } | null)?.from ?? "/";
@@ -61,15 +46,6 @@ function LoginPage() {
     rememberSsoLogin();
     window.location.assign(`${API_BASE_URL}/auth/sso/start?returnTo=${encodeURIComponent(from)}`);
   };
-  const showPasswordForm = !sso || sso.passwordLogin || !sso.enabled;
-
-  const onSubmit = form.handleSubmit((values) =>
-    login
-      .mutateAsync(values)
-      .catch((error: unknown) =>
-        toast.error("Login gagal", { description: errorMessage(error, "Tidak dapat login.") }),
-      ),
-  );
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-background p-4 sm:p-8">
@@ -84,13 +60,13 @@ function LoginPage() {
           <div className="pointer-events-none absolute -top-20 -right-20 size-64 rounded-full bg-mod-planner/40 blur-3xl" />
 
           <div className="relative flex items-center gap-4">
-            <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-primary shadow-lg">
-              {logoUrl ? (
+            {logoUrl ? (
+              <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg">
                 <img src={logoUrl} alt="" className="size-full object-cover" />
-              ) : (
-                <Activity className="size-8" strokeWidth={2.75} />
-              )}
-            </span>
+              </span>
+            ) : (
+              <AkashaMark className="size-16 shadow-lg" />
+            )}
             <div className="min-w-0">
               <p className="truncate text-3xl font-extrabold tracking-wider">{settings.name}</p>
               <p className="mt-1 text-sm font-bold tracking-widest text-white/80 uppercase">{settings.loginSub}</p>
@@ -107,7 +83,6 @@ function LoginPage() {
           <p className="relative text-xs font-medium text-white/75">{settings.footerText}</p>
         </section>
 
-        {/* Form login */}
         <section className="flex flex-col justify-center p-8 md:p-12">
           <div className="mb-8">
             <h1 className="text-2xl font-bold tracking-tight">{settings.welcomeTitle}</h1>
@@ -122,76 +97,25 @@ function LoginPage() {
               {ssoError}
             </p>
           )}
-          {sso?.enabled && (
-            <Button type="button" size="lg" className="h-11 w-full text-base font-bold" onClick={startSso}>
-              <ShieldCheck /> Masuk dengan akun Workingspace
-            </Button>
-          )}
-          {sso?.enabled && showPasswordForm && (
-            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              atau kata sandi lokal (pengembangan)
-              <span className="h-px flex-1 bg-border" />
-            </div>
-          )}
-          {showPasswordForm && (
-            <form onSubmit={onSubmit} noValidate>
-              <FieldGroup>
-                <Field data-invalid={!!form.formState.errors.email}>
-                  <FieldLabel htmlFor="email">User ID / Email</FieldLabel>
-                  <InputGroup className="h-11">
-                    <InputGroupAddon>
-                      <AtSign />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="email"
-                      type="email"
-                      autoComplete="username"
-                      placeholder="nama@contoh.com"
-                      aria-invalid={!!form.formState.errors.email}
-                      {...form.register("email")}
-                    />
-                  </InputGroup>
-                  <FieldError errors={[form.formState.errors.email]} />
-                </Field>
-
-                <Field data-invalid={!!form.formState.errors.password}>
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <InputGroup className="h-11">
-                    <InputGroupAddon>
-                      <LockKeyhole />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="current-password"
-                      placeholder="••••••••"
-                      aria-invalid={!!form.formState.errors.password}
-                      {...form.register("password")}
-                    />
-                    <InputGroupAddon align="inline-end">
-                      <InputGroupButton
-                        size="icon-xs"
-                        aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                        onClick={() => setShowPassword((v) => !v)}
-                      >
-                        {showPassword ? <EyeOff /> : <Eye />}
-                      </InputGroupButton>
-                    </InputGroupAddon>
-                  </InputGroup>
-                  <FieldError errors={[form.formState.errors.password]} />
-                </Field>
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="mt-2 h-11 w-full text-base font-bold"
-                  disabled={login.isPending}
-                >
-                  {login.isPending ? <Spinner /> : "Masuk Aplikasi"}
-                </Button>
-              </FieldGroup>
-            </form>
+          {isLoading ? (
+            <Spinner className="mx-auto" />
+          ) : sso?.enabled ? (
+            <>
+              <Button type="button" size="lg" className="h-11 w-full text-base font-bold" onClick={startSso}>
+                <ShieldCheck /> Masuk dengan akun Workingspace
+              </Button>
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                Satu akun untuk Akasha, Akasha AI, dan aplikasi workingspace.id lainnya.
+              </p>
+            </>
+          ) : (
+            <p
+              role="alert"
+              className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-warning-foreground"
+            >
+              Masuk lewat akun Workingspace belum diatur di server (SSO_ISSUER / SSO_CLIENT_ID / SSO_CLIENT_SECRET /
+              SSO_REDIRECT_URI). Akasha hanya bisa dimasuki lewat SSO.
+            </p>
           )}
         </section>
       </div>

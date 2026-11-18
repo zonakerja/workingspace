@@ -108,7 +108,7 @@ const asList = (value: unknown): string[] =>
     .map((v) => v.trim())
     .filter(Boolean);
 
-export const noteAliases = (note: Pick<KnowledgeNoteListItem, "properties">) =>
+const noteAliases = (note: Pick<KnowledgeNoteListItem, "properties">) =>
   asList(note.properties?.aliases ?? note.properties?.alias);
 
 /** Bagian target tautan sebelum `#judul` / `^blok`. */
@@ -225,7 +225,7 @@ export const slugify = (text: string) =>
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "") || "bagian";
 
-export function uniqueId(text: string, used: Map<string, number>) {
+function uniqueId(text: string, used: Map<string, number>) {
   const base = slugify(text);
   const n = used.get(base) ?? 0;
   used.set(base, n + 1);
@@ -331,7 +331,7 @@ export function localGraph(graph: Pick<KnowledgeGraph, "edges">, centerId: strin
 }
 
 /** Tag beserta jumlah catatan (induk tag bertingkat `a/b` → `a` ikut dihitung), urut alami. */
-export const normalizeField = (field: string) => field.replace(/\s+/g, " ").trim().toLowerCase();
+const normalizeField = (field: string) => field.replace(/\s+/g, " ").trim().toLowerCase();
 export const sameField = (a: string, b: string) => normalizeField(a) === normalizeField(b);
 
 /** Bidang catatan (properti `bidang`, teks atau daftar). Sama dengan `noteFields` backend, tanpa mengubah penulisan. */

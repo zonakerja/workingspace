@@ -61,7 +61,7 @@ export function blockRenames(source: Set<string>, target: Set<string>) {
 }
 
 /** Terapkan penggantian id blok pada penanda `^id` di akhir baris + tautan `[[#^id]]` dalam teks yang sama. */
-export function applyBlockRenames(text: string, renames: Map<string, string>) {
+function applyBlockRenames(text: string, renames: Map<string, string>) {
   if (!renames.size) return text;
   let fenced = false;
   const lines = text.split("\n").map((line) => {

@@ -9,9 +9,9 @@ import { chunkSource, reciprocalRankFusion } from "../ai/index/index-text";
 /** Total teks sumber di bawah batas ini dikirim utuh ke AI (paling lengkap); di atasnya memakai pencarian (RAG). */
 export const FULL_CONTEXT_CHARS = 150_000;
 /** Jumlah potongan yang dikirim pada mode RAG. */
-export const RAG_CHUNK_LIMIT = 14;
+const RAG_CHUNK_LIMIT = 14;
 /** Batas teks sumber per ringkasan Studio. */
-export const SUMMARY_CONTEXT_CHARS = 120_000;
+const SUMMARY_CONTEXT_CHARS = 120_000;
 /** Batas teks satu dokumen lampiran chat. */
 export const MAX_ATTACHMENT_TEXT_CHARS = 100_000;
 
@@ -21,7 +21,7 @@ export const clampContext = (text: string) =>
     : text;
 
 /** Riwayat chat yang ikut dikirim (pesan terakhir). */
-export const HISTORY_LIMIT = 8;
+const HISTORY_LIMIT = 8;
 const HISTORY_MESSAGE_CHARS = 2_000;
 const EXCERPT_CHARS = 320;
 

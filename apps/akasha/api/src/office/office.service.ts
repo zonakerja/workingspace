@@ -89,7 +89,6 @@ export const OFFICE_TEMPLATE_CONTEXT = "office-template";
  * Konteks dokumen yang dibuat di Tools → ONLYOFFICE → Dokumen (ruang kerja dokumen): tidak masuk Resource; dipakai di
  * Working Space hanya bila dipanggil dari form (disalin sebagai dokumen baru, lihat `createDocument({ templateId })`).
  */
-export { OFFICE_WORKSPACE_CONTEXT } from "../uploads/office-rescue";
 import { OFFICE_WORKSPACE_CONTEXT } from "../uploads/office-rescue";
 /** Berkas internal yang tidak ditawarkan sebagai konsep/final (templat, sumber & lampiran chat notebook). */
 const LINK_EXCLUDED_CONTEXTS = [OFFICE_TEMPLATE_CONTEXT, "notebook", "notebook_chat"];

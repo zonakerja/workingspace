@@ -64,7 +64,7 @@ const KEEP_KEYS = new Set(["archiveRegId"]);
 const isSkippedKey = (key: string) => !KEEP_KEYS.has(key) && (SKIP_KEYS.has(key) || /Ids?$/.test(key));
 
 /** Batas teks per sumber agar satu dokumen besar tidak menghabiskan kuota embedding. */
-export const MAX_SOURCE_CHARS = 600_000;
+const MAX_SOURCE_CHARS = 600_000;
 
 function flatten(value: unknown, depth: number): string | null {
   if (value === null || value === undefined || value === "") return null;

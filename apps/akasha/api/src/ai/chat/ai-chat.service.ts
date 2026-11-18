@@ -23,7 +23,7 @@ import { AiChatDto } from "./ai-chat.dto";
 
 /** Jumlah percakapan yang ditampilkan di riwayat. */
 const CONVERSATION_PAGE = 30;
-export const AI_MESSAGES_PAGE = 100;
+const AI_MESSAGES_PAGE = 100;
 
 /**
  * Chatbot Akasha (RAG tahap 2): pertanyaan → cari basis pengetahuan (vault Obsidian) + data kerja di indeks →

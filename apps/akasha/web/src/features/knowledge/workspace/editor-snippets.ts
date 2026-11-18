@@ -3,9 +3,9 @@
  * Logika murni (tanpa CodeMirror) agar bisa diuji; penanda `{|}` = posisi kursor setelah disisipkan.
  */
 
-export const CURSOR = "{|}";
+const CURSOR = "{|}";
 
-export type SnippetGroup = "Teks" | "Daftar" | "Callout" | "Blok" | "Tautan" | "Waktu";
+type SnippetGroup = "Teks" | "Daftar" | "Callout" | "Blok" | "Tautan" | "Waktu";
 
 export interface Snippet {
   id: string;
@@ -24,8 +24,8 @@ export interface Snippet {
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
-export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-export const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const longDate = (d: Date) =>
   d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 

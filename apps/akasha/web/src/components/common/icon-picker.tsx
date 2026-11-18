@@ -83,7 +83,7 @@ interface IconPickerDialogProps {
   aiContext: string;
 }
 
-export function IconPickerDialog({ open, onOpenChange, ...props }: IconPickerDialogProps) {
+function IconPickerDialog({ open, onOpenChange, ...props }: IconPickerDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85svh] flex-col sm:max-w-2xl">

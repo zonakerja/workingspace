@@ -15,6 +15,8 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     errorElement: <RouteError />,
     children: [
+      // Jendela Google Picker (tanpa kerangka aplikasi), dibuka tombol "Dari Drive"
+      { path: "/drive-picker", lazy: () => import("@/features/drive/drive-picker-page") },
       {
         element: <AppShell />,
         children: [
@@ -32,10 +34,8 @@ export const router = createBrowserRouter([
               { path: "kinerja/:tab?", lazy: () => import("@/features/kinerja/kinerja-page") },
               { path: "srikandi/:tab?", lazy: () => import("@/features/srikandi/srikandi-page") },
               { path: "siman/:tab?", lazy: () => import("@/features/siman/siman-page") },
+              { path: "email/:tab?", lazy: () => import("@/features/email/email-page") },
               { path: "custom/:slug", lazy: () => import("@/features/custom/custom-menu-page") },
-              { path: "mcp/:tab?", lazy: () => import("@/features/mcp/mcp-page") },
-              { path: "mcp/:tab/:slug", lazy: () => import("@/features/mcp/mcp-page") },
-              { path: "mcp-app/:slug", lazy: () => import("@/features/mcp/mcp-app-page") },
               { path: "tools/:tab?", lazy: () => import("@/features/tools/tools-page") },
               { path: "settings/:tab?", lazy: () => import("@/features/settings/settings-page") },
               { path: "profile", lazy: () => import("@/features/profile/profile-page") },

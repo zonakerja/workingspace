@@ -29,16 +29,13 @@ import type { RecordType, ShareMeta } from "@/types/api";
 type EntityBase = { id?: string | number; userId?: string; share?: ShareMeta; _partial?: string[]; _locked?: boolean };
 
 /** Record yang dimuat sebagai daftar ringan (dokumen/coretan/teks dokumen tidak ikut, lihat backend `record-light.ts`). */
-export const LIGHT_TYPES: ReadonlySet<RecordType> = new Set<RecordType>(["free_note", "ai_note"]);
+const LIGHT_TYPES: ReadonlySet<RecordType> = new Set<RecordType>(["free_note", "ai_note"]);
 
 /** Item dari daftar ringan yang belum memuat isi lengkapnya. */
 export const isPartialItem = (item: { _partial?: string[] } | null | undefined) => !!item?._partial?.length;
 
-/** Item terkunci PIN yang isinya belum terbuka di sesi ini (hanya judul, waktu, status, relasi). */
-export const isLockedItem = (item: { _locked?: boolean } | null | undefined) => !!item?._locked;
-
 /** Payload yang dikirim/dibandingkan: tanpa metadata client (`share`, `_partial`, `_locked`). */
-export const stripMeta = <T extends EntityBase>(item: T) => {
+const stripMeta = <T extends EntityBase>(item: T) => {
   const { share, _partial, _locked, ...payload } = item;
   void share;
   void _partial;

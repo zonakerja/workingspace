@@ -59,7 +59,7 @@ export function advanceStatus(current: RequestStatus, target: "diproses" | "menu
 }
 
 /** Batas teks berkas yang dikirim ke AI per pengajuan. */
-export const MAX_ATTACHMENT_CHARS = 60_000;
+const MAX_ATTACHMENT_CHARS = 60_000;
 
 export function clampAttachments(files: { name: string; text: string }[], budget = MAX_ATTACHMENT_CHARS) {
   let remaining = budget;
@@ -170,7 +170,7 @@ export function buildReviewPrompt(input: {
 }
 
 /** Penanda yang perlu diisi (penanda SRIKANDI tidak). */
-export const fillableTags = (analysis: TemplateAnalysis) => analysis.tags.filter((t) => !isSrikandiTag(t));
+const fillableTags = (analysis: TemplateAnalysis) => analysis.tags.filter((t) => !isSrikandiTag(t));
 
 export function buildFillPrompt(input: {
   template: TemplateAnalysis;
@@ -220,7 +220,7 @@ export function parseJsonObject(text: string): Record<string, unknown> {
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const strings = (v: unknown) => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
 
-export interface ChecklistItem {
+interface ChecklistItem {
   dokumen: string;
   status: "ada" | "tidak_ada" | "perlu_dicek";
   catatan: string;

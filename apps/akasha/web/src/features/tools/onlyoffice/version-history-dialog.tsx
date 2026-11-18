@@ -12,7 +12,7 @@ import { officeApi } from "@/lib/api/endpoints";
 import { formatDateTime } from "@/lib/dates";
 import type { OfficeVersion } from "@/types/api";
 
-export const formatBytes = (bytes: number) => {
+const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;

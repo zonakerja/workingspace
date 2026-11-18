@@ -25,7 +25,7 @@ const idOf = (item: unknown) => String((item as Keyed)?.id);
 const asArray = (value: unknown): Keyed[] => (Array.isArray(value) ? (value as Keyed[]) : []);
 
 /** Gabungkan perubahan client (base → incoming) ke array terkini (current), per elemen ber-`id`. */
-export function mergeKeyedArray(current: unknown, base: unknown, incoming: unknown): Keyed[] {
+function mergeKeyedArray(current: unknown, base: unknown, incoming: unknown): Keyed[] {
   const cur = asArray(current);
   const baseArr = asArray(base);
   const inc = asArray(incoming);

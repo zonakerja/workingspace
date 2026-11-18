@@ -67,7 +67,7 @@
   --color-mod-kinerja: var(--mod-kinerja);
   --color-mod-srikandi: var(--mod-srikandi);
   --color-mod-siman: var(--mod-siman);
-  --color-mod-mcp: var(--mod-mcp);
+  --color-mod-email: var(--mod-email);
   --color-mod-tools: var(--mod-tools);
   --color-mod-settings: var(--mod-settings);
 
@@ -146,9 +146,9 @@
   --mod-srikandi: oklch(0.55 0.16 255);
   --mod-srikandi-2: oklch(0.6 0.14 220);
   --mod-siman: oklch(0.55 0.13 175);
+  --mod-email: oklch(0.56 0.15 235);
+  --mod-email-2: oklch(0.6 0.14 265);
   --mod-siman-2: oklch(0.6 0.13 205);
-  --mod-mcp: oklch(0.56 0.17 330);
-  --mod-mcp-2: oklch(0.6 0.16 295);
   --mod-tools: oklch(0.6 0.12 195);
   --mod-tools-2: oklch(0.58 0.15 245);
   --mod-settings: oklch(0.58 0.2 320);
@@ -240,9 +240,9 @@
   --mod-srikandi: oklch(0.72 0.13 255);
   --mod-srikandi-2: oklch(0.74 0.12 220);
   --mod-siman: oklch(0.74 0.12 175);
+  --mod-email: oklch(0.74 0.12 235);
+  --mod-email-2: oklch(0.76 0.11 265);
   --mod-siman-2: oklch(0.76 0.11 205);
-  --mod-mcp: oklch(0.76 0.14 330);
-  --mod-mcp-2: oklch(0.76 0.13 295);
   --mod-tools: oklch(0.72 0.11 195);
   --mod-tools-2: oklch(0.7 0.13 245);
   --mod-settings: oklch(0.7 0.18 320);
@@ -306,9 +306,9 @@
   --module: var(--mod-siman);
   --module-2: var(--mod-siman-2);
 }
-[data-module="mcp"] {
-  --module: var(--mod-mcp);
-  --module-2: var(--mod-mcp-2);
+[data-module="email"] {
+  --module: var(--mod-email);
+  --module-2: var(--mod-email-2);
 }
 [data-module="custom"] {
   --module: var(--mod-agent);

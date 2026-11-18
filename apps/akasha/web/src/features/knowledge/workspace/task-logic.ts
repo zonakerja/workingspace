@@ -23,7 +23,7 @@ export const PRIORITY_INFO: Record<NonNullable<KnowledgeTask["priority"]>, { lab
 };
 const priorityRank = (t: KnowledgeTask) => (t.priority ? PRIORITY_INFO[t.priority].rank : 3);
 
-export const isOpenTask = (t: KnowledgeTask) => t.status === "todo" || t.status === "in_progress";
+const isOpenTask = (t: KnowledgeTask) => t.status === "todo" || t.status === "in_progress";
 /** Tanggal acuan tugas: tenggat, lalu tanggal dijadwalkan (seperti plugin Tasks). */
 export const taskDate = (t: KnowledgeTask) => t.due ?? t.scheduled;
 /** Kunci unik tugas di daftar. */

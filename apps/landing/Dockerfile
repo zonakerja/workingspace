@@ -2,7 +2,7 @@
 # ============================================================================
 # Halaman depan workingspace.id: build Vite → disajikan nginx (statis + header keamanan). Dibangun dari root monorepo:
 #   docker build -f apps/landing/Dockerfile -t workingspace-landing .
-# Alamat SSO & Akasha ditanam saat build: --build-arg VITE_AUTH_URL=… --build-arg VITE_AKASHA_URL=… (docs/SSO.md §2.9).
+# Alamat SSO & Akasha ditanam saat build: --build-arg VITE_AUTH_URL=… --build-arg VITE_AKASHA_URL=… --build-arg VITE_AKAI_URL=… (docs/SSO.md §2.9).
 # ============================================================================
 
 FROM node:24-trixie-slim AS prune
@@ -18,7 +18,8 @@ RUN npm ci
 COPY --from=prune /repo/out/full/ ./
 ARG VITE_AUTH_URL=https://auth.workingspace.id
 ARG VITE_AKASHA_URL=https://akasha.workingspace.id
-ENV VITE_AUTH_URL=$VITE_AUTH_URL VITE_AKASHA_URL=$VITE_AKASHA_URL
+ARG VITE_AKAI_URL=https://akai.workingspace.id
+ENV VITE_AUTH_URL=$VITE_AUTH_URL VITE_AKASHA_URL=$VITE_AKASHA_URL VITE_AKAI_URL=$VITE_AKAI_URL
 RUN npm run build -w @workingspace/landing
 
 FROM nginx:1.30-alpine AS runtime

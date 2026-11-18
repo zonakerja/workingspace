@@ -3,7 +3,7 @@ import { AgentActionsModule } from "../agent-actions/agent-actions.module";
 import { AgentMenusModule } from "../agent-menus/agent-menus.module";
 import { AiModule } from "../ai/ai.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
-import { McpConnectionsModule } from "../mcp-connections/mcp-connections.module";
+import { MailModule } from "../mail/mail.module";
 import { RecordsModule } from "../records/records.module";
 import { RequestsModule } from "../requests/requests.module";
 import { RobotModule } from "../robot/robot.module";
@@ -19,7 +19,7 @@ import { AkashaMcpService } from "./akasha-mcp.service";
     AgentMenusModule,
     AiModule,
     KnowledgeModule,
-    McpConnectionsModule,
+    MailModule,
     RecordsModule,
     RequestsModule,
     RobotModule,

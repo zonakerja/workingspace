@@ -30,9 +30,9 @@ import { fileControlStatus } from "@/features/resources/file-control-intake";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 /** Konteks upload dokumen final (PDF bertanda tangan) yang diunggah dari konsepnya. */
-export const FINAL_UPLOAD_CONTEXT = "office-final";
+const FINAL_UPLOAD_CONTEXT = "office-final";
 /** Tag asal Resource Global yang dibuat dari "Unggah dokumen final". */
-export const FINAL_CONTEXT_TAG = "Dokumen Final";
+const FINAL_CONTEXT_TAG = "Dokumen Final";
 
 const stripExt = (name: string) => name.replace(/\.[^.]+$/, "");
 

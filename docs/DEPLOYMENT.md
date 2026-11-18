@@ -94,7 +94,7 @@ Fitur tambahan yang berguna: snapshot/backup VPS dari penyedia, dan firewall di 
 | `ACME_EMAIL` | email aktif (notifikasi sertifikat Let's Encrypt) |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `S3_SECRET_ACCESS_KEY` | string acak masing-masing berbeda: jalankan `openssl rand -hex 32` di VPS untuk tiap variabel |
 | `AI_ENCRYPTION_KEY` | kunci enkripsi API key AI milik user: `openssl rand -hex 32` (tepat 64 karakter hex). **Jangan diganti** setelah dipakai — key AI yang sudah tersimpan tidak bisa dibaca lagi dan setiap user harus memasukkannya ulang |
-| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | super admin pertama ekosistem (SSO) & Akasha — email yang sama (kata sandi ≥ 8 karakter, bukan kata sandi umum; ganti setelah login pertama) |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | super admin pertama ekosistem (SSO; menjadi Super Admin Akasha saat pertama masuk) (kata sandi ≥ 8 karakter, bukan kata sandi umum; ganti setelah login pertama) |
 
 Simpan salinan `.env` di password manager — tanpa `POSTGRES_PASSWORD` & secret yang sama, backup database tetap bisa
 dipulihkan tetapi sesi login lama tidak berlaku, dan tanpa `AI_ENCRYPTION_KEY` yang sama API key AI milik user harus
@@ -306,7 +306,7 @@ chmod 600 .env
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps          # tunggu semua healthy
 docker compose -f docker-compose.prod.yml exec auth-api node dist/database/seed.js  # aplikasi + super admin SSO
-docker compose -f docker-compose.prod.yml exec backend node dist/database/seed.js   # super admin Akasha (email sama)
+docker compose -f docker-compose.prod.yml exec backend node dist/database/seed.js   # pengaturan aplikasi Akasha (akun dibuat saat masuk SSO)
 ```
 
 Buka `https://<ROOT_DOMAIN>` → **Masuk** dengan `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (halaman SSO). Ganti kata
@@ -330,7 +330,7 @@ Disarankan backup manual sebelum pembaruan besar (lihat §4).
 
 Service `backup` (`infra/backup/`) berjalan setiap `BACKUP_INTERVAL_HOURS` (default 24 jam):
 
-| Langkah | Hasil di `./backups` | Salinan luar server (bila `OFFSITE_S3_BUCKET` diisi) |
+| Langkah | Hasil di `./backups` | Salinan luar server (bila `OFFSITE_S3_BUCKET` atau `OFFSITE_DRIVE_TYPE` diisi) |
 |---|---|---|
 | `pg_dump` format custom, divalidasi `pg_restore --list` | `db-<waktu>.dump`, retensi `BACKUP_RETENTION_DAYS` (14) | `db/`, retensi `OFFSITE_RETENTION_DAYS` (30) |
 | Berkas upload diambil lewat **API S3** (konsisten walau storage berjalan) | `storage/current/` (cermin) + `storage/changed/<waktu>/` (berkas yang dihapus/diganti) | `storage/current/` + `storage/changed/<waktu>/` |
@@ -356,6 +356,24 @@ Service `backup` (`infra/backup/`) berjalan setiap `BACKUP_INTERVAL_HOURS` (defa
 
 Backblaze B2: buat bucket privat + *Application Key*, `OFFSITE_S3_PROVIDER=Other`,
 `OFFSITE_S3_ENDPOINT=https://s3.<region>.backblazeb2.com`, `OFFSITE_S3_REGION=<region>`.
+
+### 4.1b Alternatif: Google Drive / OneDrive (tanpa S3)
+
+Bila tidak memakai R2/B2, salinan luar server bisa ke Google Drive atau OneDrive (kosongkan `OFFSITE_S3_BUCKET`). Isi tetap dienkripsi
+rclone crypt dengan `BACKUP_ENCRYPTION_PASSWORD`, jadi penyedia drive hanya melihat berkas acak.
+
+1. Di laptop pasang rclone (https://rclone.org/downloads/) lalu jalankan `rclone authorize "drive"` (atau `rclone authorize "onedrive"`),
+   masuk di peramban yang terbuka, salin seluruh JSON token yang tampil di terminal.
+2. Isi di `.env` VPS: `OFFSITE_DRIVE_TYPE=drive` (atau `onedrive`), `OFFSITE_DRIVE_TOKEN='<JSON token>'` (tanda kutip tunggal),
+   `OFFSITE_DRIVE_FOLDER=akasha-backup`. OneDrive juga butuh `OFFSITE_ONEDRIVE_DRIVE_ID` (lihat `rclone config` → remote onedrive →
+   `drive_id`; atau jalankan sekali `rclone config` di laptop dan salin nilainya) dan `OFFSITE_ONEDRIVE_DRIVE_TYPE=personal`.
+3. Opsional: OAuth client sendiri (`OFFSITE_DRIVE_CLIENT_ID` / `_SECRET`) — client bawaan rclone dipakai bersama banyak orang dan bisa kena
+   batas laju Google. Bila memakai client sendiri, jalankan `rclone authorize "drive" <client_id> <client_secret>`.
+4. `docker compose -f docker-compose.prod.yml up -d backup` → `docker compose -f docker-compose.prod.yml exec backup backup.sh --once` →
+   cek `exec backup backup.sh rclone lsd offsite:` (folder `db` & `storage` terenkripsi).
+
+Token Drive Google aplikasi "Testing" milik client sendiri kedaluwarsa 7 hari — publikasikan client (Production) atau pakai client rclone.
+Kuota harian & laju unggah Drive lebih rendah dari S3; backup awal berkas besar bisa butuh beberapa kali jalan.
 
 ### 4.2 Perintah
 
@@ -406,7 +424,7 @@ dipakai.
 | Rotasi log | otomatis (json-file 10 MB × 5 per service) |
 | Pemakaian memori | `docker stats --no-stream` (batas per service: §1.1) |
 | Status backup | `dc ps backup` (healthy/unhealthy) · `dc logs --tail 20 backup` |
-| Uji end-to-end | `API_URL=https://<domain>/api/v1 SMOKE_ADMIN_EMAIL=... SMOKE_ADMIN_PASSWORD=... npm --prefix apps/akasha/api run test:smoke` (membuat & menghapus user sementara) |
+| Uji end-to-end | `API_URL=https://<domain>/api/v1 SMOKE_ADMIN_EMAIL=... DATABASE_URL=... JWT_REFRESH_SECRET=... npm --prefix apps/akasha/api run test:smoke` (sesi uji dibuat langsung di database; membuat & menghapus user sementara — butuh akses database, biasanya lewat tunnel SSH) |
 
 ### 5.1 Pemantauan (disarankan, gratis)
 
@@ -699,8 +717,8 @@ Rancangan & keputusan: [SSO.md](SSO.md). Service `auth-api`, `auth-web`, `landin
   seed SSO + blok host baru di `infra/caddy/Caddyfile` + record DNS.
 - **Email**: tanpa SMTP yang benar pendaftaran & lupa kata sandi gagal mengirim (log `auth-api`). Uji dengan mendaftar
   akun baru setelah deploy.
-- **Akasha** masuk lewat SSO (`SSO_*` diisi compose dari domain); login kata sandi lokal Akasha mati di production
-  (`AKASHA_PASSWORD_LOGIN=true` hanya untuk darurat). Backend memanggil SSO lewat alamat publiknya; di jaringan internal
+- **Akasha** masuk lewat SSO (`SSO_*` diisi compose dari domain); Akasha **tidak punya** login kata sandi lokal (akun &
+  role dikelola admin SSO). Backend memanggil SSO lewat alamat publiknya; di jaringan internal
   nama `AUTH_DOMAIN` dijawab Caddy (alias jaringan), jadi tidak bergantung pada DNS luar.
 - **Keluar lintas aplikasi**: klien Akasha di `OIDC_CLIENTS` membawa `backchannel_logout_uri` (`https://<APP_DOMAIN>/api/v1/auth/sso/backchannel-logout`);
   `auth-api` memanggilnya lewat alias jaringan Caddy `APP_DOMAIN`. Keluar dari halaman akun SSO = Akasha ikut keluar (SSO.md §2.11).

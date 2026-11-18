@@ -84,7 +84,7 @@ export class RobotInputDto {
   url?: string;
 }
 
-/** Kredensial sistem untuk brankas; konfirmasi = `accountPassword` (kata sandi akun Akasha) atau `accountPin` (akun SSO). Tidak disimpan. */
+/** Kredensial sistem untuk brankas; konfirmasi pemilik = `accountPin` (PIN keamanan). Tidak disimpan. */
 export class CredentialsDto {
   @ApiProperty()
   @IsString()
@@ -98,18 +98,10 @@ export class CredentialsDto {
   @MaxLength(200)
   password: string;
 
-  @ApiProperty({ description: "Kata sandi akun Akasha Anda (konfirmasi; akun dengan kata sandi lokal)" })
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  accountPassword?: string;
-
-  @ApiProperty({ description: "PIN keamanan (konfirmasi; akun SSO tanpa kata sandi lokal)" })
-  @IsOptional()
+  @ApiProperty({ description: "PIN keamanan (konfirmasi pemilik)" })
   @IsString()
   @MaxLength(6)
-  accountPin?: string;
+  accountPin: string;
 }
 
 export class AnswerDto {

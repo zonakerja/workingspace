@@ -172,6 +172,13 @@ Workingspace punya tampilan sendiri, terpisah dari Akasha (keputusan pemilik 202
 - **Status di halaman depan**: SSO `GET /api/auth/status` → `{ signedIn, name }` dengan CORS + cookie hanya untuk `LANDING_URL`; halaman
   depan (`useSsoStatus`) mengganti Masuk/Daftar menjadi **Dashboard** (→ `/account`) dan tombol hero menjadi Buka dashboard / Buka
   Akasha. Produksi: CSP `connect-src` halaman depan diisi `AUTH_ORIGIN` (templat nginx `apps/landing/nginx.conf.template`).
+- **Branding ekosistem** (pedoman pemilik 2026-11-18): satu sumber teks di `packages/ui/src/ecosystem.ts` (`ECOSYSTEM`, `PRODUCTS`):
+  workingspace.id = *One Space. Infinite Possibilities.* / *Where Work, Mind, and Growth Align.*; **Akasha** = Productivity & Automation,
+  *Where Ideas Find Their Place.*; **Akasha AI** (panggilan *Akai*, kunci aplikasi tetap `akai`) = The Intelligence Layer, *Intelligence That
+  Moves With You.*; **Cendekia** = Self-Directed Learning, *Master Your Learning Journey.* (segera hadir). Tagline resmi berbahasa Inggris,
+  penjelasan berbahasa Indonesia. Tanda produk di `brand.tsx`: `AkashaMark` (kisi 2×2, satu sel lime), `AkaiMark` (monogram A, juga dipakai
+  Akai web), `CendekiaMark` (chevron naik), `ProductMark appKey`. Halaman depan, panel masuk SSO, dan kartu Aplikasi di halaman akun memakai
+  nama & tagline dari berkas ini; nama aplikasi di tabel `apps` SSO = "Akasha AI" (seed). Halaman depan butuh `VITE_AKAI_URL` (build arg).
 
 ## 3. Urutan kerja
 

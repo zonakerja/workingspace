@@ -12,11 +12,23 @@ import {
   Loader2,
   Network,
   PanelsTopLeft,
+  Presentation,
+  Shapes,
+  Sheet,
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { type Artifact, type ArtifactType, type ArtifactVersion, TYPE_LABELS, downloadInfo } from "@/lib/artifacts";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EXPORT_LABELS, type ExportFormat, exportFormats } from "@/lib/artifact-formats";
+import { type Artifact, type ArtifactType, type ArtifactVersion, TYPE_LABELS } from "@/lib/artifacts";
 import { cn } from "@/lib/utils";
 import { ArtifactCode, ArtifactPreview } from "./artifact-preview";
 
@@ -26,6 +38,9 @@ export const ARTIFACT_ICONS: Record<ArtifactType, typeof FileText> = {
   svg: ImageIcon,
   mermaid: Network,
   code: FileCode2,
+  sheet: Sheet,
+  slides: Presentation,
+  whiteboard: Shapes,
 };
 
 /** Kartu artifact di dalam jawaban; klik = buka di panel. */
@@ -79,19 +94,23 @@ export function ArtifactPanel({
   const artifact: Artifact | undefined = current?.artifact;
   const [view, setView] = useState<"preview" | "code">(artifact?.type === "code" ? "code" : "preview");
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
   if (!artifact) return null;
   const Icon = ARTIFACT_ICONS[artifact.type];
   const codeOnly = artifact.type === "code";
 
-  function download() {
+  async function runExport(format: ExportFormat) {
     if (!artifact) return;
-    const { filename, mime } = downloadInfo(artifact);
-    const url = URL.createObjectURL(new Blob([artifact.content], { type: `${mime};charset=utf-8` }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setExporting(format);
+    try {
+      // Pustaka ekspor (DOCX, XLSX, PPTX) dimuat hanya saat dipakai
+      const { exportArtifact } = await import("@/lib/artifact-export");
+      await exportArtifact(artifact, format);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Ekspor gagal.");
+    } finally {
+      setExporting(null);
+    }
   }
 
   return (
@@ -159,9 +178,26 @@ export function ArtifactPanel({
           >
             {copied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />} Salin
           </Button>
-          <Button size="xs" variant="ghost" disabled={!artifact.complete} onClick={download}>
-            <Download data-icon="inline-start" /> Unduh
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="xs" variant="ghost" disabled={!artifact.complete || exporting !== null}>
+                {exporting ? (
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                ) : (
+                  <Download data-icon="inline-start" />
+                )}
+                {artifact.type === "code" ? "Unduh" : "Ekspor"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Unduh sebagai</DropdownMenuLabel>
+              {exportFormats(artifact.type).map((format) => (
+                <DropdownMenuItem key={format} onSelect={() => void runExport(format)}>
+                  {EXPORT_LABELS[format]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">

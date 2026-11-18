@@ -59,7 +59,7 @@ export const safePdfName = (name: unknown) => {
   return base.toLowerCase().endsWith(".pdf") && base.length > 4 ? base : "naskah-srikandi.pdf";
 };
 
-export const MAX_LETTER_PDF = 25 * 1024 * 1024;
+const MAX_LETTER_PDF = 25 * 1024 * 1024;
 
 /** Base64 → Buffer PDF yang sah (diawali "%PDF") dan tidak melebihi batas; selain itu null. */
 export function decodePdf(base64: unknown): Buffer | null {
@@ -69,7 +69,7 @@ export function decodePdf(base64: unknown): Buffer | null {
   return buffer.subarray(0, 4).toString("latin1") === "%PDF" ? buffer : null;
 }
 
-export interface FetchedAttachment {
+interface FetchedAttachment {
   name: string;
   data: string | null;
   mimeType: string;

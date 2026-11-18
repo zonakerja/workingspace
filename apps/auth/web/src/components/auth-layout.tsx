@@ -1,9 +1,14 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
-import { Wordmark } from "@workingspace/ui/brand";
+import { ProductMark, Wordmark } from "@workingspace/ui/brand";
+import { ECOSYSTEM, PRODUCTS } from "@workingspace/ui/ecosystem";
 import { ThemeToggle } from "@workingspace/ui/theme-toggle";
 
-const POINTS = ["Satu akun untuk semua aplikasi", "PIN keamanan bersama", "Keluar sekali, keluar di mana-mana"];
+const POINTS = [
+  "Satu akun untuk semua aplikasi",
+  "PIN keamanan bersama",
+  "Rencanakan kerja, berpikir bersama AI, dan bertumbuh di satu ruang",
+];
 
 /** Kerangka halaman masuk / daftar SSO: panel aurora identitas ekosistem + kartu isi. */
 export function AuthLayout({
@@ -31,8 +36,21 @@ export function AuthLayout({
           </div>
           <div className="relative">
             <p className="font-display text-2xl leading-tight font-bold md:text-3xl">
-              Satu akun untuk <span className="text-gradient">semua ruang kerja</span> Anda.
+              One Space. <span className="text-gradient">Infinite Possibilities.</span>
             </p>
+            <p className="mt-2 text-sm opacity-75">Satu akun untuk semua aplikasi workingspace.id.</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {PRODUCTS.map((p) => (
+                <span
+                  key={p.key}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/10 py-1 pr-3 pl-1 text-xs font-semibold ring-1 ring-white/15"
+                  title={p.tagline}
+                >
+                  <ProductMark appKey={p.key} className="size-5 rounded-md" />
+                  {p.name}
+                </span>
+              ))}
+            </div>
             <ul className="mt-6 hidden flex-col gap-2.5 md:flex">
               {POINTS.map((point) => (
                 <li key={point} className="flex items-center gap-2.5 text-sm opacity-85">
@@ -44,7 +62,7 @@ export function AuthLayout({
               ))}
             </ul>
           </div>
-          <p className="relative text-xs font-medium opacity-60">© 2026 workingspace.id</p>
+          <p className="relative text-xs font-medium opacity-60">{ECOSYSTEM.motto} · © 2026 workingspace.id</p>
         </section>
         <section className="flex min-w-0 flex-col justify-center p-6 sm:p-8 md:p-12">
           <div className="mb-6">

@@ -241,7 +241,7 @@ export function entrySignature(entry: SignatureFields) {
 }
 
 /** Entri terisi yang isinya diubah setelah dikirim ke e-Kinerja. */
-export const isChanged = (entry: ActionPlanEntry) =>
+const isChanged = (entry: ActionPlanEntry) =>
   entry.status === "filled" && !!entry.pushedSignature && entry.pushedSignature !== entrySignature(entry);
 
 /** Bulan yang sudah diajukan / dinilai di e-Kinerja: isian Akasha bulan itu terkunci. */
@@ -332,8 +332,8 @@ export function submitBlocker(month: Pick<ActionPlanMonth, "status"> | null | un
 }
 
 /** Keadaan bulan yang tampil di tab Penilaian: renaksi yang sudah ada di e-Kinerja. */
-export const ASSESSMENT_STATUSES = ["draft", "submitted", "rated"] as const;
-export type AssessmentStatus = (typeof ASSESSMENT_STATUSES)[number];
+const ASSESSMENT_STATUSES = ["draft", "submitted", "rated"] as const;
+type AssessmentStatus = (typeof ASSESSMENT_STATUSES)[number];
 
 /** Potret bulan tahun itu yang sudah berupa draf / diajukan / dinilai di e-Kinerja, terbaru dulu. */
 export function assessmentMonths(months: ActionPlanMonth[], year: number) {

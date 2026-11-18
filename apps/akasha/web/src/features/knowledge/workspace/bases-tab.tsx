@@ -1131,7 +1131,7 @@ function BaseEditor({
  * Sematan `![[nama.base]]` / `![[nama.base#Tampilan]]` di catatan (seperti Obsidian): tampilan base dirender di dalam catatan,
  * dengan tombol membuka base di tab Bases.
  */
-export function EmbeddedBase({ target }: { target: string }) {
+function EmbeddedBase({ target }: { target: string }) {
   const { data: list, isLoading: listLoading } = useKnowledgeBases();
   const [file, viewName] = target.split("#");
   const wanted = file.trim().toLowerCase();

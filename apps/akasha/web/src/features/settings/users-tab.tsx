@@ -1,27 +1,12 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Database, ExternalLink, Home, Pencil, Phone, Plus, Share2, ShieldCheck, Trash2, Users } from "lucide-react";
+import { Database, ExternalLink, Home, Phone, Share2, ShieldCheck, Trash2, Users } from "lucide-react";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { PageLoader } from "@/components/common/page-loader";
 import { SectionCard } from "@/components/common/section-card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
 import { ROLE_LABELS } from "@/config/navigation";
 import { useSsoConfig } from "@/data/use-auth";
 import { useUserMutations, useUsers } from "@/data/use-users";
@@ -31,7 +16,6 @@ import { formatRelative } from "@/lib/dates";
 import { errorMessage } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type { PublicUser, UserRole, UserStats } from "@/types/api";
-import { useRetained } from "@/hooks/use-retained";
 
 const ROLE_BADGE: Record<UserRole, string> = {
   super_admin: "bg-mod-overview/15 text-mod-overview",
@@ -51,34 +35,16 @@ const formatBytes = (bytes: number) => {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
 };
 
-const userSchema = (isNew: boolean) =>
-  z.object({
-    name: z.string().trim().min(1, "Nama wajib diisi."),
-    email: z.string().trim().min(1, "Email wajib diisi.").email("Format email tidak valid."),
-    password: isNew
-      ? z.string().min(3, "Password wajib diisi (minimal 3 karakter).")
-      : z.string().refine((v) => v === "" || v.length >= 3, "Password minimal 3 karakter."),
-    role: z.enum(["super_admin", "admin", "member"]),
-    phone: z.string(),
-    address: z.string(),
-  });
-
-type UserForm = z.infer<ReturnType<typeof userSchema>>;
-
-const EMPTY_FORM: UserForm = { name: "", email: "", password: "", role: "member", phone: "", address: "" };
-
 export function UsersTab() {
   const currentUser = useAuthStore((s) => s.user);
   const { data: users = [], isLoading } = useUsers();
-  const [editing, setEditing] = useState<PublicUser | "new" | null>(null);
   const [deleting, setDeleting] = useState<PublicUser | null>(null);
   const { remove } = useUserMutations();
   const { data: stats = [] } = useUserStats();
   const now = useToday();
   const { data: sso } = useSsoConfig();
-  // SSO aktif: akun & role dikelola di admin SSO; akun lokal baru hanya berguna bila login kata sandi lokal masih aktif
+  // Akun, role, dan akses Akasha dikelola di admin SSO workingspace.id
   const ssoAdminUrl = sso?.enabled && sso.accountUrl ? sso.accountUrl.replace(/\/account$/, "/admin") : null;
-  const canCreateLocal = !sso?.enabled || sso.passwordLogin;
 
   const isSuperAdmin = currentUser?.role === "super_admin";
   // Admin biasa tidak boleh mengelola akun super admin (juga ditegakkan backend)
@@ -100,23 +66,16 @@ export function UsersTab() {
     <SectionCard
       icon={Users}
       title="Manajemen User"
-      description="Kelola akun dan role pengguna. Data setiap pengguna terisolasi — admin hanya melihat statistik pemakaian, bukan isi data."
-      action={
-        canCreateLocal ? (
-          <Button onClick={() => setEditing("new")}>
-            <Plus /> {ssoAdminUrl ? "Tambah user lokal" : "Tambah User"}
-          </Button>
-        ) : undefined
-      }
+      description="Pengguna Akasha & statistik pemakaian. Data setiap pengguna terisolasi — admin hanya melihat statistik, bukan isi data."
     >
-      {ssoAdminUrl && (
+      {
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-muted/40 p-3 text-sm">
           <ShieldCheck className="size-4 shrink-0 text-module" />
           <span className="min-w-0 flex-1 text-muted-foreground">
             Akun, role, dan akses Akasha dikelola di <b>admin akun Workingspace</b>. Akun baru muncul di sini setelah
             pertama kali masuk Akasha.
           </span>
-          {isSuperAdmin && (
+          {isSuperAdmin && ssoAdminUrl && (
             <Button asChild size="sm" variant="outline">
               <a href={ssoAdminUrl} target="_blank" rel="noreferrer">
                 <ExternalLink /> Kelola akun Workingspace
@@ -124,7 +83,7 @@ export function UsersTab() {
             </Button>
           )}
         </div>
-      )}
+      }
       {isLoading ? (
         <PageLoader />
       ) : (
@@ -171,11 +130,6 @@ export function UsersTab() {
               </div>
               {canManage(u) && (
                 <div className="flex justify-end gap-2">
-                  {!u.ssoSubject && (
-                    <Button size="sm" variant="secondary" onClick={() => setEditing(u)}>
-                      <Pencil /> Edit
-                    </Button>
-                  )}
                   {u.id !== currentUser?.id && (
                     <Button size="sm" variant="destructive" onClick={() => setDeleting(u)}>
                       <Trash2 /> Hapus
@@ -188,16 +142,11 @@ export function UsersTab() {
         </ul>
       )}
 
-      <UserFormDialog
-        target={editing}
-        allowSuperAdmin={isSuperAdmin}
-        onOpenChange={(open) => !open && setEditing(null)}
-      />
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Hapus User?"
-        description="Akses pengguna akan dicabut permanen."
+        description="Akun & seluruh data pengguna ini di Akasha dihapus permanen. Akun Workingspace-nya tidak terhapus (kelola di admin SSO); bila masuk lagi, akun Akasha kosong dibuat ulang."
         itemName={deleting?.name}
         confirmLabel="Hapus"
         onConfirm={confirmDelete}
@@ -219,152 +168,5 @@ function UserStatsLine({ stat, now }: { stat?: UserStats; now: Date }) {
       </span>
       <span>Aktif {stat.lastActiveAt ? formatRelative(stat.lastActiveAt, now) : "belum pernah"}</span>
     </div>
-  );
-}
-
-function UserFormDialog({
-  target: targetProp,
-  allowSuperAdmin,
-  onOpenChange,
-}: {
-  target: PublicUser | "new" | null;
-  allowSuperAdmin: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const target = useRetained(targetProp);
-  const isNew = target === "new";
-  return (
-    <Dialog open={targetProp !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{isNew ? "Tambah User Baru" : "Edit Data User"}</DialogTitle>
-          <DialogDescription>
-            {isNew ? "Buat akun baru beserta role aksesnya." : "Perbarui data dan role pengguna."}
-          </DialogDescription>
-        </DialogHeader>
-        {target !== null && (
-          <UserForm
-            key={isNew ? "new" : target.id}
-            target={isNew ? null : target}
-            allowSuperAdmin={allowSuperAdmin}
-            onDone={() => onOpenChange(false)}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function UserForm({
-  target,
-  allowSuperAdmin,
-  onDone,
-}: {
-  target: PublicUser | null;
-  allowSuperAdmin: boolean;
-  onDone: () => void;
-}) {
-  const isNew = target === null;
-  const { create, update } = useUserMutations();
-  const form = useForm<UserForm>({
-    resolver: zodResolver(userSchema(isNew)),
-    defaultValues: target
-      ? {
-          name: target.name,
-          email: target.email,
-          password: "",
-          role: target.role,
-          phone: target.phone ?? "",
-          address: target.address ?? "",
-        }
-      : EMPTY_FORM,
-  });
-  const { errors } = form.formState;
-
-  const onSubmit = form.handleSubmit(async ({ password, ...values }) => {
-    try {
-      if (isNew) {
-        await create.mutateAsync({ ...values, password });
-        toast.success("Pengguna baru berhasil ditambahkan.");
-      } else {
-        await update.mutateAsync({ id: target.id, input: { ...values, ...(password ? { password } : {}) } });
-        toast.success("Data pengguna berhasil diperbarui.");
-      }
-      onDone();
-    } catch (error) {
-      toast.error("Gagal menyimpan pengguna", { description: errorMessage(error) });
-    }
-  });
-
-  const roles: UserRole[] = allowSuperAdmin ? ["member", "admin", "super_admin"] : ["member", "admin"];
-  const saving = create.isPending || update.isPending;
-
-  return (
-    <form onSubmit={onSubmit} noValidate>
-      <FieldGroup>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field data-invalid={!!errors.name}>
-            <FieldLabel htmlFor="user-name">Nama Lengkap</FieldLabel>
-            <Input id="user-name" aria-invalid={!!errors.name} {...form.register("name")} />
-            <FieldError errors={[errors.name]} />
-          </Field>
-          <Field data-invalid={!!errors.email}>
-            <FieldLabel htmlFor="user-email">Email</FieldLabel>
-            <Input id="user-email" type="email" aria-invalid={!!errors.email} {...form.register("email")} />
-            <FieldError errors={[errors.email]} />
-          </Field>
-          <Field data-invalid={!!errors.password}>
-            <FieldLabel htmlFor="user-password">{isNew ? "Password" : "Password Baru (opsional)"}</FieldLabel>
-            <Input
-              id="user-password"
-              type="password"
-              autoComplete="new-password"
-              placeholder={isNew ? "••••••••" : "Kosongkan jika tidak diubah"}
-              aria-invalid={!!errors.password}
-              {...form.register("password")}
-            />
-            <FieldError errors={[errors.password]} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="user-role">Role</FieldLabel>
-            <Controller
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="user-role" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {ROLE_LABELS[role]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="user-phone">No. HP</FieldLabel>
-            <Input id="user-phone" placeholder="08..." {...form.register("phone")} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="user-address">Alamat</FieldLabel>
-            <Input id="user-address" placeholder="Jalan..." {...form.register("address")} />
-          </Field>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onDone}>
-            Batal
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? <Spinner /> : isNew ? <Plus /> : <Pencil />}
-            {isNew ? "Tambah User" : "Simpan Perubahan"}
-          </Button>
-        </DialogFooter>
-      </FieldGroup>
-    </form>
   );
 }

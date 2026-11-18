@@ -66,10 +66,8 @@ describe("agent-menu-logic", () => {
     expect(normalizeMenuProposal({ ...proposal, label: "siman" })).toHaveProperty("error");
   });
 
-  it("Aplikasi MCP fitur terbuka: workflow boleh ditempatkan di dalamnya, namanya tetap dikunci", () => {
-    expect(normalizeMenuProposal({ ...proposal, placement: "mcp" })).toMatchObject({ placement: "mcp" });
-    expect(EXTENSIBLE_FEATURES["Aplikasi MCP"]).toBe("mcp");
-    expect(normalizeMenuProposal({ ...proposal, label: "aplikasi mcp" })).toHaveProperty("error");
+  it("placement mcp (menu Aplikasi MCP sudah dihapus) ditolak", () => {
+    expect(normalizeMenuProposal({ ...proposal, placement: "mcp" })).toHaveProperty("error");
   });
 
   it("normalizeMenuProposal: menolak isian tidak sah dengan pesan yang bisa diperbaiki agen", () => {

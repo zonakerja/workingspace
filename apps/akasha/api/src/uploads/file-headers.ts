@@ -8,7 +8,7 @@ const ACTIVE_CONTENT = new Set([
   "text/javascript",
   "application/javascript",
 ]);
-export const isActiveContent = (mimeType: string) => ACTIVE_CONTENT.has(mimeType.split(";")[0].trim().toLowerCase());
+const isActiveContent = (mimeType: string) => ACTIVE_CONTENT.has(mimeType.split(";")[0].trim().toLowerCase());
 
 /**
  * Header aman untuk menyajikan berkas user dari origin aplikasi: CSP sandbox mencegah

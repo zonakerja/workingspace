@@ -36,7 +36,7 @@ import { fileExtension, linkHost, type ResourceKind, resourceKind } from "../lib
 type OfficeLinkBadge = { draftId: string | null; finals: number };
 
 /** Ikon, label, dan warna (token) per jenis resource. */
-export const KIND_STYLE: Record<ResourceKind, { icon: LucideIcon; label: string; tone: string; band: string }> = {
+const KIND_STYLE: Record<ResourceKind, { icon: LucideIcon; label: string; tone: string; band: string }> = {
   pdf: { icon: FileText, label: "PDF", tone: "bg-destructive/12 text-destructive", band: "from-destructive/15" },
   doc: { icon: FileText, label: "Dokumen", tone: "bg-info/12 text-info", band: "from-info/15" },
   sheet: { icon: FileSpreadsheet, label: "Spreadsheet", tone: "bg-success/12 text-success", band: "from-success/15" },

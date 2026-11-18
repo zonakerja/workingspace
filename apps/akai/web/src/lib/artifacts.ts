@@ -4,8 +4,8 @@
  * artifacts.test.ts: pemisahan teks/artifact (termasuk artifact yang belum selesai saat stream), versi per identifier, nama unduhan.
  */
 
-export type ArtifactType = "markdown" | "html" | "svg" | "mermaid" | "code";
-const TYPES: ArtifactType[] = ["markdown", "html", "svg", "mermaid", "code"];
+export type ArtifactType = "markdown" | "html" | "svg" | "mermaid" | "code" | "sheet" | "slides" | "whiteboard";
+const TYPES: ArtifactType[] = ["markdown", "html", "svg", "mermaid", "code", "sheet", "slides", "whiteboard"];
 
 export interface Artifact {
   identifier: string;
@@ -136,15 +136,25 @@ export function downloadInfo(a: Artifact) {
           ? "svg"
           : a.type === "mermaid"
             ? "mmd"
-            : (CODE_EXT[a.language] ?? "txt");
+            : a.type === "sheet"
+              ? "csv"
+              : a.type === "slides"
+                ? "md"
+                : a.type === "whiteboard"
+                  ? "canvas"
+                  : (CODE_EXT[a.language] ?? "txt");
   const mime =
     a.type === "html"
       ? "text/html"
       : a.type === "svg"
         ? "image/svg+xml"
-        : a.type === "markdown"
+        : a.type === "markdown" || a.type === "slides"
           ? "text/markdown"
-          : "text/plain";
+          : a.type === "sheet"
+            ? "text/csv"
+            : a.type === "whiteboard"
+              ? "application/json"
+              : "text/plain";
   return { filename: `${a.identifier}.${ext}`, mime };
 }
 
@@ -154,4 +164,7 @@ export const TYPE_LABELS: Record<ArtifactType, string> = {
   svg: "Gambar SVG",
   mermaid: "Diagram",
   code: "Kode",
+  sheet: "Lembar kerja",
+  slides: "Presentasi",
+  whiteboard: "Papan tulis",
 };

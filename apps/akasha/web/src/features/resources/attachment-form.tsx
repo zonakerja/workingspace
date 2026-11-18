@@ -33,6 +33,7 @@ import {
 import { openOfficeEditor } from "@/features/tools/onlyoffice/office-editor-host";
 import { isOfficeEditable } from "@/features/tools/onlyoffice/office-formats";
 import { useOfficeDiscardConfirm } from "@/features/tools/onlyoffice/use-office-discard-confirm";
+import { DriveFilePicker } from "@/features/drive/drive-file-picker";
 import { ConvertedDocumentPicker } from "@/features/tools/converter/converted-document-picker";
 import { useDialogCloseGuard } from "@/components/common/dialog-close-guard";
 import type { UploadedAsset } from "@/types/api";
@@ -383,6 +384,7 @@ export function AttachmentForm({
               </Button>
               {/* Hasil Markdown Converter dipanggil ke Working Space sebagai salinan berkas .md */}
               <ConvertedDocumentPicker disabled={uploading} onPick={(file) => void handleFile(file)} />
+              <DriveFilePicker disabled={uploading} onPick={(file) => void handleFile(file)} />
             </>
           ) : (
             !draft.uploadId && (

@@ -44,8 +44,6 @@ export const isExtractable = (mimeType: string) =>
   mimeType === XLSX ||
   OCR_IMAGES.has(mimeType);
 
-export const isOcrImage = (mimeType: string) => OCR_IMAGES.has(mimeType);
-
 /** Rata-rata karakter per halaman di bawah ini dianggap PDF hasil scan (tanpa lapisan teks; nomor halaman saja). */
 const MIN_PDF_CHARS_PER_PAGE = 10;
 /** Batas baris per sheet agar spreadsheet raksasa tidak membanjiri indeks. */

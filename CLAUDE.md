@@ -7,7 +7,7 @@ Dokumen ini menggantikan memori percakapan: keputusan, konteks user, status, dan
 Perbarui **§11 Status** dan **§12 Log Keputusan** setiap selesai satu langkah berarti.
 Dokumentasi untuk manusia ada di `docs/` (SETUP, DEPLOYMENT, ARCHITECTURE = fondasi + tech stack & versi, UPGRADE-PLAN, FILE-CONTROL,
 ONLYOFFICE = riset & rencana integrasi editor dokumen, AI-AGENT = riset & rencana AI Agent: Hermes, Obsidian, WhatsApp, SRIKANDI/SIMAN/e-Kinerja,
-AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, TODO-USER = **to-do pemilik** langkah demi langkah — perbarui setiap ada pekerjaan baru yang harus dikerjakan user).
+AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, AKUN-TERSAMBUNG = kajian email, kalender & drive (Google, Microsoft, IMAP/CalDAV, ICS), TODO-USER = **to-do pemilik** langkah demi langkah — perbarui setiap ada pekerjaan baru yang harus dikerjakan user).
 
 ## 0. Memulai Thread Baru (checklist wajib)
 
@@ -19,7 +19,7 @@ AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, TODO-U
 3. **Cek status lingkungan dulu (§2a)** — jangan menyalakan yang sudah aktif. Yang belum aktif: nyalakan (lihat §2):
    `wsl -e sh -c "sleep infinity"` (background) →
    `wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose up -d"` → preview `backend` & `frontend`
-   (`.claude/launch.json`). Login `admin@workingspace.id` / `123`.
+   (`.claude/launch.json`) + SSO (`auth-api`, `auth-web`). Masuk Akasha **hanya lewat SSO**: `admin@workingspace.id` / `123` di halaman SSO.
 4. Pastikan baseline sehat sebelum mengubah apa pun: `npm test` (backend & frontend), `npm run test:smoke` (backend).
 5. Tanyakan/konfirmasi ruang lingkup thread ke user bila belum jelas; catat keputusan di §12.
 6. **Sebelum thread berakhir**: perbarui §11 Status, §12 Log Keputusan, pola baru di §8/§8b/§14, jebakan baru di §15,
@@ -80,7 +80,7 @@ ingatan percakapan.
 
 | Komponen | Port | Status | Dijalankan oleh | Catatan |
 |---|---|---|---|---|
-| Frontend (Vite) | 5173 | 🟢 aktif / ⚪ mati | preview Claude / terminal user / — | http://localhost:5173 (login `admin@workingspace.id` / `123`) |
+| Frontend (Vite) | 5173 | 🟢 aktif / ⚪ mati | preview Claude / terminal user / — | http://localhost:5173 (masuk lewat SSO: `admin@workingspace.id` / `123`) |
 | Backend (NestJS) | 4000 | … | … | http://localhost:4000/api/v1/health · Swagger `/api/docs` |
 | SSO API (NestJS) | 4300 | … | … | http://localhost:4300/api/health · OIDC `/oidc/.well-known/openid-configuration` |
 | SSO halaman masuk (Vite) | 5175 | … | … | http://auth.workingspace.localhost:5175 |
@@ -179,7 +179,7 @@ workingspace/  (monorepo ekosistem workingspace: npm workspaces + Turborepo, doc
 │           ├── skills/       skill Hermes (SKILL.md) — dipasang baca-saja ke container hermes & dibaca backend
 │           └── hermes/       up.sh · configure.sh · akasha-mcp.yaml (konfigurasi container Hermes)
 ├── packages/
-│   └── ui/                   @workingspace/ui — identitas visual bersama (brand.css token+utility, logo, avatar, tema) untuk auth web & landing
+│   └── ui/                   @workingspace/ui — identitas visual bersama (brand.css token+utility, logo & tanda produk, avatar, tema, ecosystem.ts = nama/tagline/visi produk) untuk auth web, landing, Akai web
 ├── services/
 │   ├── robot/                @workingspace/robot — Playwright (Dockerfile, src/server.ts, browser.ts, logic.ts) — konektor SRIKANDI/e-Kinerja
 │   └── converter/            Markdown Converter (Python: FastAPI + MarkItDown + Docling; app/logic.py + tests/; di luar workspace npm)
@@ -203,7 +203,7 @@ workingspace/  (monorepo ekosistem workingspace: npm workspaces + Turborepo, doc
 | Markdown Converter (opsional, profile `converter`) | akasha-converter | 127.0.0.1:4200 | image `akasha-converter:2.142.1` dari `services/converter/Dockerfile` (± 5 GB: torch CPU + model Docling + Tesseract `ind`); token dev di compose = `CONVERTER_TOKEN` apps/akasha/api/.env; tanpa volume; jaringan sendiri; nyala: `docker compose --profile converter up -d --wait converter`; test Python: `docker run --rm -e CONVERTER_TOKEN=x akasha-converter:2.142.1 python -m pytest -q -p no:cacheprovider tests` |
 | ONLYOFFICE Docs 10.0 (opsional, profile `office`) | akasha-onlyoffice | 8080 | image `akasha-onlyoffice:10.0` dibangun dari `infra/onlyoffice/Dockerfile` (+ plugin AI resmi + jembatan AI + pemantau font); font tambahan diunggah admin ke `infra/onlyoffice/fonts` (`ONLYOFFICE_FONTS_DIR`, daftar font dibuat ulang otomatis); JWT secret dev di compose, header `AuthorizationJwt`; nyala: `docker compose --profile office up -d --wait onlyoffice` |
 
-Seed development: `admin@workingspace.id` / `123` (super_admin), `user@workingspace.id` / `123` (member, untuk uji berbagi).
+Akun development ada di **SSO** (`npm run prisma:seed -w @workingspace/auth-api`): `admin@workingspace.id` / `123` (super admin), `user@workingspace.id` / `123` (member, untuk uji berbagi). Akun Akasha dibuat otomatis saat pertama masuk lewat SSO; seed Akasha hanya pengaturan aplikasi.
 Akun `viewer@workingspace.id` lama (dev) kini member ("Tamu Viewer") — boleh dihapus.
 Volume PostgreSQL memuat nomor major (`akasha-postgres18-data`, prod `postgres18-data`) dan di-mount ke
 `/var/lib/postgresql`. Data dev hanya dummy: boleh direset kapan saja (`docker compose down -v` → `up -d --wait` →
@@ -250,15 +250,15 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
 - Global: Helmet, CORS, ValidationPipe whitelist + forbidNonWhitelisted, `PrismaExceptionFilter`, Throttler
   (600/menit; login 10/menit; refresh 30/menit), log `nestjs-pino` (`src/config/logger.config.ts`: JSON di production,
   `reqId`/`X-Request-Id`, header & token disensor), shutdown hooks, body JSON 5 MB.
-- **Auth** (`src/auth/`): `POST /auth/login` → body `{ user, accessToken }` + cookie `akasha_rt` (httpOnly, SameSite=Strict,
+- **Auth** (`src/auth/`): **tidak ada login kata sandi lokal** (keputusan user 2026-11-18; kolom `users.password_hash` dihapus) — sesi dibuat
+  callback SSO (lihat "Masuk lewat SSO") → body `{ user, accessToken }` + cookie `akasha_rt` (httpOnly, SameSite=Strict,
   path `/api/v1/auth`, `refresh-cookie.ts`). `POST /auth/refresh` (cookie) merotasi; toleransi reuse 30 detik untuk
-  refresh paralel; reuse setelahnya → semua sesi user dihapus. `POST /auth/logout`, `GET/PATCH /auth/me`,
-  `POST /auth/change-password` (hapus sesi lain). Pencabutan eksplisit = hapus baris; `revokedAt` hanya untuk rotasi.
-  Admin mengubah password/role user → sesi user itu dihapus.
+  refresh paralel; reuse setelahnya → semua sesi user dihapus. `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me`
+  (hanya No. HP & alamat; nama/email/role dari SSO). Pencabutan eksplisit = hapus baris; `revokedAt` hanya untuk rotasi.
 - **Isolasi data** (detail: `docs/ARCHITECTURE.md` §3.3): role `super_admin | admin | member` (viewer dihapus). Setiap
   user — termasuk admin — hanya membaca/menulis datanya sendiri + item yang **dibagikan** kepadanya. Role hanya untuk
   pengelolaan akun & aplikasi. **Jangan** menambah jalan pintas "admin melihat semua data" di endpoint mana pun.
-- **Users**: list/get (admin, super_admin), create/update/delete (super_admin; admin hanya kelola non-super-admin),
+- **Users**: list/get (admin, super_admin), delete (super_admin; admin hanya non-super-admin) — **buat/ubah akun & role hanya di admin SSO**,
   `GET /users/stats` (admin: jumlah data/berkas/ukuran/berbagi/aktif terakhir, tanpa isi), `GET /users/directory?q=`
   (semua user: cari penerima berbagi, min. 3 huruf, nama+email). Hapus user → berkasnya ikut dihapus dari storage.
 - **Berbagi & komentar** (`src/sharing/`): tabel `shares` (item induk `para_project | para_area | para_resource |
@@ -413,7 +413,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   diindeks** (`noteDocument`), tidak diperiksa (`noteProblems`/`vaultHealth`), dan baca saja (`findEditable` → 400 untuk
   sunting/properti/pindah/hapus/sematkan tautan). Jenis data baru → `SOURCES` (service) + `buildExport` + `EXPORT_KINDS`.
 - **Integrasi agen / MCP** (`src/integrations/`, detail `docs/ARCHITECTURE.md` §3.7): token akses pribadi `api_tokens`
-  (`akasha_pat_…`, hash SHA-256, cakupan `knowledge:read|knowledge:write|workspace:read|workspace:write|ai:chat|requests:read|requests:write|ai:model|agent:menus|mcp:apps|ekinerja:robot|srikandi:robot|siman:robot`,
+  (`akasha_pat_…`, hash SHA-256, cakupan `knowledge:read|knowledge:write|workspace:read|workspace:write|ai:chat|requests:read|requests:write|ai:model|agent:menus|ekinerja:robot|srikandi:robot|siman:robot|mail:read|mail:send`,
   kedaluwarsa; `/integrations/tokens|scopes|activity`) + **MCP server** `POST /api/v1/mcp` (Streamable HTTP stateless,
   Bearer token — JWT login ditolak; tools disaring izin: search/read knowledge, inbox, search workspace, agenda, task
   terbuka, buat to-do lewat `RecordsService`, tanya asisten, daftar/buka/catat/analisis pengajuan, **alat skill agen**:
@@ -461,7 +461,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   menerima `[A-Za-z0-9_-]{24,128}` (JWT bertitik tetap ditolak). Logika murni + test `agent-llm.ts`.
   **Run agen permanen** di tabel `agent_runs` (tombol, chat, aturan; `hermesRunId`) + pemantau 10 dtk di `AgentService`
   (mulai run antrian, baca status, batas 45 menit) — tidak lagi hilang saat backend restart.
-  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; `EXTENSIBLE_FEATURES` = fitur native yang **terbuka** untuk agen (e-Kinerja → placement `ekinerja`, keputusan user 2026-11-12; SRIKANDI → placement `srikandi`, SIMAN → placement `siman` & Aplikasi MCP → placement `mcp`, keputusan user 2026-11-13: nama tetap dikunci, kode tetap bawaan, agen boleh menambah workflow di dalamnya & menjalankan robotnya); tabel `agent_menus` (`placement` workflow | connection | ekinerja | srikandi | siman | mcp, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
+  **Fitur native & fitur buatan agen** (`src/agent-menus/`, logika murni + test `agent-menu-logic.ts`, detail `docs/AI-AGENT.md` §26): `NATIVE_FEATURES` = nama yang ditolak; `EXTENSIBLE_FEATURES` = fitur native yang **terbuka** untuk agen (e-Kinerja → placement `ekinerja`, keputusan user 2026-11-12; SRIKANDI → placement `srikandi` & SIMAN → placement `siman`, keputusan user 2026-11-13: nama tetap dikunci, kode tetap bawaan, agen boleh menambah workflow di dalamnya & menjalankan robotnya); tabel `agent_menus` (`placement` workflow | connection | ekinerja | srikandi | siman, `form` jsonb), MCP `list_agent_menus` & `propose_agent_menu` (cakupan `agent:menus`) selalu menghasilkan draf; `GET /agent/menus` (bukan pemilik = kosong), `PATCH|DELETE /agent/menus/:id` (hanya pemilik, agen tidak punya jalur hapus), `POST /agent/menus/:id/run { note?, values? }` (hanya yang disetujui, `values` diperiksa terhadap `form`), `GET /agent/menus/:id/runs` (`agent_runs.menu_id`). Agen mengubah fitur aktif = kembali draf.
   **Kebijakan Otomatis** (`agent-policy.service.ts`, logika murni + test `agent-policy.ts`, detail `docs/AI-AGENT.md` §24.6):
   **pencocokan aset opsional per aturan** (`verify_assets`, bawaan mati): tanpa itu hasil agen selalu ke pemilik dan mode auto ditolak 422 (keputusan user 2026-11-09). Aturan pemilik di `agent_policies` (jenis + grup → skill, mode off/shadow/auto, ambang skor aset, kolom kritis, toleransi,
   batas harian, masa tunda, templat Register). Pengajuan baru yang cocok → run `queued` (trigger `policy`) → agen memanggil
@@ -566,7 +566,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (record type `action_plan_month` — potret bulan Rencana Aksi e-Kinerja) + `20261031140000_public_vaults` (brankas digital + log
   akses) + `20261101120000_automation_jobs` (jadwal & riwayat otomasi) + `20261106130000_ai_router_endpoints` (jalur router per kredensial AI) + `20261106140000_knowledge_prefs` (preferensi menu Knowledge) + `20261106120000_agent_policies` (Kebijakan Otomatis,
   `agent_runs`, sakelar darurat, `requests.asset_check`/`auto_decision`) + `20261107120000_knowledge_note_versions` (riwayat versi
-  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI) + `20261113130000_mcp_oauth_client` (OAuth client & scope milik pemilik di `mcp_connections`) + `20261113140000_mcp_agent_tools` (`mcp_connections.agent_tools`: alat bertanda Hapus yang diizinkan untuk agen) + `20261113150000_converter_prefs` + `20261113160000_security_pin` (PIN keamanan, sesi login, `notebooks.locked`) + `20261114120000_converted_documents` (pustaka Markdown Converter). Migrasi baru → lihat docs/SETUP.md §10
+  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI) + `20261113130000_mcp_oauth_client` (OAuth client & scope milik pemilik di `mcp_connections`) + `20261113140000_mcp_agent_tools` (`mcp_connections.agent_tools`: alat bertanda Hapus yang diizinkan untuk agen) + `20261113150000_converter_prefs` + `20261113160000_security_pin` (PIN keamanan, sesi login, `notebooks.locked`) + `20261114120000_converted_documents` (pustaka Markdown Converter) + … + `20261117190000_drop_mcp_connections` (tabel koneksi aplikasi MCP dihapus) + `20261117200000_calendar_feed_mail_accounts` (langganan kalender ICS, akun email) + `20261118120000_mail_inbox` (kotak masuk IMAP) + `20261118140000_oauth_calendar_sync` (akun OAuth, kalender dua arah, Outlook) + `20261118160000_drive_cold_storage` (arsip dingin: `cold_objects`, `assets.last_accessed_at`, `users.cold_storage`). Migrasi baru → lihat docs/SETUP.md §10
     (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`, lalu cek
     drift dengan `--exit-code`; shadow DB dari `SHADOW_DATABASE_URL`).
 - **Records API**: `GET /records/:type?from&to` (milik sendiri + item bersama bertanda `share`), `PUT
@@ -645,40 +645,15 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   Notebook, vault) untuk tombol Pulihkan. Endpoint `GET /trash`,
   `POST /trash/restore { ids? | batchId? }`, `POST /trash/purge { ids? | batchId? | all? }`. Baris salinan → `restorableRow` (JSON null →
   `Prisma.DbNull`).
-- **Koneksi aplikasi MCP luar** (`src/mcp-connections/`, logika murni + test `mcp-connection-logic.ts`, keputusan user 2026-11-10): Akasha sebagai
-  **klien** MCP ke aplikasi lain (Canva, Notion, Linear, GitHub, atau alamat apa pun). Tabel `mcp_connections` (milik user, `slug` unik per user,
-  `auth_type` none | token | oauth, `token_enc`/`oauth_enc` terenkripsi `AiCrypto` kunci turunan `akasha:mcp-connection:v1`, `oauth_state` sekali
-  pakai, `status` new | connected | auth_required | error, `tools` = salinan `tools/list`, `agent_enabled`, `allow_write`). Katalog `MCP_PRESETS`;
-  alamat lewat `normalizeMcpUrl` (https publik; http/lokal hanya di luar production). Transport Streamable HTTP lalu cadangan SSE; OAuth = SDK
-  `auth()` (pendaftaran klien dinamis + PKCE + refresh) dengan `StoredOAuthProvider`, callback publik `GET /mcp-connections/oauth/callback`
-  (redirect URI = `CORS_ORIGIN` + path, lalu kembali ke `/mcp/apps/<slug>`). 401/403 dari transport = `auth_required` (`isAuthError`, bukan
-  hanya `UnauthorizedError`). Ganti alamat/jenis login = kredensial dihapus. **OAuth client milik pemilik** (2026-11-13, untuk server tanpa
-  pendaftaran klien dinamis: Google Workspace, GitHub OAuth App): kolom `oauth_client_id`, `oauth_client_secret_enc` (terenkripsi, tidak pernah
-  dikembalikan → `hasClientSecret`), `oauth_scope` (`normalizeScope`, dikirim ke `auth({ scope })`); `StoredOAuthProvider` memakai client itu dan
-  tidak mendaftar ulang; client/scope berubah = izin lama dibuang (`auth_required`). Preset ber-`group` (google) memakai client koneksi sekelompok
-  bila Client ID dikosongkan; `needsClient` = wajib client; `scope` = scope bawaan (baca + buat, tanpa hapus). Google: `authorizationExtras` →
-  `access_type=offline&prompt=consent` (tanpa itu tidak ada refresh token, koneksi putus ± 1 jam). Galat DCR/klien → `oauthErrorMessage`. Respons
-  koneksi membawa `redirectUrl` (alamat callback untuk didaftarkan). Endpoint `GET presets`, `GET|POST /`, `GET|PATCH|DELETE :id`
-  (id atau slug), `POST :id/connect|refresh|call`. **Agen** (MCP Akasha, cakupan `mcp:apps`: `list_app_tools`, `call_app_tool`) hanya bila
-  `agentEnabled`; alat baca selalu, alat ubah / tanpa tanda hanya bila `allowWrite`, alat `destructiveHint` hanya bila pemilik mengizinkan
-  **alat itu satu per satu** (`agent_tools`, `agentToolList`) **dan** `allowWrite` (keputusan user 2026-11-13: Canva menandai simpan hasil sunting
-  `commit-editing-transaction` & `autofill-design` sebagai merusak) (`agentToolDecision`; salinan frontend `agentAllowed`, ubah bersamaan).
-  **Simpan berkas hasil aplikasi** (`save_app_file`, `AgentActionsService.saveAppFile`, unduh `app-file-download.ts` + logika murni & test
-  `app-file-logic.ts`): tautan https di **domain aplikasi itu saja** (`fileHosts` katalog, mis. Canva `canva.com` + `canva.ai`; lainnya domain dasar
-  server MCP; juga setiap pengalihan), `safeLookup` dari `notebooks/web-source.ts` (jaringan lokal ditolak), tanpa kredensial, maks. 50 MB →
-  `createFromBuffer` context `mcp-app` + Resource Global (`para_resource`, tag `Hasil Agen` + nama aplikasi) lewat `AgentActionsService.create`
-  (tercatat & bisa dibatalkan). Koneksi wajib `agentEnabled`. `request_app_access` menerima `allowTools` (hanya alat bertanda Hapus yang ada;
-  ikut menyalakan `allowWrite`; disetujui = ditambahkan ke `agent_tools`). Kredensial tidak pernah dikirim ke browser maupun agen.
-  **Fitur terbuka untuk agen** (keputusan user 2026-11-13, logika murni + test `mcp-agent-logic.ts`, detail `docs/AI-AGENT.md` §26.6): MCP
-  `list_app_connections` (semua koneksi + katalog, tanpa kredensial), `request_app_connection { preset? | name+url+authType, reason }` →
-  `agent_actions` kind `mcp_connect` (pending, satu per alamat, alamat yang sudah ada ditolak) → approve = `McpConnectionsService.create`
-  (status baru, izin agen mati; Sambungkan/token tetap oleh pemilik), `request_app_access { connection, agentEnabled?, allowWrite?, reason }` →
-  kind `mcp_access` (hanya nilai yang berbeda, `accessChange`) → approve = `update`. Hapus koneksi / ganti alamat / token tidak pernah lewat agen.
+- **Koneksi aplikasi MCP luar — dihapus 2026-11-17** (keputusan pemilik): Akasha tidak lagi menjadi klien MCP ke aplikasi lain. Modul
+  `src/mcp-connections/`, tabel `mcp_connections` (migrasi `20261117190000_drop_mcp_connections`), cakupan `mcp:apps`, alat agen `list_app_*` /
+  `call_app_tool` / `save_app_file` / `request_app_*`, dan jenis aksi `mcp_connect` / `mcp_access` sudah dibuang. Aplikasi luar (Canva, Notion,
+  GitHub, Google, …) disambungkan di **Akai → Konektor** (docs/AKAI.md §8, 6b.10). Akasha tetap **server** MCP (`/api/v1/mcp`).
 - **Aksi agen atas data kerja** (`src/agent-actions/`, logika murni + test `agent-action-logic.ts`, keputusan user 2026-11-10): MCP
   `describe_record_types`, `list_records`, `get_record` (`workspace:read`) dan `create_record`, `update_record` (patch: hanya key yang
   dikirim, `null` = hapus key), `request_delete_record` (`workspace:write`) lewat `RecordsService` (isolasi, berbagi, audit, indeks
   berlaku; hanya data milik sendiri). Jenis hasil sinkron robot & log = baca saja (`AGENT_READONLY_TYPES`). Tabel `agent_actions`
-  (kind create | update | delete | ekinerja_fill | srikandi_register | mcp_connect | mcp_access, `before`/`after`, status applied | undone | pending | approved | rejected | failed). Buat/ubah langsung
+  (kind create | update | delete | ekinerja_fill | srikandi_register, `before`/`after`, status applied | undone | pending | approved | rejected | failed). Buat/ubah langsung
   & **bisa dibatalkan** (`POST /agent/actions/:id/undo { force? }`: record sudah berubah lagi → 409, sudah dihapus → 410, batalkan
   "buat" = ke Sampah). **Hapus = permintaan** sampai pemilik `approve` / `reject` (`/agent/actions/:id/…`); disetujui = item +
   turunannya (`ShareAccessService.descendantsOf`, tanpa Notes AI tertaut) ke Sampah bertanda agen, beserta berkas milik item itu
@@ -697,8 +672,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   item terkunci (`changes: {}`, `locked`) ikut tertutup. PIN bukan enkripsi. Jenis baru yang bisa dikunci → resep §14.
 - **Masuk lewat SSO workingspace.id** (`src/auth/sso.service.ts` + logika murni & test `sso-logic.ts`, docs/SSO.md): env `SSO_ISSUER`,
   `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` (= secret klien `akasha` di SSO), `SSO_REDIRECT_URI` (`<CORS_ORIGIN>/api/v1/auth/sso/callback`),
-  `SSO_POST_LOGOUT_URI`, `PASSWORD_LOGIN` (bawaan: aktif di luar production untuk smoke/dev, mati di production). `GET /auth/sso/config`
-  (publik), `GET /auth/sso/start?returnTo=` (cookie alur `akasha_sso` = JWT bertanda tangan berisi state/nonce/PKCE, path `/api/v1/auth/sso`,
+  `SSO_POST_LOGOUT_URI`. `GET /auth/sso/config` (publik, `{ enabled, accountUrl }`), `GET /auth/sso/start?returnTo=` (cookie alur `akasha_sso` = JWT bertanda tangan berisi state/nonce/PKCE, path `/api/v1/auth/sso`,
   Lax) → SSO → `GET /auth/sso/callback` (tukar kode, akun dicari `users.sso_subject` lalu email — ditautkan sekali, lalu dibuat; nama,
   email, role disalin dari klaim) → cookie `akasha_rt` biasa → redirect `returnTo` (galat → `/login?sso_error=`). `refresh` memeriksa
   `GET /api/client/account` SSO (cache 60 dtk; akun nonaktif / akses dicabut → semua sesi dihapus, 401; SSO tak terjangkau = sesi
@@ -708,20 +682,49 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   berlaku juga untuk logout / cabut sesi biasa. **Masuk SSO = masuk Akasha**: halaman `/login` Akasha otomatis menjalankan
   `sso/start?silent=1` (`ws_silent=1`; belum masuk → `/login?sso_checked=1`, `silent-sso.ts`), dan keluar Akasha → halaman keluar SSO
   dikirim otomatis tanpa konfirmasi. Dev: `mapLocalhostSubdomains` (`src/common/localhost-dns.ts`) karena resolver Windows tidak
-  mengenal `*.localhost`. `users.password_hash` boleh null (akun SSO saja → login lokal 401, ganti kata sandi
-  & konfirmasi kata sandi robot/PIN ditolak dengan pesan). Uji: `node test/sso-smoke.mjs` (± 3 menit, menunggu cache).
+  mengenal `*.localhost`. Uji: `node test/sso-smoke.mjs` (± 3 menit, menunggu cache).
   **PIN & akun SSO** (B2 langkah 2): `PinService` untuk akun ber-`sso_subject` (dan SSO aktif) memeriksa PIN lewat SSO
   (`SsoService.verifyPin` / `pinStatus`, galat SSO diteruskan: `PIN_WRONG` 400, `PIN_NOT_SET` 409, `PIN_BLOCKED` 429); atur/hapus PIN di
   Akasha → 409 `PIN_IN_SSO` (+ `accountUrl`); `GET /security/pin` → `managedBySso`, `accountUrl`. Cermin `users.sso_pin` (diisi saat masuk,
-  refresh, dan status PIN) → `hasPin` publik. `toPublicUser` + `hasPassword`. Kredensial robot: `accountPassword` **atau** `accountPin`
-  (akun tanpa kata sandi lokal, `PinService.confirmOwner`). `PATCH /auth/me` nama/email & `PATCH /users/:id` email/role/kata sandi akun SSO
-  ditolak (`MANAGED_BY_SSO`). Frontend: tawaran PIN setelah masuk lewat SSO memakai penanda sessionStorage (`rememberSsoLogin` sebelum
+  refresh, dan status PIN) → `hasPin` publik. Kredensial robot dikonfirmasi `accountPin` (`PinService.confirmOwner`). Akun tanpa `sso_subject` (hanya akun uji smoke)
+  memakai PIN lokal: atur sekali, ganti wajib `currentPin`, hapus wajib `pin`. Frontend: tawaran PIN setelah masuk lewat SSO memakai penanda sessionStorage (`rememberSsoLogin` sebelum
   pindah ke SSO, `restoreSsoLoginPrompt` di `main.tsx`).
+- **Akun tersambung tahap 0** (`src/calendar-feed/`, `src/mail/`, logika murni + test `ics-logic.ts` & `mail-logic.ts`, detail docs/AKUN-TERSAMBUNG.md §7,
+  keputusan user 2026-11-17): **langganan kalender ICS** satu alamat rahasia per akun (`calendar_feeds`, token `cal_…` = hash + terenkripsi kunci
+  turunan `akasha:calendar-feed:v1`), publik `GET /api/v1/public/calendar/<token>.ics`, agenda/task/to-do milik sendiri, item terkunci PIN judul
+  saja, `/calendar-feed` (+ `/rotate`). **Akun email** `mail_accounts` (multi akun, Gmail = Sandi Aplikasi SMTP, Outlook ditolak sampai OAuth
+  tahap 2, SMTP lain; host privat ditolak di production termasuk hasil DNS; kata sandi kunci turunan `akasha:mail-account:v1`, tidak pernah
+  dikembalikan), `/mail/accounts*` (uji kirim, kirim ringkasan sekarang), `MailService.send()` untuk fitur lain, **ringkasan harian** per akun
+  (penjadwal di proses backend tiap menit, klaim bersyarat `digest_last_sent`; item terkunci tidak dikirim). Fitur baru yang mengirim email →
+  `MailService.send`; dari agen wajib lewat persetujuan pemilik. **Tahap 1 kotak masuk** (`mail-inbox.service.ts`, logika murni + test
+  `inbox-logic.ts`, `imapflow` + `mailparser`, detail docs/AKUN-TERSAMBUNG.md §8): sinkron IMAP **read-only** per akun (tiap menit untuk akun > 10 menit,
+  awal *n* hari, lalu UID baru, maks. 100/sinkron & 2.000/akun) → `mail_messages` (teks, nama lampiran, `hints` tagihan/jadwal tanpa AI, status,
+  `linked`); `POST /mail/messages/:id/todo|agenda` → record `todo`/`schedule` ID `mail-<id>` lewat `RecordsService`; opsional indeks RAG
+  (`sourceType = mail_message`, `registerSourceLoader`, modul Pencarian Pintar `email`). Uji tanpa akun = GreenMail di Docker (§15).
+  **Tahap 2 Google & Microsoft** (`src/connections/`, logika murni + test `oauth-logic.ts` & `calendar-sync-logic.ts`, detail docs/AKUN-TERSAMBUNG.md §9):
+  `oauth_accounts` (OAuth client milik pemilik, env `GOOGLE_OAUTH_*` / `MICROSOFT_OAUTH_*` / `MICROSOFT_OAUTH_TENANT`; PKCE, state di memori, token
+  terenkripsi `akasha:oauth-account:v1`, refresh otomatis, `OAuthService.api()` = panggil API penyedia dengan galat 400 bukan 401/5xx), callback publik
+  `/api/v1/connections/oauth/callback` (objek query biasa, bukan DTO — parameter penyedia bervariasi). **Kalender dua arah** = kalender baru "Akasha"
+  (Google scope `calendar.app.created` saja) ↔ agenda Planner (`calendar_connections`, `calendar_event_links`; tarik syncToken/delta lalu kirim yang
+  berubah, bentrok = lebih baru menang, hapus luar = Sampah, terkunci = judul saja). **Outlook** = akun email `authType: oauth` lewat Graph (kirim
+  `sendMail`, kotak masuk delta → `mail_messages.external_id`). Uji = server tiruan + env `OAUTH_TEST_BASE` (ditolak di production).
+  **Tahap 3 alat agen** (detail docs/AKUN-TERSAMBUNG.md §10, logika murni + test `mail/agent-mail-logic.ts`): cakupan `mail:read` (`list_emails`,
+  `read_email`, `email_to_todo` + `workspace:write`) & `mail:send` (`request_send_email` → `agent_actions` kind `send_email` pending, dikirim
+  `MailService.send` hanya saat pemilik menyetujui; `APPROVAL_KINDS`), `find_free_time` (`workspace:read`). Kalender = `create_record schedule`.
+  **Tahap 4 Drive** (`src/drive/`, logika murni + test `drive-logic.ts`, detail docs/AKUN-TERSAMBUNG.md §11): izin Drive diminta terpisah
+  (`DRIVE_SCOPES`: Google `drive.file`, Microsoft `Files.Read` + `Files.ReadWrite.AppFolder`; `start(..., { drive, loginHint })`). `/drive/accounts`,
+  `accounts/:id/picker` (token + env `GOOGLE_PICKER_API_KEY`/`_APP_ID`), `accounts/:id/items` (OneDrive saja), `accounts/:id/files/:fileId/content`
+  (dialirkan, dokumen Google diekspor, batas `UPLOAD_MAX_MB`). **Arsip dingin** `ColdStorageService`: `users.cold_storage`, putaran tiap jam
+  memindah objek lama (`assets.last_accessed_at`) ke Drive → `cold_objects` (kunci = key objek) → objek dihapus dari bucket; **pengait di
+  `ObjectStorageService`** (`setColdStorageHooks`: `restore` saat objek hilang dibaca/disalin, `removed` saat dihapus, `touched` saat dibaca) sehingga
+  semua fitur tetap jalan tanpa tahu. Pemindah memakai `getObjectRaw` & `deleteObject(key, { keepCold: true })`. Berkas bertautan publik/brankas,
+  vault, templat, sumber Notebook tidak dipindah. Putuskan akun OAuth berarsip dingin → 409. `/drive/cold` (GET/PUT), `cold/run`, `cold/restore`.
 - **Health**: `/health` (readiness, 503 bila dependensi down), `/health/live` (liveness).
-- **Seed**: `src/database/seed.ts` (dev: akun demo via `prisma db seed` → `tsx`; production: super admin dari env,
-  `node dist/database/seed.js`).
+- **Seed**: `src/database/seed.ts` = pengaturan aplikasi saja (dev `prisma db seed` → `tsx`; production `node dist/database/seed.js`).
+  Akun tidak dibuat seed: super admin produksi = `SEED_ADMIN_*` di **SSO**, akun Akasha dibuat saat masuk lewat SSO.
 - **Test**: `npm test` (Vitest unit), `npm run test:smoke` (end-to-end ±95 skenario termasuk isolasi admin & berbagi;
-  membuat & menghapus dua user member sementara; env `API_URL`, `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`).
+  membuat & menghapus dua user member sementara; sesi uji dibuat langsung di database (`refresh_tokens` + token bertanda tangan
+  `JWT_REFRESH_SECRET`, dibaca dari `.env`) lalu ditukar lewat `/auth/refresh`; env `API_URL`, `SMOKE_ADMIN_EMAIL`, `DATABASE_URL`).
 - Perintah: `dev | build | start | lint | typecheck | test | test:smoke | prisma:generate | prisma:deploy |
   prisma:seed | db:generate-models`.
 
@@ -772,7 +775,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   sebelumnya chunk terpisah yang tetap dimuat saat start); tanpa
   peringatan ukuran chunk. Tab My Notebook = chunk `notebook-tab` (±42 kB). Menu Pengetahuan: `knowledge-page` ±123 kB,
   `graph-canvas` ±136 kB, `note-editor` (CodeMirror) ±379 kB, `bases-tab` ±40 kB (juga dipakai sematan `![[x.base]]`), `canvas-tab` ±27 kB — dimuat malas. Mermaid (`mermaid-diagram.tsx` → `import("mermaid")`, elk ±1,4 MB) hanya dimuat saat catatan berisi diagram; `chunkSizeWarningLimit` 1500 kB karena itu, chunk utama tetap ±405 kB.
-- **CSP produksi** (`nginx.conf`): `script-src 'self'`, `connect-src 'self'` (AI lewat backend), `style-src 'self'
+- **CSP produksi** (`nginx.conf`): `script-src 'self' https://apis.google.com` (Google Picker, tahap 4), `frame-src` + domain Google Picker, `connect-src 'self'` (AI lewat backend), `style-src 'self'
   'unsafe-inline'`, `img/media blob: data:`. Domain eksternal baru → tambahkan di sini (lebih baik lewat backend).
 
 ### Pola implementasi frontend (WAJIB)
@@ -1197,7 +1200,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   - Form agenda: mengubah Tanggal Mulai menggeser Tanggal Selesai (durasi tetap); konten form di-`key` per sesi buka &
     per agenda (`useOpenSession`).
 - **Bidang aktif** (`features/knowledge/workspace/active-field-button.tsx`, tombol di banner Knowledge; logika murni + test `fieldCounts`/`sameField` di `knowledge-logic.ts`): pilih / tambah bidang, tandai catatan tanpa bidang; disimpan lewat `useKnowledgePrefs`. Pemanggil `save` wajib menyebar `...prefs` agar `activeField` tidak hilang.
-- **Layout & Pengaturan** (keputusan user 2026-10-15): sidebar = Workspace **Overview, Planner, Notes Space, Working Space (key `working-space`), File Control** + grup **AI Agent** (**Knowledge, AI Agent, Approval**, `sidebarGroup: "ai"`, keputusan user 2026-11-10) + grup **Connection & MCP** (e-Kinerja, SRIKANDI, SIMAN, lalu koneksi buatan agen yang disetujui, lalu **Aplikasi MCP** — aplikasi MCP tersambung tidak lagi punya menu sendiri, keputusan user 2026-11-13 — `sidebarGroup: "connection"` + `useAgentMenus`, `placement: connection`) + grup Sistem berisi **Tools** dan **Pengaturan**
+- **Layout & Pengaturan** (keputusan user 2026-10-15): sidebar = Workspace **Overview, Planner, Email, Notes Space, Working Space (key `working-space`), File Control** + grup **AI Agent** (**Knowledge, AI Agent, Approval**, `sidebarGroup: "ai"`, keputusan user 2026-11-10) + grup **Connection & MCP** (e-Kinerja, SRIKANDI, SIMAN, lalu koneksi buatan agen yang disetujui, lalu **Aplikasi MCP** — aplikasi MCP tersambung tidak lagi punya menu sendiri, keputusan user 2026-11-13 — `sidebarGroup: "connection"` + `useAgentMenus`, `placement: connection`) + grup Sistem berisi **Tools** dan **Pengaturan**
   (`ModuleDef.sidebarGroup: "system"`, keduanya menu ber-sub-menu `SubmenuModuleItem`); Pengaturan
   (sub menu berurutan **Aplikasi, Manajemen User, Berbagi, Model AI, Integrasi** — urutan tab di `navigation.ts` sama dengan sub menu).
   **Profil Saya bukan bagian Pengaturan**: halaman sendiri `/profile` (`features/profile/`, modul `profile` dengan
@@ -1377,15 +1380,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   mengenali `code` / "kode unik"), kotak **Ingat browser ini** (`RememberBrowser`) dicentang otomatis saat mengisi kredensial & OTP
   (`isRememberCheckbox`, sesi ±30 hari), pesan galat `.validation-summary-errors` dibaca, dan Cek/Jaga sesi membuka
   `SYSTEM_INFO.homeUrl` = `https://siman.kemenkeu.go.id/profile` (dialihkan ke `/login`/SSO = sesi habis), bukan halaman login.
-- **Aplikasi MCP** (katalog berkelompok `groupPresets`: aplikasi tunggal lalu **Google Workspace (Developer Preview)** dengan langkah
-  menyiapkan OAuth client (`GROUP_INFO`); isian Client ID/Secret/Scope + alamat callback `oauth-client-fields.tsx` di formulir tambah (wajib bila
-  `needsClient` kecuali ada client sekelompok, `sharedClientSource`) dan tombol **Pengaturan OAuth** di halaman aplikasi) (grup Connection & MCP, `/mcp/:tab` = **Aplikasi** | **Workflow** (`mcp-workflow-tab.tsx`, workflow agen `placement: mcp`; fitur terbuka 2026-11-13, kartu `McpRequestsCard` = permintaan koneksi/izin dari agen di tab Aplikasi & Approval → Usulan Agen), `features/mcp/`, warna `--mod-mcp`, hook `data/use-mcp-connections.ts`, logika murni +
-  test `mcp-utils.ts`): katalog + "Aplikasi lain" (`add-connection-dialog.tsx`), daftar koneksi (tombol **Atur**); **tidak ada menu per aplikasi di sidebar**
-  (keputusan user 2026-11-13) — pengaturan satu aplikasi dibuka di dalam menu ini: `/mcp/apps/:slug` (route `mcp/:tab/:slug` → `mcp-page.tsx` →
-  `McpAppView` di `mcp-app-page.tsx`, judul banner = nama aplikasi, tombol "Semua aplikasi"; alamat lama `/mcp-app/:slug` dialihkan):
-  Sambungkan / Muat ulang alat / Ganti token / Hapus, sakelar izin agen, daftar alat bertanda Baca/Ubah/Hapus, dialog Coba (argumen JSON).
-  OAuth: jendela izin dibuka **saat klik** (penahan pop-up) lalu diarahkan ke halaman izin; `useConnectApp` memantau status tiap 3 dtk (maks.
-  5 menit). Aturan izin agen di frontend (`agentAllowed`) = salinan aturan server; ubah keduanya bersamaan.
+- **Aplikasi MCP** — menu dihapus 2026-11-17 (`features/mcp/`, rute `/mcp`, `/mcp-app`, warna `--mod-mcp`); koneksi aplikasi luar ada di Akai → Konektor.
 - **Fitur buatan agen (non-native)**: `WorkflowPanel` (`features/agent/workflow-panel.tsx`: Jalankan → modal dari data `menu.form`, riwayat) dipakai tab Workflow & halaman koneksi `/custom/:slug` (modul tersembunyi `custom`, `features/custom/custom-menu-page.tsx`); persetujuan di **Approval → Usulan Agen** (`features/requests/proposals-tab.tsx`). Modal berupa data (jenis isian text/textarea/number/date/select), agen tidak bisa menyisipkan kode. Jangan menulis logika satu proses di kode aplikasi; proses ada di skill.
 - **SRIKANDI** (grup Connection & MCP, `/srikandi/:tab`, `features/srikandi/srikandi-page.tsx`; **fitur terbuka untuk agen** (2026-11-13): tab
   **Workflow** `srikandi-workflow-tab.tsx` = menu agen `placement: srikandi` yang disetujui (komponen bersama `features/agent/feature-workflow-tab.tsx`,
@@ -1447,6 +1442,21 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   status PIN termuat dan, bila ada item terkunci & sesi belum terbuka, membuka dialog mode `login` ("Masuk dengan PIN?" — **Masuk dengan PIN** /
   **Lanjut tanpa PIN**). Tidak muncul saat halaman dimuat ulang (sesi dipulihkan dari cookie) atau bila akun tanpa PIN / tanpa item terkunci. Hook `data/use-pin.ts` (setelah
   buka/kunci/atur, semua query dimuat ulang). Logika murni + test `pin-logic.ts` (salinan aturan PIN lemah backend).
+- **Menu Email** (`features/email/email-page.tsx`, `/email/:tab` inbox|done|ignored, `?message=<id>` = `links.email(id)`, warna `--mod-email`, hook
+  `data/use-mail-inbox.ts`, logika murni + test `email-utils.ts`): Workspace setelah Planner; ≥ 1024 px daftar | detail, di bawahnya detail = dialog;
+  detail = petunjuk tagihan/jadwal, Jadikan to-do / agenda (dialog terisi usulan server), Selesai / Abaikan / Kembalikan, tautan ke record. Pengaturan
+  kotak masuk per akun (sakelar, rentang hari, Bisa ditanya AI, server IMAP untuk email lain, Sinkron sekarang) di baris akun Akun Tersambung.
+  Kartu **Google & Microsoft** (`oauth-accounts-card.tsx`, hook `data/use-connections.ts`) paling atas di Akun Tersambung: Sambungkan (pindah ke halaman
+  izin penyedia, kembali dengan `?connected=` / `?connect_error=` → toast), per akun kalender dua arah (sambungkan, sakelar otomatis, Sinkron sekarang,
+  putuskan) dan untuk Microsoft **Pakai untuk email**. Permintaan kirim email dari agen = `SendEmailRequestsCard`
+  (`features/email/send-email-requests-card.tsx`: isi email lengkap, Setujui & kirim / Tolak) di Approval → Usulan Agen dan di atas menu Email.
+- **Drive** (`features/drive/`, hook `data/use-drive.ts`, logika + test `drive-utils.ts`): tombol `DriveFilePicker` ("Dari Drive", hanya bila ada akun
+  berizin Drive) di `AttachmentForm` & form Resource → `onPick(File)` ke `handleFile` (pola "Dari MD Converter"); OneDrive = dialog penjelajah,
+  Google = jendela `/drive-picker` (rute tanpa AppShell, `google-picker.ts` memuat apis.google.com) yang mengirim ID lewat `postMessage`.
+  `DriveSection` di baris akun (Izinkan Drive) dan `ColdStorageCard` (arsip dingin) di Akun Tersambung.
+- **Pengaturan → Akun Tersambung** (tab `accounts`, `features/settings/connected-accounts-tab.tsx`, hook `data/use-connected-accounts.ts`): kartu
+  Langganan kalender (buat alamat, salin, pilihan isi, zona waktu, Ganti alamat, Matikan, cara memasang) dan Akun email (tambah Gmail/SMTP lain,
+  Outlook nonaktif sampai OAuth, Uji, Jadikan utama, ringkasan harian + jam + zona, Kirim contoh sekarang).
 - **Komponen umum**: `ConfirmDialog`, `SectionCard`, `RenameDialog`, `SearchableSelect` (pilihan panjang dibungkus ke baris berikutnya + `title`; prop `wrap` = nilai terpilih tampil utuh di tombol, dipakai Dikirimkan melalui & Klasifikasi Register; keputusan user 2026-11-15), `PaginationControl`+`paginate()`,
   `Markdown`, `PriorityBadge`, `PageLoader`, `DateRangeFilter`, `SearchInput`.
 - **Paginasi daftar**: `usePagination(items, ukuranAwal)` (`hooks/use-pagination.ts`) → `{ pageItems, setPage,
@@ -1626,10 +1636,20 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Akai 6b.2 Proyek** (instruksi tetap + pengetahuan PDF/DOCX/teks, utuh ≤ 120 rb karakter atau potongan relevan; percakapan di proyek) | ✅ 2026-11-16 — unit API 63, smoke Akai penuh (+11), build; browser: proyek → dokumen → jawaban bersumber dokumen (data uji dihapus). **Belum**: pencarian makna (Akai belum punya model embedding), pindah percakapan ke proyek dari UI (API ada) |
 | **Akai 6b.3 Memori** (dicatat otomatis tiap pertukaran lewat tugas baru `memory`, penyaring data rahasia, dipakai di semua percakapan, halaman Memori, penanda "Memori diperbarui") | ✅ 2026-11-16 — unit API 68, smoke Akai penuh (+10), build; browser dengan model sungguhan (ingat lintas percakapan; data uji dihapus). **Belum**: memori per proyek |
 | **Akai 6b.4 Artifact** (dokumen, HTML, SVG, diagram Mermaid, kode di panel samping; versi; salin/unduh; HTML di iframe sandbox + CSP sendiri) | ✅ 2026-11-16 — unit web 11 & API 68, smoke penuh, build; browser dengan model sungguhan (HTML v1→v2, Mermaid). **Belum**: artifact React, sunting langsung, bagikan |
+| **Menu Aplikasi MCP Akasha dihapus** (backend `src/mcp-connections/`, tabel `mcp_connections`, cakupan `mcp:apps`, alat agen aplikasi luar, aksi `mcp_connect`/`mcp_access`, placement `mcp`, frontend `features/mcp/`; semua data terkait kosong) | ✅ 2026-11-17 — typecheck, lint, format, unit Akasha api & web, smoke Akasha penuh, migrasi tanpa drift, browser (sidebar tanpa Aplikasi MCP, `/mcp` tidak ada) |
+| **Akai 6b.10 konektor aplikasi siap pakai** (katalog 44 aplikasi MCP resmi yang alamatnya diperiksa: Canva, Notion, GitHub, Google Workspace, Jira & Confluence, Slack, Figma, Dropbox, …; OAuth dengan pendaftaran otomatis atau client milik pemilik, Sambungkan = jendela izin) + analisis selisih Akai vs Claude (docs/AKAI.md §8) | ✅ 2026-11-17 — unit API 105 & web 34, smoke Akai penuh (+11, server MCP tiruan ber-OAuth: DCR + PKCE + callback + state sekali pakai + izin dicabut), migrasi tanpa drift, turbo 8/8, browser (katalog, formulir Gmail, izin penuh lewat server tiruan, Sonnet memanggil alat konektor OAuth; data uji dihapus). Aplikasi MCP Akasha **dibekukan** (disetujui pemilik; kartu pemberitahuan + Buka Konektor Akai, fungsi lama tetap untuk Hermes; diuji di browser). **Belum**: aplikasi sungguhan disambungkan (butuh akun pemilik) |
+| **Akai 6b.9 dokumen di panel samping & ekspor** (artifact lembar kerja CSV + rumus, presentasi slide, papan tulis JSON Canvas, poster SVG; ekspor Word, Excel, PowerPoint, PDF lewat cetak, PNG/JPG/SVG di peramban; diagram Mermaid di kertas terang) | ✅ 2026-11-17 — unit web 34 & API 101, smoke Akai penuh, lint, typecheck, build (ekspor chunk malas ± 880 kB), `npm audit --omit=dev` bersih (override `image-size`), browser dengan Sonnet sungguhan (RAB → XLSX berumus, 5 slide → PPTX/PDF, mind map → PNG, poster → PNG/JPG/PDF, notulen → DOCX/PDF/HTML, Mermaid → PNG), HP 375 px. **Belum**: sunting langsung di panel, gambar di slide/DOCX, PDF tanpa dialog cetak |
 | **Akai paket plugin (seperti Claude) + audit keamanan + logo baru** (paket JSON = instruksi + skill + konektor MCP yang dipasang/dimatikan/dihapus bersama; fetch keluar anti-SSRF berbasis DNS untuk router, agen, konektor; tugas terjadwal dilewati bila akses SSO dicabut; batas sandbox bersamaan; logo monogram "A" + titik lime menggantikan bintang mirip Gemini) | ✅ 2026-11-17 — unit API 101 & web 14, smoke Akai penuh (+7 paket), migrasi tanpa drift, turbo 8/8, browser (pasang paket katalog → Konektor "Dari paket" → dilepas; logo 16–128 px terang/gelap; HP 375 px). **Belum**: paket berisi kode JS (sekarang kode & paket terpisah), berbagi paket antar akun |
 | **Akai 6b.7 Plugin JavaScript + 6b.8 Tugas terjadwal** (plugin = kode JS di sandbox QuickJS/WASM dengan izin host & pengaturan terenkripsi, alat masuk chat; tugas terjadwal = prompt menurut jadwal WIB/WITA/WIT → percakapan belum dibuka + email SMTP) | ✅ 2026-11-17 — unit API 93 & web 14, smoke Akai penuh (+27, termasuk penjadwal menjalankan tugas jatuh tempo), migrasi tanpa drift, lint, build; browser: Kurs ke open.er-api.com sungguhan, Sonnet memanggil 2 plugin, tugas terjadwal → email + titik belum dibuka; HP 375 px. Plugin contoh Hari Kerja & Kurs terpasang di admin dev. **Belum**: notifikasi selain email, multi-instans akai-api |
 | **Akai 6b.6 Skill** (format SKILL.md seperti Hermes: 4 skill bawaan + buatan pemilik dengan berkas teks, katalog di prompt + alat `akai__skill`, cadangan kata kunci bila model tanpa alat, menu Skill: buat, impor/unduh SKILL.md, sakelar) | ✅ 2026-11-17 — unit API 82 & web, smoke Akai penuh (+14), migrasi tanpa drift, lint, build, uji nyata Sonnet memuat skill buatan pemilik; data uji dihapus. **Catatan**: selama ada skill aktif, cadangan tugas Chat yang tanpa kemampuan Alat dilewati. **Belum**: skill per proyek, skrip/berkas biner |
 | **Akai 6b.5 Alat & konektor MCP** (konektor Akasha + server MCP lain, izin baca/ubah/hapus, loop alat di chat dengan jejak alat; alat baca Akasha bertanda `readOnlyHint`) | ✅ 2026-11-16 — unit Akai 75 & web 12 & Akasha 536, smoke Akai (+9) & Akasha penuh, uji nyata Sonnet → `list_open_tasks` Akasha. **Belum**: OAuth server MCP luar, pencarian web |
+| **Akun tersambung tahap 0** (langganan kalender ICS, akun email multi akun + uji kirim + ringkasan harian, backup ke Google Drive / OneDrive lewat rclone) | ✅ 2026-11-17 — unit backend +10 (ICS 6, email 4; total 525) & frontend 348, migrasi `20261117200000_calendar_feed_mail_accounts` tanpa drift, smoke penuh 651 lulus (+20), lint, typecheck; browser (buat alamat → berkas .ics terbaca lewat frontend, dialog tambah akun, Outlook ditolak, matikan; 375 px tanpa luberan; data uji dihapus). **Belum**: kirim email sungguhan (butuh Sandi Aplikasi Gmail pemilik, A48), Google Calendar membaca feed (butuh VPS — alamat localhost), backup Drive sungguhan. Tahap 1 (IMAP multi akun → to-do) berikutnya |
+| **Akun tersambung tahap 1: kotak masuk** (IMAP multi akun baca saja, menu Email, petunjuk tagihan/jadwal tanpa AI, jadikan to-do / agenda, opsional ditanya AI) | ✅ 2026-11-18 — unit backend +5 (535) & frontend +2 (350), migrasi `20261118120000_mail_inbox` tanpa drift, smoke penuh 658 lulus (+8; ditemukan & diperbaiki: tanggal tak valid lolos validasi), uji ujung-ke-ujung dengan server email tiruan GreenMail 15/15 (+ email tetap belum dibaca di server), browser (menu Email, petunjuk, dialog to-do terisi, pindah ke Selesai, Akun Tersambung; 375 px tanpa luberan; data uji dihapus). **Belum**: Gmail sungguhan (butuh Sandi Aplikasi pemilik, A48), Outlook (tahap 2), aturan otomatis, lampiran → berkas, AI merangkum |
+| **Akun tersambung tahap 2: Google & Microsoft** (OAuth milik pemilik, kalender "Akasha" dua arah di Google Calendar & Outlook, email Outlook lewat Graph) | ✅ 2026-11-18 — unit backend +8 (538), migrasi `20261118140000_oauth_calendar_sync` tanpa drift, uji ujung-ke-ujung dengan server tiruan Google & Microsoft 26/26, alur tombol di browser (sambungkan, kalender, pakai untuk email; 375 px tanpa luberan; data uji dihapus), smoke penuh. **Belum**: Google/Microsoft sungguhan (butuh OAuth client pemilik, A49), impor kalender utama, refresh token diuji hanya lewat logika |
+| **Akun tersambung tahap 3: alat Akai/agen** (baca email, jadikan to-do, cari waktu luang, ajukan kirim email yang menunggu persetujuan) | ✅ 2026-11-18 — unit backend +2 (540), smoke penuh (MCP: waktu luang, daftar, tolak tanpa akun / penerima salah, permintaan menunggu persetujuan, tolak), lint, typecheck; kartu persetujuan di Approval & menu Email. **Belum**: kirim yang disetujui ke penyedia sungguhan, Akai/Hermes sungguhan dengan izin baru (A50) |
+| **Akun tersambung tahap 4: Drive** (Dari Drive di form lampiran & Resource: OneDrive dijelajahi, Google lewat Picker; arsip dingin ke Drive yang diambil kembali otomatis) | ✅ 2026-11-18 — unit backend +10 (550) & frontend +2 (352), migrasi `20261118160000_drive_cold_storage` tanpa drift, uji ujung-ke-ujung server tiruan Google & Microsoft 38/38, smoke penuh 680, lint, typecheck, build; browser (Izinkan OneDrive, kartu arsip dingin, Dari Drive → OneDrive → berkas masuk form, Batal membuang unggahan; data uji dihapus). **Belum**: Google/Microsoft sungguhan & Picker di CSP produksi (A49, A51) |
+| **Branding ekosistem di halaman depan & SSO** (One Space. Infinite Possibilities.; Akasha / **Akasha AI** (Akai) / Cendekia dengan tagline & visi; bagian Ekosistem + diagram, sorotan Akasha AI, Cendekia, visi; tanda produk; panel masuk & kartu Aplikasi SSO) | ✅ 2026-11-18 — `turbo run lint typecheck test build format:check` 22/22 (landing, auth web & api, Akai web, ui), seed SSO (nama aplikasi Akasha AI), browser halaman depan 1366×768 gelap & terang + 375 px tanpa luberan, dashboard & halaman daftar SSO |
+| **Akasha hanya lewat SSO + logo Akasha baru + pembersihan kode** (login kata sandi, ganti kata sandi, buat/ubah user, kolom `password_hash`, `PASSWORD_LOGIN`, seed akun dihapus; logo sidebar/login/favicon = `AkashaMark`; kalimat panel masuk SSO; 230+ export & kode mati, 5 dependensi, berkas tak terpakai dibuang) | ✅ 2026-11-18 — unit backend 550 & frontend 350, smoke penuh 677 (sesi uji dari database), `sso-smoke.mjs` lulus, migrasi tanpa drift, lint, typecheck, build; browser (sidebar, Profil, Manajemen User). **Belum**: halaman masuk dilihat di browser tanpa sesi (keluar = keluar SSO pemilik), CI baru (butuh push) |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -1638,7 +1658,7 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 **Lanjutan yang disepakati (per 2026-11-09, diperbarui 2026-11-16)** — mulai dari sini di chat baru:
 00. **MULAI DI SINI (2026-11-16, pemilik berganti akun Claude & chat lama dihapus)**: pekerjaan berikutnya = **Akai 6a.4 tahap 2**,
    rencana langkah demi langkah di `docs/AKAI.md` §7 (embedding lewat Akai ✅ → proxy agen Hermes lewat Akai ✅ → Model AI Akasha menjadikan Akai utama ✅ → produksi Akai ✅;
-   6b.1 chat Akai ✅, 6b.2 Proyek ✅, 6b.3 Memori ✅, 6b.4 Artifact ✅, 6b.5 Alat & konektor ✅, 6b.6 Skill ✅, 6b.7 Plugin JavaScript ✅, 6b.8 Tugas terjadwal ✅ (lanjutan yang belum di docs/AKAI.md §8),
+   6b.1 chat Akai ✅, 6b.2 Proyek ✅, 6b.3 Memori ✅, 6b.4 Artifact ✅, 6b.5 Alat & konektor ✅, 6b.6 Skill ✅, 6b.7 Plugin JavaScript ✅, 6b.8 Tugas terjadwal ✅, 6b.9 Dokumen & ekspor ✅, 6b.10 Konektor aplikasi ✅ (selisih dengan Claude: docs/AKAI.md §8, usulan berikutnya pencarian web) (lanjutan yang belum di docs/AKAI.md §8),
    Masuk dengan Google setelah pemilik membuat OAuth client (A42), melepas modul key lama setelah pemilik memindahkan semua tugas ke Akai). Status langkah Akai: `docs/AKAI.md` §6.
    Semua pekerjaan s.d. 6a.4 tahap 1 sudah di-commit (belum di-push). Lingkungan dev: §2a (nyalakan WSL + Docker + preview `backend`,
    `frontend`, `auth-api`, `auth-web`, `akai-api`; `akai-web` bila perlu — batas panel preview 5 server, matikan `frontend` sementara).
@@ -2817,6 +2837,23 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   digantikan. Aplikasi memanggil Akai server ke server (HTTP Basic klien + `X-Akai-Subject` sub SSO); sesi web Akai (cookie `akai_sid`, masuk SSO) sejak 6a.3. Akun Akai
   dibuat saat pertama dipakai (tanpa daftar terpisah).
 - 2026-11-16 — **Akai web (6a.3)**: sesi web Akai disimpan sebagai token acak di tabel (bukan JWT) agar bisa dicabut satu per satu dan oleh back-channel logout; CSRF dicegah header `X-Akai-Web` (browser tidak bisa mengirimnya lintas situs tanpa preflight) + SameSite Lax, bukan token CSRF terpisah. Satu akun Akai untuk web & aplikasi (kunci = sub SSO), jadi pengaturan di web langsung dipakai gateway untuk Akasha. Halaman Akai web memakai identitas visual `packages/ui` + tanda Akai sendiri (percikan). Produksi (compose/Caddy) dikerjakan saat deploy.
+- 2026-11-18 — **Akasha hanya masuk lewat SSO** (permintaan user: "seperti Akai, tidak ada login lokal"). Login & ganti kata sandi, buat/ubah
+  user, `PASSWORD_LOGIN`, seed akun, dan kolom `users.password_hash` dihapus; akun & role dikelola admin SSO, Akasha hanya menghapus akun beserta
+  datanya. Smoke test tetap berjalan tanpa SSO dengan membuat sesi langsung di database (pola smoke Akai), jadi CI tidak perlu SSO untuk Akasha.
+  PIN lokal dipertahankan khusus akun tanpa SSO (akun uji): ganti/hapus kini dibuktikan dengan PIN lama, bukan kata sandi. Bersamaan: logo
+  Akasha = `AkashaMark` (`packages/ui`), kalimat panel masuk SSO menjelaskan fungsi workingspace.id, dan kode tak terpakai dibersihkan (knip
+  6.44.1 lewat npx, tidak dipasang; komponen `components/ui` shadcn dibiarkan).
+- 2026-11-18 — **Branding ekosistem** (pedoman pemilik: workingspace.id payung, Akasha, Akai = **Akasha AI**, Cendekia; tulis Akai sebagai Akasha AI di halaman depan & dashboard SSO). Teks branding dipusatkan di `packages/ui/src/ecosystem.ts` agar halaman depan & SSO tidak berbeda; tagline resmi tetap bahasa Inggris (sesuai pedoman), penjelasan bahasa Indonesia. Nama tampilan diganti, **kunci aplikasi `akai`, domain, dan nama di dalam Akai web tetap** (mengganti kunci/domain memutus klien OIDC & tautan). Ejaan **Cendekia** dipertahankan (pedoman menulis "Cendikia" tetapi menyebut asal kata *cendekia*). Tanda Akasha & Cendekia dibuat baru senada dengan tanda Akai.
+- 2026-11-18 — **Akun tersambung tahap 4: Drive** (keputusan pemilik: pilih berkas + arsip dingin, Google lewat Picker). Picker dipilih atas izin baca Drive karena izin itu "terbatas" (sambungan kedaluwarsa 7 hari selama aplikasi Testing, audit bila publik). Picker dibuka di jendela sendiri karena modal Radix mengunci fokus/klik. Berkas Drive dialirkan lalu diunggah lewat jalur form biasa (lalu lintas dua kali, tetapi semua aturan form tetap satu jalur). Arsip dingin dipasang sebagai pengait di `ObjectStorageService` (satu titik untuk ± 30 pemanggil) dan dikunci per key objek di tabel sendiri, bukan kolom asset, agar tetap berlaku saat baris asset dihapus/dipulihkan dari Sampah. Berkas tidak dienkripsi di Drive (milik pemilik, bisa dilihat di Drive-nya). Risiko diterima: berkas yang dipindah keluar dari backup harian.
+- 2026-11-18 — **Akun tersambung tahap 3: alat agen**. Kirim email dari agen = **permintaan** yang menunggu persetujuan pemilik (pola hapus/SRIKANDI), karena email terkirim tidak bisa ditarik dan bertindak atas nama pemilik; isi persis yang disetujui disimpan di permintaan. Tidak ada alat kalender terpisah: agenda dibuat lewat `create_record schedule` yang sudah ada dan ikut sinkron ke Google/Outlook, sehingga satu jalur tulis dan bisa dibatalkan. Dua cakupan baru (`mail:read`, `mail:send`) terpisah agar membaca email tidak otomatis berarti boleh mengajukan kirim.
+- 2026-11-18 — **Akun tersambung tahap 2** (lanjutan "kalender dua arah" + Outlook pribadi). Kalender dua arah dibatasi ke **kalender baru "Akasha"** (Google scope `calendar.app.created`), bukan kalender utama: izin paling sempit (tidak membaca kalender pribadi lain), dan acara yang ingin masuk Planner cukup dibuat di kalender itu dari HP. Gmail tetap IMAP + Sandi Aplikasi (scope baca Gmail = audit keamanan Google). Outlook memakai Microsoft Graph karena login kata sandi dimatikan Microsoft. Bentrok diselesaikan "yang lebih baru menang" per agenda (bukan per kolom) agar sederhana & dapat diduga; hapus dari kalender luar masuk Sampah sehingga bisa dipulihkan. OAuth client milik pemilik (seperti Google di SSO) — tidak ada client bersama Akasha. Diuji dengan server tiruan karena belum ada client sungguhan.
+- 2026-11-18 — **Akun tersambung tahap 1: kotak masuk** (lanjutan keputusan pemilik: email masuk dibaca, ditanya, dijadikan to-do seperti tagihan/jadwal, multi akun). IMAP dengan Sandi Aplikasi yang sama dengan SMTP (Gmail) agar tanpa OAuth; kotak surat dibuka read-only sehingga Akasha tidak pernah mengubah status/isi email di penyedia. Pengenalan tagihan/jadwal dibuat **aturan tanpa AI** (kata kunci + nominal + tanggal Indonesia) agar tidak ada biaya/kiriman data ke model untuk setiap email; usulan selalu diperiksa pemilik sebelum menjadi to-do/agenda. "Ditanya" lewat indeks RAG yang sudah ada (opsional per akun, bawaan mati) karena mengirim isi email ke model embedding. Lampiran tidak disimpan (ruang VPS terbatas). Menu Email = modul baru di Workspace (bukan tab Planner) karena kotak masuk dipakai harian. Penjadwal di proses backend (pola ringkasan harian), dengan kunci per akun di memori.
+- 2026-11-17 — **Akun tersambung tahap 0** (keputusan pemilik: Gmail & Outlook pribadi, kalender dua arah, email masuk dibaca/ditanya/jadi to-do dan multi akun; mulai tahap 0). ICS feed dibuat lebih dulu walau target dua arah, karena tanpa OAuth dan tetap berguna di HP. Token feed disimpan hash **dan** terenkripsi (bukan hanya hash seperti tautan publik berkas) agar alamat bisa ditampilkan lagi ke pemilik. Email: SMTP dengan Sandi Aplikasi untuk Gmail; Outlook.com tidak didukung sampai Graph (basic auth dimatikan Microsoft). Penjadwal ringkasan di proses backend (pola `setInterval` + klaim bersyarat seperti tugas terjadwal Akai), bukan BullMQ, karena satu baris per akun per hari. Backup ke Drive/OneDrive memakai remote rclone yang sama (crypt) dengan scope `drive.file`.
+- 2026-11-17 — **Kajian email, kalender, drive** (permintaan pemilik setelah Aplikasi MCP dihapus: tetap butuh kirim/ambil email, pasang agenda/task ke kalender, dan drive untuk penyimpanan karena disk VPS terbatas; drive prioritas terakhir): `docs/AKUN-TERSAMBUNG.md`. Rekomendasi: integrasi **native di Akasha** (bukan MCP/AI) dengan token tersimpan sekali dan dipakai Akai lewat alat MCP Akasha; mulai tanpa OAuth (langganan ICS, SMTP keluar, IMAP masuk, backup rclone ke Drive/OneDrive), lalu Microsoft Graph & Google API untuk dua arah; ruang tambahan lebih dulu lewat S3 R2/B2 yang sudah didukung, Drive untuk backup & arsip dingin. Menunggu keputusan pemilik (akun yang dipakai, arah kalender, fungsi email masuk). Belum ada kode.
+- 2026-11-17 — **Aplikasi MCP Akasha dihapus** (permintaan pemilik setelah pembekuan: "tidak dibutuhkan lagi, bersihkan kode"): seluruh backend, frontend, tabel, cakupan, alat agen, dan placement Workflow `mcp` dibuang; data terkait diperiksa kosong lebih dulu. Hermes kehilangan alat aplikasi luar (disengaja: aplikasi luar = Akai). Nama grup sidebar "Connection & MCP" tetap (keputusan lama, isinya e-Kinerja, SRIKANDI, SIMAN, koneksi buatan agen).
+- 2026-11-17 — **Aplikasi MCP Akasha dibekukan** (pemilik menyetujui rekomendasi): Akai → Konektor = satu-satunya tempat menyambungkan aplikasi luar. Dibekukan = **tidak dikembangkan lagi**, bukan dimatikan: koneksi, OAuth, dan alat agen Hermes tetap berfungsi sampai agen Akai menggantikan Hermes (AK-3), lalu menunya menjadi tautan ke Konektor Akai. Yang diubah hanya kartu pemberitahuan + tombol Buka Konektor Akai di menu Aplikasi MCP; tidak ada migrasi data (izin OAuth terikat callback Akasha). Aplikasi baru di katalog → `connector-catalog.ts` Akai.
+- 2026-11-17 — **Konektor aplikasi di Akai & peran MCP Akasha** (permintaan pemilik: koneksi MCP Canva, Notion, GitHub, Google dsb siap di Akai; bagaimana MCP di Akasha): katalog hanya memuat server MCP **resmi** yang alamatnya diperiksa langsung (tanpa login) beserta dukungan DCR; OAuth Aplikasi MCP Akasha dipindah ke Akai (pola sama, `safe-fetch`). Rekomendasi arah: Akai = satu-satunya tempat menyambungkan aplikasi luar; Akasha tetap **server** MCP (konektor Akasha di Akai), sedangkan Aplikasi MCP Akasha (klien, dipakai Hermes) dibekukan sampai agen Akai menggantikan Hermes, tanpa migrasi otomatis (izin OAuth terikat callback Akasha). Kode Akasha belum diubah — menunggu persetujuan pemilik.
+- 2026-11-17 — **Akai 6b.9 dokumen & ekspor** (permintaan pemilik: Akai menghasilkan docs, sheet, slide, desain, whiteboard yang dibuka di panel samping seperti Claude dan bisa diekspor ke Word, Excel, PowerPoint, PDF, gambar): model menulis format teks sederhana (CSV, Markdown ber-`---`, JSON Canvas, SVG) yang mudah ditulis model dan aman ditampilkan, lalu berkas Office dibuat **di peramban** (docx, write-excel-file, pptxgenjs; tanpa server konversi, isi tidak keluar). PDF lewat dialog cetak peramban (teks tetap bisa dipilih, tanpa pustaka PDF berat). Rumus Excel tetap rumus di XLSX; pratinjau menghitung subset rumus umum.
 - 2026-11-17 — **Paket plugin & audit Akai** (permintaan pemilik: plugin juga berbentuk paket seperti Claude; cek ulang celah; ganti logo yang mirip Gemini): paket = berkas JSON tanpa kode (lebih aman dibagikan daripada kode); konektor paket dibuat tanpa token karena rahasia tidak boleh ada di berkas yang bisa dibagikan. Celah terbesar = SSRF lewat DNS di semua permintaan ke alamat milik pengguna → satu `createSafeFetch` di tingkat koneksi (bukan cek DNS lebih dulu yang bisa diakali rebinding). Logo: monogram "A" (gerbang langit, *akasha*) + titik lime di kotak tinta; bintang empat sudut & gradien biru penuh dihindari.
 - 2026-11-17 — **Akai 6b.7 Plugin & 6b.8 Terjadwal** (permintaan pemilik: plugin = **kode JavaScript**, hasil terjadwal = percakapan + **email**): kode plugin dijalankan di sandbox QuickJS (WASM) per pemanggilan, bukan `node:vm` (bukan batas keamanan) atau `isolated-vm` (native, tanpa arm64); jaringan plugin hanya ke host yang dideklarasikan dan dicek di DNS lookup koneksi (anti-SSRF/rebinding). Penjadwal di proses akai-api (setInterval + klaim bersyarat), bukan BullMQ — Akai tidak memakai Redis; konsekuensi: satu replika akai-api. Hasil terjadwal tidak mencatat memori agar prompt berulang tidak menjadi "fakta".
 - 2026-11-17 — **Akai 6b.6 Skill**: dimuat seperti Claude (katalog nama + deskripsi di prompt, isi lewat alat `akai__skill`) agar skill banyak tidak memenuhi prompt; konsekuensinya chat selalu lewat loop alat saat ada skill aktif sehingga cadangan tugas Chat tanpa kemampuan Alat dilewati — bila tidak ada model beralat sama sekali, skill dipilih kata kunci dan disisipkan langsung. Skill bawaan di kode (bukan tabel) agar perbaikan isinya ikut rilis; dimatikan per akun. Format SKILL.md disamakan dengan Hermes agar skill bisa dipindah lewat unduh/impor.
@@ -2992,13 +3029,13 @@ sudah ada di `expandDescendants` (Berbagi); key yang boleh tetap terlihat saat t
 Fitur baru yang **menyalin isi** item ke tempat lain (snapshot, salinan, hasil AI) wajib membawa kuncinya (pola `data.locked` arsip PARA) dan
 aksi pemicunya dibungkus `withUnlocked`.
 
-**Menambah aplikasi ke katalog MCP**: entri di `MCP_PRESETS` (`mcp-connection-logic.ts`: key, nama, deskripsi, alamat resmi dari dokumentasi
+**Menambah aplikasi ke katalog MCP**: sejak 2026-11-17 di **Akai** — entri `CATALOG` (`apps/akai/api/src/connectors/connector-catalog.ts`: key, nama, deskripsi, alamat, `auth`, `category`, `hint`, `needsClient`/`scope`/`group` bila perlu); periksa alamat tanpa login dulu (401 + metadata OAuth, `registration_endpoint` = DCR). Menu Aplikasi MCP Akasha sudah dihapus. (Aturan lama `MCP_PRESETS` tidak berlaku lagi: (`mcp-connection-logic.ts`: key, nama, deskripsi, alamat resmi dari dokumentasi
 penyedia, `authType`, ikon dari registry ikon frontend; server OAuth tanpa pendaftaran klien dinamis → `needsClient: true` + `scope` bawaan;
 beberapa layanan satu penyedia → `group` yang sama + penjelasan di `GROUP_INFO` `mcp-page.tsx`; domain tempat aplikasi menaruh berkas hasil
 → `fileHosts` (cek alamat hasil ekspor sungguhan dulu, bisa berbeda domain dengan server MCP)). Cek dulu: `curl <url>/.well-known/oauth-protected-resource…`
 (scope) dan metadata server otorisasi (`registration_endpoint` ada = OAuth otomatis). Tanpa perubahan frontend lain. Aplikasi yang tidak ada di katalog cukup lewat "Aplikasi lain".
 
-**Membuka fitur native untuk agen** (pola e-Kinerja 2026-11-12, SRIKANDI, SIMAN & Aplikasi MCP 2026-11-13): placement baru di `MENU_PLACEMENTS` + entri `EXTENSIBLE_FEATURES`
+**Membuka fitur native untuk agen** (pola e-Kinerja 2026-11-12, SRIKANDI & SIMAN 2026-11-13): placement baru di `MENU_PLACEMENTS` + entri `EXTENSIBLE_FEATURES`
 (nama tetap di `NATIVE_FEATURES`), tab Workflow di halaman fitur lewat `<FeatureWorkflowTab placement>` (+ tipe `placement` di `endpoints.ts`), label & tautan Buka di
 `proposals-tab.tsx`. Aksi robot yang **membaca** → alat MCP asinkron (tugas latar belakang + alat status), cakupan sendiri. Aksi yang **menulis**
 ke sistem luar → kind baru di `agent_actions` + `APPROVAL_KINDS` (pending) yang dijalankan saat pemilik menyetujui (`AgentActionsService.approve`; 409 robot sibuk = tetap menunggu), + kartu
@@ -3074,6 +3111,10 @@ utama tetap < 500 kB (cek output `npm run build`).
 
 ## 15. Jebakan yang Sudah Diketahui
 
+- Tombol menu sidebar shadcn memaksa **semua** svg di dalamnya 16 px (`[&_svg]:size-4`, selektor turunan) → ikon/logo yang lebih besar di
+  dalam `SidebarMenuButton` wajib memakai ukuran penting (`size-9!`), pembungkus span tidak cukup.
+- knip melaporkan tipe yang dipakai sebagai tipe kembalian method publik sebagai "tidak dipakai"; mencabut `export`-nya membuat `tsc`
+  gagal TS4053 → kembalikan `export` untuk tipe itu.
 - `prisma migrate diff … --script > berkas` ikut menulis kotak "Update available" Prisma ke stdout → berkas SQL migrasi rusak (migrasi gagal P3009/P3018).
   Jalankan dengan `PRISMA_HIDE_UPDATE_MESSAGE=1` dan periksa `tail` berkas sebelum `migrate deploy`; bila sudah terlanjur: rapikan berkas →
   `prisma migrate resolve --rolled-back <nama>` → deploy ulang (migrasi gagal dijalankan dalam satu transaksi, tidak ada yang tertinggal).
@@ -3419,6 +3460,11 @@ utama tetap < 500 kB (cek output `npm run build`).
   `docker compose --profile office --profile robot --profile converter up -d --wait` → `apps/akai/agent/hermes/up.sh` (alamat gateway WSL bisa
   berubah) → restart backend (ubah isi satu berkas `src`) sampai `/health` = ok (storage sempat "down" sebelum backend di-restart).
   Terbukti 2026-11-15: setelah itu smoke penuh lulus.
+- Uji OAuth Google/Microsoft tanpa akun: server tiruan Node (Google OAuth + Calendar v3, Microsoft OAuth + Graph kalender/email) di port 4510 + env sementara `GOOGLE_OAUTH_*`/`MICROSOFT_OAUTH_*` palsu dan `OAUTH_TEST_BASE=http://localhost:4510` di `apps/akasha/api/.env`, lalu **nyalakan ulang** backend (env hanya dibaca saat boot). Hapus env uji setelahnya. Server tiruan satu kalender untuk semua akun → akun kedua yang menyambungkan kalender ikut menarik acara uji akun pertama; bersihkan agenda `cal-*` + Sampah. Mengedit teks backend saat `nest --watch` berjalan: galat kompilasi membuat proses lama tetap jalan diam-diam (uji tampak lulus padahal memakai kode lama) → jalankan `npx tsc --noEmit` setelah setiap edit.
+- Uji IMAP/SMTP tanpa akun sungguhan: GreenMail sementara `docker run -d --rm --name akasha-mailtest -p 127.0.0.1:2525:3025 -p 127.0.0.1:143:3143 -e GREENMAIL_OPTS='-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=uji:rahasia-uji@akasha.test' greenmail/standalone:2.1.14` → akun custom `uji@akasha.test`, user `uji`, IMAP `localhost:143` (port isian hanya 993/143, host lokal hanya di luar production). Kirim email uji dengan nodemailer `ignoreTLS` ke 2525; uji kirim dari Akasha tidak bisa (transport Akasha mewajibkan STARTTLS pada port selain 465). `docker stop akasha-mailtest` setelah selesai.
+- Pustaka pihak ketiga yang menambah elemen sendiri ke `body` (Google Picker, dll.) tidak bisa dipakai di dalam modal Radix: modal memberi
+  `pointer-events: none` pada body, mengunci fokus (FocusScope menarik fokus dari iframe), dan menutup diri saat klik di luar. Buka di jendela
+  sendiri (pola `/drive-picker` + `postMessage`). Server tiruan yang menerima unggahan biner wajib membaca badan sebagai `Buffer`, bukan string.
 - Mengubah kode backend saat uji panjang berjalan (uji token, transkrip) me-restart `nest --watch` dan memutus uji (ECONNRESET) → tulis
   perubahan setelah uji selesai.
 

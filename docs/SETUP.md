@@ -245,7 +245,7 @@ Setelah ini, cukup ikuti §4 setiap mulai bekerja.
 | G (opsional)       | `npm --prefix apps/akai/api run dev`                                                           | ya — Akai API (4400), hanya saat mengerjakan Akai                                                    |
 | H (opsional)       | `npm --prefix apps/akai/web run dev`                                                           | ya — Akai web (5177, buka `http://akai.workingspace.localhost:5177`); butuh SSO (tab E/F) & Akai API |
 
-Lalu buka http://localhost:5173 → **Masuk dengan akun Workingspace** (login `admin@workingspace.id` / `123`). Halaman akun & admin
+Lalu buka http://localhost:5173 → **Masuk dengan akun Workingspace** (di halaman SSO: `admin@workingspace.id` / `123`; Akasha tidak punya login lokal). Halaman akun & admin
 SSO: http://auth.workingspace.localhost:5175. Tanpa tab D & E Akasha tetap bisa dimasuki dengan kata sandi lokal (hanya di development).
 
 0. **Cek status dulu** (§6) — nyalakan hanya yang belum aktif.
@@ -467,7 +467,7 @@ npm run dev                     # http://localhost:4000/api/v1
 - Swagger UI: `http://localhost:4000/api/docs` (non-production).
 - Health: `GET /api/v1/health` (readiness: database, redis, storage) dan `GET /api/v1/health/live` (liveness).
 - Log: format mudah dibaca di development, JSON di production (`LOG_LEVEL`).
-- Akun demo (seed development): `admin@workingspace.id` / `123` (super_admin), `user@workingspace.id` / `123` (member, untuk uji
+- Akun demo (seed SSO development; masuk Akasha lewat SSO): `admin@workingspace.id` / `123` (super_admin), `user@workingspace.id` / `123` (member, untuk uji
   berbagi). Data setiap akun terisolasi — admin pun tidak melihat data akun lain kecuali dibagikan.
 - Semua env divalidasi saat boot (`src/config/env.validation.ts`); daftar lengkap di `apps/akasha/api/.env.example`.
 - **Basis pengetahuan (vault Obsidian)**: `KNOWLEDGE_VAULTS_DIR="../infra/knowledge-vaults"` — setiap subfolder = satu
@@ -486,7 +486,7 @@ npm run dev                     # http://localhost:4000/api/v1
 | `npm run prisma:deploy`              | terapkan migrasi                                                                                                                       |
 | `npm run prisma:seed`                | seed data                                                                                                                              |
 | `npm test`                           | unit test (Vitest)                                                                                                                     |
-| `npm run test:smoke`                 | uji end-to-end terhadap server yang berjalan (user sementara dibuat & dihapus; `API_URL`, `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`) |
+| `npm run test:smoke`                 | uji end-to-end terhadap server yang berjalan (user & sesi sementara dibuat langsung di database lalu dihapus; `API_URL`, `SMOKE_ADMIN_EMAIL`; tidak butuh SSO) |
 
 ## 9. Frontend
 

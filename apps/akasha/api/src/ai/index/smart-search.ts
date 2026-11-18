@@ -3,16 +3,8 @@
  * chatbot, tanpa model generatif. Diuji di `smart-search.spec.ts`.
  */
 
-export const SMART_MODULES = [
-  "planner",
-  "notes",
-  "working-space",
-  "file_control",
-  "files",
-  "knowledge",
-  "other",
-] as const;
-export type SmartModule = (typeof SMART_MODULES)[number];
+export type SmartModule =
+  "planner" | "email" | "notes" | "working-space" | "file_control" | "files" | "knowledge" | "other";
 
 export const SMART_SEARCH_MODES = ["text", "meaning"] as const;
 export type SmartSearchMode = (typeof SMART_SEARCH_MODES)[number];
@@ -21,6 +13,7 @@ const MODULE_BY_SOURCE: Record<string, SmartModule> = {
   schedule: "planner",
   routine: "planner",
   todo: "planner",
+  mail_message: "email",
   free_note: "notes",
   ai_note: "notes",
   list: "notes",
@@ -42,7 +35,7 @@ const MODULE_BY_SOURCE: Record<string, SmartModule> = {
 };
 
 /** Resource yang sudah masuk File Control (status kearsipan selain kosong/`none`) dikelompokkan ke File Control. */
-export const isFileControlStatus = (status?: string | null) => !!status && status !== "none";
+const isFileControlStatus = (status?: string | null) => !!status && status !== "none";
 
 export function moduleOf(sourceType: string, archivalStatus?: string | null): SmartModule {
   if (sourceType === "para_resource" && isFileControlStatus(archivalStatus)) return "file_control";

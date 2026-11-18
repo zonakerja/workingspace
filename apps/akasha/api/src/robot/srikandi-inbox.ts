@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 export const INBOX_KINDS = ["masuk", "tembusan", "disposisi", "koordinasi", "arahan"] as const;
 export type InboxKind = (typeof INBOX_KINDS)[number];
 
-export const INBOX_KIND_LABELS: Record<InboxKind, string> = {
+const INBOX_KIND_LABELS: Record<InboxKind, string> = {
   masuk: "Naskah masuk",
   tembusan: "Tembusan",
   disposisi: "Disposisi",

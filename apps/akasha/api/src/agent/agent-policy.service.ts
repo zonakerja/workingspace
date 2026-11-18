@@ -21,7 +21,7 @@ import { RobotService } from "../robot/robot.service";
 import { isAgentOwner, policyRunInput } from "./agent-logic";
 import { type AssetCheck, decidePolicy, matchPolicy } from "./agent-policy";
 
-export const AGENT_SEND_QUEUE = "agent-send";
+const AGENT_SEND_QUEUE = "agent-send";
 
 interface SendJob {
   userId: string;

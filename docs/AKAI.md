@@ -194,6 +194,8 @@ Dibangun bertahap; tiap tahap berdiri sendiri dan memakai gateway yang sama (pem
 | 6b.6 | **Skill**: kumpulan instruksi + berkas (format SKILL.md, sama dengan skill Hermes) yang dimuat otomatis saat relevan; skill bawaan + buatan pemilik | ✅ 2026-11-17 |
 | 6b.7 | **Plugin**: (a) **kode** JavaScript milik pemilik yang menambah alat (+ skill), dijalankan di sandbox QuickJS (WASM) dengan izin host jaringan & pengaturan terenkripsi; (b) **paket** JSON seperti plugin Claude = instruksi tetap + skill (+ berkas) + konektor MCP yang dipasang bersama | ✅ 2026-11-17 |
 | 6b.8 | **Tugas terjadwal**: perintah yang dijalankan Akai menurut jadwal (tiap N jam / harian / mingguan / bulanan, WIB/WITA/WIT) → percakapan baru bertanda belum dibuka + email opsional | ✅ 2026-11-17 |
+| 6b.9 | **Dokumen di panel samping & ekspor**: artifact lembar kerja (CSV + rumus), presentasi (slide Markdown), papan tulis (JSON Canvas), poster/desain (SVG) di samping dokumen, kode, HTML, diagram; ekspor Word, Excel, PowerPoint, PDF, PNG/JPG/SVG di peramban | ✅ 2026-11-17 |
+| 6b.10 | **Konektor aplikasi siap pakai**: katalog 44 aplikasi dengan server MCP resmi (Canva, Notion, GitHub, Google Workspace, Jira & Confluence, Slack, Figma, Dropbox, …) + masuk lewat OAuth (pendaftaran otomatis atau OAuth client milik pemilik) | ✅ 2026-11-17 |
 
 **6b.1 — rincian teknis** (`apps/akai/api/src/chat/`, `apps/akai/web/src/pages/chat-page.tsx`):
 
@@ -258,7 +260,7 @@ Dibangun bertahap; tiap tahap berdiri sendiri dan memakai gateway yang sama (pem
 **6b.4 — rincian teknis** (`apps/akai/web/src/lib/artifacts.ts`, `components/chat/artifact-*.tsx`, `public/artifact-frame.html`):
 
 - Tanpa tabel baru: model menulis `<akai_artifact identifier type title language>…</akai_artifact>` di jawaban (instruksi
-  `ARTIFACT_INSTRUCTIONS` di prompt sistem, `apps/akai/api/src/chat/chat-logic.ts`; jenis `markdown | html | svg | mermaid | code`;
+  `ARTIFACT_INSTRUCTIONS` di prompt sistem, `apps/akai/api/src/chat/chat-logic.ts`; jenis `markdown | html | svg | mermaid | code` + sejak 6b.9 `sheet | slides | whiteboard`;
   memperbarui = identifier sama + isi lengkap). Web mengurai (`parseArtifacts`, juga tag yang belum selesai saat stream & pembungkus
   ``` yang tetap ditulis model) → kartu di jawaban; versi = urutan identifier yang sama di percakapan (`collectVersions`). Format tag
   disalin di dua tempat — ubah bersamaan.
@@ -427,7 +429,98 @@ diperiksa dua arah, CSP sendiri, `frame-ancestors 'self'`), cookie sesi (httpOnl
   jawaban + tautan; dibuka = titik hilang. Data uji dihapus.
 - Belum: notifikasi selain email (mis. WhatsApp / push), jadwal cron bebas, menjalankan di beberapa instans Akai API.
 
-**Pengaturan model akun admin dev (2026-11-16, riset harga router.classai.id/model + peringkat November 2026):**
+**6b.9 — dokumen di panel samping & ekspor (2026-11-17)** (`apps/akai/web/src/lib/artifact-formats.ts`, `artifact-export.ts`,
+`markdown-docx.ts`, `components/chat/artifact-views.tsx`):
+
+- Jenis artifact baru (instruksi `ARTIFACT_INSTRUCTIONS` + `TYPES` web, ubah bersamaan): **sheet** = CSV (baris 1 judul kolom, angka tanpa
+  pemisah ribuan, persen, rumus Excel `=…`, beberapa lembar dipisah `# Sheet: Nama`), **slides** = Markdown dipisah `---` (slide pertama
+  `# Judul` = sampul, `## Judul slide`, baris `Catatan:` = catatan pembicara), **whiteboard** = JSON Canvas 1.0 (kartu teks, kelompok, garis
+  berlabel, warna "1"–"6"). Poster/desain/infografis = **svg** ber-width/height. Dokumen tetap **markdown**. Model memilih jenis menurut
+  permintaan ("Memilih type" di instruksi).
+- Tampilan panel: lembar kerja = kisi bergaya spreadsheet (kolom A/B/C, nomor baris, tab per lembar, rumus SUM/AVERAGE/MIN/MAX/COUNT/ROUND/ABS
+  + aritmetika & rujukan sel **dihitung untuk pratinjau**, rujukan melingkar / rumus lain tampil sebagai rumus); presentasi = slide 16:9
+  (sampul gelap bergradasi merek, slide isi kertas putih), navigasi tombol/panah, miniatur, catatan pembicara; papan tulis = SVG yang digambar
+  sendiri (`whiteboardSvg`, teks di-escape, tanpa skrip), perbesar/perkecil/pas layar/seret. Lembar kerja & slide tampil sambil ditulis.
+  Diagram Mermaid kini selalu di kertas terang (warna kotak buatan model sulit dibaca di tema gelap).
+- **Ekspor** (menu Ekspor menggantikan Unduh, `exportFormats`; modul ekspor dimuat malas ± 880 kB, semua di peramban — isi tidak ke server):
+  dokumen → **Word** (`docx` 9.15.1 dari pohon Markdown `mdast`: judul, tebal/miring/coret, tautan http/https/mailto saja, daftar bertingkat &
+  bernomor, daftar tugas ☐/☑, tabel + perataan, kode, kutipan, garis), PDF, Markdown, HTML; lembar kerja → **Excel** (`write-excel-file`
+  4.1.1: judul tebal & dibekukan, angka ribuan `#,##0`, persen, rumus asli tanpa `=` dan `;`→`,`, lebar kolom), CSV (BOM), PDF; presentasi →
+  **PowerPoint** (`pptxgenjs` 4.0.1, 16:9, sampul + slide isi bermerek, butir bertingkat, tabel, catatan pembicara), PDF, Markdown; SVG / Mermaid /
+  papan tulis → **PNG**, **JPG** (kanvas 2×, maks. ± 32 juta piksel; Mermaid dirender ulang tanpa label HTML agar kanvas tidak tercemar), SVG, PDF;
+  papan tulis juga `.canvas` (Obsidian), Mermaid `.mmd`. **PDF lewat dialog cetak** peramban ("Simpan sebagai PDF"): dokumen cetak di iframe
+  `sandbox="allow-same-origin allow-modals"` **tanpa allow-scripts**, isinya hanya HTML hasil render Akai / gambar raster (SVG model tidak pernah
+  disisipkan sebagai HTML).
+- Keamanan dependensi: `pptxgenjs` menarik `image-size` 1.x (advisory DoS) yang tidak dipakai build peramban → `overrides` root
+  `pptxgenjs > image-size 2.0.4` (`npm audit --omit=dev` bersih).
+- Uji: unit web (artifact-formats 17, artifact-export 4: CSV, lembar, rumus, slide, papan, ukuran SVG, rumus Excel, sel XLSX, DOCX dari Markdown),
+  smoke Akai penuh, browser dengan Sonnet sungguhan: RAB (12 baris, rumus → total Rp 20.950.000) → XLSX (rumus & baris dibekukan), presentasi 5 slide →
+  PPTX (butir + catatan) & PDF, mind map (7 kartu, 5 garis) → PNG/SVG, poster 1080×1350 → PNG/JPG/PDF, notulen → DOCX (7 judul, 3 tabel)/PDF/HTML,
+  diagram cuti → PNG/SVG; HP 375 px tanpa luberan. Percakapan uji "RAB dan Presentasi Rapat Koordinasi" dibiarkan di akun admin dev.
+- Belum: menyunting langsung di panel (sel, teks slide), gambar di slide/DOCX, rumus Excel lain di pratinjau (VLOOKUP, IF), PDF tanpa dialog cetak.
+
+**6b.10 — konektor aplikasi siap pakai (2026-11-17)** (`apps/akai/api/src/connectors/connector-catalog.ts`, `connectors.service.ts`,
+`apps/akai/web/src/components/connector-catalog.tsx`):
+
+- **Katalog 44 aplikasi** berserver MCP remote resmi, 8 kategori (Kerja & dokumen, Google Workspace, Desain & presentasi, Komunikasi & pertemuan,
+  Penyimpanan berkas, Pengembang, Bisnis & situs, Riset & referensi). Setiap alamat **diperiksa 2026-11-17** tanpa login (401 + metadata OAuth
+  terlindungi, atau 200 untuk server publik) beserta dukungan **pendaftaran klien dinamis (DCR)**: Canva, Notion, Atlassian (Jira & Confluence),
+  Linear, Asana (`/sse`), monday, ClickUp, Airtable, Todoist, Zapier, Jotform, Figma, Gamma, Miro, Intercom, Calendly, Fireflies, Dropbox, Vercel,
+  Supabase, Sentry, Netlify, Stripe, PayPal, Square, Webflow, Wix = **cukup masuk akun**; Google (Gmail, Calendar, Drive, Docs, Sheets, Slides, Chat,
+  Kontak — Developer Preview), Slack, Box, HubSpot = **OAuth client milik pemilik** (`needsClient`; satu client Google dipakai bersama semua layanan
+  Google); GitHub = **token** (atau OAuth App milik pemilik); Hugging Face, Exa, Context7, Microsoft Learn, Dokumentasi Cloudflare = **tanpa login**.
+  Alamat tetap bisa diubah (Lanjutan) bila penyedia memindahkannya; aplikasi lain lewat **Alamat sendiri** (tanpa login / token / OAuth).
+- **OAuth** (pola Aplikasi MCP Akasha, dipindah ke Akai): SDK `auth()` + `StoredOAuthProvider` (DCR atau client pemilik, PKCE, perpanjangan token
+  otomatis, Google `access_type=offline&prompt=consent`), data izin terenkripsi `connectors.oauth_enc`, `oauth_state` sekali pakai. Semua permintaan
+  OAuth & MCP lewat `createSafeFetch` (IP lokal ditolak di production). Kolom baru (migrasi `20261117180000_connector_oauth`): `preset`,
+  `auth_type` none|token|oauth (konektor lama tanpa token → none), `oauth_enc`, `oauth_state`, `oauth_client_id`, `oauth_client_secret_enc`,
+  `oauth_scope`. Ganti alamat / cara masuk / client / scope = izin lama dibuang (tidak pernah dikirim ke alamat lain).
+- Endpoint: `GET /api/connectors/catalog` (sesi web), `POST /api/connectors` (+ `preset`, `authType`, `oauthClientId|Secret|Scope`),
+  `POST /api/connectors/:id/connect` → `{ authorizationUrl }` atau `{ connector }`, `GET /api/connectors/oauth/callback` (publik, throttle 30/menit)
+  → kembali ke `/connectors?connected=<id>` / `?error=`. **Alamat callback** = `<AKAI_WEB_URL atau asal SSO_REDIRECT_URI>/api/connectors/oauth/callback`
+  (lewat proxy /api Akai web; produksi `https://akai.workingspace.id/api/connectors/oauth/callback`) — itulah yang didaftarkan di OAuth client.
+- Akai web: tombol **Tambah aplikasi** (katalog: cari, chip kategori, kotak inisial berwarna kategori — tanpa logo merek), formulir per aplikasi
+  (petunjuk, token / Client ID-Secret-Scope + alamat callback untuk disalin, alamat lanjutan), **Sambungkan** membuka jendela izin saat klik (penahan
+  pop-up); jendela kembali ke /connectors lalu memberi tahu jendela pembuka (`postMessage`) dan menutup diri; daftar dipantau 3 dtk (maks. 5 menit).
+  Kartu: status "Perlu izin" / "Izin kedaluwarsa", tombol Sambungkan, ikon Pengaturan OAuth. Izin alat baca/ubah/hapus tetap seperti 6b.5.
+- Uji: unit API (katalog 4), smoke (+11: katalog & 403, Gmail tanpa client ditolak, server MCP tiruan ber-OAuth: dibuat menunggu izin → connect =
+  halaman izin + DCR + PKCE → callback menukar kode & kembali ke Konektor → tersambung tanpa rahasia di respons → state sekali pakai → connect ulang
+  memakai izin yang ada → izin dicabut = "Sambungkan lagi" → hapus), browser (katalog 8 kategori, formulir Gmail, alur izin penuh lewat server
+  tiruan, Sonnet sungguhan memanggil alat konektor OAuth). **Aplikasi sungguhan belum disambungkan** (butuh akun pemilik; Canva dkk. tinggal
+  Sambungkan).
+
+**Akasha & MCP (keputusan arah, 2026-11-17)** — Akasha punya dua peran MCP:
+
+1. **Akasha sebagai server MCP** (`/api/v1/mcp`, token `akasha_pat_…`): tetap. Di Akai menjadi konektor **Akasha** (Knowledge, agenda, to-do,
+   pengajuan, robot) — inilah cara Akai memakai data Akasha.
+2. **Akasha sebagai klien MCP** (menu Connection & MCP → Aplikasi MCP, `mcp_connections`): dipakai **agen Hermes** lewat alat `call_app_tool`,
+   `save_app_file`, `request_app_connection`. **Disetujui pemilik 2026-11-17 — dibekukan, lalu dihapus hari yang sama**: **Akai menjadi satu-satunya tempat menyambungkan aplikasi luar** (satu akun SSO, satu set
+   izin, dipakai chat Akai dan kelak agen Akai); Aplikasi MCP Akasha **dibekukan** (tetap jalan untuk Hermes, tanpa fitur baru) sampai mesin agen Akai
+   (AK-3) menggantikan Hermes, lalu menunya menjadi tautan ke Konektor Akai. Koneksi **tidak dipindah otomatis**: izin OAuth terikat alamat callback
+   Akasha, jadi tetap harus disambungkan ulang di Akai (sekali klik untuk aplikasi ber-DCR). Kredensial tidak disimpan ganda lebih lama dari perlu. **Pembaruan: menu Aplikasi MCP Akasha dihapus seluruhnya** (kode, tabel `mcp_connections`, cakupan `mcp:apps`, alat agen aplikasi luar) atas permintaan pemilik; Hermes tidak lagi punya alat aplikasi luar. Catatan pembekuan sebelumnya: menu sempat menampilkan kartu **"Menu ini dibekukan — sambungkan aplikasi di Akai"** (`FrozenNotice`, `apps/akasha/web/src/features/mcp/mcp-page.tsx`) dengan tombol **Buka Konektor Akai** (alamat dari `GET /ai/settings` → `akai.webUrl`); fungsi lama (koneksi, OAuth, alat agen `call_app_tool`/`save_app_file`/`request_app_connection`) tidak diubah agar Hermes tidak putus. Aplikasi baru di katalog ditambahkan ke `apps/akai/api/src/connectors/connector-catalog.ts`, bukan `MCP_PRESETS` Akasha.
+
+**Selisih Akai dengan Claude (penelusuran 2026-11-17)** — yang sudah setara: chat stream + lampiran, proyek + pengetahuan, memori, artifact (dokumen,
+lembar kerja, slide, papan tulis, desain, HTML, diagram) + ekspor Office/PDF/gambar, konektor MCP + katalog OAuth, skill, plugin (kode & paket), tugas
+terjadwal, pilih model, judul otomatis, sematkan. Belum ada / belum sempurna, diurutkan menurut manfaat:
+
+| # | Fitur Claude | Di Akai sekarang | Usulan |
+| --- | --- | --- | --- |
+| 1 | **Pencarian & baca web** (+ kutipan sumber) | belum ada (hanya lewat konektor Exa) | alat bawaan `web_search` / `web_fetch` (provider pencarian + `safe-fetch`), kutipan di jawaban |
+| 2 | **Riset mendalam** (banyak langkah, laporan bersumber) | belum | mode Riset: rencana → banyak pencarian → laporan artifact bersitasi |
+| 3 | **Eksekusi kode & analisis berkas** (Python, olah Excel/CSV, buat berkas) | belum (sandbox hanya JS plugin) | sandbox kode terisolasi (container/Pyodide WASM) + berkas keluaran yang bisa diunduh |
+| 4 | **Ubah pesan & cabang percakapan** | hanya Ulangi jawaban terakhir | sunting pesan pengguna → cabang baru, navigasi antar cabang |
+| 5 | **Pemikiran diperluas** (toggle, tampilkan proses) | dipakai di jalur agen saja | sakelar "Pikir lebih dalam" di chat + blok pemikiran terlipat |
+| 6 | **Artifact interaktif lanjutan** (React, sunting langsung, terbitkan/bagikan, artifact memanggil AI & penyimpanan) | HTML statis + panel baca | sunting sel/teks di panel, tautan berbagi publik, artifact React |
+| 7 | **Bagikan percakapan / proyek** & kolaborasi tim | belum | tautan baca-saja + berbagi proyek antar akun SSO |
+| 8 | **Gaya tulisan** (formal, ringkas, gaya kustom dari contoh) | belum (bisa lewat instruksi proyek/skill) | pilihan gaya di kotak tulis + gaya dari contoh tulisan |
+| 9 | **Mode suara** (dikte, baca jawaban) | belum | dikte (Web Speech / transkrip Gemini seperti Notes AI) + TTS |
+| 10 | **Chat samaran** (tanpa riwayat & memori) | belum | sakelar percakapan sementara |
+| 11 | **Memori per proyek**, impor/ekspor memori | memori global | cakupan memori per proyek + impor dari ekspor asisten lain |
+| 12 | **Pengetahuan proyek besar** (RAG makna) | utuh ≤ 120 rb karakter / kata kunci | embedding lewat tugas Embedding Akai (butuh sumber Gemini/OpenAI) |
+| 13 | **MCP Apps** (antarmuka interaktif dari konektor di dalam chat) | hanya teks hasil alat | render sumber daya UI MCP di bingkai sandbox |
+| 14 | **Agen latar belakang** (tugas panjang, kontrol peramban/komputer) | tugas terjadwal; agen = Hermes | mesin agen Akai (AK-3) |
+| 15 | Umpan balik jawaban (👍/👎), ekspor percakapan, aplikasi HP/desktop | belum | kecil; HP lewat PWA |
+ riset harga router.classai.id/model + peringkat November 2026):**
 
 | Tugas | Urutan (utama → cadangan) | Alasan |
 | --- | --- | --- |

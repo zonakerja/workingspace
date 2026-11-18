@@ -1,6 +1,7 @@
 // Smoke test Akai API (jalankan saat API menyala): node test/smoke.mjs
 // Env: AKAI_URL (bawaan http://localhost:4400), AKAI_ENV (bawaan .env di folder ini; dibaca untuk AKAI_CLIENTS & DATABASE_URL).
 // Memakai router tiruan lokal (tanpa key sungguhan), akun sementara smoke-akai-* yang dihapus di akhir.
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import * as fs from "node:fs";
@@ -964,6 +965,167 @@ try {
       ok("connector: app caller forbidden", x.s === 403, x);
       x = await web("DELETE", `/api/connectors/${connector}`);
       ok("connector: delete", x.s === 204, x);
+
+      // ---- Katalog & OAuth (6b.10): server MCP tiruan + server otorisasi dengan pendaftaran klien dinamis & PKCE
+      x = await web("GET", "/api/connectors/catalog");
+      ok(
+        "catalog: popular apps + callback address",
+        x.s === 200 &&
+          x.d.entries.length >= 40 &&
+          x.d.entries.some((e) => e.key === "canva" && e.auth === "oauth") &&
+          x.d.entries.some((e) => e.key === "github" && e.auth === "token") &&
+          /\/api\/connectors\/oauth\/callback$/.test(x.d.redirectUrl ?? ""),
+        x.d.redirectUrl,
+      );
+      x = await call("GET", "/api/connectors/catalog");
+      ok("catalog: app caller forbidden", x.s === 403, x);
+      x = await web("POST", "/api/connectors", { kind: "custom", preset: "gmail" });
+      ok(
+        "catalog: app without dynamic registration needs owner client",
+        x.s === 400 && /Client ID/.test(x.d.message),
+        x.d,
+      );
+
+      const codes = new Map();
+      const accessTokens = new Set();
+      let registered = 0;
+      const oauthHttp = createServer(async (req, res) => {
+        const origin = `http://127.0.0.1:${oauthHttp.address().port}`;
+        const u = new URL(req.url, origin);
+        const json = (status, data) =>
+          res.writeHead(status, { "Content-Type": "application/json" }).end(JSON.stringify(data));
+        let raw = "";
+        for await (const chunk of req) raw += chunk;
+        if (u.pathname.startsWith("/.well-known/oauth-protected-resource"))
+          return json(200, { resource: `${origin}/mcp`, authorization_servers: [origin], scopes_supported: ["baca"] });
+        if (u.pathname === "/.well-known/oauth-authorization-server")
+          return json(200, {
+            issuer: origin,
+            authorization_endpoint: `${origin}/authorize`,
+            token_endpoint: `${origin}/token`,
+            registration_endpoint: `${origin}/register`,
+            response_types_supported: ["code"],
+            grant_types_supported: ["authorization_code", "refresh_token"],
+            code_challenge_methods_supported: ["S256"],
+            token_endpoint_auth_methods_supported: ["none"],
+          });
+        if (u.pathname === "/register") {
+          registered++;
+          return json(201, { ...JSON.parse(raw), client_id: `klien-${registered}` });
+        }
+        if (u.pathname === "/authorize") {
+          const code = `kode-${Math.random().toString(36).slice(2)}`;
+          codes.set(code, u.searchParams.get("code_challenge"));
+          const back = new URL(u.searchParams.get("redirect_uri"));
+          back.searchParams.set("code", code);
+          back.searchParams.set("state", u.searchParams.get("state") ?? "");
+          res.writeHead(302, { Location: back.toString() }).end();
+          return;
+        }
+        if (u.pathname === "/token") {
+          const p = new URLSearchParams(raw);
+          const challenge = codes.get(p.get("code"));
+          const hash = createHash("sha256")
+            .update(p.get("code_verifier") ?? "")
+            .digest("base64url");
+          if (p.get("grant_type") !== "authorization_code" || !challenge || challenge !== hash)
+            return json(400, { error: "invalid_grant" });
+          codes.delete(p.get("code"));
+          const token = `akses-${Math.random().toString(36).slice(2)}`;
+          accessTokens.add(token);
+          return json(200, { access_token: token, token_type: "Bearer", expires_in: 3600 });
+        }
+        if (u.pathname === "/mcp") {
+          if (!accessTokens.has((req.headers.authorization ?? "").replace(/^Bearer /, ""))) {
+            res
+              .writeHead(401, {
+                "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp"`,
+              })
+              .end();
+            return;
+          }
+          const server = new McpServer({ name: "smoke-oauth", version: "1.0.0" });
+          server.registerTool(
+            "baca_berkas",
+            { description: "Baca berkas", inputSchema: {}, annotations: { readOnlyHint: true } },
+            async () => ({ content: [{ type: "text", text: "isi berkas" }] }),
+          );
+          const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+          res.on("close", () => {
+            void transport.close();
+            void server.close();
+          });
+          await server.connect(transport);
+          await transport.handleRequest(req, res, raw ? JSON.parse(raw) : undefined);
+          return;
+        }
+        json(404, {});
+      });
+      await new Promise((r) => oauthHttp.listen(0, "127.0.0.1", r));
+      try {
+        const oauthUrl = `http://127.0.0.1:${oauthHttp.address().port}/mcp`;
+        x = await web("POST", "/api/connectors", {
+          kind: "custom",
+          name: "OAuth Uji",
+          url: oauthUrl,
+          authType: "oauth",
+        });
+        ok(
+          "oauth: created awaiting permission",
+          x.s === 201 && x.d.authType === "oauth" && x.d.status === "auth_required" && x.d.authorized === false,
+          x.d,
+        );
+        const oauthId = x.d.id;
+        x = await web("POST", `/api/connectors/${oauthId}/connect`);
+        const authUrl = x.d.authorizationUrl ?? "";
+        ok(
+          "oauth: connect returns authorization page (dynamic client + PKCE)",
+          x.s === 200 && authUrl.includes("/authorize") && authUrl.includes("code_challenge=") && registered === 1,
+          x.d,
+        );
+        const consent = await fetch(authUrl, { redirect: "manual" });
+        const callbackUrl = new URL(consent.headers.get("location"));
+        const viaApi = `${BASE}${callbackUrl.pathname}${callbackUrl.search}`;
+        const done = await fetch(viaApi, { redirect: "manual" });
+        ok(
+          "oauth: callback exchanges code and returns to Konektor",
+          callbackUrl.pathname === "/api/connectors/oauth/callback" &&
+            done.status === 302 &&
+            (done.headers.get("location") ?? "").includes(`/connectors?connected=${oauthId}`),
+          done.headers.get("location"),
+        );
+        x = await web("GET", "/api/connectors");
+        const oc = x.d.connectors.find((c) => c.id === oauthId);
+        ok(
+          "oauth: connected with tools, secrets never returned",
+          oc?.status === "connected" &&
+            oc.authorized === true &&
+            oc.tools.length === 1 &&
+            !("oauthEnc" in oc) &&
+            !("oauthState" in oc) &&
+            !("oauthClientSecretEnc" in oc),
+          oc,
+        );
+        const replay = await fetch(viaApi, { redirect: "manual" });
+        ok(
+          "oauth: callback state is single-use",
+          (replay.headers.get("location") ?? "").includes("error="),
+          replay.headers.get("location"),
+        );
+        x = await web("POST", `/api/connectors/${oauthId}/connect`);
+        ok("oauth: connect again reuses permission", x.d.connector?.status === "connected" && registered === 1, x.d);
+        accessTokens.clear();
+        x = await web("POST", `/api/connectors/${oauthId}/refresh`);
+        ok(
+          "oauth: revoked permission → auth_required (Sambungkan lagi)",
+          x.d.status === "auth_required" && /Sambungkan/.test(x.d.statusMessage ?? ""),
+          x.d,
+        );
+        x = await web("DELETE", `/api/connectors/${oauthId}`);
+        ok("oauth: delete", x.s === 204, x);
+      } finally {
+        oauthHttp.close();
+      }
       await web("DELETE", `/api/chat/conversations/${tconv}`);
 
       // ---- Paket plugin (6b.7): instruksi + skill + konektor MCP yang dibuat bersama paket

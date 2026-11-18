@@ -221,7 +221,7 @@ function AkaiCard({ akai }: { akai: AiSettings["akai"] }) {
       </div>
       {!akai.available ? (
         <p className="text-xs text-muted-foreground">
-          Tersedia untuk akun yang masuk lewat akun Workingspace (SSO). Akun ini masuk dengan kata sandi lokal.
+          Akai belum diatur di server (AKAI_URL / klien Akasha) atau akun ini belum tertaut ke akun Workingspace.
         </p>
       ) : !akai.reachable ? (
         <p className="flex items-center gap-1.5 text-xs text-warning">

@@ -55,7 +55,7 @@ interface ShareDialogProps {
 }
 
 /** Kelola penerima satu item milik sendiri: tambah (email + izin), ubah izin, cabut. */
-export function ShareDialog({ open, onOpenChange, recordType, recordId, title }: ShareDialogProps) {
+function ShareDialog({ open, onOpenChange, recordType, recordId, title }: ShareDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">

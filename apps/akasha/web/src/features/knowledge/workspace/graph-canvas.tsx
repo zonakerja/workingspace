@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from "react-force-graph-2d";
 import { labelAlpha } from "./graph-settings";
 
-export interface GraphNodeInput {
+interface GraphNodeInput {
   id: string;
   label: string;
   /** Ukuran relatif (mis. jumlah backlink) */
@@ -13,13 +13,13 @@ export interface GraphNodeInput {
   variant?: "note" | "missing" | "file" | "tag";
 }
 
-export interface GraphEdgeInput {
+interface GraphEdgeInput {
   source: string;
   target: string;
 }
 
 /** Parameter simulasi (lihat `forceParams` di graph-settings.ts). */
-export interface GraphForces {
+interface GraphForces {
   charge: number;
   center: number;
   link: number;

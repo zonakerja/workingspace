@@ -35,7 +35,7 @@ const toEntries = (todos: Todo[], tasks: ProjectTask[]): OverviewTask[] => [
 const priorityRank = (e: OverviewTask) => PRIORITY_RANK[e.item.priority ?? "low"] ?? 0;
 
 /** Jumlah hari ke depan (setelah hari ini) yang masih dihitung untuk tugas prioritas tinggi. */
-export const URGENT_HORIZON_DAYS = 7;
+const URGENT_HORIZON_DAYS = 7;
 
 export const isOverdue = (e: OverviewTask, todayYmd: string) => !!e.due && e.due < todayYmd;
 

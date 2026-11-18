@@ -5,7 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
  * argumen untuk log. Diuji di `api-token-logic.spec.ts`.
  */
 
-export const TOKEN_PREFIX = "akasha_pat_";
+const TOKEN_PREFIX = "akasha_pat_";
 /** Jumlah token aktif maksimal per user. */
 export const MAX_TOKENS_PER_USER = 20;
 
@@ -19,10 +19,11 @@ export const API_SCOPES = [
   "requests:write",
   "ai:model",
   "agent:menus",
-  "mcp:apps",
   "ekinerja:robot",
   "srikandi:robot",
   "siman:robot",
+  "mail:read",
+  "mail:send",
 ] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 
@@ -36,13 +37,13 @@ export const SCOPE_LABELS: Record<ApiScope, string> = {
   "requests:write": "Catat pengajuan baru & jalankan analisis/telaah AI (persetujuan tetap oleh Anda)",
   "ai:model": "Model AI agen lewat Akasha (memakai provider, API key & kuota Anda — key tidak pernah keluar)",
   "agent:menus": "Usulkan fitur non-native: workflow & koneksi (tampil setelah Anda setujui di Approval)",
-  "mcp:apps":
-    "Pakai alat aplikasi MCP yang Anda izinkan dan minta koneksi / izin baru (menunggu persetujuan; kredensial tetap di Akasha)",
   "ekinerja:robot":
     "e-Kinerja: usulkan pemetaan kegiatan ke RHK & narasi renaksi, jalankan robot baca (ambil SKP, pantau, periksa); pengisian hanya setelah Anda setujui",
   "srikandi:robot":
     "SRIKANDI: jalankan robot baca (daftar naskah keluar, referensi, klasifikasi) & periksa Register; pendaftaran naskah hanya setelah Anda setujui",
   "siman:robot": "SIMAN: jalankan robot baca (jaga sesi, baca isi halaman tanpa klik) untuk mempelajari tiket",
+  "mail:read": "Baca email masuk (menu Email) & jadikan to-do",
+  "mail:send": "Ajukan kirim email atas nama Anda (terkirim hanya setelah Anda setujui di Approval)",
 };
 
 /** Token baru: `akasha_pat_` + 32 byte acak (base64url) — cukup acak sehingga hash SHA-256 tanpa salt aman. */

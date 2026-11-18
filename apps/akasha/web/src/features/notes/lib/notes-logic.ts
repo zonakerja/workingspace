@@ -90,7 +90,7 @@ export const isFreeNoteEmpty = (note: Pick<FreeNote, "title" | "content" | "kind
 
 // ---------------------------------------------------------------------------- Lampiran Notes AI
 
-export const fileOf = (note: AiNote): NoteFileAttachment | null =>
+const fileOf = (note: AiNote): NoteFileAttachment | null =>
   note.fileAttachment && "name" in note.fileAttachment ? (note.fileAttachment as NoteFileAttachment) : null;
 
 export const MAX_NOTE_DOCUMENTS = 10;

@@ -13,7 +13,7 @@ export interface AiAttachment {
   data: Buffer;
 }
 
-export interface AiGenerateInput {
+interface AiGenerateInput {
   apiKey: string;
   model: string;
   prompt: string;

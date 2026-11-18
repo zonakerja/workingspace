@@ -145,12 +145,3 @@ export function urlInConnector(url: string, baseUrl: string, extraHosts: string[
   const hosts = [new URL(baseUrl).hostname, ...extraHosts];
   return hosts.some((h) => host === h || host.endsWith(`.${h}`));
 }
-
-export type ConnectorStatus = "none" | "active" | "expired" | "error";
-
-export const STATUS_LABELS: Record<ConnectorStatus, string> = {
-  none: "Belum login",
-  active: "Sesi aktif",
-  expired: "Sesi kedaluwarsa — perlu login ulang",
-  error: "Gagal",
-};

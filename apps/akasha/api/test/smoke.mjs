@@ -1,14 +1,62 @@
 // Smoke test API end-to-end terhadap server yang sedang berjalan.
 // Pemakaian: npm run test:smoke
 //   API_URL              default http://localhost:4000/api/v1
-//   SMOKE_ADMIN_EMAIL    akun super_admin (default admin@workingspace.id — seed development)
-//   SMOKE_ADMIN_PASSWORD (default 123)
+//   SMOKE_ADMIN_EMAIL    akun super_admin (default admin@workingspace.id; dibuat bila belum ada)
+//   DATABASE_URL, JWT_REFRESH_SECRET, JWT_REFRESH_EXPIRES_IN  (default dibaca dari apps/akasha/api/.env)
 //
-// Tidak mengubah data asli: semua uji tulis memakai dua user member sementara
-// yang dibuat di awal dan dihapus (cascade) di akhir.
+// Akasha hanya bisa dimasuki lewat SSO, jadi sesi uji dibuat langsung di database (baris refresh_tokens + refresh token
+// bertanda tangan) lalu ditukar lewat POST /auth/refresh — jalur yang sama dengan sesi hasil SSO.
+// Tidak mengubah data asli: semua uji tulis memakai dua user member sementara yang dibuat di awal dan dihapus (cascade) di akhir.
+import { createHash, createHmac, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import pg from "pg";
+
 const B = process.env.API_URL ?? "http://localhost:4000/api/v1";
 const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "admin@workingspace.id";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD ?? "123";
+const dotenv = (() => {
+  try {
+    return Object.fromEntries(
+      readFileSync(new URL("../.env", import.meta.url), "utf8")
+        .split(/\r?\n/)
+        .map((l) => l.match(/^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/))
+        .filter(Boolean)
+        .map((m) => [m[1], m[2]]),
+    );
+  } catch {
+    return {};
+  }
+})();
+const env = (k) => process.env[k] ?? dotenv[k];
+const db = new pg.Client({ connectionString: env("DATABASE_URL")?.replace(/\?schema=\w+$/, "") });
+await db.connect();
+const ttlSeconds = (() => {
+  const m = String(env("JWT_REFRESH_EXPIRES_IN") ?? "7d").match(/^(\d+)([smhd])?$/);
+  return m ? Number(m[1]) * { s: 1, m: 60, h: 3600, d: 86400 }[m[2] ?? "s"] : 7 * 86400;
+})();
+const b64 = (v) => Buffer.from(typeof v === "string" ? v : JSON.stringify(v)).toString("base64url");
+/** Buat (bila perlu) user lalu sesi login untuknya; hasil = respons POST /auth/refresh (accessToken, cookie rt). */
+async function session(email, name, role = "member") {
+  let row = (await db.query("SELECT id FROM users WHERE email = $1", [email])).rows[0];
+  if (!row) {
+    row = (
+      await db.query(
+        'INSERT INTO users (id, email, name, role, updated_at) VALUES ($1, $2, $3, $4::user_role, now()) RETURNING id',
+        ["smk" + randomUUID().replace(/-/g, ""), email, name, role],
+      )
+    ).rows[0];
+  }
+  const jti = randomUUID();
+  const sid = randomUUID();
+  const iat = Math.floor(Date.now() / 1000);
+  const body = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: row.id, jti, sid, iat, exp: iat + ttlSeconds })}`;
+  const token = `${body}.${createHmac("sha256", env("JWT_REFRESH_SECRET")).update(body).digest("base64url")}`;
+  await db.query(
+    "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, session_id) VALUES ($1, $2, $3, $4, $5)",
+    [jti, row.id, createHash("sha256").update(token).digest("hex"), new Date((iat + ttlSeconds) * 1000), sid],
+  );
+  const r = await j("POST", "/auth/refresh", null, null, token);
+  return { ...r, userId: row.id };
+}
 let failed = 0;
 const j = async (method, path, body, token, cookie) => {
   const isForm = body instanceof FormData;
@@ -81,44 +129,30 @@ const makeDocx = async (text) => {
 };
 
 // ---------------------------------------------------------------- auth (admin)
-let r = await j("POST", "/auth/login", {
-  email: ADMIN_EMAIL,
-  password: "salah-total",
-});
-ok("login wrong pw 401", r.s === 401, r);
-r = await j("POST", "/auth/login", {
-  email: ADMIN_EMAIL,
-  password: ADMIN_PASSWORD,
-});
-ok("login 200", r.s === 200 && r.d.accessToken, r);
+// Tidak ada login lokal: masuk hanya lewat SSO
+let r = await j("POST", "/auth/login", { email: ADMIN_EMAIL, password: "123" });
+ok("local password login removed (404)", r.s === 404, r);
+r = await j("GET", "/auth/sso/config");
+ok("sso config has no password login", r.s === 200 && !("passwordLogin" in r.d), r);
+r = await session(ADMIN_EMAIL, "Smoke Admin", "super_admin");
+ok("admin session 200", r.s === 200 && r.d.accessToken, r);
 const admin = r.d.accessToken;
-ok("no passwordHash", !("passwordHash" in r.d.user));
+ok("no passwordHash / hasPassword", !("passwordHash" in r.d.user) && !("hasPassword" in r.d.user), r.d.user);
+r = await j("POST", "/users", { name: "x", email: `v-${Date.now()}@akasha.test`, role: "member" }, admin);
+ok("create user in Akasha removed (404)", r.s === 404, r);
 
 // User sementara untuk semua uji tulis
 const email = `smoke-${Date.now()}@akasha.test`;
-r = await j("POST", "/users", { name: "Smoke Test", email, password: "rahasia", role: "member" }, admin);
-ok("create temp user", r.s === 201 && r.d.id, r);
-const tempUserId = r.d.id;
-// Rekan untuk uji isolasi data & berbagi
-const partnerEmail = `smoke-partner-${Date.now()}@akasha.test`;
-r = await j(
-  "POST",
-  "/users",
-  { name: "Smoke Partner", email: partnerEmail, password: "rahasia", role: "member" },
-  admin,
-);
-ok("create temp partner", r.s === 201 && r.d.id, r);
-const tempPartnerId = r.d.id;
-r = await j(
-  "POST",
-  "/users",
-  { name: "x", email: `v-${Date.now()}@akasha.test`, password: "rahasia", role: "viewer" },
-  admin,
-);
-ok("role viewer removed 400", r.s === 400, r);
-r = await j("POST", "/auth/login", { email, password: "rahasia" });
+r = await session(email, "Smoke Test");
+ok("temp user session", r.s === 200 && r.d.user?.email === email, r);
+const tempUserId = r.userId;
 let at = r.d.accessToken;
 const rt = r.rt;
+// Rekan untuk uji isolasi data & berbagi
+const partnerEmail = `smoke-partner-${Date.now()}@akasha.test`;
+r = await session(partnerEmail, "Smoke Partner");
+ok("temp partner session", r.s === 200, r);
+const tempPartnerId = r.userId;
 ok(
   "refresh token only in httpOnly cookie",
   !("refreshToken" in r.d) &&
@@ -562,27 +596,14 @@ try {
   r = await j("POST", "/auth/refresh", null, null, rt2);
   ok("refresh after logout 401", r.s === 401, r);
 
-  // Ganti password: sesi lain dicabut, sesi saat ini tetap
-  const sessionA = await j("POST", "/auth/login", { email, password: "rahasia" });
-  const sessionB = await j("POST", "/auth/login", { email, password: "rahasia" });
-  r = await j(
-    "POST",
-    "/auth/change-password",
-    { currentPassword: "rahasia", newPassword: "rahasia2" },
-    sessionA.d.accessToken,
-    sessionA.rt,
-  );
-  ok("change password", r.s === 200, r);
-  r = await j("POST", "/auth/refresh", null, null, sessionB.rt);
-  ok("other sessions revoked after password change", r.s === 401, r);
-  r = await j("POST", "/auth/refresh", null, null, sessionA.rt);
-  ok("current session kept after password change", r.s === 200, r);
+  r = await j("POST", "/auth/change-password", { currentPassword: "x", newPassword: "y" }, at);
+  ok("change password removed (404)", r.s === 404, r);
   // Sesi ini dipakai uji PIN keamanan (status terbuka per sesi login)
-  let pinRt = r.rt;
+  let pinRt = (await session(email, "Smoke Test")).rt;
 
   // ------------------------------------------------------------ isolasi data & berbagi
-  at = (await j("POST", "/auth/login", { email, password: "rahasia2" })).d.accessToken;
-  r = await j("POST", "/auth/login", { email: partnerEmail, password: "rahasia" });
+  at = (await session(email, "Smoke Test")).d.accessToken;
+  r = await session(partnerEmail, "Smoke Partner");
   const pt = r.d.accessToken;
   const shareFile = new FormData();
   shareFile.append("file", new Blob(["a;b\n1;2"], { type: "text/csv" }), "berbagi.csv");
@@ -2073,6 +2094,173 @@ try {
     console.log("SKIP knowledge vault (KNOWLEDGE_VAULTS_DIR tidak diatur)");
   }
 
+  // ---------------------------------------------------------------- Akun tersambung: langganan kalender ICS + akun email
+  r = await j("GET", "/calendar-feed", null, at);
+  ok("calendar feed off by default", r.s === 200 && r.d.enabled === false, r);
+  r = await j(
+    "PUT",
+    "/records/schedule/smoke-cal-1",
+    {
+      payload: {
+        title: "Rapat ICS; uji, satu",
+        startDate: "2026-11-20",
+        startTime: "09:00",
+        endTime: "10:30",
+        location: "Aula",
+      },
+    },
+    at,
+  );
+  ok("calendar feed seed agenda", r.s === 200, r);
+  r = await j("PUT", "/calendar-feed", { timezone: "Asia/Makassar" }, at);
+  ok("calendar feed create", r.s === 200 && r.d.enabled && r.d.url.includes("/api/v1/public/calendar/cal_"), r);
+  const feedUrl = r.d.url;
+  const feedPath = feedUrl.slice(feedUrl.indexOf("/public/calendar/"));
+  let ics = await fetch(`${B}${feedPath}`);
+  let icsText = await ics.text();
+  ok(
+    "calendar feed ics public",
+    ics.status === 200 &&
+      (ics.headers.get("content-type") ?? "").startsWith("text/calendar") &&
+      icsText.includes("UID:schedule-smoke-cal-1@akasha") &&
+      icsText.includes("DTSTART:20261120T010000Z") &&
+      icsText.includes("SUMMARY:Rapat ICS\\; uji\\, satu"),
+    icsText.slice(0, 300),
+  );
+  r = await j("PUT", "/calendar-feed", { include: { agenda: false } }, at);
+  icsText = await (await fetch(`${B}${feedPath}`)).text();
+  ok("calendar feed include off", r.d.include.agenda === false && !icsText.includes("smoke-cal-1"), r);
+  r = await j("PUT", "/calendar-feed", { timezone: "Europe/Paris" }, at);
+  ok("calendar feed bad timezone 400", r.s === 400, r);
+  r = await j("POST", "/calendar-feed/rotate", null, at);
+  ok("calendar feed rotate", r.s === 200 && r.d.url !== feedUrl, r);
+  ics = await fetch(`${B}${feedPath}`);
+  ok("calendar feed old url 404", ics.status === 404, ics.status);
+  ics = await fetch(`${B}/public/calendar/cal_tebakan-asal.ics`);
+  ok("calendar feed unknown token 404", ics.status === 404, ics.status);
+  r = await j("DELETE", "/calendar-feed", null, at);
+  ok("calendar feed remove", r.s === 200 && r.d.enabled === false, r);
+  await j("DELETE", "/records/schedule/smoke-cal-1", null, at);
+
+  r = await j("GET", "/mail/presets", null, at);
+  ok("mail presets", r.s === 200 && r.d.some((p) => p.key === "outlook" && p.oauthOnly), r);
+  r = await j("POST", "/mail/accounts", { provider: "outlook", address: "a@outlook.com", password: "x" }, at);
+  ok("mail outlook needs oauth 400", r.s === 400, r);
+  r = await j(
+    "POST",
+    "/mail/accounts",
+    { provider: "custom", address: "a@b.test", smtpHost: "mail.b.test", smtpPort: 22, password: "x" },
+    at,
+  );
+  ok("mail bad port 400", r.s === 400, r);
+  r = await j(
+    "POST",
+    "/mail/accounts",
+    {
+      provider: "gmail",
+      address: "Smoke.Mail@Gmail.com",
+      password: "sandi-aplikasi-palsu",
+      digestEnabled: true,
+      digestTime: "05:00",
+    },
+    at,
+  );
+  ok(
+    "mail create gmail (no password echoed)",
+    r.s === 201 &&
+      r.d.address === "smoke.mail@gmail.com" &&
+      r.d.smtpHost === "smtp.gmail.com" &&
+      r.d.hasPassword &&
+      r.d.isDefault &&
+      !("passwordEnc" in r.d) &&
+      !("password" in r.d),
+    r,
+  );
+  const mailId = r.d.id;
+  r = await j("POST", "/mail/accounts", { provider: "gmail", address: "smoke.mail@gmail.com", password: "x" }, at);
+  ok("mail duplicate 409", r.s === 409, r);
+  r = await j("PATCH", `/mail/accounts/${mailId}`, { digestTime: "25:00" }, at);
+  ok("mail bad digest time 400", r.s === 400, r);
+  r = await j("PATCH", `/mail/accounts/${mailId}`, { label: "Pribadi", digestEnabled: false }, admin);
+  ok("mail other user 404", r.s === 404, r);
+  r = await j("PATCH", `/mail/accounts/${mailId}`, { label: "Pribadi", digestEnabled: false }, at);
+  ok("mail update", r.s === 200 && r.d.label === "Pribadi" && r.d.digestEnabled === false, r);
+  r = await j("GET", "/mail/accounts", null, at);
+  ok("mail list own", r.s === 200 && r.d.length === 1, r);
+  r = await j("POST", `/mail/accounts/${mailId}/inbox/sync`, null, at);
+  ok("inbox sync while disabled 400", r.s === 400, r);
+  r = await j("PATCH", `/mail/accounts/${mailId}/inbox`, { days: 5 }, at);
+  ok("inbox bad days 400", r.s === 400, r);
+  r = await j("PATCH", `/mail/accounts/${mailId}/inbox`, { enabled: true, days: 7 }, at);
+  ok(
+    "inbox enable (gmail imap preset)",
+    r.s === 200 && r.d.inboxEnabled && r.d.imapHost === "imap.gmail.com" && r.d.imapPort === 993 && r.d.inboxDays === 7,
+    r,
+  );
+  r = await j("PATCH", `/mail/accounts/${mailId}/inbox`, { enabled: false }, at);
+  ok("inbox disable", r.s === 200 && r.d.inboxEnabled === false, r);
+  r = await j("GET", "/mail/messages?status=new", null, at);
+  ok("inbox messages empty", r.s === 200 && Array.isArray(r.d.messages) && r.d.messages.length === 0, r);
+  r = await j("GET", "/mail/messages/tidak-ada", null, at);
+  ok("inbox message unknown 404", r.s === 404, r);
+  r = await j("POST", "/mail/messages/tidak-ada/todo", { title: "x", date: "2026-13-01", priority: "high" }, at);
+  ok("inbox todo bad date 400", r.s === 400, r);
+  r = await j("DELETE", `/mail/accounts/${mailId}`, null, at);
+  ok("mail remove", r.s === 200, r);
+  r = await j("POST", "/mail/accounts/outlook", { oauthAccountId: "tidak-ada" }, at);
+  ok("outlook without microsoft account 404", r.s === 404, r);
+
+  // Akun Google / Microsoft (OAuth, tahap 2): tanpa konfigurasi server → tombol nonaktif, mulai izin ditolak
+  r = await j("GET", "/connections", null, at);
+  ok(
+    "connections list",
+    r.s === 200 &&
+      Array.isArray(r.d.accounts) &&
+      typeof r.d.configured.google === "boolean" &&
+      r.d.redirectUri.endsWith("/connections/oauth/callback"),
+    r,
+  );
+  if (!r.d.configured.google) {
+    r = await j("POST", "/connections/oauth/start", { provider: "google" }, at);
+    ok("oauth start unconfigured 400", r.s === 400, r);
+  }
+  r = await j("POST", "/connections/oauth/start", { provider: "facebook" }, at);
+  ok("oauth start unknown provider 400", r.s === 400, r);
+  {
+    const res = await fetch(`${B}/connections/oauth/callback?code=x&state=palsu&iss=https%3A%2F%2Fx`, {
+      redirect: "manual",
+    });
+    ok(
+      "oauth callback bad state → redirect error",
+      res.status === 302 && /connect_error=/.test(res.headers.get("location") ?? ""),
+      res.status,
+    );
+  }
+  r = await j("POST", "/connections/tidak-ada/calendar", null, at);
+  ok("calendar connect unknown account 404", r.s === 404, r);
+
+  // Drive (tahap 4): tanpa akun berizin Drive → daftar kosong, arsip dingin tidak bisa dinyalakan
+  r = await j("GET", "/drive/accounts", null, at);
+  ok("drive accounts", r.s === 200 && Array.isArray(r.d.accounts) && typeof r.d.pickerReady === "boolean", r);
+  r = await j("GET", "/drive/accounts/tidak-ada/items", null, at);
+  ok("drive items unknown account 404", r.s === 404, r);
+  r = await j("GET", "/drive/accounts/tidak-ada/picker", null, at);
+  ok("drive picker unknown account 404", r.s === 404, r);
+  r = await j("GET", "/drive/cold", null, at);
+  ok(
+    "cold storage status",
+    r.s === 200 && r.d.settings.afterDays >= 30 && typeof r.d.stored.count === "number" && r.d.running === null,
+    r,
+  );
+  r = await j("PUT", "/drive/cold", { enabled: true }, at);
+  ok("cold storage enable without account 400", r.s === 400, r);
+  r = await j("PUT", "/drive/cold", { afterDays: 5 }, at);
+  ok("cold storage afterDays < 30 400", r.s === 400, r);
+  r = await j("PUT", "/drive/cold", { accountId: "tidak-ada" }, at);
+  ok("cold storage unknown account 404", r.s === 404, r);
+  r = await j("POST", "/drive/cold/run", null, at);
+  ok("cold storage run without account 400", r.s === 400, r);
+
   // ---------------------------------------------------------------- Integrasi agen: token akses + MCP
   const mcp = async (token, method, params = {}) => {
     const res = await fetch(`${B}/mcp`, {
@@ -2087,7 +2275,7 @@ try {
     return { s: res.status, d: await res.json().catch(() => null) };
   };
   r = await j("GET", "/integrations/scopes", null, at);
-  ok("integrations scopes", r.s === 200 && r.d.length === 13, r);
+  ok("integrations scopes", r.s === 200 && r.d.length === 14, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: [] }, at);
   ok("token without scopes 400", r.s === 400, r);
   r = await j("POST", "/integrations/tokens", { name: "x", scopes: ["admin:all"] }, at);
@@ -2095,164 +2283,59 @@ try {
   r = await j(
     "POST",
     "/integrations/tokens",
-    { name: "Smoke agen", scopes: ["workspace:read", "workspace:write"], expiresInDays: 1 },
+    { name: "Smoke agen", scopes: ["workspace:read", "workspace:write", "mail:read", "mail:send"], expiresInDays: 1 },
     at,
   );
   ok("token create (plain token once)", r.s === 201 && r.d.token?.startsWith("akasha_pat_") && r.d.expiresAt, r);
   const pat = r.d.token;
   const patId = r.d.id;
-  // Koneksi aplikasi MCP luar: katalog, validasi alamat, kredensial tidak pernah dikembalikan, izin agen
+  // Alat agen email & kalender (tahap 3 akun tersambung): kirim email hanya lewat permintaan yang disetujui pemilik
   {
-    r = await j("GET", "/mcp-connections/presets", null, at);
-    ok("mcp apps presets", r.s === 200 && r.d.some((p) => p.key === "canva" && p.authType === "oauth"), r);
-    r = await j("POST", "/mcp-connections", { name: "x", url: "ftp://contoh.com/mcp" }, at);
-    ok("mcp apps invalid url 400", r.s === 400, r);
-    r = await j(
-      "POST",
-      "/mcp-connections",
-      { name: "Smoke Apl", url: "http://localhost:9/mcp", authType: "token", token: "rahasia-smoke" },
-      at,
-    );
-    ok("mcp apps create hides token", r.s === 201 && r.d.hasToken && !JSON.stringify(r.d).includes("rahasia-smoke"), r);
-    const appId = r.d.id;
-    r = await j("POST", `/mcp-connections/${appId}/connect`, null, at);
-    ok("mcp apps unreachable → error status", r.s === 200 && r.d.connection.status === "error", r);
-    r = await j("GET", `/mcp-connections/smoke-apl`, null, at);
-    ok("mcp apps get by slug", r.s === 200 && r.d.id === appId, r);
-    // Google Workspace & aplikasi tanpa pendaftaran klien dinamis: OAuth client milik pemilik, dipakai bersama sekelompok
-    r = await j("GET", "/mcp-connections/presets", null, at);
-    const gmailPreset = r.d.find((p) => p.key === "gmail");
-    ok(
-      "mcp apps google presets",
-      gmailPreset?.needsClient && gmailPreset.group === "google" && r.d.some((p) => p.key === "google-sheets"),
-      r.d.map((p) => p.key),
-    );
-    r = await j(
-      "POST",
-      "/mcp-connections",
-      {
-        preset: "gmail",
-        authType: "oauth",
-        oauthClientId: "smoke-client.apps.googleusercontent.com",
-        oauthClientSecret: "rahasia-client-smoke",
-      },
-      at,
-    );
-    ok(
-      "mcp apps oauth client stored, secret hidden, default scope",
-      r.s === 201 &&
-        r.d.oauthClientId === "smoke-client.apps.googleusercontent.com" &&
-        r.d.hasClientSecret &&
-        r.d.oauthScope?.includes("gmail.readonly") &&
-        r.d.redirectUrl?.endsWith("/mcp-connections/oauth/callback") &&
-        !JSON.stringify(r.d).includes("rahasia-client-smoke"),
-      r,
-    );
-    const gmailId = r.d.id;
-    r = await j("POST", "/mcp-connections", { preset: "google-docs", authType: "oauth" }, at);
-    ok(
-      "mcp apps google sibling reuses client",
-      r.s === 201 && r.d.oauthClientId === "smoke-client.apps.googleusercontent.com" && r.d.hasClientSecret,
-      r,
-    );
-    const docsId = r.d.id;
-    r = await j("PATCH", `/mcp-connections/${gmailId}`, { oauthScope: "a, b  a" }, at);
-    ok("mcp apps scope change → re-auth", r.s === 200 && r.d.oauthScope === "a b" && r.d.status === "auth_required", r);
-    r = await j("PATCH", `/mcp-connections/${gmailId}`, { oauthClientId: "" }, at);
-    ok("mcp apps clear client", r.s === 200 && r.d.oauthClientId === null && !r.d.hasClientSecret, r);
-    for (const id of [gmailId, docsId]) await j("DELETE", `/mcp-connections/${id}`, null, at);
-    const appsPat = (await j("POST", "/integrations/tokens", { name: "Smoke apps", scopes: ["mcp:apps"] }, at)).d;
-    r = await mcp(appsPat.token, "tools/call", {
-      name: "call_app_tool",
-      arguments: { connection: "smoke-apl", tool: "apa_saja", arguments: {} },
-    });
-    ok("mcp apps agent blocked when not allowed", r.d?.result?.isError === true, r);
-    // Aplikasi MCP = fitur terbuka: agen meminta koneksi / izin baru, berlaku setelah disetujui pemilik
-    const ap = async (name, args = {}) => {
-      const res = await mcp(appsPat.token, "tools/call", { name, arguments: args });
-      const raw = res.d?.result?.content?.[0]?.text ?? "";
-      let out = raw;
-      try {
-        out = JSON.parse(raw);
-      } catch {
-        // pesan galat berupa teks
-      }
-      return { isError: !!res.d?.result?.isError, out };
+    const call = async (name, args = {}) => {
+      const res = await mcp(pat, "tools/call", { name, arguments: args });
+      return { error: !!res.d?.result?.isError, text: res.d?.result?.content?.[0]?.text ?? JSON.stringify(res.d) };
     };
-    r = await mcp(appsPat.token, "tools/list");
-    const apTools = (r.d?.result?.tools ?? []).map((t) => t.name);
-    ok(
-      "mcp apps agent tools listed",
-      ["list_app_connections", "request_app_connection", "request_app_access"].every((n) => apTools.includes(n)),
-      apTools,
+    await j(
+      "PUT",
+      "/records/schedule/smoke-free-1",
+      { payload: { title: "Rapat bebas", startDate: "2026-12-02", startTime: "09:00", endTime: "11:00" } },
+      at,
     );
-    let ae = await ap("list_app_connections");
-    ok(
-      "mcp apps list connections for agent (no token)",
-      !ae.isError &&
-        ae.out.koneksi?.some((c) => c.connection === "smoke-apl" && c.agentEnabled === false) &&
-        ae.out.katalog?.some((p) => p.preset === "notion") &&
-        !JSON.stringify(ae.out).includes("rahasia-smoke"),
-      ae,
+    let c = await call("find_free_time", { date: "2026-12-02", durationMinutes: 60 });
+    ok("mcp find_free_time", !c.error && c.text.includes('"start": "08:00"') && c.text.includes('"start": "11:00"'), c);
+    await j("DELETE", "/records/schedule/smoke-free-1", null, at);
+    c = await call("list_emails", {});
+    ok("mcp list_emails empty", !c.error && c.text.includes("Tidak ada email"), c);
+    c = await call("read_email", { id: "tidak-ada" });
+    ok("mcp read_email unknown error", c.error, c);
+    c = await call("request_send_email", { to: ["a@contoh.id"], subject: "Uji", body: "Isi", reason: "uji" });
+    ok("mcp send email without account error", c.error && /akun email/i.test(c.text), c);
+    const acc = await j(
+      "POST",
+      "/mail/accounts",
+      { provider: "gmail", address: "smoke.agent@gmail.com", password: "sandi-palsu" },
+      at,
     );
-    ae = await ap("request_app_access", { connection: "smoke-apl", allowWrite: true, reason: "uji smoke" });
-    ok("mcp apps request access → pending", !ae.isError && ae.out.pending && ae.out.actionId, ae);
-    const accessAction = ae.out.actionId;
-    ae = await ap("request_app_access", { connection: "smoke-apl", agentEnabled: true, reason: "ulang" });
-    ok("mcp apps request access dedup", ae.out.catatan_duplikat && ae.out.actionId === accessAction, ae);
-    r = await j("GET", `/mcp-connections/${appId}`, null, at);
-    ok("mcp apps access not applied before approval", r.d?.agentEnabled === false && r.d?.allowWrite === false, r);
-    r = await j("POST", `/agent/actions/${accessAction}/approve`, null, at);
-    ok("mcp apps approve access", r.s === 200 && r.d.status === "approved", r);
-    r = await j("GET", `/mcp-connections/${appId}`, null, at);
-    ok("mcp apps access applied", r.d?.agentEnabled === true && r.d?.allowWrite === true, r);
-    // Izin per alat bertanda Hapus & simpan berkas hasil aplikasi (domain aplikasi saja, tanpa jaringan lokal)
-    r = await j("PATCH", `/mcp-connections/${appId}`, { agentTools: ["commit", "commit"] }, at);
-    ok("mcp apps agent tools saved unique", r.s === 200 && JSON.stringify(r.d.agentTools) === '["commit"]', r);
-    ae = await ap("request_app_access", { connection: "smoke-apl", allowTools: ["bukan-alat-hapus"], reason: "uji" });
-    ok("mcp apps request unknown destructive tool → error", ae.isError, ae);
-    ae = await ap("save_app_file", { connection: "smoke-apl", url: "https://contoh-lain.example/a.png" });
-    ok("mcp apps save file foreign domain → error", ae.isError && String(ae.out).includes("domain"), ae);
-    ae = await ap("save_app_file", { connection: "smoke-apl", url: "https://localhost/a.png" });
-    ok("mcp apps save file local network → error", ae.isError, ae);
-    await j("PATCH", `/mcp-connections/${appId}`, { agentTools: [] }, at);
-    ae = await ap("request_app_access", { connection: "smoke-apl", agentEnabled: true, reason: "sudah" });
-    ok("mcp apps request access unchanged → error", ae.isError, ae);
-    ae = await ap("request_app_connection", { name: "Dobel", url: "http://localhost:9/mcp", reason: "uji" });
-    ok("mcp apps request existing url → error", ae.isError, ae);
-    ae = await ap("request_app_connection", { preset: "tidak-ada", reason: "uji" });
-    ok("mcp apps request unknown preset → error", ae.isError, ae);
-    const smokeAppUrl = `https://mcp-${Date.now()}.smoke.example/mcp`;
-    const smokeApp = { name: "Smoke Usulan", url: smokeAppUrl, authType: "oauth" };
-    ae = await ap("request_app_connection", { ...smokeApp, reason: "Catatan rapat ke aplikasi" });
-    ok("mcp apps request connection → pending", !ae.isError && ae.out.pending, ae);
-    const connectAction = ae.out.actionId;
-    r = await j("GET", "/mcp-connections", null, at);
-    ok("mcp apps connection not created before approval", !r.d.some((c) => c.url === smokeAppUrl), r);
-    r = await j("POST", `/agent/actions/${connectAction}/reject`, {}, at);
-    ok("mcp apps reject connection", r.s === 200 && r.d.status === "rejected", r);
-    ae = await ap("request_app_connection", { ...smokeApp, reason: "Coba lagi" });
-    r = await j("POST", `/agent/actions/${ae.out.actionId}/approve`, null, at);
-    ok("mcp apps approve connection", r.s === 200 && r.d.status === "approved" && r.d.slug, r);
-    const createdSlug = r.d.slug;
-    r = await j("GET", `/mcp-connections/${createdSlug}`, null, at);
+    c = await call("request_send_email", { to: ["bukan-email"], subject: "Uji", body: "Isi", reason: "uji" });
+    ok("mcp send email bad recipient error", c.error && /tidak valid/.test(c.text), c);
+    c = await call("request_send_email", {
+      to: ["Penerima@Contoh.id"],
+      subject: "Undangan rapat",
+      body: "Mohon hadir.",
+      reason: "diminta pengguna",
+    });
+    ok("mcp request_send_email pending (not sent)", !c.error && c.text.includes('"pending": true'), c);
+    r = await j("GET", "/agent/actions?status=pending", null, at);
+    const sendAction = r.d.find((a) => a.kind === "send_email");
     ok(
-      "mcp apps approved connection = new, agent off",
-      r.s === 200 &&
-        r.d.status === "new" &&
-        r.d.agentEnabled === false &&
-        r.d.authType === "oauth" &&
-        r.d.url === smokeAppUrl,
-      r,
+      "send_email action awaits approval",
+      sendAction && sendAction.after.to[0] === "penerima@contoh.id" && sendAction.title.includes("Undangan rapat"),
+      r.d,
     );
-    await j("DELETE", `/mcp-connections/${r.d.id}`, null, at);
-    r = await j("GET", "/mcp-connections", null, at);
-    ok("mcp apps proposed connection cleanup", !r.d.some((c) => c.url === smokeAppUrl), r);
-    await j("DELETE", `/integrations/tokens/${appsPat.id}`, null, at);
-    r = await j("DELETE", `/mcp-connections/${appId}`, null, at);
-    ok("mcp apps delete", r.s === 200, r);
+    r = await j("POST", `/agent/actions/${sendAction.id}/reject`, null, at);
+    ok("send_email reject", r.s === 200 || r.s === 201, r);
+    await j("DELETE", `/mail/accounts/${acc.d.id}`, null, at);
   }
-
   // Robot e-Kinerja untuk agen (fitur terbuka): baca lewat tugas latar belakang, isi hanya lewat permintaan yang disetujui.
   // User sementara tidak punya sesi e-Kinerja → robot tidak pernah membuka e-Kinerja sungguhan.
   {
@@ -2743,7 +2826,7 @@ try {
     "mcp tools/list filtered by scopes",
     r.s === 200 &&
       toolNames ===
-        "create_record,create_todo,describe_record_types,get_record,list_agenda,list_open_tasks,list_records,request_delete_record,search_workspace,update_record",
+        "create_record,create_todo,describe_record_types,email_to_todo,find_free_time,get_record,list_agenda,list_emails,list_open_tasks,list_records,read_email,request_delete_record,request_send_email,search_workspace,update_record",
     toolNames,
   );
   {
@@ -3026,10 +3109,7 @@ try {
     // Menu buatan agen: non-pemilik kosong, agen hanya mengusulkan draf, mengubah menu aktif = kembali draf
     r = await j("GET", "/agent/menus", null, pt);
     ok("agent menus non-owner empty", r.s === 200 && r.d.length === 0, r);
-    const ownerLogin = await j("POST", "/auth/login", {
-      email: ADMIN_EMAIL,
-      password: process.env.SMOKE_ADMIN_PASSWORD ?? "123",
-    });
+    const ownerLogin = await session(ADMIN_EMAIL, "Smoke Admin", "super_admin");
     const ownerAt = ownerLogin.d?.accessToken;
     const menuPat = await j("POST", "/integrations/tokens", { name: "Smoke menu", scopes: ["agent:menus"] }, ownerAt);
     const menuBody = {
@@ -3741,14 +3821,15 @@ try {
       r = await j(
         "POST",
         "/robot/connectors/ekinerja/credentials",
-        { username: "nip-uji-001", password: "sandi-uji", accountPassword: "salah" },
+        { username: "nip-uji-001", password: "sandi-uji", accountPin: "482915" },
         at,
       );
-      ok("robot credentials need Akasha password (403)", r.s === 403, r);
+      ok("robot credentials need PIN set (400)", r.s === 400, r);
+      await j("PUT", "/security/pin", { pin: "482915" }, at);
       r = await j(
         "POST",
         "/robot/connectors/ekinerja/credentials",
-        { username: "nip-uji-001", password: "sandi-uji", accountPassword: "rahasia2" },
+        { username: "nip-uji-001", password: "sandi-uji", accountPin: "482915" },
         at,
       );
       ok(
@@ -3791,6 +3872,7 @@ try {
       ok("robot credentials deleted", r.s === 200 && !r.d.hasCredentials && r.d.credentialHint === null, r);
       r = await j("POST", "/robot/connectors/ekinerja/auto-login", null, at);
       ok("robot auto-login without credentials 400", r.s === 400, r);
+      await j("DELETE", "/security/pin", { pin: "482915" }, at);
     }
   }
 
@@ -3903,11 +3985,9 @@ try {
   ok("pin status: belum diatur", r.s === 200 && r.d.hasPin === false && r.d.sessionCapable === true, r);
   r = await j("PUT", "/records/para_area/area-lock", { payload: { title: "Area Privat", locked: true } }, pinAt);
   ok("lock item without PIN → 400", r.s === 400, r);
-  r = await j("PUT", "/security/pin", { password: "rahasia2", pin: "123456" }, pinAt);
+  r = await j("PUT", "/security/pin", { pin: "123456" }, pinAt);
   ok("weak PIN rejected", r.s === 400, r);
-  r = await j("PUT", "/security/pin", { password: "salah", pin: "482915" }, pinAt);
-  ok("set PIN wrong password → 400", r.s === 400, r);
-  r = await j("PUT", "/security/pin", { password: "rahasia2", pin: "482915" }, pinAt);
+  r = await j("PUT", "/security/pin", { pin: "482915" }, pinAt);
   ok("set PIN → session unlocked", r.s === 200 && r.d.hasPin && r.d.unlocked, r);
   r = await j("GET", "/auth/me", null, pinAt);
   ok("profile exposes hasPin, no pinHash", r.d.hasPin === true && !("pinHash" in r.d), r.d);
@@ -4018,7 +4098,7 @@ try {
   pinRt = r.rt;
   r = await j("GET", "/security/pin", null, pinAt);
   ok("unlock survives token rotation", r.d.unlocked === true, r.d);
-  r = await j("DELETE", "/security/pin", { password: "rahasia2" }, pinAt);
+  r = await j("DELETE", "/security/pin", { pin: "482915" }, pinAt);
   ok("remove PIN while items locked → 409", r.s === 409, r);
 
   // Arsip File Control tidak bisa dikunci; arsip PARA dari item terkunci ikut terkunci
@@ -4117,12 +4197,10 @@ try {
     ["para_area", "area-lock"],
   ])
     await j("DELETE", `/records/${type}/${id}`, null, pinAt);
-  r = await j("DELETE", "/security/pin", { password: "rahasia2" }, pinAt);
+  r = await j("DELETE", "/security/pin", { pin: "482915" }, pinAt);
   ok("remove PIN", r.s === 200 && r.d.hasPin === false, r);
   await j("POST", "/auth/logout", null, null, pinRt);
 
-  r = await j("POST", "/auth/change-password", { currentPassword: "salah", newPassword: "1234" }, pt);
-  ok("change pw wrong 400", r.s === 400, r);
   r = await j("POST", "/auth/logout", null, null, "x".repeat(30));
   ok("logout idempotent", r.s === 200, r);
   const docs = await fetch(B.replace("/api/v1", "/api/docs-json"));
@@ -4133,6 +4211,7 @@ try {
   ok("delete temp user (cascade)", r.s === 200, r);
   r = await j("DELETE", `/users/${tempPartnerId}`, null, admin);
   ok("delete temp partner", r.s === 200, r);
+  await db.end();
 }
 
 console.log(failed ? `\n${failed} test GAGAL` : "\nSemua test lulus");

@@ -21,7 +21,6 @@ import { RequestsModule } from "./requests/requests.module";
 import { RobotModule } from "./robot/robot.module";
 import { AgentModule } from "./agent/agent.module";
 import { AgentActionsModule } from "./agent-actions/agent-actions.module";
-import { McpConnectionsModule } from "./mcp-connections/mcp-connections.module";
 import { AutomationModule } from "./automation/automation.module";
 import { WhatsappModule } from "./whatsapp/whatsapp.module";
 import { RedisModule } from "./redis/redis.module";
@@ -29,6 +28,10 @@ import { SettingsModule } from "./settings/settings.module";
 import { SharingModule } from "./sharing/sharing.module";
 import { ObjectStorageModule } from "./storage/object-storage.module";
 import { TrashModule } from "./trash/trash.module";
+import { CalendarFeedModule } from "./calendar-feed/calendar-feed.module";
+import { MailModule } from "./mail/mail.module";
+import { ConnectionsModule } from "./connections/connections.module";
+import { DriveModule } from "./drive/drive.module";
 import { SecurityModule } from "./security/security.module";
 import { AkaiModule } from "./akai/akai.module";
 import { UploadsModule } from "./uploads/uploads.module";
@@ -49,6 +52,10 @@ import { UsersModule } from "./users/users.module";
     HealthModule,
     AuthModule,
     UsersModule,
+    CalendarFeedModule,
+    ConnectionsModule,
+    DriveModule,
+    MailModule,
     SettingsModule,
     SharingModule,
     RecordsModule,
@@ -64,7 +71,6 @@ import { UsersModule } from "./users/users.module";
     RobotModule,
     AgentModule,
     AgentActionsModule,
-    McpConnectionsModule,
     AutomationModule,
     NotebooksModule,
     OfficeModule,

@@ -251,7 +251,7 @@ export function toInternalUrl(url: string, publicUrl: string, internalUrl: strin
 }
 
 /** Status callback ONLYOFFICE (https://api.onlyoffice.com/docs/docs-api/usage-api/callback-handler/). */
-export const CALLBACK_STATUS = {
+const CALLBACK_STATUS = {
   editing: 1,
   mustSave: 2,
   saveError: 3,

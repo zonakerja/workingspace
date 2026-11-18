@@ -33,15 +33,15 @@ export function providerCandidates(
  * Kosong = ikuti provider aktif (chat/umum) atau urutan bawaan (OCR, embedding).
  */
 export type AiTask = "chat" | "general" | "agent" | "document" | "ocr";
-export const AI_TASKS: readonly AiTask[] = ["chat", "general", "agent", "document", "ocr"];
+const AI_TASKS: readonly AiTask[] = ["chat", "general", "agent", "document", "ocr"];
 
 /** Provider embedding yang didukung (keduanya menghasilkan vektor 768 dimensi, kolom `ai_chunks.embedding`). */
 export type EmbeddingProvider = "gemini" | "openai";
-export const EMBEDDING_PROVIDERS: readonly EmbeddingProvider[] = ["gemini", "openai"];
+const EMBEDDING_PROVIDERS: readonly EmbeddingProvider[] = ["gemini", "openai"];
 
 /** Tugas yang punya provider cadangan pilihan user (`<tugas>Backup`). */
 export type BackupTask = "chat" | "general" | "agent" | "document";
-export const BACKUP_TASKS: readonly BackupTask[] = ["chat", "general", "agent", "document"];
+const BACKUP_TASKS: readonly BackupTask[] = ["chat", "general", "agent", "document"];
 export const backupKey = (task: BackupTask) => `${task}Backup` as const;
 
 export interface AiRouting {

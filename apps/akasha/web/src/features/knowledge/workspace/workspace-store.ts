@@ -62,7 +62,7 @@ export async function reloadOpenEditors(except?: string) {
 }
 
 /** Aksi catatan terbuka yang dipakai palet perintah (fungsi dari NoteView). */
-export interface ActiveNote {
+interface ActiveNote {
   id: string;
   path: string;
   title: string;

@@ -8,7 +8,7 @@
  */
 
 type Payload = Record<string, unknown>;
-export type CandidateSource = "task" | "schedule" | "activity";
+type CandidateSource = "task" | "schedule" | "activity";
 
 export interface RenaksiCandidate {
   sourceType: CandidateSource;

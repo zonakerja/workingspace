@@ -10,8 +10,7 @@ import { normalizeSystemUrl } from "./robot-logic";
  * bersama pemilik. Menulis ke SIMAN (unggah SK) kelak hanya lewat permintaan yang disetujui pemilik.
  */
 
-export const SIMAN_AGENT_TASKS = ["session", "page"] as const;
-export type SimanAgentTask = (typeof SIMAN_AGENT_TASKS)[number];
+export type SimanAgentTask = "session" | "page";
 
 export const SIMAN_TASK_LABELS: Record<SimanAgentTask, string> = {
   session: "Jaga sesi login",

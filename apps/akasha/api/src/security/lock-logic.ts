@@ -14,7 +14,7 @@ export const isLockableType = (type: string): type is LockableType =>
   (LOCKABLE_TYPES as readonly string[]).includes(type);
 
 /** Key payload yang tetap terlihat saat item terkunci: judul, waktu, status, dan relasi (agar daftar & kalender utuh). */
-export const SKELETON_KEYS = new Set([
+const SKELETON_KEYS = new Set([
   "id",
   "userId",
   "title",
@@ -139,7 +139,7 @@ export function redactPayload(payload: Record<string, unknown>) {
 }
 
 /** PIN = tepat 6 angka. */
-export const PIN_PATTERN = /^\d{6}$/;
+const PIN_PATTERN = /^\d{6}$/;
 export const isValidPin = (pin: unknown): pin is string => typeof pin === "string" && PIN_PATTERN.test(pin);
 
 /** PIN terlalu mudah ditebak (sama semua / urut naik / urut turun). */
@@ -162,6 +162,3 @@ export function pinBlockMs(failed: number) {
   const rounds = Math.floor(failed / PIN_MAX_ATTEMPTS) - 1;
   return Math.min(15 * 60_000 * 2 ** rounds, 24 * 60 * 60_000);
 }
-
-/** Key payload `locked` bernilai benar. */
-export const isLockedPayload = (payload: Record<string, unknown> | null | undefined) => payload?.locked === true;

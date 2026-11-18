@@ -107,16 +107,12 @@ services:
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
       ASSET_BUCKET: ${ASSET_BUCKET:-akasha-assets}
       UPLOAD_MAX_MB: ${UPLOAD_MAX_MB:-300}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       # Masuk lewat SSO workingspace.id (docs/SSO.md). Secret = klien "akasha" di OIDC_CLIENTS service auth-api
       SSO_ISSUER: ${SITE_SCHEME:-https}://${AUTH_DOMAIN}/oidc
       SSO_CLIENT_ID: akasha
       SSO_CLIENT_SECRET: ${SSO_AKASHA_CLIENT_SECRET:?Set SSO_AKASHA_CLIENT_SECRET di .env}
       SSO_REDIRECT_URI: ${SITE_SCHEME:-https}://${APP_DOMAIN}/api/v1/auth/sso/callback
       SSO_POST_LOGOUT_URI: ${SITE_SCHEME:-https}://${APP_DOMAIN}/login
-      # Masuk dengan kata sandi lokal Akasha (bawaan mati di production; semua akun lewat SSO)
-      PASSWORD_LOGIN: ${AKASHA_PASSWORD_LOGIN:-}
       # Editor ONLYOFFICE (kosong = nonaktif). URL publik = https://<APP_DOMAIN>/office (Caddy, satu domain)
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-}
       ONLYOFFICE_INTERNAL_URL: ${ONLYOFFICE_URL:+http://onlyoffice}
@@ -150,6 +146,14 @@ services:
       AKAI_CLIENT_ID: akasha
       AKAI_CLIENT_SECRET: ${AKAI_AKASHA_CLIENT_SECRET:?Set AKAI_AKASHA_CLIENT_SECRET di .env}
       AKAI_WEB_URL: ${SITE_SCHEME:-https}://${AKAI_DOMAIN}
+      # Akun Tersambung tahap 2: OAuth client milik pemilik (kosong = tombol Sambungkan nonaktif; docs/AKUN-TERSAMBUNG.md §9)
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+      MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_TENANT: ${MICROSOFT_OAUTH_TENANT:-consumers}
+      GOOGLE_PICKER_API_KEY: ${GOOGLE_PICKER_API_KEY:-}
+      GOOGLE_PICKER_APP_ID: ${GOOGLE_PICKER_APP_ID:-}
     volumes:
       # Font tambahan yang diunggah admin (Tools → ONLYOFFICE); dibaca container onlyoffice
       - onlyoffice-fonts:/app/office-fonts
@@ -282,6 +286,7 @@ services:
       args:
         VITE_AUTH_URL: ${SITE_SCHEME:-https}://${AUTH_DOMAIN}
         VITE_AKASHA_URL: ${SITE_SCHEME:-https}://${APP_DOMAIN}
+        VITE_AKAI_URL: ${SITE_SCHEME:-https}://${AKAI_DOMAIN}
     image: workingspace-landing:${APP_VERSION:-latest}
     restart: unless-stopped
     environment:
@@ -517,6 +522,14 @@ services:
       OFFSITE_S3_BUCKET: ${OFFSITE_S3_BUCKET:-}
       OFFSITE_S3_PREFIX: ${OFFSITE_S3_PREFIX:-akasha}
       OFFSITE_RETENTION_DAYS: ${OFFSITE_RETENTION_DAYS:-30}
+      # Alternatif S3: Google Drive / OneDrive (dipakai bila OFFSITE_S3_BUCKET kosong; docs/DEPLOYMENT.md §4)
+      OFFSITE_DRIVE_TYPE: ${OFFSITE_DRIVE_TYPE:-}
+      OFFSITE_DRIVE_TOKEN: ${OFFSITE_DRIVE_TOKEN:-}
+      OFFSITE_DRIVE_FOLDER: ${OFFSITE_DRIVE_FOLDER:-akasha-backup}
+      OFFSITE_DRIVE_CLIENT_ID: ${OFFSITE_DRIVE_CLIENT_ID:-}
+      OFFSITE_DRIVE_CLIENT_SECRET: ${OFFSITE_DRIVE_CLIENT_SECRET:-}
+      OFFSITE_ONEDRIVE_DRIVE_ID: ${OFFSITE_ONEDRIVE_DRIVE_ID:-}
+      OFFSITE_ONEDRIVE_DRIVE_TYPE: ${OFFSITE_ONEDRIVE_DRIVE_TYPE:-personal}
       BACKUP_ENCRYPTION_PASSWORD: ${BACKUP_ENCRYPTION_PASSWORD:-}
     volumes:
       - ${BACKUP_DIR:-./backups}:/backups

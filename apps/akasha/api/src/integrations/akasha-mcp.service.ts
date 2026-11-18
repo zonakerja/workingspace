@@ -1,3 +1,5 @@
+import { freeSlots } from "../mail/agent-mail-logic";
+import { MailInboxService } from "../mail/mail-inbox.service";
 import { Injectable } from "@nestjs/common";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -12,7 +14,6 @@ import { RECORD_TABLES, type RecordType } from "../records/record-schema";
 import { RecordsService } from "../records/records.service";
 import { AGENT_WRITABLE_TYPES, compactPayload, describeRecordType } from "../agent-actions/agent-action-logic";
 import { AgentActionsService } from "../agent-actions/agent-actions.service";
-import { McpConnectionsService } from "../mcp-connections/mcp-connections.service";
 import { KIND_LABELS, REQUEST_KINDS, REQUEST_STATUSES, STATUS_LABELS } from "../requests/request-logic";
 import { AssetVerificationService } from "../requests/asset-verification.service";
 import { RequestsService } from "../requests/requests.service";
@@ -63,15 +64,15 @@ const INSTRUCTIONS = [
   "SIMAN = fitur terbuka: Anda boleh menambah workflow di dalamnya (propose_agent_menu placement siman) dan menjalankan",
   "robot bacanya (siman_*: jaga sesi, baca halaman tanpa klik). Proses tiket & surat keputusan diajarkan pemilik dan dibangun",
   "sebagai skill + workflow SIMAN; robot belum menulis apa pun ke SIMAN.",
-  "Aplikasi MCP = fitur terbuka: Anda boleh menambah workflow di dalamnya (propose_agent_menu placement mcp), memakai alat",
-  "aplikasi yang diizinkan (list_app_tools → call_app_tool), dan meminta koneksi baru (request_app_connection) atau perubahan",
-  "izin agen (request_app_access); keduanya menunggu persetujuan pemilik dan kredensial aplikasi tidak pernah Anda pegang.",
-  "Hasil aplikasi berupa tautan (ekspor desain, gambar) disimpan ke Akasha dengan save_app_file, lalu laporkan resourceId-nya.",
   "Proses baru dibangun sebagai skill + fitur non-native lewat propose_agent_menu, yang menunggu persetujuan pemilik.",
   "Data kerja (agenda, to-do, project, task, catatan, resource, arsip, …) dibaca dengan list_records/get_record dan ditulis",
   "dengan create_record/update_record sesuai permintaan pengguna; panggil describe_record_types bila ragu nama field.",
   "Setiap buat/ubah tercatat dan bisa dibatalkan pemilik. Anda TIDAK bisa menghapus: request_delete_record hanya membuat",
   "permintaan yang menunggu persetujuan pemilik di Approval — sampaikan itu kepada pengguna.",
+  "Email: list_emails/read_email membaca kotak masuk pemilik (salinan; tidak menandai dibaca), email_to_todo menjadikan",
+  "email to-do. Mengirim email hanya lewat request_send_email yang menunggu persetujuan pemilik — tidak ada yang terkirim",
+  "sebelum disetujui. Kalender: buat agenda dengan create_record jenis schedule; agenda otomatis muncul di kalender",
+  '"Akasha" Google/Outlook pemilik bila kalender dua arah tersambung. find_free_time mencari jam kosong pada satu tanggal.',
 ].join(" ");
 
 /**
@@ -80,7 +81,7 @@ const INSTRUCTIONS = [
  * tetap berlaku), dan setiap pemanggilan dicatat di `agent_activity_logs`.
  */
 /** Alat MCP yang hanya membaca data (anotasi `readOnlyHint`). Alat baru yang hanya membaca → tambahkan di sini. */
-export const READ_ONLY_TOOLS = new Set([
+const READ_ONLY_TOOLS = new Set([
   "search_knowledge",
   "read_knowledge_note",
   "search_workspace",
@@ -100,9 +101,10 @@ export const READ_ONLY_TOOLS = new Set([
   "ekinerja_renaksi_context",
   "srikandi_status",
   "siman_status",
-  "list_app_connections",
-  "list_app_tools",
   "ask_akasha",
+  "list_emails",
+  "read_email",
+  "find_free_time",
 ]);
 
 @Injectable()
@@ -118,11 +120,11 @@ export class AkashaMcpService {
     private readonly assets: AssetVerificationService,
     private readonly menus: AgentMenusService,
     private readonly actions: AgentActionsService,
-    private readonly apps: McpConnectionsService,
     private readonly ekinerja: EkinerjaAgentService,
     private readonly renaksi: RenaksiProposalsService,
     private readonly srikandi: SrikandiAgentService,
     private readonly siman: SimanAgentService,
+    private readonly inbox: MailInboxService,
   ) {}
 
   createServer(principal: TokenPrincipal) {
@@ -409,6 +411,162 @@ export class AkashaMcpService {
             payload: compactPayload(record.payload as Record<string, unknown>, 20_000),
           });
         }),
+      );
+    }
+
+    if (can("workspace:read")) {
+      server.registerTool(
+        "find_free_time",
+        {
+          title: "Cari waktu luang",
+          description:
+            "Jam kosong pemilik pada satu tanggal (di antara agenda berjam, dalam jam kerja). Agenda sepanjang hari dilaporkan terpisah.",
+          inputSchema: {
+            date: z.string().describe("Tanggal YYYY-MM-DD"),
+            durationMinutes: z.number().int().min(15).max(600).default(60).describe("Lama minimal (menit)"),
+            from: z.string().optional().describe("Awal jam kerja HH:mm (bawaan 08:00)"),
+            to: z.string().optional().describe("Akhir jam kerja HH:mm (bawaan 17:00)"),
+          },
+        },
+        run(
+          "find_free_time",
+          async ({
+            date,
+            durationMinutes,
+            from,
+            to,
+          }: {
+            date: string;
+            durationMinutes: number;
+            from?: string;
+            to?: string;
+          }) => {
+            if (!isYmd(date)) return failure("Format tanggal harus YYYY-MM-DD.");
+            const rows = await this.records.findMany("schedule", { from: date, to: date }, principal.user);
+            const items = rows
+              .map((r) => r.payload as Record<string, unknown>)
+              .map((p) => ({
+                title: String(p.title ?? "Agenda"),
+                startTime: typeof p.startTime === "string" ? p.startTime : undefined,
+                endTime: typeof p.endTime === "string" ? p.endTime : undefined,
+                allDay: p.isAllDay === true || !p.startTime,
+              }));
+            return text({ date, ...freeSlots(items, { duration: durationMinutes, from, to }) });
+          },
+        ),
+      );
+    }
+
+    if (can("mail:read")) {
+      server.registerTool(
+        "list_emails",
+        {
+          title: "Daftar email masuk",
+          description:
+            "Email masuk pemilik dari semua akun yang kotak masuknya dinyalakan (terbaru dulu): pengirim, subjek, cuplikan, petunjuk tagihan/jadwal.",
+          inputSchema: {
+            status: z
+              .enum(["new", "done", "ignored"])
+              .optional()
+              .describe("new = belum ditindaklanjuti (bawaan semua)"),
+            q: z.string().max(100).optional().describe("Cari pengirim / subjek / cuplikan"),
+            take: z.number().int().min(1).max(50).default(20),
+          },
+        },
+        run("list_emails", async ({ status, q, take }: { status?: string; q?: string; take: number }) => {
+          const r = await this.inbox.list(principal.user.id, { status, q, take });
+          return text(
+            r.messages.length
+              ? r.messages.map((m) => ({
+                  id: m.id,
+                  from: m.fromName ? `${m.fromName} <${m.fromAddress}>` : m.fromAddress,
+                  to: m.account?.address,
+                  subject: m.subject,
+                  sentAt: m.sentAt,
+                  snippet: m.snippet,
+                  hints: m.hints.kind === "none" ? undefined : m.hints,
+                  status: m.status,
+                }))
+              : "Tidak ada email.",
+          );
+        }),
+      );
+      server.registerTool(
+        "read_email",
+        {
+          title: "Baca email",
+          description: "Isi lengkap satu email (teks) + usulan to-do/agenda dari petunjuk tagihan/jadwal.",
+          inputSchema: { id: z.string().min(1).max(60) },
+        },
+        run("read_email", async ({ id }: { id: string }) => {
+          const m = await this.inbox.get(principal.user.id, id);
+          return text({
+            id: m.id,
+            from: m.fromName ? `${m.fromName} <${m.fromAddress}>` : m.fromAddress,
+            to: m.toText,
+            subject: m.subject,
+            sentAt: m.sentAt,
+            body: m.body,
+            attachments: m.attachments,
+            hints: m.hints,
+            suggestions: m.suggestions,
+            status: m.status,
+            linked: m.linked,
+          });
+        }),
+      );
+      if (can("workspace:write")) {
+        server.registerTool(
+          "email_to_todo",
+          {
+            title: "Jadikan email to-do",
+            description:
+              "Membuat to-do di Planner dari satu email (judul/tanggal/prioritas bawaan dari usulan email; bisa diganti). Email ditandai selesai.",
+            inputSchema: {
+              id: z.string().min(1).max(60),
+              title: z.string().min(1).max(200).optional(),
+              date: z.string().optional().describe("YYYY-MM-DD"),
+              priority: z.enum(["low", "medium", "high"]).optional(),
+            },
+          },
+          run(
+            "email_to_todo",
+            async ({ id, title, date, priority }: { id: string; title?: string; date?: string; priority?: string }) => {
+              if (date && !isYmd(date)) return failure("Format tanggal harus YYYY-MM-DD.");
+              const m = await this.inbox.get(principal.user.id, id);
+              const s = m.suggestions.todo;
+              const done = await this.inbox.toTodo(principal.user, id, {
+                title: title ?? s.title,
+                date: date ?? s.date,
+                priority: priority ?? s.priority,
+              });
+              return text({ created: true, todo: done.linked.find((l) => l.type === "todo"), title: title ?? s.title });
+            },
+          ),
+        );
+      }
+    }
+
+    if (can("mail:send")) {
+      server.registerTool(
+        "request_send_email",
+        {
+          title: "Ajukan kirim email",
+          description:
+            "Mengajukan email untuk dikirim atas nama pemilik. TIDAK langsung terkirim: pemilik membaca & menyetujui di Approval → Usulan Agen. Tanpa accountId = akun email utama.",
+          inputSchema: {
+            to: z.array(z.string().max(254)).min(1).max(10),
+            subject: z.string().min(1).max(300),
+            body: z.string().min(1).max(20000).describe("Isi email teks biasa"),
+            accountId: z.string().max(40).optional(),
+            reason: z.string().min(1).max(500).describe("Alasan singkat untuk pemilik"),
+          },
+        },
+        run(
+          "request_send_email",
+          async (input: { to: string[]; subject: string; body: string; accountId?: string; reason: string }) =>
+            text(await this.actions.requestSendEmail(principal.user, input)),
+        ),
       );
     }
 
@@ -853,7 +1011,7 @@ export class AkashaMcpService {
               .enum(MENU_PLACEMENTS)
               .optional()
               .describe(
-                "workflow = tab Workflow di AI Agent (bawaan); connection = menu di Connection & MCP; ekinerja = tab Workflow di menu e-Kinerja; srikandi = tab Workflow di menu SRIKANDI; siman = tab Workflow di menu SIMAN; mcp = tab Workflow di menu Aplikasi MCP",
+                "workflow = tab Workflow di AI Agent (bawaan); connection = menu di Connection & MCP; ekinerja = tab Workflow di menu e-Kinerja; srikandi = tab Workflow di menu SRIKANDI; siman = tab Workflow di menu SIMAN",
               ),
             form: z
               .array(
@@ -1172,196 +1330,6 @@ export class AkashaMcpService {
         },
         run("siman_read_page", async ({ url }: { url?: string }) =>
           started(this.siman.start(principal.user, "page", url)),
-        ),
-      );
-    }
-
-    if (can("mcp:apps")) {
-      server.registerTool(
-        "list_app_connections",
-        {
-          title: "Daftar koneksi Aplikasi MCP",
-          description:
-            "Semua aplikasi MCP milik pemilik (termasuk yang belum tersambung / belum diizinkan untuk agen): slug, status, izin agen, jumlah alat; plus katalog aplikasi yang bisa disambungkan. Pakai sebelum request_app_connection / request_app_access.",
-          inputSchema: {},
-        },
-        run("list_app_connections", async () => {
-          const rows = await this.apps.list(principal.user);
-          return text({
-            koneksi: rows.map((c) => ({
-              connection: c.slug,
-              name: c.name,
-              url: c.url,
-              authType: c.authType,
-              status: c.status,
-              statusMessage: c.statusMessage,
-              agentEnabled: c.agentEnabled,
-              allowWrite: c.allowWrite,
-              agentTools: c.agentTools,
-              fileHosts: c.fileHosts,
-              tools: c.tools.length,
-            })),
-            katalog: this.apps
-              .presets()
-              .map((p) => ({ preset: p.key, name: p.name, description: p.description, authType: p.authType })),
-          });
-        }),
-      );
-
-      server.registerTool(
-        "request_app_connection",
-        {
-          title: "Minta sambungkan aplikasi MCP",
-          description:
-            "Ajukan koneksi aplikasi MCP baru (dari katalog lewat preset, atau alamat https server MCP resmi aplikasi). TIDAK langsung dibuat: menunggu persetujuan pemilik di Approval → Usulan Agen. Setelah disetujui pemilik sendiri yang masuk (OAuth) atau mengisi token — Anda tidak pernah menerima kredensial. Koneksi baru belum diizinkan untuk agen; minta izinnya dengan request_app_access.",
-          inputSchema: {
-            preset: z.string().max(40).optional().describe("Kunci katalog dari list_app_connections (mis. notion)"),
-            name: z.string().max(80).optional().describe("Nama aplikasi (wajib bila tanpa preset)"),
-            url: z.string().max(500).optional().describe("Alamat https server MCP (wajib bila tanpa preset)"),
-            authType: z.enum(["none", "token", "oauth"]).optional().describe("Cara masuk; bawaan dari katalog"),
-            reason: z.string().min(3).max(500).describe("Untuk apa aplikasi ini dipakai, untuk dibaca pemilik"),
-          },
-        },
-        run(
-          "request_app_connection",
-          async ({
-            reason,
-            ...input
-          }: {
-            preset?: string;
-            name?: string;
-            url?: string;
-            authType?: string;
-            reason: string;
-          }) => {
-            const result = await this.actions.requestMcpConnect(principal.user, input, reason);
-            return text({
-              pending: true,
-              actionId: result.actionId,
-              ...(result.duplicate ? { catatan_duplikat: "Permintaan untuk alamat ini sudah menunggu." } : {}),
-              message: "Permintaan menunggu persetujuan pemilik di Approval → Usulan Agen atau Aplikasi MCP.",
-            });
-          },
-        ),
-      );
-
-      server.registerTool(
-        "request_app_access",
-        {
-          title: "Minta ubah izin agen atas aplikasi",
-          description:
-            "Ajukan perubahan izin agen untuk satu koneksi: agentEnabled (agen boleh memakai alat baca aplikasi ini), allowWrite (agen boleh menjalankan alat yang mengubah data), dan/atau allowTools (nama alat bertanda Hapus/destructive yang tetap diperlukan, mis. alat yang menyimpan hasil sunting desain; ikut menyalakan allowWrite). TIDAK langsung berlaku: menunggu persetujuan pemilik.",
-          inputSchema: {
-            connection: z.string().min(1).max(80).describe("Nilai connection dari list_app_connections"),
-            agentEnabled: z.boolean().optional(),
-            allowWrite: z.boolean().optional(),
-            allowTools: z
-              .array(z.string().min(1).max(200))
-              .max(20)
-              .optional()
-              .describe("Nama alat bertanda destructive di list_app_tools yang perlu diizinkan"),
-            reason: z.string().min(3).max(500).describe("Mengapa izin ini diperlukan, untuk dibaca pemilik"),
-          },
-        },
-        run(
-          "request_app_access",
-          async ({
-            connection,
-            agentEnabled,
-            allowWrite,
-            allowTools,
-            reason,
-          }: {
-            connection: string;
-            agentEnabled?: boolean;
-            allowWrite?: boolean;
-            allowTools?: string[];
-            reason: string;
-          }) => {
-            const result = await this.actions.requestMcpAccess(
-              principal.user,
-              connection,
-              { agentEnabled, allowWrite, allowTools },
-              reason,
-            );
-            return text({
-              pending: true,
-              actionId: result.actionId,
-              ...(result.duplicate ? { catatan_duplikat: "Permintaan izin untuk koneksi ini sudah menunggu." } : {}),
-              message: "Permintaan menunggu persetujuan pemilik di Approval → Usulan Agen atau Aplikasi MCP.",
-            });
-          },
-        ),
-      );
-
-      server.registerTool(
-        "save_app_file",
-        {
-          title: "Simpan berkas hasil aplikasi ke Akasha",
-          description:
-            "Unduh berkas hasil aplikasi tersambung (mis. tautan dari export-design Canva, gambar hasil generate-image) dan simpan sebagai berkas Akasha + Resource Global bertag 'Hasil Agen'. Hanya tautan https di domain aplikasi itu (fileHosts di list_app_connections), maks. 50 MB; koneksi harus diizinkan untuk agen. Hasil: uploadId (bisa dipakai sebagai lampiran lewat update_record) dan resourceId. Bisa dibatalkan pemilik.",
-          inputSchema: {
-            connection: z.string().min(1).max(80).describe("Nilai connection dari list_app_connections"),
-            url: z.string().min(8).max(4000).describe("Tautan unduh dari hasil alat aplikasi"),
-            name: z.string().max(120).optional().describe("Nama berkas (ekstensi ditambahkan otomatis)"),
-            title: z.string().max(300).optional().describe("Judul Resource"),
-            description: z.string().max(2000).optional().describe("Keterangan singkat isi berkas"),
-          },
-        },
-        run(
-          "save_app_file",
-          async (input: { connection: string; url: string; name?: string; title?: string; description?: string }) => {
-            const saved = await this.actions.saveAppFile(principal.user, input);
-            return text({
-              ...saved,
-              message: "Berkas tersimpan di Akasha (Working Space → Resources, tag Hasil Agen).",
-            });
-          },
-        ),
-      );
-
-      server.registerTool(
-        "list_app_tools",
-        {
-          title: "Alat aplikasi tersambung",
-          description:
-            "Daftar aplikasi luar (Canva, Notion, GitHub, …) yang disambungkan pemilik dan diizinkan untuk agen, beserta alatnya. allowed=false = butuh izin pemilik (alat tulis) atau tidak pernah boleh (alat hapus).",
-          inputSchema: {},
-        },
-        run("list_app_tools", async () => {
-          const catalog = await this.apps.agentCatalog(principal.user);
-          return text(catalog.length ? catalog : "Belum ada aplikasi yang disambungkan & diizinkan untuk agen.");
-        }),
-      );
-
-      server.registerTool(
-        "call_app_tool",
-        {
-          title: "Jalankan alat aplikasi",
-          description:
-            "Jalankan satu alat aplikasi tersambung atas nama pemilik (kredensial tetap di Akasha). Hanya alat dengan allowed=true di list_app_tools; jalankan sesuai permintaan pengguna.",
-          inputSchema: {
-            connection: z.string().min(1).max(80).describe("Nilai connection dari list_app_tools"),
-            tool: z.string().min(1).max(200),
-            arguments: z.record(z.string(), z.unknown()).optional(),
-          },
-        },
-        run(
-          "call_app_tool",
-          async ({
-            connection,
-            tool,
-            arguments: args,
-          }: {
-            connection: string;
-            tool: string;
-            arguments?: Record<string, unknown>;
-          }) => {
-            const result = await this.apps.callTool(principal.user, connection, tool, args ?? {}, true);
-            return result.isError
-              ? failure(result.text || "Alat mengembalikan galat.")
-              : text(result.text || "(tanpa isi)");
-          },
         ),
       );
     }

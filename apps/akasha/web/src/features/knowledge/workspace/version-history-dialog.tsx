@@ -20,7 +20,7 @@ import { diffStats, lineDiff } from "./line-diff";
 import { useWorkspaceStore } from "./workspace-store";
 
 /** Label asal versi (kapan riwayat dicatat). */
-export const VERSION_REASON_LABEL: Record<string, string> = {
+const VERSION_REASON_LABEL: Record<string, string> = {
   observed: "Terpantau saat pindai vault",
   before_save: "Sebelum disimpan dari editor Akasha",
   before_properties: "Sebelum properti diubah",

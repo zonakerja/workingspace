@@ -1,4 +1,5 @@
-import { Activity, ImageUp, LayoutGrid, Save, Trash2 } from "lucide-react";
+import { AkashaMark } from "@workingspace/ui/brand";
+import { ImageUp, LayoutGrid, Save, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -92,16 +93,13 @@ function AppSettingsForm({ settings }: { settings: AppSettings }) {
           <Field>
             <FieldLabel>Logo Aplikasi</FieldLabel>
             <div className="flex items-center gap-4">
-              <span
-                data-module="overview"
-                className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-module-gradient text-white shadow-lg shadow-module/25"
-              >
-                {logo ? (
+              {logo ? (
+                <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl shadow-lg">
                   <img src={logo} alt="Logo" className="size-full object-cover" />
-                ) : (
-                  <Activity className="size-8" />
-                )}
-              </span>
+                </span>
+              ) : (
+                <AkashaMark className="size-16 shadow-lg" />
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
                   <ImageUp /> Upload Gambar

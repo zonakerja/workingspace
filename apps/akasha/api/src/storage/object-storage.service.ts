@@ -11,6 +11,24 @@ import {
 } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
 
+/**
+ * Pengait arsip dingin (docs/AKUN-TERSAMBUNG.md tahap 4), dipasang ColdStorageService. Objek yang dipindah ke Drive tidak ada lagi di
+ * bucket; saat dibaca (fitur apa pun), objek dikembalikan dulu dari Drive lalu dibaca seperti biasa.
+ */
+export interface ColdStorageHooks {
+  /** Objek tidak ada di bucket: kembalikan dari arsip dingin. true = sudah dikembalikan (baca ulang), false = memang tidak ada. */
+  restore(key: string): Promise<boolean>;
+  /** Objek dihapus: hapus juga salinannya di arsip dingin (bila ada). */
+  removed(key: string): Promise<void>;
+  /** Objek dibaca (untuk "terakhir dibuka"). Tidak boleh melempar. */
+  touched(key: string): void;
+}
+
+const isMissing = (error: unknown) => {
+  const e = error as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+  return e?.name === "NoSuchKey" || e?.Code === "NoSuchKey" || e?.$metadata?.httpStatusCode === 404;
+};
+
 @Injectable()
 export class ObjectStorageService implements OnModuleInit {
   private readonly logger = new Logger(ObjectStorageService.name);
@@ -28,6 +46,22 @@ export class ObjectStorageService implements OnModuleInit {
         secretAccessKey: config.getOrThrow<string>("S3_SECRET_ACCESS_KEY"),
       },
     });
+  }
+
+  private cold?: ColdStorageHooks;
+
+  setColdStorageHooks(hooks: ColdStorageHooks) {
+    this.cold = hooks;
+  }
+
+  /** Jalankan operasi baca; objek hilang yang ada di arsip dingin dikembalikan lalu operasi diulang sekali. */
+  private async withRestore<T>(key: string, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (error) {
+      if (!isMissing(error) || !this.cold || !(await this.cold.restore(key))) throw error;
+      return run();
+    }
   }
 
   /** Promise pembuatan bucket (sekali); di-reset bila gagal agar dicoba lagi pada pemakaian berikutnya. */
@@ -71,6 +105,15 @@ export class ObjectStorageService implements OnModuleInit {
   }
 
   async getObject(key: string) {
+    const result = await this.withRestore(key, () =>
+      this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key })),
+    );
+    this.cold?.touched(key);
+    return result.Body as Readable;
+  }
+
+  /** Baca tanpa pengait arsip dingin (dipakai pemindah arsip dingin sendiri). */
+  async getObjectRaw(key: string) {
     const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
     return result.Body as Readable;
   }
@@ -85,17 +128,28 @@ export class ObjectStorageService implements OnModuleInit {
   }
 
   async copyObject(sourceKey: string, targetKey: string) {
-    await this.client.send(
-      new CopyObjectCommand({
-        Bucket: this.bucket,
-        Key: targetKey,
-        CopySource: `${this.bucket}/${sourceKey.split("/").map(encodeURIComponent).join("/")}`,
-      }),
+    await this.withRestore(sourceKey, () =>
+      this.client.send(
+        new CopyObjectCommand({
+          Bucket: this.bucket,
+          Key: targetKey,
+          CopySource: `${this.bucket}/${sourceKey.split("/").map(encodeURIComponent).join("/")}`,
+        }),
+      ),
     );
   }
 
-  async deleteObject(key: string) {
+  /** Hapus objek (dan salinan arsip dinginnya). `keepCold` = hanya dari bucket (dipakai saat memindah ke arsip dingin). */
+  async deleteObject(key: string, options: { keepCold?: boolean } = {}) {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    if (!options.keepCold && this.cold)
+      await this.cold
+        .removed(key)
+        .catch((error: unknown) =>
+          this.logger.warn(
+            `Salinan arsip dingin ${key} gagal dihapus: ${error instanceof Error ? error.message : error}`,
+          ),
+        );
   }
 
   /** Dipakai health check: pastikan bucket ada (dibuat bila storage baru siap), lalu cek aksesnya. */

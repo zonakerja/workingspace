@@ -34,16 +34,3 @@ export function useLockPin() {
   const apply = useApplyPinStatus();
   return useMutation({ mutationFn: () => securityApi.lock(), onSuccess: apply });
 }
-
-export function useSetPin() {
-  const apply = useApplyPinStatus();
-  return useMutation({
-    mutationFn: ({ password, pin }: { password: string; pin: string }) => securityApi.setPin(password, pin),
-    onSuccess: apply,
-  });
-}
-
-export function useRemovePin() {
-  const apply = useApplyPinStatus();
-  return useMutation({ mutationFn: (password: string) => securityApi.removePin(password), onSuccess: apply });
-}

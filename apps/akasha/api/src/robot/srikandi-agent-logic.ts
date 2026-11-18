@@ -10,8 +10,7 @@ import { summarizeRobotJob } from "./robot-jobs";
  * pemilik menyetujuinya di Approval → Usulan Agen; Kirim Konsep / Kirim Naskah / tanda tangan tidak pernah dilakukan robot.
  */
 
-export const SRIKANDI_AGENT_TASKS = ["letters", "inbox", "references", "classifications", "check"] as const;
-export type SrikandiAgentTask = (typeof SRIKANDI_AGENT_TASKS)[number];
+export type SrikandiAgentTask = "letters" | "inbox" | "references" | "classifications" | "check";
 
 export const SRIKANDI_TASK_LABELS: Record<SrikandiAgentTask, string> = {
   letters: "Ambil Daftar Naskah Keluar",
@@ -41,11 +40,10 @@ export const registerRequestTitle = (entry: Pick<OutgoingEntry, "subject">, mode
 export type RegisterMode = "register" | "update";
 
 /** Status entri yang sudah tidak bisa didaftarkan lagi. */
-export const isRegistered = (entry: Pick<OutgoingEntry, "status">) =>
-  entry.status === "submitted" || entry.status === "done";
+const isRegistered = (entry: Pick<OutgoingEntry, "status">) => entry.status === "submitted" || entry.status === "done";
 
 /** Entri terdaftar yang isinya berubah sejak terakhir dikirim (tanpa catatan pengiriman = dianggap perlu dicek). */
-export const changedSincePush = (entry: OutgoingEntry) =>
+const changedSincePush = (entry: OutgoingEntry) =>
   !entry.pushedSignature || entry.pushedSignature !== outgoingSignature(entry);
 
 /**

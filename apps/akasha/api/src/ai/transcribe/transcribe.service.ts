@@ -11,7 +11,7 @@ import { UploadsService } from "../../uploads/uploads.service";
 import { AiService } from "../ai.service";
 import type { SegmentResult } from "./transcript-logic";
 
-export interface TranscribeResult {
+interface TranscribeResult {
   text: string;
   truncated: boolean;
   passes: number;

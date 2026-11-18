@@ -73,12 +73,19 @@ export class PinService {
     };
   }
 
-  /** Atur PIN pertama kali atau ganti PIN. Kata sandi akun wajib; sesi lain dikunci kembali. */
-  async setPin(user: AuthUser, password: string, pin: string) {
+  /**
+   * Atur PIN pertama kali atau ganti PIN (hanya akun tanpa SSO — akun uji/dev; akun SSO mengatur PIN di akun Workingspace).
+   * Mengganti PIN wajib PIN lama; sesi lain dikunci kembali.
+   */
+  async setPin(user: AuthUser, pin: string, currentPin?: string) {
     if (await this.ssoSubjectOf(user.id)) this.ssoManaged();
     if (!isValidPin(pin)) throw new BadRequestException("PIN harus 6 angka.");
     if (isWeakPin(pin)) throw new BadRequestException("PIN terlalu mudah ditebak (angka sama semua / berurutan).");
-    await this.checkPassword(user.id, password);
+    const row = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { pinHash: true } });
+    if (row.pinHash) {
+      if (!currentPin) throw new BadRequestException("Masukkan PIN lama untuk mengganti PIN.");
+      await this.checkPin(user.id, currentPin);
+    }
     await this.prisma.user.update({
       where: { id: user.id },
       data: { pinHash: await hash(pin), pinFailed: 0, pinBlockedUntil: null },
@@ -153,10 +160,10 @@ export class PinService {
     return this.status(user);
   }
 
-  /** Hapus PIN: kata sandi akun wajib dan tidak boleh ada item yang masih terkunci. */
-  async removePin(user: AuthUser, password: string) {
+  /** Hapus PIN (akun tanpa SSO): PIN saat ini wajib dan tidak boleh ada item yang masih terkunci. */
+  async removePin(user: AuthUser, pin: string) {
     if (await this.ssoSubjectOf(user.id)) this.ssoManaged();
-    await this.checkPassword(user.id, password);
+    await this.checkPin(user.id, pin);
     const set = await this.locks.lockSet(user.id);
     if (set.records.size || set.notebooks.size) {
       throw new ConflictException(
@@ -183,18 +190,9 @@ export class PinService {
     if (!row?.pinHash) throw new BadRequestException("Atur PIN keamanan di Profil Saya sebelum mengunci item.");
   }
 
-  /** Konfirmasi pemilik untuk akun tanpa kata sandi lokal (akun SSO): PIN keamanan. Dipakai brankas kredensial robot. */
+  /** Konfirmasi pemilik dengan PIN keamanan. Dipakai brankas kredensial robot. */
   async confirmOwner(userId: string, pin: string | undefined) {
     if (!pin) throw new BadRequestException("Masukkan PIN keamanan untuk konfirmasi.");
     await this.checkPin(userId, pin);
-  }
-
-  private async checkPassword(userId: string, password: string) {
-    const row = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } });
-    if (!row.passwordHash)
-      throw new BadRequestException(
-        "Akun ini masuk lewat SSO workingspace.id dan tidak punya kata sandi lokal. Konfirmasi dengan PIN akan menggantikannya (B2 langkah berikutnya).",
-      );
-    if (!(await verify(row.passwordHash, password))) throw new BadRequestException("Kata sandi akun salah.");
   }
 }

@@ -141,7 +141,7 @@ export const isOcrCandidate = (mimeType: string, fileName: string) => {
 export type ReconvertScope = "ai_ocr" | "missing" | "legacy" | "unenhanced";
 export const RECONVERT_SCOPES: ReconvertScope[] = ["ai_ocr", "missing", "legacy", "unenhanced"];
 
-export const CONVERTER_METHODS = new Set<string>(["markitdown", "docling"]);
+const CONVERTER_METHODS = new Set<string>(["markitdown", "docling"]);
 
 /**
  * `unenhanced` = sudah dibaca converter tetapi belum dirapikan AI (sesuai cakupan rapikan) — dipakai setelah "Rapikan

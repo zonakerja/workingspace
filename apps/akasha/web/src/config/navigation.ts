@@ -1,5 +1,8 @@
 import {
   FileCode2,
+  MailCheck,
+  MailX,
+  Mails,
   Activity,
   Archive,
   ArchiveRestore,
@@ -43,6 +46,7 @@ import {
   NotebookPen,
   Package,
   Plug,
+  CalendarSync,
   Settings,
   ShieldCheck,
   Settings2,
@@ -64,6 +68,7 @@ import type { UserRole } from "@/types/api";
 export type ModuleKey =
   | "overview"
   | "planner"
+  | "email"
   | "notes"
   | "knowledge"
   | "working-space"
@@ -74,12 +79,11 @@ export type ModuleKey =
   | "srikandi"
   | "siman"
   | "custom"
-  | "mcp"
   | "tools"
   | "settings"
   | "profile";
 
-export interface ModuleTab {
+interface ModuleTab {
   id: string;
   label: string;
   icon: LucideIcon;
@@ -125,6 +129,18 @@ export const MODULES: ModuleDef[] = [
       { id: "schedule", label: "Jadwal", icon: CalendarRange },
       { id: "routines", label: "Rutinitas", icon: Settings2 },
       { id: "references", label: "Referensi", icon: Tag },
+    ],
+  },
+  {
+    key: "email",
+    label: "Email",
+    description: "Kotak masuk semua akun email Anda: tagihan & jadwal dikenali otomatis, jadikan to-do atau agenda.",
+    path: "/email",
+    icon: Mails,
+    tabs: [
+      { id: "inbox", label: "Kotak Masuk", icon: Inbox },
+      { id: "done", label: "Selesai", icon: MailCheck },
+      { id: "ignored", label: "Diabaikan", icon: MailX },
     ],
   },
   {
@@ -269,19 +285,6 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
-    key: "mcp",
-    label: "Aplikasi MCP",
-    description:
-      "Sambungkan aplikasi yang punya server MCP (Canva, Notion, GitHub, …). Aplikasi yang tersambung tampil di Connection & MCP dan alatnya bisa dipakai agen bila Anda izinkan.",
-    path: "/mcp",
-    icon: Plug,
-    sidebarGroup: "connection",
-    tabs: [
-      { id: "apps", label: "Aplikasi", icon: Plug },
-      { id: "workflow", label: "Workflow", icon: Workflow },
-    ],
-  },
-  {
     key: "custom",
     label: "Connection & MCP",
     description: "Koneksi buatan agen yang sudah Anda setujui.",
@@ -309,7 +312,8 @@ export const MODULES: ModuleDef[] = [
   {
     key: "settings",
     label: "Pengaturan",
-    description: "Branding aplikasi, pengguna, berbagi, model & API key AI, dan integrasi agen AI.",
+    description:
+      "Branding aplikasi, pengguna, berbagi, model & API key AI, dan integrasi agen AI, serta kalender & email tersambung.",
     path: "/settings",
     icon: Settings,
     sidebarSubmenu: true,
@@ -320,12 +324,13 @@ export const MODULES: ModuleDef[] = [
       { id: "sharing", label: "Berbagi", icon: Share2 },
       { id: "api", label: "Model AI", icon: Sparkles },
       { id: "integrations", label: "Integrasi", icon: Plug },
+      { id: "accounts", label: "Akun Tersambung", icon: CalendarSync },
     ],
   },
   {
     key: "profile",
     label: "Profil Saya",
-    description: "Informasi pribadi dan password akun Anda.",
+    description: "Profil, PIN keamanan, dan akun Workingspace Anda.",
     path: "/profile",
     icon: UserRound,
     hiddenInSidebar: true,

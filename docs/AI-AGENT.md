@@ -2050,7 +2050,7 @@ memakai dialog yang sama, belum diklik satu per satu.
 | e-Kinerja | **Fitur terbuka sejak 2026-11-12** (§26.1): menambah workflow di dalamnya, menjalankan robot baca (Ambil SKP, Pantau, Periksa), meminta pengisian yang menunggu persetujuan pemilik |
 | SRIKANDI | **Fitur terbuka sejak 2026-11-13** (§26.4): menambah workflow di dalamnya, menyiapkan entri Register, menjalankan robot baca (naskah, referensi, klasifikasi) & Periksa Register, meminta pendaftaran yang menunggu persetujuan pemilik |
 | SIMAN | **Fitur terbuka sejak 2026-11-13** (§26.5): menambah workflow di dalamnya, menjalankan robot baca (Jaga sesi, Baca halaman tanpa klik). Belum ada jalur tulis ke SIMAN |
-| Aplikasi MCP | **Fitur terbuka sejak 2026-11-13** (§26.6): menambah workflow di dalamnya, memakai alat aplikasi yang diizinkan, meminta koneksi aplikasi baru / perubahan izin agen yang menunggu persetujuan pemilik. Kredensial aplikasi tidak pernah dipegang agen |
+| Aplikasi MCP | **Dihapus 2026-11-17** (menu, alat agen, dan tabel dibuang; aplikasi luar disambungkan di Akai → Konektor, docs/AKAI.md §8). Riwayat: **Fitur terbuka sejak 2026-11-13** (§26.6): menambah workflow di dalamnya, memakai alat aplikasi yang diizinkan, meminta koneksi aplikasi baru / perubahan izin agen yang menunggu persetujuan pemilik. Kredensial aplikasi tidak pernah dipegang agen |
 | Tools, Pengaturan, Profil | Tidak ada akses |
 
 | Fitur buatan agen (non-native) | Aturan |

@@ -101,7 +101,7 @@ const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const baseName = (path: string) => (path.split("/").pop() ?? path).replace(/\.[^.]+$/, "");
 
 /** Label singkat node (baris pertama teks / nama berkas / alamat / label grup) — dipakai untuk menuliskan garis. */
-export function canvasNodeLabel(node: Record<string, unknown>): string {
+function canvasNodeLabel(node: Record<string, unknown>): string {
   if (node.type === "text")
     return (
       str(node.text)

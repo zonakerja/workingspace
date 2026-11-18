@@ -2,7 +2,7 @@
 //   node test/sso-smoke.mjs
 // Env: APP_URL (bawaan http://localhost:5173), SSO_URL (bawaan http://auth.workingspace.localhost:5175), SSO_ADMIN_EMAIL/PASSWORD
 // (bawaan seed dev admin@workingspace.id / 123). Membuat akun SSO sementara smoke-sso-*@example.test lalu menghapusnya
-// (SSO lewat database workingspace_auth, Akasha lewat /users).
+// (SSO lewat database workingspace_auth, Akasha lewat DELETE /users).
 import dns from "node:dns";
 import pg from "pg";
 
@@ -102,6 +102,12 @@ async function ssoSignIn(browser, email, password, returnTo = "/planner") {
 const stamp = Date.now();
 const email = `smoke-sso-${stamp}@example.test`;
 const password = "Ruang-Kerja-Sso-1";
+/** Admin masuk Akasha lewat SSO (Akasha tidak punya login lokal) → access token. */
+async function adminToken() {
+  const b = new Browser();
+  await ssoSignIn(b, ADMIN.email, ADMIN.password);
+  return (await b.req("POST", `${APP}/api/v1/auth/refresh`)).d?.accessToken;
+}
 
 // ---------------------------------------------------------------- konfigurasi
 let r = await fetch(`${APP}/api/v1/auth/sso/config`).then((x) => x.json());
@@ -139,7 +145,7 @@ ok(
 );
 const akashaUserId = r.d.user?.id;
 r = await user2.req("POST", `${APP}/api/v1/auth/login`, { email, password });
-ok("SSO account has no local password", r.s === 401, r);
+ok("Akasha has no local password login (404)", r.s === 404, r);
 
 // Masuk lagi saat sesi SSO masih ada → tanpa kata sandi
 res = await ssoSignIn(user2, email, "salah-tidak-dipakai");
@@ -165,7 +171,7 @@ ok(
   r.s === 200 && r.d.managedBySso === true && r.d.hasPin === false && !!r.d.accountUrl,
   r.d,
 );
-r = await api("PUT", "/security/pin", { password: "x", pin: "482915" });
+r = await api("PUT", "/security/pin", { pin: "482915" });
 ok("set pin in Akasha refused → PIN_IN_SSO", r.s === 409 && r.d.code === "PIN_IN_SSO", r.d);
 r = await api("POST", "/security/pin/unlock", { pin: "482915" });
 ok("unlock without SSO pin → 409 PIN_NOT_SET", r.s === 409 && r.d.code === "PIN_NOT_SET", r.d);
@@ -197,10 +203,10 @@ await api("DELETE", "/robot/connectors/ekinerja/credentials");
 r = await api("PATCH", "/auth/me", { name: "Ganti Nama" });
 ok("SSO account name change in Akasha refused", r.s === 400, r.d);
 r = await api("PATCH", "/auth/me", { phone: "0812" });
-ok("SSO account phone change allowed", r.s === 200 && r.d.phone === "0812" && r.d.hasPassword === false, r.d);
-const adminAt = (await new Browser().req("POST", `${APP}/api/v1/auth/login`, ADMIN)).d.accessToken;
+ok("SSO account phone change allowed", r.s === 200 && r.d.phone === "0812" && !("hasPassword" in r.d), r.d);
+const adminAt = await adminToken();
 r = await api("PATCH", `/users/${akashaUserId}`, { role: "admin" }, adminAt);
-ok("Manajemen User: role of SSO account refused 409", r.s === 409 && r.d.code === "MANAGED_BY_SSO", r.d);
+ok("Manajemen User: edit user removed (404)", r.s === 404, r.d);
 
 // Role berubah di SSO → disamakan saat refresh (setelah cache status 60 dtk)
 r = await admin.req("PUT", `${SSO}/api/admin/accounts/${accountId}/apps/akasha`, { role: "admin" });
@@ -269,8 +275,7 @@ ok("start → SSO authorize", r.s === 302 && r.location?.startsWith(`${SSO}/oidc
 
 // ---------------------------------------------------------------- bersihkan
 if (akashaUserId) {
-  r = await admin.req("POST", `${APP}/api/v1/auth/login`, ADMIN);
-  const at = r.d?.accessToken;
+  const at = await adminToken();
   r = await fetch(`${APP}/api/v1/users/${akashaUserId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${at}` },

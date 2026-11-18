@@ -54,10 +54,6 @@ const parseError = async (response: Response) => {
   return new ApiError(response.status, message, details);
 };
 
-/** Galat dari item terkunci PIN (403 `PIN_REQUIRED`). */
-export const isPinRequired = (error: unknown) =>
-  error instanceof ApiError && (error.details as { code?: unknown } | undefined)?.code === "PIN_REQUIRED";
-
 /**
  * Penangan item terkunci: dipasang `PinUnlockHost` (membuka dialog PIN). true = PIN sudah dibuka → permintaan diulang
  * sekali; false = user membatalkan → galat diteruskan.

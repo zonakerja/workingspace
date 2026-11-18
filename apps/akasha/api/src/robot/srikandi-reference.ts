@@ -18,7 +18,7 @@ export const REFERENCE_CATEGORIES = [
   // Instansi Pengirim = pilihan "Dikirimkan melalui" formulir Registrasi (dibaca dari daftar pilihan formulir)
   "sender_unit",
 ] as const;
-export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
+type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
 
 export interface CleanReference {
   category: ReferenceCategory;

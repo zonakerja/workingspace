@@ -70,7 +70,7 @@ export function newCanvasId(existing: Iterable<string>, random: () => number = M
 const center = (n: CanvasNode) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 });
 
 /** Titik tengah sisi node. */
-export function sidePoint(n: CanvasNode, side: CanvasSide) {
+function sidePoint(n: CanvasNode, side: CanvasSide) {
   switch (side) {
     case "top":
       return { x: n.x + n.width / 2, y: n.y };
@@ -155,7 +155,7 @@ export const drawOrder = (nodes: CanvasNode[]) => [
 
 const snap = (v: number) => Math.round(v / 10) * 10;
 
-export const MIN_NODE = { width: 120, height: 60 };
+const MIN_NODE = { width: 120, height: 60 };
 
 /** Isian node baru (id dibuat otomatis). */
 export interface NewCanvasNode {
@@ -205,7 +205,7 @@ export function resizeNode(data: CanvasData, id: string, width: number, height: 
 }
 
 /** Node yang seluruhnya berada di dalam grup. */
-export function childrenOfGroup(data: CanvasData, group: CanvasNode) {
+function childrenOfGroup(data: CanvasData, group: CanvasNode) {
   return data.nodes.filter(
     (n) =>
       n.id !== group.id &&

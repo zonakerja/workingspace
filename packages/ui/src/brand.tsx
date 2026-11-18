@@ -8,9 +8,9 @@ export function LogoMark({ className }: { className?: string }) {
     <svg viewBox="0 0 40 40" aria-hidden="true" className={cn("size-9 shrink-0", className)}>
       <defs>
         <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop offset="0" style={{ stopColor: "var(--brand-indigo)" }} />
-          <stop offset="0.6" style={{ stopColor: "var(--brand-cyan)" }} />
-          <stop offset="1" style={{ stopColor: "var(--brand-lime)" }} />
+          <stop offset="0" style={{ stopColor: "var(--brand-indigo, #5b55f0)" }} />
+          <stop offset="0.6" style={{ stopColor: "var(--brand-cyan, #3cc4e2)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-lime, #c3f05a)" }} />
         </linearGradient>
       </defs>
       <rect width="40" height="40" rx="11" fill={`url(#${id}-bg)`} />
@@ -74,6 +74,105 @@ export function UserAvatar({ name, seed, className }: { name: string; seed: stri
       )}
     >
       {initials(name)}
+    </span>
+  );
+}
+
+/**
+ * Tanda Akasha AI (Akai): monogram "A" — dua garis tebal yang bertemu di puncak membulat (gerbang langit, *akasha*) — dengan titik
+ * lime (percikan percakapan), di atas kotak tinta. Sengaja tanpa bintang berujung empat & tanpa gradien biru penuh agar tidak
+ * menyerupai logo asisten AI lain. Salinan favicon Akai web: apps/akai/web/public/favicon.svg (ubah keduanya bersamaan).
+ */
+export function AkaiMark({ className }: { className?: string }) {
+  const id = useId();
+  return (
+    <svg viewBox="0 0 40 40" aria-hidden="true" className={cn("size-9 shrink-0", className)}>
+      <defs>
+        <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#1d2350" />
+          <stop offset="1" stopColor="#0f1330" />
+        </linearGradient>
+        <linearGradient id={`${id}-a`} x1="11" y1="31" x2="29" y2="9" gradientUnits="userSpaceOnUse">
+          <stop offset="0" style={{ stopColor: "var(--brand-indigo, #5b55f0)" }} />
+          <stop offset="0.55" style={{ stopColor: "var(--brand-cyan, #3cc4e2)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-lime, #c3f05a)" }} />
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="11" fill={`url(#${id}-bg)`} />
+      <rect x="0.5" y="0.5" width="39" height="39" rx="10.5" fill="none" stroke="white" strokeOpacity="0.14" />
+      <path
+        d="M11 30.5 19.1 10.6a1 1 0 0 1 1.8 0L29 30.5"
+        fill="none"
+        stroke={`url(#${id}-a)`}
+        strokeWidth="4.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="20" cy="24.2" r="3.1" style={{ fill: "var(--brand-lime, #c3f05a)" }} />
+    </svg>
+  );
+}
+
+/** Tanda Akasha: kisi 2×2 di atas gradien indigo → sian, satu sel lime — "Where Ideas Find Their Place". */
+export function AkashaMark({ className }: { className?: string }) {
+  const id = useId();
+  return (
+    <svg viewBox="0 0 40 40" aria-hidden="true" className={cn("size-9 shrink-0", className)}>
+      <defs>
+        <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0" style={{ stopColor: "var(--brand-indigo, #5b55f0)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-cyan, #3cc4e2)" }} />
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="11" fill={`url(#${id}-bg)`} />
+      <rect x="9.5" y="9.5" width="9.5" height="9.5" rx="2.8" fill="white" fillOpacity="0.95" />
+      <rect x="21" y="9.5" width="9.5" height="9.5" rx="2.8" fill="white" fillOpacity="0.45" />
+      <rect x="9.5" y="21" width="9.5" height="9.5" rx="2.8" fill="white" fillOpacity="0.45" />
+      <rect x="21" y="21" width="9.5" height="9.5" rx="2.8" style={{ fill: "var(--brand-lime, #c3f05a)" }} />
+    </svg>
+  );
+}
+
+/** Tanda Cendekia: dua chevron naik (bertumbuh) dengan titik lime di puncak, di atas gradien coral → indigo. */
+export function CendekiaMark({ className }: { className?: string }) {
+  const id = useId();
+  return (
+    <svg viewBox="0 0 40 40" aria-hidden="true" className={cn("size-9 shrink-0", className)}>
+      <defs>
+        <linearGradient id={`${id}-bg`} x1="0" y1="40" x2="40" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0" style={{ stopColor: "var(--brand-coral, #f08c6c)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-indigo, #5b55f0)" }} />
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="11" fill={`url(#${id}-bg)`} />
+      <path
+        d="M11 29 20 21l9 8M11 22.5 20 14.5l9 8"
+        fill="none"
+        stroke="white"
+        strokeWidth="3.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity="0.95"
+      />
+      <circle cx="20" cy="9.5" r="2.6" style={{ fill: "var(--brand-lime, #c3f05a)" }} />
+    </svg>
+  );
+}
+
+/** Tanda produk menurut kunci aplikasi SSO; kunci lain = huruf awal di atas aurora. */
+export function ProductMark({ appKey, name, className }: { appKey: string; name?: string; className?: string }) {
+  if (appKey === "akasha") return <AkashaMark className={className} />;
+  if (appKey === "akai") return <AkaiMark className={className} />;
+  if (appKey === "cendekia") return <CendekiaMark className={className} />;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "font-display flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-aurora text-base font-bold text-white",
+        className,
+      )}
+    >
+      {(name ?? appKey).slice(0, 1).toUpperCase()}
     </span>
   );
 }

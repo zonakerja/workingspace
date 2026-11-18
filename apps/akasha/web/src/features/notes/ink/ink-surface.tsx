@@ -23,7 +23,7 @@ function PaperPattern({ id, paper }: { id: string; paper: PaperStyle }) {
 }
 
 /** Goresan statis: stabilo di lapisan bawah, pena di atasnya. */
-export function InkStrokes({ strokes }: { strokes: InkStroke[] }) {
+function InkStrokes({ strokes }: { strokes: InkStroke[] }) {
   return (
     <>
       <g opacity={0.38}>

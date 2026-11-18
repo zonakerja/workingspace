@@ -1,6 +1,7 @@
 import { Loader2, TriangleAlert } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { Artifact } from "@/lib/artifacts";
+import { SheetView, SlidesView, WhiteboardView } from "./artifact-views";
 import { Markdown } from "./markdown";
 
 /**
@@ -59,8 +60,9 @@ function MermaidView({ code }: { code: string }) {
     let alive = true;
     void loadMermaid()
       .then(async (mermaid) => {
-        const dark = document.documentElement.classList.contains("dark");
-        mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default" });
+        // Selalu tema terang di atas kertas putih: warna kotak (classDef) buatan model dirancang untuk latar terang, dan
+        // hasilnya sama dengan berkas ekspor PNG/SVG/PDF
+        mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
         const { svg } = await mermaid.render(`akai-mmd-${id}-${Date.now()}`, code);
         if (alive) setResult({ code, svg });
       })
@@ -82,7 +84,7 @@ function MermaidView({ code }: { code: string }) {
     );
   return (
     <div
-      className="flex justify-center overflow-auto [&_svg]:max-w-full"
+      className="flex justify-center overflow-auto rounded-xl border bg-white p-3 [&_svg]:max-w-full"
       dangerouslySetInnerHTML={{ __html: result.svg! }}
     />
   );
@@ -90,7 +92,9 @@ function MermaidView({ code }: { code: string }) {
 
 /** Pratinjau artifact menurut jenisnya. Artifact yang belum selesai ditulis ditampilkan sebagai kode yang terus bertambah. */
 export function ArtifactPreview({ artifact }: { artifact: Artifact }) {
-  if (!artifact.complete && artifact.type !== "markdown") return <ArtifactCode artifact={artifact} />;
+  // Dokumen, lembar kerja, dan slide sudah bisa ditampilkan sambil ditulis; jenis lain menunggu tag penutup
+  const progressive = artifact.type === "markdown" || artifact.type === "sheet" || artifact.type === "slides";
+  if (!artifact.complete && !progressive) return <ArtifactCode artifact={artifact} />;
   switch (artifact.type) {
     case "markdown":
       return <Markdown text={artifact.content} />;
@@ -106,6 +110,12 @@ export function ArtifactPreview({ artifact }: { artifact: Artifact }) {
       );
     case "mermaid":
       return <MermaidView code={artifact.content} />;
+    case "sheet":
+      return <SheetView content={artifact.content} />;
+    case "slides":
+      return <SlidesView content={artifact.content} />;
+    case "whiteboard":
+      return <WhiteboardView content={artifact.content} />;
     default:
       return <ArtifactCode artifact={artifact} />;
   }

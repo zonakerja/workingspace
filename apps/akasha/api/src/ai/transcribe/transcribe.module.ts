@@ -21,7 +21,7 @@ class TranscribeDto {
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller("ai")
-export class TranscribeController {
+class TranscribeController {
   constructor(private readonly transcriber: TranscribeService) {}
 
   /** Mulai pekerjaan latar belakang (audio panjang memakan banyak menit); hasil diambil lewat GET. */

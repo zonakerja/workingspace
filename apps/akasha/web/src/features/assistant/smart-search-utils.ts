@@ -6,6 +6,7 @@ import type { SmartModule, SmartSearchResult } from "@/types/api";
 
 export const MODULE_INFO: Record<SmartModule, { label: string; tone: string }> = {
   planner: { label: "Planner", tone: "text-mod-planner" },
+  email: { label: "Email", tone: "text-mod-email" },
   notes: { label: "Notes", tone: "text-mod-notes" },
   "working-space": { label: "Working Space", tone: "text-mod-working-space" },
   file_control: { label: "File Control", tone: "text-mod-files" },
@@ -15,8 +16,9 @@ export const MODULE_INFO: Record<SmartModule, { label: string; tone: string }> =
 };
 
 /** Urutan chip filter modul. */
-export const MODULE_ORDER: SmartModule[] = [
+const MODULE_ORDER: SmartModule[] = [
   "planner",
+  "email",
   "notes",
   "working-space",
   "file_control",
@@ -49,6 +51,7 @@ const KIND_LABEL: Record<string, string> = {
   obsidian: "Catatan vault",
   obsidian_canvas: "Canvas",
   srikandi_inbox: "Naskah masuk",
+  mail_message: "Email",
 };
 
 const ARCHIVAL_LABEL: Record<string, string> = {
@@ -92,6 +95,8 @@ export function smartTarget(result: SmartSearchResult): SmartTarget {
       return result.module === "file_control"
         ? { kind: "page", path: links.archive(sourceId, fileControlTab(result.archivalStatus)) }
         : { kind: "page", path: links.resource(sourceId) };
+    case "mail_message":
+      return { kind: "page", path: links.email(sourceId) };
     case "para_archive":
       return { kind: "page", path: "/working-space/archives" };
     case "archive_classification":

@@ -9,7 +9,7 @@ import type {
 } from "@/types/api";
 
 /** Kunci cache menu Knowledge (semua di bawah prefiks `knowledge` agar satu invalidasi menyegarkan semuanya). */
-export const knowledgeKeys = {
+const knowledgeKeys = {
   tree: ["knowledge", "tree"] as const,
   graph: ["knowledge", "graph"] as const,
   health: ["knowledge", "health"] as const,
@@ -215,7 +215,7 @@ export function useKnowledgePrefs() {
 }
 
 /** Segarkan semua data menu Knowledge (pohon, graf, detail, kesehatan, status) setelah menulis berkas. */
-export function useRefreshKnowledge() {
+function useRefreshKnowledge() {
   const client = useQueryClient();
   return () => client.invalidateQueries({ queryKey: ["knowledge"] });
 }

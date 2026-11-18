@@ -19,15 +19,16 @@ const APPS = [
     key: "akasha",
     name: "Akasha",
     url: process.env.SEED_AKASHA_URL ?? (production ? "https://akasha.workingspace.id" : "http://localhost:5173"),
-    description: "Ruang kerja: Planner, Notes, Working Space, File Control, Knowledge, AI Agent",
+    description: "Where Ideas Find Their Place. Planner, Notes, Working Space, File Control, Knowledge, AI Agent",
   },
   {
     key: "akai",
-    name: "Akai",
+    // Akai = nama panggilan; nama tampilan ekosistem "Akasha AI" (packages/ui/src/ecosystem.ts)
+    name: "Akasha AI",
     url:
       process.env.SEED_AKAI_URL ??
       (production ? "https://akai.workingspace.id" : "http://akai.workingspace.localhost:5177"),
-    description: "Asisten AI: model, chat & agen untuk semua aplikasi",
+    description: "Intelligence That Moves With You. Chat, agen & model AI untuk semua aplikasi",
   },
 ];
 
@@ -51,7 +52,11 @@ async function account(email: string, name: string, password: string, superAdmin
 
 async function main() {
   for (const app of APPS) {
-    await prisma.app.upsert({ where: { key: app.key }, create: app, update: { name: app.name, url: app.url } });
+    await prisma.app.upsert({
+      where: { key: app.key },
+      create: app,
+      update: { name: app.name, url: app.url, description: app.description },
+    });
     console.log(`aplikasi ${app.key} → ${app.url}`);
   }
   if (production) {

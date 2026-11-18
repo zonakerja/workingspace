@@ -16,7 +16,7 @@ import type { SrikandiOutgoingFile } from "@/types/entities";
 import { ATTACHMENT_EXTENSIONS, extensionOf, formatSize, MAIN_EXTENSIONS } from "./register-logic";
 
 /** Context unggahan baru dari Register (berkas ikut terhapus bersama entri). */
-export const REGISTER_UPLOAD_CONTEXT = "srikandi-register";
+const REGISTER_UPLOAD_CONTEXT = "srikandi-register";
 
 export interface PickedFile {
   file: SrikandiOutgoingFile;

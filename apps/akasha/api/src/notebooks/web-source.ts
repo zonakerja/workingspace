@@ -17,7 +17,7 @@ import { extractDocumentText } from "../extraction/text-extractors";
 const TIMEOUT_MS = 15_000;
 const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_REDIRECTS = 4;
-export const MAX_WEB_TEXT_CHARS = 500_000;
+const MAX_WEB_TEXT_CHARS = 500_000;
 
 export class WebSourceError extends Error {}
 
@@ -86,7 +86,7 @@ export function parseWebUrl(raw: string): URL {
 }
 
 /** Lookup DNS yang menolak alamat terlarang — dipakai Node saat membuka koneksi. */
-export const safeLookup: LookupFunction = (hostname, options, callback) => {
+const safeLookup: LookupFunction = (hostname, options, callback) => {
   dnsLookup(hostname, { ...options, all: true }, (error, addresses) => {
     if (error) return callback(error, "", 0);
     const list = addresses as unknown as LookupAddress[];

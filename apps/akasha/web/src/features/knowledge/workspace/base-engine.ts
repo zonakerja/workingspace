@@ -32,7 +32,7 @@ export interface BaseData {
   [key: string]: unknown;
 }
 
-export class BaseExpressionError extends Error {}
+class BaseExpressionError extends Error {}
 
 // ---------------------------------------------------------------- tokenizer & parser
 
@@ -190,7 +190,7 @@ export function parseExpression(src: string): Node {
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 
 /** Tanggal dari teks ISO; tanggal saja dibaca sebagai tengah malam lokal (bukan UTC). */
-export function toDate(value: BaseValue): Date | null {
+function toDate(value: BaseValue): Date | null {
   if (value instanceof Date) return value;
   if (typeof value !== "string" || !ISO_DATE.test(value.trim())) return null;
   const text = value.trim();
@@ -238,10 +238,10 @@ const toNumber = (value: BaseValue): number | null => {
   return null;
 };
 
-export const isEmptyValue = (value: BaseValue) =>
+const isEmptyValue = (value: BaseValue) =>
   value === null || value === "" || (Array.isArray(value) && value.length === 0);
 
-export const truthy = (value: BaseValue) =>
+const truthy = (value: BaseValue) =>
   !isEmptyValue(value) && value !== false && value !== 0 && !(value instanceof Date && Number.isNaN(value.getTime()));
 
 function valueText(value: BaseValue): string {
@@ -252,7 +252,7 @@ function valueText(value: BaseValue): string {
 }
 
 /** Bandingkan dua nilai: tanggal, angka, lalu teks (tanpa huruf besar/kecil). */
-export function compareValues(a: BaseValue, b: BaseValue): number {
+function compareValues(a: BaseValue, b: BaseValue): number {
   if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
   const da = toDate(a);
   const db = toDate(b);
@@ -505,7 +505,7 @@ export function evaluate(src: string, ctx: BaseContext): BaseValue {
 // ---------------------------------------------------------------- filter, kolom, tampilan
 
 /** Id properti baku: nama tanpa awalan = properti catatan (`status` → `note.status`). */
-export const normalizeProperty = (id: string) => (/^(file|note|formula)\./.test(id) ? id : `note.${id}`);
+const normalizeProperty = (id: string) => (/^(file|note|formula)\./.test(id) ? id : `note.${id}`);
 
 /** Ekspresi pembaca nilai properti untuk id baku (nama berisi spasi memakai `note["…"]`). */
 const propertyExpression = (id: string) => {
@@ -513,14 +513,6 @@ const propertyExpression = (id: string) => {
   const name = rest.join(".");
   return /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(name) ? `${scope}.${name}` : `${scope}[${JSON.stringify(name)}]`;
 };
-
-export function propertyValue(id: string, ctx: BaseContext): BaseValue {
-  try {
-    return evaluate(propertyExpression(id), ctx);
-  } catch {
-    return null;
-  }
-}
 
 /** Evaluasi filter (string / and / or / not). Ekspresi galat dicatat dan dianggap lolos (tidak menyembunyikan catatan). */
 export function matchesFilter(filter: BaseFilter | undefined, ctx: BaseContext, errors: Set<string>): boolean {
@@ -554,7 +546,7 @@ const FILE_LABELS: Record<string, string> = {
   "file.links": "Tautan keluar",
   "file.backlinks": "Backlink",
 };
-export const FILE_PROPERTIES = Object.keys(FILE_LABELS);
+const FILE_PROPERTIES = Object.keys(FILE_LABELS);
 
 export function propertyLabel(id: string, base: BaseData) {
   const key = normalizeProperty(id);

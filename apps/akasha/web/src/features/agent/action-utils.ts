@@ -9,8 +9,7 @@ export const ACTION_KIND_LABELS: Record<AgentActionInfo["kind"], string> = {
   delete: "Minta hapus",
   ekinerja_fill: "Minta isi e-Kinerja",
   srikandi_register: "Minta daftarkan ke SRIKANDI",
-  mcp_connect: "Minta sambungkan aplikasi MCP",
-  mcp_access: "Minta ubah izin agen aplikasi",
+  send_email: "Minta kirim email",
 };
 
 export const ACTION_STATUS_LABELS: Record<AgentActionInfo["status"], string> = {

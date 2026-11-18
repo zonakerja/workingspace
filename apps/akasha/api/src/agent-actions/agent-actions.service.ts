@@ -1,3 +1,5 @@
+import { checkAgentEmail, SEND_EMAIL_KIND, sendEmailTitle } from "../mail/agent-mail-logic";
+import { MailService } from "../mail/mail.service";
 import { BadRequestException, ConflictException, GoneException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "../generated/prisma/client";
@@ -26,21 +28,6 @@ import {
   SRIKANDI_REGISTER_RECORD,
 } from "../robot/srikandi-agent-logic";
 import type { OutgoingEntry } from "../robot/srikandi-register";
-import {
-  type AccessChange,
-  accessChange,
-  accessRequestTitle,
-  type ConnectProposal,
-  connectProposal,
-  type ConnectProposalInput,
-  connectRequestTitle,
-  MCP_ACCESS_KIND,
-  MCP_ACTION_RECORD,
-  MCP_CONNECT_KIND,
-} from "../mcp-connections/mcp-agent-logic";
-import { McpConnectionsService } from "../mcp-connections/mcp-connections.service";
-import { downloadAppFile } from "../mcp-connections/app-file-download";
-import { appFileName, fileMime } from "../mcp-connections/app-file-logic";
 import { RobotService } from "../robot/robot.service";
 import {
   APPROVAL_KINDS,
@@ -67,7 +54,7 @@ export class AgentActionsService {
     private readonly shareAccess: ShareAccessService,
     private readonly uploads: UploadsService,
     private readonly robot: RobotService,
-    private readonly apps: McpConnectionsService,
+    private readonly mail: MailService,
   ) {}
 
   private writableType(type: string): RecordType {
@@ -212,105 +199,50 @@ export class AgentActionsService {
   }
 
   /**
-   * Permintaan agen menyambungkan aplikasi MCP baru (Aplikasi MCP = fitur terbuka). Koneksi baru dibuat setelah pemilik
-   * menyetujuinya; masuk (OAuth) / token tetap diisi pemilik di halaman aplikasinya — agen tidak pernah memegang kredensial.
-   * Alamat yang sudah tersambung / sudah diminta ditolak agar tidak ganda.
+   * Permintaan agen mengirim email atas nama pemilik (tahap 3 docs/AKUN-TERSAMBUNG.md). Tidak ada yang terkirim sampai pemilik
+   * menyetujui di Approval; isi email disimpan apa adanya agar pemilik membaca persis yang akan dikirim.
    */
-  async requestMcpConnect(user: AuthUser, input: ConnectProposalInput, reason: string) {
-    const checked = connectProposal(input, this.apps.isProduction);
-    if (!checked.ok) throw new BadRequestException(checked.error);
-    const { proposal } = checked;
-    const existing = await this.prisma.agentAction.findFirst({
-      where: { userId: user.id, kind: MCP_CONNECT_KIND, clientId: proposal.url, status: "pending" },
-    });
-    if (existing) return { actionId: existing.id, pending: true, duplicate: true };
-    const same = (await this.apps.list(user)).find((c) => c.url === proposal.url);
-    if (same)
-      throw new BadRequestException(`Aplikasi dengan alamat ini sudah ada: ${same.name} (connection ${same.slug}).`);
-    const action = await this.prisma.agentAction.create({
-      data: {
-        userId: user.id,
-        kind: MCP_CONNECT_KIND,
-        recordType: MCP_ACTION_RECORD,
-        clientId: proposal.url,
-        title: connectRequestTitle(proposal),
-        after: json(proposal),
-        reason: reason.trim(),
-        status: "pending",
-      },
-    });
-    return { actionId: action.id, pending: true };
-  }
-
-  /** Permintaan agen mengubah izin agen atas satu koneksi (izinkan agen / aksi tulis, atau mencabutnya). */
-  async requestMcpAccess(user: AuthUser, connection: string, wanted: AccessChange, reason: string) {
-    const app = await this.apps.get(user, connection);
-    const existing = await this.prisma.agentAction.findFirst({
-      where: { userId: user.id, kind: MCP_ACCESS_KIND, clientId: app.id, status: "pending" },
-    });
-    if (existing) return { actionId: existing.id, pending: true, duplicate: true };
-    const change = accessChange(
-      { ...app, destructiveTools: app.tools.filter((t) => t.destructive).map((t) => t.name) },
-      wanted,
-    );
-    if ("error" in change) throw new BadRequestException(change.error);
-    const action = await this.prisma.agentAction.create({
-      data: {
-        userId: user.id,
-        kind: MCP_ACCESS_KIND,
-        recordType: MCP_ACTION_RECORD,
-        clientId: app.id,
-        title: accessRequestTitle(app.name, change),
-        before: json({ agentEnabled: app.agentEnabled, allowWrite: app.allowWrite }),
-        after: json({ ...change, slug: app.slug, name: app.name }),
-        // allowTools ditambahkan ke daftar yang ada saat disetujui (lihat approveMcpAccess)
-        reason: reason.trim(),
-        status: "pending",
-      },
-    });
-    return { actionId: action.id, pending: true };
-  }
-
-  /**
-   * Simpan berkas hasil aplikasi MCP (mis. tautan dari `export-design` Canva) ke Akasha: diunduh dari domain aplikasi itu
-   * saja, disimpan sebagai berkas milik pemilik + Resource Global bertag "Hasil Agen" dan nama aplikasi. Resource dicatat
-   * sebagai aksi "buat" agen, jadi bisa dibatalkan pemilik (masuk Sampah). Koneksi harus diizinkan untuk agen.
-   */
-  async saveAppFile(
+  async requestSendEmail(
     user: AuthUser,
-    input: { connection: string; url: string; name?: string; title?: string; description?: string },
+    input: { to: string[]; subject: string; body: string; accountId?: string; reason: string },
   ) {
-    const app = await this.apps.get(user, input.connection);
-    if (!app.agentEnabled) throw new BadRequestException("Koneksi ini belum diizinkan untuk agen oleh pemilik.");
-    let file: Awaited<ReturnType<typeof downloadAppFile>>;
-    try {
-      file = await downloadAppFile(input.url, app.fileHosts);
-    } catch (error) {
-      throw new BadRequestException(error instanceof Error ? error.message : String(error));
-    }
-    const pathName = decodeURIComponent(new URL(file.url).pathname.split("/").pop() ?? "");
-    const mime = fileMime(file.contentType, input.name || pathName);
-    const name = appFileName(file.url, mime, input.name);
-    const asset = await this.uploads.createFromBuffer(file.body, name, mime, user, "mcp-app");
-    const title = (input.title?.trim() || name).slice(0, 300);
-    const today = new Date().toISOString().slice(0, 10);
-    const created = await this.create(user, "para_resource", {
-      title,
-      type: "file",
-      uploadId: asset.id,
-      mimeType: mime,
-      date: today,
-      tags: ["Hasil Agen", app.name],
-      content: (input.description?.trim() || `Hasil ${app.name} yang disimpan agen.`).slice(0, 2000),
+    const checked = checkAgentEmail(input);
+    if ("error" in checked) throw new BadRequestException(checked.error);
+    const account = input.accountId
+      ? await this.mail.get(user.id, input.accountId)
+      : (await this.mail.list(user.id))[0];
+    if (!account) throw new BadRequestException("Belum ada akun email tersambung (Pengaturan → Akun Tersambung).");
+    const action = await this.prisma.agentAction.create({
+      data: {
+        userId: user.id,
+        kind: SEND_EMAIL_KIND,
+        recordType: "mail",
+        clientId: account.id,
+        title: sendEmailTitle(checked.to, checked.subject),
+        after: json({ from: account.address, to: checked.to, subject: checked.subject, body: checked.body }),
+        reason: input.reason.trim(),
+        status: "pending",
+      },
     });
-    return {
-      uploadId: asset.id,
-      resourceId: created.id,
-      actionId: created.actionId,
-      name,
-      mimeType: mime,
-      size: file.body.length,
-    };
+    return { actionId: action.id, pending: true, from: account.address };
+  }
+
+  private async approveSendEmail(user: AuthUser, action: { id: string; clientId: string; after: unknown }) {
+    const mail = (action.after ?? {}) as { to?: string[]; subject?: string; body?: string; from?: string };
+    try {
+      await this.mail.send(
+        user.id,
+        { to: mail.to ?? [], subject: mail.subject ?? "", text: mail.body ?? "" },
+        action.clientId,
+      );
+      const message = `Terkirim dari ${mail.from ?? "akun email"} ke ${(mail.to ?? []).join(", ")}.`;
+      await this.decide(action.id, "approved", message);
+      return { status: "approved" as const, removed: 0, message };
+    } catch (error) {
+      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+      await this.decide(action.id, "failed", message);
+      return { status: "failed" as const, removed: 0, message };
+    }
   }
 
   list(user: AuthUser, query: { status?: string; take?: number }) {
@@ -340,8 +272,7 @@ export class AgentActionsService {
       return this.approveEkinerjaFill(user, action);
     if (action.kind === SRIKANDI_REGISTER_KIND && action.status === "pending")
       return this.approveSrikandiRegister(user, action);
-    if (action.kind === MCP_CONNECT_KIND && action.status === "pending") return this.approveMcpConnect(user, action);
-    if (action.kind === MCP_ACCESS_KIND && action.status === "pending") return this.approveMcpAccess(user, action);
+    if (action.kind === SEND_EMAIL_KIND && action.status === "pending") return this.approveSendEmail(user, action);
     if (action.kind !== "delete" || action.status !== "pending") {
       throw new ConflictException("Permintaan ini sudah diputuskan.");
     }
@@ -454,41 +385,6 @@ export class AgentActionsService {
     } catch (error) {
       // Robot SRIKANDI sedang dipakai tugas lain (409): permintaan tetap menunggu agar pemilik bisa mencoba lagi
       if (error instanceof ConflictException) throw error;
-      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
-      await this.decide(action.id, "failed", message);
-      return { status: "failed" as const, removed: 0, message };
-    }
-  }
-
-  /** Setujui koneksi: dibuat seperti "Tambah aplikasi" oleh pemilik (status baru, belum tersambung, izin agen mati). */
-  private async approveMcpConnect(user: AuthUser, action: { id: string; after: unknown }) {
-    const proposal = action.after as ConnectProposal;
-    try {
-      const created = await this.apps.create(user, proposal);
-      const message = `Koneksi ${created.name} dibuat (connection ${created.slug}) — buka halamannya dan tekan Sambungkan${created.authType === "token" ? " setelah mengisi token" : ""}.`;
-      await this.decide(action.id, "approved", message);
-      return { status: "approved" as const, removed: 0, message, slug: created.slug };
-    } catch (error) {
-      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
-      await this.decide(action.id, "failed", message);
-      return { status: "failed" as const, removed: 0, message };
-    }
-  }
-
-  /** Setujui izin: nilai yang diminta diterapkan ke koneksi (sama dengan sakelar di halaman aplikasinya). */
-  private async approveMcpAccess(user: AuthUser, action: { id: string; clientId: string; after: unknown }) {
-    const after = action.after as AccessChange;
-    try {
-      const current = await this.apps.get(user, action.clientId);
-      const app = await this.apps.update(user, action.clientId, {
-        agentEnabled: after.agentEnabled,
-        allowWrite: after.allowWrite,
-        ...(after.allowTools?.length ? { agentTools: [...current.agentTools, ...after.allowTools] } : {}),
-      });
-      const message = `Izin agen ${app.name}: agen ${app.agentEnabled ? "diizinkan" : "tidak diizinkan"}, aksi tulis ${app.allowWrite ? "diizinkan" : "tidak diizinkan"}${app.agentTools.length ? `, alat khusus: ${app.agentTools.join(", ")}` : ""}.`;
-      await this.decide(action.id, "approved", message);
-      return { status: "approved" as const, removed: 0, message };
-    } catch (error) {
       const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
       await this.decide(action.id, "failed", message);
       return { status: "failed" as const, removed: 0, message };

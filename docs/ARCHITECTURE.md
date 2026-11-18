@@ -51,6 +51,7 @@ Sumber kebenaran versi: `package-lock.json` (root workspace: apps/akasha/api, ap
 | | `unpdf` / `mammoth` / `read-excel-file` | 1.8 / 1.13 / 9.3 | Ekstraksi teks PDF / DOCX / XLSX (pure JS, aman ARM64; §3.2) |
 | | `@mozilla/readability` / `linkedom` | 0.6 / 0.18 | Teks utama halaman web untuk sumber My Notebook (pure JS; §3.4) |
 | | `docxtemplater` / `pizzip` | 3.71 / 3.3 | Mengisi templat DOCX instansi untuk Pengajuan (penanda `${…}`, pure JS; §3.8) |
+| | `nodemailer` / `imapflow` / `mailparser` | 10.3 / 2.10 / 3.14 | Akun email tersambung: kirim SMTP, kotak masuk IMAP (baca saja), urai email (pure JS; docs/AKUN-TERSAMBUNG.md) |
 | | dotenv | 18.0 | Env untuk CLI Prisma & seed (aplikasi memakai `@nestjs/config`) |
 | | tsx (esbuild 0.28) | 4.23 | Menjalankan seed TypeScript di development (`prisma db seed`); produksi memakai `dist/` |
 | | ESLint / typescript-eslint / Vitest | 10.12 / 8.71 / 5.0 | Lint & unit test |
@@ -108,6 +109,7 @@ Sumber kebenaran versi: `package-lock.json` (root workspace: apps/akasha/api, ap
   | Lokasi | Override | Alasan | Hapus bila |
   |---|---|---|---|
   | `apps/akasha/web/package.json` | `katex: "$katex"` (langsung `^0.18.9`) | `rehype-katex`/`micromark-extension-math` masih `^0.16` (advisory prototype pollution < 0.18.2) | keduanya mendukung katex ≥ 0.18 |
+  | `package.json` (root) | `pptxgenjs > image-size` → 2.0.4 | `pptxgenjs` 4.0.1 (ekspor PowerPoint Akai) menarik `image-size` ^1.2.1 (advisory high GHSA-5p2g-fcmc-qvqq & GHSA-w3rx-r6r6-pgpr, DoS parser JXL/HEIF/ICNS); build peramban pptxgenjs tidak memakainya | `npm view pptxgenjs@<versi> dependencies` memuat `image-size` ≥ 2.0.3 |
   | `apps/akasha/api/package.json` | `multer` → 2.5.0 | `@nestjs/platform-express` 12.1.2 mem-pin `multer` 2.4.0 (advisory high GHSA-q7qp-rjg7-q26m, DoS `fileFilter` asinkron) | `npm view @nestjs/platform-express@<versi> dependencies.multer` ≥ 2.5.0 |
 
   Override `prisma > mysql2` dicabut 2026-11-09: Prisma 7.10.1 sudah memakai `mysql2` 3.24.4.
@@ -481,7 +483,7 @@ Tahap 3 [AI-AGENT.md](AI-AGENT.md) §18. Agen AI luar (Hermes, Claude Desktop, n
 - **Log aktivitas agen** (`agent_activity_logs`): setiap pemanggilan tool (token, argumen diringkas, ok/error, pesan);
   token dicabut → log tetap (`token_id` SetNull, `token_name` tersimpan).
 - Paket: `@modelcontextprotocol/sdk` (CJS `dist/cjs` lewat subpath `…/server/mcp.js`) + `zod` 4 (peer SDK).
-- **Arah sebaliknya: Akasha sebagai klien MCP** (`src/mcp-connections/`, 2026-11-10). User menyambungkan aplikasi luar (Canva,
+- **Arah sebaliknya: Akasha sebagai klien MCP — DIHAPUS 2026-11-17** (modul, tabel `mcp_connections`, cakupan `mcp:apps`, alat agen aplikasi luar dibuang; aplikasi luar disambungkan di Akai → Konektor, docs/AKAI.md §8). Catatan riwayat (`src/mcp-connections/`, 2026-11-10): User menyambungkan aplikasi luar (Canva,
   Notion, Linear, GitHub, alamat lain) dari menu Connection & MCP → Aplikasi MCP. Kredensial (token / OAuth dengan pendaftaran
   klien dinamis + PKCE) disimpan terenkripsi di `mcp_connections` dan hanya dipakai backend; daftar alat disalin dari `tools/list`.
   Agen memakai aplikasi lewat alat Akasha `list_app_tools` / `call_app_tool` (cakupan `mcp:apps`) dengan izin per aplikasi: baca

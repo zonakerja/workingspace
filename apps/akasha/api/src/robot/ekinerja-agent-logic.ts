@@ -6,8 +6,7 @@
  * "Kirim Penilaian Ke Atasan" tidak pernah dilakukan robot.
  */
 
-export const EKINERJA_AGENT_TASKS = ["skp", "monitor", "check"] as const;
-export type EkinerjaAgentTask = (typeof EKINERJA_AGENT_TASKS)[number];
+export type EkinerjaAgentTask = "skp" | "monitor" | "check";
 
 export const EKINERJA_TASK_LABELS: Record<EkinerjaAgentTask, string> = {
   skp: "Ambil SKP & RHK",

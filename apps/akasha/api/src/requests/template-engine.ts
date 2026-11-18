@@ -19,7 +19,7 @@ export const isSrikandiTag = (tag: string) =>
 
 /** Nama isian paragraf petunjuk ke-n (dipakai sebagai penanda sementara saat mengisi). */
 const slotName = (index: number) => `__petunjuk_${index + 1}`;
-export const isSlotName = (name: string) => /^__petunjuk_\d+$/.test(name);
+const isSlotName = (name: string) => /^__petunjuk_\d+$/.test(name);
 
 export interface TemplateSlot {
   name: string;

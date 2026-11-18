@@ -30,7 +30,10 @@
   },
   "overrides": {
     "multer": "2.5.0",
-    "katex": "^0.18.9"
+    "katex": "^0.18.9",
+    "pptxgenjs": {
+      "image-size": "2.0.4"
+    }
   },
   "allowScripts": {
     "@prisma/client": true,

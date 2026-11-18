@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { AuthSession, PublicUser } from "@/types/api";
 
 /** unknown = sesi belum dipulihkan (saat aplikasi baru dibuka). */
-export type AuthStatus = "unknown" | "authenticated" | "anonymous";
+type AuthStatus = "unknown" | "authenticated" | "anonymous";
 
 interface AuthState {
   status: AuthStatus;

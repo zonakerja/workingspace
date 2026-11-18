@@ -1,13 +1,11 @@
 /** Logika murni Sampah (diuji di `trash-logic.spec.ts`). */
 
-export const TRASH_KINDS = ["record", "asset", "request", "notebook", "vault_note"] as const;
-export type TrashKind = (typeof TRASH_KINDS)[number];
+export type TrashKind = "record" | "asset" | "request" | "notebook" | "vault_note";
 
-export const TRASH_SOURCES = ["user", "agent"] as const;
-export type TrashSource = (typeof TRASH_SOURCES)[number];
+export type TrashSource = "user" | "agent";
 
 /** Masa simpan di Sampah sebelum dihapus permanen otomatis (keputusan user 2026-11-10). */
-export const TRASH_RETENTION_DAYS = 30;
+const TRASH_RETENTION_DAYS = 30;
 /** Penghapusan oleh pelaku yang sama dalam selang ini dianggap satu tindakan (dipulihkan bersama). */
 export const TRASH_BATCH_WINDOW_MS = 20_000;
 

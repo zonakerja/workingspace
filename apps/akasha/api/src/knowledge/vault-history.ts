@@ -3,22 +3,20 @@
  * selalu disimpan; versi yang terpantau saat pindai (mis. diubah di Obsidian) dirapatkan per selang waktu. Logika murni.
  */
 
-export const VERSION_REASONS = [
-  "observed",
-  "before_save",
-  "before_properties",
-  "before_task",
-  "before_link",
-  "before_move",
-  "before_restore",
-  "before_merge",
-  "before_extract",
-  "before_tag",
-] as const;
-export type VersionReason = (typeof VERSION_REASONS)[number];
+export type VersionReason =
+  | "observed"
+  | "before_save"
+  | "before_properties"
+  | "before_task"
+  | "before_link"
+  | "before_move"
+  | "before_restore"
+  | "before_merge"
+  | "before_extract"
+  | "before_tag";
 
 /** Versi terbaru yang disimpan per catatan. */
-export const MAX_VERSIONS = 30;
+const MAX_VERSIONS = 30;
 /** Versi terpantau yang lebih baru dari selang ini ditimpa (bukan ditambah) agar riwayat tidak penuh oleh ketikan. */
 export const OBSERVED_INTERVAL_MS = 5 * 60_000;
 

@@ -71,7 +71,7 @@ interface FindManyDelegate {
 }
 
 /** Batasi pencarian ke sumber tertentu (mis. sumber satu notebook). */
-export interface SourceRef {
+interface SourceRef {
   sourceType: string;
   sourceId: string;
 }

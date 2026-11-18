@@ -3,7 +3,7 @@
  * API server Hermes (Runs, skill, health), dan aturan pemilik.
  */
 
-export const TERMINAL_STATUSES = ["completed", "failed", "cancelled", "interrupted"] as const;
+const TERMINAL_STATUSES = ["completed", "failed", "cancelled", "interrupted"] as const;
 
 export interface AgentSkill {
   name: string;
@@ -25,7 +25,7 @@ export interface AgentRunView {
 export const SKILL_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 /** Kategori skill Akasha = nama folder mount di container Hermes (`/opt/data/skills/akasha`). */
-export const AKASHA_SKILL_CATEGORY = "akasha";
+const AKASHA_SKILL_CATEGORY = "akasha";
 
 /**
  * Perintah untuk Hermes agar menjalankan skill atas satu pengajuan. ID & judul pengajuan dari database Akasha (bukan dari

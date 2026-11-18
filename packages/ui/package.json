@@ -9,7 +9,8 @@
     "./brand": "./src/brand.tsx",
     "./theme": "./src/theme.ts",
     "./theme-toggle": "./src/theme-toggle.tsx",
-    "./vite-canonical-host": "./src/vite-canonical-host.ts"
+    "./vite-canonical-host": "./src/vite-canonical-host.ts",
+    "./ecosystem": "./src/ecosystem.ts"
   },
   "scripts": {
     "lint": "oxlint",

@@ -13,7 +13,7 @@ import type { OfficeFormat, OfficeTemplate } from "@/types/api";
 import { OFFICE_KIND_ICON } from "./office-editor-host";
 import { OFFICE_KIND_LABELS } from "./office-formats";
 
-export const KIND_OF_TARGET: Record<OfficeFormat, keyof typeof OFFICE_KIND_ICON> = {
+const KIND_OF_TARGET: Record<OfficeFormat, keyof typeof OFFICE_KIND_ICON> = {
   docx: "word",
   xlsx: "cell",
   pptx: "slide",

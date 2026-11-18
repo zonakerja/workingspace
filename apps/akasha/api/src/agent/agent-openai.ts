@@ -124,7 +124,7 @@ const finishReasonOf = (response: Response) =>
         ? "content_filter"
         : "stop";
 
-export function responsesUsage(response: Response) {
+function responsesUsage(response: Response) {
   const usage = response.usage;
   return {
     prompt_tokens: usage?.input_tokens ?? 0,

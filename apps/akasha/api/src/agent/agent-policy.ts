@@ -5,7 +5,6 @@
  */
 
 export const POLICY_MODES = ["off", "shadow", "auto"] as const;
-export type PolicyMode = (typeof POLICY_MODES)[number];
 
 /** Kolom aset yang dibandingkan. `nilai` dibandingkan dengan toleransi persen, kolom lain harus sama. */
 export const ASSET_FIELDS = ["nup", "kodeBarang", "nama", "nilai"] as const;
@@ -31,7 +30,7 @@ export interface AssetDiff {
   master: string | number | null;
 }
 
-export interface AssetCheckItem {
+interface AssetCheckItem {
   claimed: AssetClaim;
   master: MasterAsset | null;
   status: "cocok" | "berbeda" | "tidak_ditemukan";

@@ -48,7 +48,7 @@ function flush() {
 }
 
 /** Catat satu penghapusan yang masuk Sampah (respons hapus dengan `batchId`); null = tidak masuk Sampah. */
-export function notifyTrashed(batchId: string | null | undefined) {
+function notifyTrashed(batchId: string | null | undefined) {
   if (!batchId) return;
   pending.set(batchId, (pending.get(batchId) ?? 0) + 1);
   clearTimeout(timer);

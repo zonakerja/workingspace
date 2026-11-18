@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { useRobotMutations } from "@/data/use-robot";
 import { useOpenSession } from "@/hooks/use-retained";
 import { errorMessage } from "@/lib/api/client";
-import { useAuthStore } from "@/stores/auth-store";
 import type { RobotConnector } from "@/types/api";
 
 /**
@@ -46,9 +45,8 @@ function CredentialsForm({ connector, onDone }: { connector: RobotConnector; onD
   const m = useRobotMutations();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [accountPassword, setAccountPassword] = useState("");
-  // Akun SSO tanpa kata sandi lokal Akasha → konfirmasi dengan PIN keamanan (diperiksa SSO)
-  const usePin = useAuthStore((s) => s.user?.hasPassword === false);
+  // Konfirmasi pemilik dengan PIN keamanan (akun Workingspace)
+  const [accountPin, setAccountPin] = useState("");
   const [show, setShow] = useState(false);
   const save = () =>
     m.setCredentials.mutate(
@@ -56,7 +54,7 @@ function CredentialsForm({ connector, onDone }: { connector: RobotConnector; onD
         system: connector.system,
         username: username.trim(),
         password,
-        ...(usePin ? { accountPin: accountPassword } : { accountPassword }),
+        accountPin,
       },
       {
         onSuccess: () => {
@@ -109,16 +107,14 @@ function CredentialsForm({ connector, onDone }: { connector: RobotConnector; onD
         </div>
       </div>
       <div className="grid gap-1 rounded-lg bg-muted/40 p-2">
-        <Label htmlFor="cred-account">
-          {usePin ? "PIN keamanan Anda (konfirmasi)" : "Kata sandi akun Akasha Anda (konfirmasi)"}
-        </Label>
+        <Label htmlFor="cred-account">PIN keamanan Anda (konfirmasi)</Label>
         <Input
           id="cred-account"
           type="password"
-          value={accountPassword}
-          onChange={(e) => setAccountPassword(usePin ? e.target.value.replace(/\D/g, "").slice(0, 6) : e.target.value)}
-          inputMode={usePin ? "numeric" : undefined}
-          autoComplete={usePin ? "off" : "current-password"}
+          value={accountPin}
+          onChange={(e) => setAccountPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          inputMode="numeric"
+          autoComplete="off"
         />
       </div>
       <DialogFooter>
@@ -127,7 +123,7 @@ function CredentialsForm({ connector, onDone }: { connector: RobotConnector; onD
         </Button>
         <Button
           type="submit"
-          disabled={!username.trim() || !password || !accountPassword || m.setCredentials.isPending}
+          disabled={!username.trim() || !password || accountPin.length !== 6 || m.setCredentials.isPending}
         >
           {m.setCredentials.isPending && <Loader2 className="animate-spin" />} Simpan ke brankas
         </Button>

@@ -322,24 +322,35 @@ model Memory {
 /// Konektor MCP Akai (6b.5): alat dari aplikasi lain untuk chat. kind = akasha (alamat dari env AKASHA_MCP_URL) | custom (alamat isian).
 /// Token akses terenkripsi (AKAI_ENCRYPTION_KEY). tools = salinan tools/list (nama, deskripsi, skema input, tanda baca/hapus).
 model Connector {
-  id            String    @id @default(cuid())
-  accountId     String    @map("account_id")
-  name          String
-  slug          String
-  kind          String    @default("custom")
-  url           String?
-  tokenEnc      String?   @map("token_enc")
-  tokenHint     String?   @map("token_hint")
-  enabled       Boolean   @default(true)
-  allowWrite    Boolean   @default(false) @map("allow_write")
-  tools         Json      @default("[]")
-  status        String    @default("new")
-  statusMessage String?   @map("status_message")
-  checkedAt     DateTime? @map("checked_at") @db.Timestamptz(3)
+  id                   String    @id @default(cuid())
+  accountId            String    @map("account_id")
+  name                 String
+  slug                 String
+  kind                 String    @default("custom")
+  /// Aplikasi katalog (connector-catalog.ts), null = alamat isian sendiri / Akasha
+  preset               String?
+  /// none | token | oauth (6b.10)
+  authType             String    @default("token") @map("auth_type")
+  /// OAuth: { client?, tokens?, verifier? } terenkripsi; state sekali pakai selama jendela izin terbuka
+  oauthEnc             String?   @map("oauth_enc")
+  oauthState           String?   @unique @map("oauth_state")
+  /// OAuth client milik pemilik (server tanpa pendaftaran klien dinamis: Google, GitHub OAuth App, Slack, Box, HubSpot)
+  oauthClientId        String?   @map("oauth_client_id")
+  oauthClientSecretEnc String?   @map("oauth_client_secret_enc")
+  oauthScope           String?   @map("oauth_scope")
+  url                  String?
+  tokenEnc             String?   @map("token_enc")
+  tokenHint            String?   @map("token_hint")
+  enabled              Boolean   @default(true)
+  allowWrite           Boolean   @default(false) @map("allow_write")
+  tools                Json      @default("[]")
+  status               String    @default("new")
+  statusMessage        String?   @map("status_message")
+  checkedAt            DateTime? @map("checked_at") @db.Timestamptz(3)
   /// Konektor bagian dari paket plugin (6b.7): ikut dimatikan / dihapus bersama paketnya
-  pluginId      String?   @map("plugin_id")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  pluginId             String?   @map("plugin_id")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   plugin  Plugin? @relation(fields: [pluginId], references: [id], onDelete: Cascade)

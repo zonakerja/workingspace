@@ -84,9 +84,9 @@ async function openaiEmbed(apiKey: string, texts: string[], model: string, baseU
 }
 
 /** Teks dokumen sesuai format masing-masing provider. */
-export const documentText = (provider: EmbeddingProvider, doc: EmbeddingDocument) =>
+const documentText = (provider: EmbeddingProvider, doc: EmbeddingDocument) =>
   provider === "gemini" ? documentEmbeddingText(doc.title, doc.content) : `${doc.title}\n${doc.content}`;
-export const queryText = (provider: EmbeddingProvider, query: string) =>
+const queryText = (provider: EmbeddingProvider, query: string) =>
   provider === "gemini" ? queryEmbeddingText(query) : query;
 
 /**

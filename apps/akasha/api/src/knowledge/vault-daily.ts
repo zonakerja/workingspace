@@ -6,7 +6,7 @@ import { wikilink } from "./vault-export";
  * `Harian/`, dibuat sekali dari templat `90-Templat/Harian.md` (bila ada) + ringkasan agenda, to-do, dan task hari itu.
  * Setelah dibuat berkas milik user sepenuhnya — Akasha tidak pernah menimpanya.
  */
-export const DAILY_DIR = "Harian";
+const DAILY_DIR = "Harian";
 export const DAILY_TEMPLATE = "90-Templat/Harian.md";
 /** Penanda di templat tempat ringkasan Akasha disisipkan; tanpa penanda ringkasan ditaruh di akhir. */
 export const DAILY_MARKER = /\{\{\s*akasha\s*\}\}/i;

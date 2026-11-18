@@ -19,7 +19,8 @@ import { type ComponentProps, type FormEvent, type ReactNode, useCallback, useEf
 import { Link, useSearchParams } from "react-router";
 import { AccountShell } from "@/components/account-shell";
 import { Notice } from "@/components/auth-layout";
-import { UserAvatar } from "@workingspace/ui/brand";
+import { ProductMark, UserAvatar } from "@workingspace/ui/brand";
+import { PRODUCTS, productName } from "@workingspace/ui/ecosystem";
 import { NameField, PASSWORD_HINT, PasswordField } from "@/components/form-fields";
 import { Section, StatusPill } from "@/components/section";
 import { Button } from "@/components/ui/button";
@@ -34,10 +35,8 @@ import { cn } from "@/lib/utils";
 import { PinSection } from "./pin-section";
 
 /** Aplikasi ekosistem yang sedang dibangun (ditampilkan bila akun belum punya aksesnya). */
-const UPCOMING_APPS = [
-  { key: "akai", name: "Akai", description: "Asisten AI: chat & agen untuk semua aplikasi." },
-  { key: "cendekia", name: "Cendekia", description: "Ruang belajar & pengetahuan." },
-];
+const UPCOMING_APPS = PRODUCTS.filter((p) => !p.available);
+const taglineOf = (key: string) => PRODUCTS.find((p) => p.key === key)?.tagline;
 
 /** Halaman akun: ringkasan, aplikasi, profil, kata sandi, PIN, perangkat. */
 export function AccountPage() {
@@ -191,13 +190,14 @@ function AppsSection({ account }: { account: Account }) {
             className="group ring-aurora relative flex flex-col gap-4 rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-lift"
           >
             <div className="flex items-start justify-between gap-3">
-              <span className="font-display flex size-12 items-center justify-center rounded-2xl bg-aurora text-xl font-bold text-ink-foreground shadow-soft">
-                {app.name.slice(0, 1)}
-              </span>
+              <ProductMark appKey={app.key} name={app.name} className="size-12 shadow-soft" />
               <ArrowUpRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
             </div>
             <div className="min-w-0">
-              <p className="font-display truncate text-lg font-bold">{app.name}</p>
+              <p className="font-display truncate text-lg font-bold">{productName(app.key, app.name)}</p>
+              {taglineOf(app.key) && (
+                <p className="truncate text-xs font-medium text-primary italic">{taglineOf(app.key)}</p>
+              )}
               <p className="truncate text-xs text-muted-foreground">{hostOf(app.url)}</p>
             </div>
             <StatusPill tone={app.role === "admin" ? "brand" : "muted"} className="self-start">
@@ -210,12 +210,11 @@ function AppsSection({ account }: { account: Account }) {
             key={app.key}
             className="flex flex-col gap-4 rounded-2xl border border-dashed bg-surface/60 p-4 text-muted-foreground"
           >
-            <span className="font-display flex size-12 items-center justify-center rounded-2xl border border-dashed text-xl font-bold">
-              {app.name.slice(0, 1)}
-            </span>
+            <ProductMark appKey={app.key} name={app.name} className="size-12 opacity-60 grayscale-[35%]" />
             <div className="min-w-0">
               <p className="font-display truncate text-lg font-bold text-foreground/70">{app.name}</p>
-              <p className="line-clamp-2 text-xs">{app.description}</p>
+              <p className="truncate text-xs font-medium italic">{app.tagline}</p>
+              <p className="mt-1 line-clamp-2 text-xs">{app.lead}</p>
             </div>
             <StatusPill tone="info" className="self-start">
               <Sparkles /> Segera hadir

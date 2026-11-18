@@ -33,9 +33,6 @@ export const ROBOT_JOBS: Record<RobotJobKind, { system: RobotSystem; label: stri
   siman_session: { system: "siman", label: "Jaga sesi login" },
 };
 
-export const isRobotJobKind = (value: string): value is RobotJobKind =>
-  (ROBOT_JOB_KINDS as readonly string[]).includes(value);
-
 /** Jenis "jaga sesi" milik satu sistem. */
 export const sessionJobKind = (system: RobotSystem): RobotJobKind => `${system}_session`;
 

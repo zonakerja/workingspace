@@ -51,7 +51,7 @@ type Kind = "renaksi" | "realisasi" | "bukti";
 
 const tidy = (text: string) => text.replace(/\s+/g, " ").trim();
 /** Sama dengan robot `normalize`: spasi, huruf besar/kecil, tanda baca ujung. */
-export const normalize = (text: string) =>
+const normalize = (text: string) =>
   tidy(text)
     .toLowerCase()
     .replace(/[.;,]+$/, "");

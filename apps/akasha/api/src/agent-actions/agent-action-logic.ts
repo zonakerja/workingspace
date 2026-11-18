@@ -2,28 +2,16 @@ import { RECORD_TABLES, type RecordType, type TableSpec } from "../records/recor
 
 /** Logika murni aksi agen atas record (diuji di `agent-action-logic.spec.ts`). */
 
-export const AGENT_ACTION_KINDS = [
-  "create",
-  "update",
-  "delete",
-  "ekinerja_fill",
-  "srikandi_register",
-  "mcp_connect",
-  "mcp_access",
-] as const;
-
 /** Permintaan agen yang menunggu keputusan pemilik (Setujui / Tolak). */
-export const APPROVAL_KINDS = ["delete", "ekinerja_fill", "srikandi_register", "mcp_connect", "mcp_access"] as const;
-export type AgentActionKind = (typeof AGENT_ACTION_KINDS)[number];
+export const APPROVAL_KINDS = ["delete", "ekinerja_fill", "srikandi_register", "send_email"] as const;
 
 export const AGENT_ACTION_STATUSES = ["applied", "undone", "pending", "approved", "rejected", "failed"] as const;
-export type AgentActionStatus = (typeof AGENT_ACTION_STATUSES)[number];
 
 /**
  * Record yang tidak boleh ditulis agen: log riwayat dan data hasil sinkron robot (sumber kebenarannya sistem asal,
  * diisi ulang otomatis). Semua jenis lain = data kerja pemilik yang boleh dibuat/diubah agen.
  */
-export const AGENT_READONLY_TYPES = new Set<string>([
+const AGENT_READONLY_TYPES = new Set<string>([
   "para_archive_log",
   "archive_move_log",
   "action_plan_month",

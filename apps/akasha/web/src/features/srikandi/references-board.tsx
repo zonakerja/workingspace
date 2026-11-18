@@ -17,7 +17,7 @@ import { robotApi } from "@/lib/api/endpoints";
 import { formatDateTime } from "@/lib/dates";
 import type { SrikandiReference, SrikandiReferenceCategory } from "@/types/entities";
 
-export const REFERENCE_LABELS: Record<SrikandiReferenceCategory, string> = {
+const REFERENCE_LABELS: Record<SrikandiReferenceCategory, string> = {
   signer: "Penandatangan",
   recipient: "Tujuan Naskah",
   recipient_group: "Grup Tujuan",

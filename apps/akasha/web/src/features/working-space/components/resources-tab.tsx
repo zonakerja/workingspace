@@ -43,6 +43,7 @@ import {
   OFFICE_ATTACHMENT_TYPE,
   useOfficeEnabled,
 } from "@/features/tools/onlyoffice/new-office-document-button";
+import { DriveFilePicker } from "@/features/drive/drive-file-picker";
 import { ConvertedDocumentPicker } from "@/features/tools/converter/converted-document-picker";
 import { openOfficeEditor } from "@/features/tools/onlyoffice/office-editor-host";
 import { isOfficeEditable } from "@/features/tools/onlyoffice/office-formats";
@@ -794,6 +795,7 @@ function ResourceForm({
                 </Button>
                 {/* Hasil Markdown Converter dipanggil ke Working Space sebagai salinan berkas .md */}
                 {!filed && <ConvertedDocumentPicker disabled={uploading} onPick={(file) => void handleFile(file)} />}
+                {!filed && <DriveFilePicker disabled={uploading} onPick={(file) => void handleFile(file)} />}
               </>
             ) : (
               !form.uploadId && (

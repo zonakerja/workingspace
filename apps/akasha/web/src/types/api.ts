@@ -13,9 +13,7 @@ export interface PublicUser {
   aiViaAkai?: boolean;
   /** PIN keamanan sudah diatur (membuka item terkunci) */
   hasPin?: boolean;
-  /** Punya kata sandi lokal Akasha (akun yang hanya masuk lewat SSO = false) */
-  hasPassword?: boolean;
-  /** `sub` akun SSO workingspace.id (null = akun lokal) */
+  /** `sub` akun SSO workingspace.id (null = akun uji tanpa SSO) */
   ssoSubject?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -63,7 +61,7 @@ export interface AiProviderInput {
 }
 
 /** Akai (gateway model ekosistem): tugas yang punya model di Akai dijawab Akai. */
-export interface AkaiStatus {
+interface AkaiStatus {
   /** Akai aktif di server & akun masuk lewat SSO */
   available: boolean;
   reachable: boolean;
@@ -98,7 +96,7 @@ export interface AiSettings {
   providers: AiProviderSettings[];
 }
 
-export type AiEmbeddingProvider = "gemini" | "openai";
+type AiEmbeddingProvider = "gemini" | "openai";
 
 export interface AiRouting {
   chat?: AiProviderId | null;
@@ -158,10 +156,11 @@ export type ApiScope =
   | "requests:write"
   | "ai:model"
   | "agent:menus"
-  | "mcp:apps"
   | "ekinerja:robot"
   | "srikandi:robot"
-  | "siman:robot";
+  | "siman:robot"
+  | "mail:read"
+  | "mail:send";
 
 export interface ApiTokenInfo {
   id: string;
@@ -192,7 +191,7 @@ export interface AgentActivity {
 // ---------------------------------------------------------------- Chatbot Akasha & basis pengetahuan
 
 /** Note composer: tujuan = catatan yang ada (`targetId` + hash) atau catatan baru (`newTitle`). */
-export interface KnowledgeComposeInput {
+interface KnowledgeComposeInput {
   baseHash: string;
   position?: "end" | "start";
   /** Sisipkan di akhir bagian judul ini pada catatan tujuan */
@@ -228,62 +227,6 @@ export interface KnowledgeExtractInput extends KnowledgeComposeInput {
 /** Catatan berkala di menu Knowledge: harian, mingguan (minggu ISO), bulanan */
 export type KnowledgePeriod = "day" | "week" | "month";
 
-export type McpAuthType = "none" | "token" | "oauth";
-
-export interface McpPreset {
-  key: string;
-  name: string;
-  description: string;
-  url: string;
-  authType: McpAuthType;
-  icon: string;
-  hint: string;
-  /** Kelompok penyedia (mis. google): satu OAuth client dipakai bersama */
-  group?: string;
-  /** Wajib OAuth client yang didaftarkan sendiri (server tanpa pendaftaran klien dinamis) */
-  needsClient?: boolean;
-  /** Scope bawaan, dipisah spasi */
-  scope?: string;
-}
-
-export interface McpToolSummary {
-  name: string;
-  title: string | null;
-  description: string;
-  readOnly: boolean;
-  destructive: boolean;
-}
-
-/** Koneksi ke server MCP aplikasi luar (kredensial tidak pernah dikirim ke browser). */
-export interface McpConnectionInfo {
-  id: string;
-  name: string;
-  slug: string;
-  url: string;
-  preset: string | null;
-  icon: string | null;
-  authType: McpAuthType;
-  hasToken: boolean;
-  authorized?: boolean;
-  status: "new" | "connected" | "auth_required" | "error";
-  statusMessage: string | null;
-  tools: McpToolSummary[];
-  agentEnabled: boolean;
-  allowWrite: boolean;
-  /** Alat bertanda Hapus yang tetap diizinkan untuk agen */
-  agentTools: string[];
-  /** Domain tempat berkas hasil aplikasi boleh disimpan agen ke Akasha */
-  fileHosts: string[];
-  /** OAuth client yang didaftarkan pemilik (secret tidak pernah dikirim) */
-  oauthClientId: string | null;
-  hasClientSecret: boolean;
-  oauthScope: string | null;
-  /** Alamat callback OAuth Akasha untuk didaftarkan di OAuth client */
-  redirectUrl: string;
-  lastCheckedAt: string | null;
-  createdAt: string;
-}
-
 /** Aksi agen atas data kerja: buat/ubah (bisa dibatalkan) atau permintaan hapus (menunggu persetujuan). */
 export interface AgentActionInfo {
   id: string;
@@ -291,7 +234,7 @@ export interface AgentActionInfo {
    * `ekinerja_fill` = permintaan agen mengisi Rencana Aksi satu bulan ke e-Kinerja; `srikandi_register` = permintaan agen
    * mendaftarkan satu entri Register Naskah Keluar ke SRIKANDI (keduanya menunggu persetujuan)
    */
-  kind: "create" | "update" | "delete" | "ekinerja_fill" | "srikandi_register" | "mcp_connect" | "mcp_access";
+  kind: "create" | "update" | "delete" | "ekinerja_fill" | "srikandi_register" | "send_email";
   recordType: string;
   clientId: string;
   title: string;
@@ -320,7 +263,8 @@ export interface TrashItemInfo {
 }
 
 export type SmartSearchMode = "text" | "meaning";
-export type SmartModule = "planner" | "notes" | "working-space" | "file_control" | "files" | "knowledge" | "other";
+export type SmartModule =
+  "planner" | "email" | "notes" | "working-space" | "file_control" | "files" | "knowledge" | "other";
 
 /** Satu item/berkas hasil Pencarian Pintar (potongan terbaik + jumlah potongan cocok). */
 export interface SmartSearchResult {
@@ -477,7 +421,7 @@ export interface AiGenerateResult {
   } | null;
 }
 
-export interface AiTranscript {
+interface AiTranscript {
   text: string;
   truncated: boolean;
   passes: number;
@@ -521,7 +465,7 @@ export type AppSettingsInput = Partial<
   appLogo?: string;
 };
 
-export const RECORD_TYPES = [
+const RECORD_TYPES = [
   "agenda_type",
   "routine",
   "schedule",
@@ -694,7 +638,7 @@ export interface AssetMetadata {
 // ---------------------------------------------------------------------------- My Notebook
 
 export type NotebookSourceKind = "upload" | "record" | "text" | "web";
-export type NotebookSourceStatus = "ready" | "processing" | "failed" | "missing";
+type NotebookSourceStatus = "ready" | "processing" | "failed" | "missing";
 /** Item Akasha yang bisa dijadikan sumber notebook (sama dengan backend `NOTEBOOK_RECORD_TYPES`). */
 export type NotebookRecordType = "free_note" | "ai_note" | "list" | "para_resource";
 
@@ -828,7 +772,7 @@ export interface OfficeDiagnostics extends OfficeStatus {
 }
 
 /** Config `DocsAPI.DocEditor` bertanda tangan dari backend — dipakai apa adanya (tidak boleh diubah). */
-export interface OfficeEditorConfig {
+interface OfficeEditorConfig {
   documentType: string;
   document: { fileType: string; key: string; title: string };
   editorConfig: { mode: "edit" | "view" };
@@ -904,7 +848,7 @@ export interface OfficeTemplate {
   target: OfficeFormat;
 }
 
-export interface OfficeFontFile {
+interface OfficeFontFile {
   name: string;
   size: number;
   updatedAt: string;
@@ -966,7 +910,7 @@ export interface NotebookUsage {
 export type RequestKind = "psp" | "penghapusan" | "pemanfaatan" | "surat" | "lainnya";
 export type RequestStatus = "baru" | "diproses" | "menunggu_verifikasi" | "disetujui" | "dikirim" | "ditolak";
 
-export interface RequestAttachment {
+interface RequestAttachment {
   uploadId: string;
   name: string;
   mimeType: string;
@@ -985,7 +929,7 @@ export interface RequestChecklistItem {
   catatan: string;
 }
 
-export interface RequestAnalysis {
+interface RequestAnalysis {
   summary: string;
   fields: Record<string, unknown>;
   checklist: RequestChecklistItem[];
@@ -1022,7 +966,7 @@ export interface RequestAutoDecision {
   error?: string;
 }
 
-export interface AssetClaim {
+interface AssetClaim {
   nup?: string;
   kodeBarang?: string;
   nama?: string;
@@ -1291,7 +1235,7 @@ export type AutomationSchedule =
   | { mode: "hourly"; minute: number; from: number; to: number; days: number[]; timezone: AutomationTimezone }
   | { mode: "cron"; pattern: string; timezone: AutomationTimezone };
 
-export type AutomationRunStatus = "queued" | "running" | "ok" | "failed" | "skipped";
+type AutomationRunStatus = "queued" | "running" | "ok" | "failed" | "skipped";
 
 export interface AutomationJob {
   kind: AutomationKind;
@@ -1344,7 +1288,7 @@ export type RobotInput =
   | { type: "goto"; url: string }
   | { type: "back" | "reload" };
 
-export type RobotLoginStage = "done" | "captcha" | "otp" | "credentials" | "unknown";
+type RobotLoginStage = "done" | "captcha" | "otp" | "credentials" | "unknown";
 
 export interface RobotLoginStep {
   sessionId: string;
@@ -1371,7 +1315,7 @@ export interface PublicLinkInfo {
 }
 
 /** Brankas digital: satu tautan publik baca-saja berisi beberapa berkas (bukti data dukung satu poin renaksi). */
-export interface VaultFile {
+interface VaultFile {
   id: string;
   name: string;
   mimeType: string;
@@ -1421,7 +1365,7 @@ export interface KnowledgeTree {
   notes: KnowledgeNoteListItem[];
 }
 
-export interface KnowledgeGraphNode {
+interface KnowledgeGraphNode {
   id: string;
   title: string;
   path: string;
@@ -1556,7 +1500,7 @@ export interface KnowledgeUnlinkedMention {
 
 // ---------------------------------------------------------------------------- Markdown Converter
 
-export type ConverterEngine = "markitdown" | "docling";
+type ConverterEngine = "markitdown" | "docling";
 export type ConverterMode = "auto" | ConverterEngine;
 export type ConverterReconvertScope = "ai_ocr" | "missing" | "legacy" | "unenhanced";
 /** Cakupan Rapikan dengan AI: `ocr` = hanya hasil Docling (gambar & scan), `all` = semua berkas. */
@@ -1581,7 +1525,7 @@ export interface ConverterPrefs {
   aiEnhanceScope: ConverterEnhanceScope;
 }
 
-export interface ConverterEnhanced {
+interface ConverterEnhanced {
   markdown: string;
   parts: number;
   rejected: number;
@@ -1664,4 +1608,204 @@ export interface ConverterStats {
   byMethod: Record<string, number>;
   byStatus: Record<string, number>;
   reconvert: Record<ConverterReconvertScope, number>;
+}
+
+/** Pengaturan → Akun Tersambung: langganan kalender ICS (docs/AKUN-TERSAMBUNG.md tahap 0). */
+export type FeedTimezone = "Asia/Jakarta" | "Asia/Makassar" | "Asia/Jayapura";
+export interface CalendarFeedInclude {
+  agenda: boolean;
+  tasks: boolean;
+  todos: boolean;
+}
+export type CalendarFeedStatus =
+  | { enabled: false }
+  | {
+      enabled: true;
+      url: string;
+      include: CalendarFeedInclude;
+      timezone: FeedTimezone;
+      lastAccessAt: string | null;
+      createdAt: string;
+    };
+
+export type MailProvider = "gmail" | "outlook" | "custom";
+export interface MailPreset {
+  key: MailProvider;
+  label: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  oauthOnly?: string;
+  hint: string;
+}
+export interface MailAccount {
+  id: string;
+  provider: MailProvider;
+  label: string;
+  address: string;
+  displayName: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpSecure: boolean;
+  smtpUser: string | null;
+  hasPassword: boolean;
+  authType: "password" | "oauth";
+  isDefault: boolean;
+  status: "new" | "ok" | "error";
+  statusMessage: string | null;
+  checkedAt: string | null;
+  digestEnabled: boolean;
+  digestTime: string;
+  digestTimezone: FeedTimezone;
+  digestLastSent: string | null;
+  imapHost: string | null;
+  imapPort: number | null;
+  inboxEnabled: boolean;
+  inboxIndex: boolean;
+  inboxDays: number;
+  inboxSyncedAt: string | null;
+  inboxError: string | null;
+  createdAt: string;
+}
+
+export interface MailHints {
+  kind: "bill" | "schedule" | "none";
+  amount?: number;
+  date?: string;
+  time?: string;
+  matched: string[];
+}
+export type MailStatus = "new" | "done" | "ignored";
+export interface MailMessageSummary {
+  id: string;
+  accountId: string;
+  account?: { label: string; address: string };
+  fromAddress: string;
+  fromName: string | null;
+  subject: string;
+  sentAt: string;
+  snippet: string;
+  attachments: { name: string; size: number; type: string }[];
+  hints: MailHints;
+  status: MailStatus;
+  linked: { type: "todo" | "schedule"; id: string }[];
+}
+export interface MailMessageDetail extends MailMessageSummary {
+  toText: string | null;
+  body: string;
+  suggestions: {
+    todo: { title: string; date: string; priority: "low" | "medium" | "high" };
+    agenda: { title: string; startDate: string; startTime: string } | null;
+  };
+}
+export interface MailInboxSettingsInput {
+  enabled?: boolean;
+  index?: boolean;
+  days?: number;
+  imapHost?: string | null;
+  imapPort?: number | null;
+}
+export interface MailAccountInput {
+  provider?: MailProvider;
+  label?: string;
+  address?: string;
+  displayName?: string | null;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpSecure?: boolean | null;
+  smtpUser?: string | null;
+  password?: string;
+  isDefault?: boolean;
+  digestEnabled?: boolean;
+  digestTime?: string;
+  digestTimezone?: FeedTimezone;
+}
+
+/** Pengaturan → Akun Tersambung: akun Google / Microsoft lewat OAuth (docs/AKUN-TERSAMBUNG.md tahap 2). */
+export type OAuthProviderId = "google" | "microsoft";
+export interface CalendarConnectionInfo {
+  id: string;
+  calendarName: string;
+  enabled: boolean;
+  status: "new" | "ok" | "error";
+  statusMessage: string | null;
+  syncedAt: string | null;
+}
+export interface OAuthAccountInfo {
+  id: string;
+  provider: OAuthProviderId;
+  email: string;
+  displayName: string | null;
+  scopes: string[];
+  /** Izin Drive sudah diberikan (tahap 4: pilih berkas & arsip dingin) */
+  drive: boolean;
+  status: "ok" | "error";
+  statusMessage: string | null;
+  createdAt: string;
+  calendar: CalendarConnectionInfo | null;
+  mailAccountId: string | null;
+}
+export interface ConnectionsInfo {
+  configured: Record<OAuthProviderId, boolean>;
+  redirectUri: string;
+  accounts: OAuthAccountInfo[];
+}
+/** Drive sebagai penyimpanan (docs/AKUN-TERSAMBUNG.md tahap 4) */
+export interface DriveAccountInfo {
+  id: string;
+  provider: OAuthProviderId;
+  email: string;
+  status: "ok" | "error";
+}
+export interface DriveAccountsInfo {
+  pickerReady: boolean;
+  maxMb: number;
+  accounts: DriveAccountInfo[];
+}
+interface DriveItem {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number | null;
+  folder: boolean;
+  modifiedAt: string | null;
+}
+export interface DriveListing {
+  folder: { id: string; name: string; parentId: string | null } | null;
+  items: DriveItem[];
+}
+export interface DrivePickerConfig {
+  accessToken: string;
+  apiKey: string;
+  appId: string;
+}
+export interface ColdStorageSettings {
+  enabled: boolean;
+  accountId: string | null;
+  afterDays: number;
+  minSizeMb: number;
+}
+interface ColdRunResult {
+  kind: "move" | "restore";
+  at: string;
+  done: number;
+  failed: number;
+  bytes: number;
+  error: string | null;
+}
+export interface ColdStorageStatus {
+  settings: ColdStorageSettings;
+  accounts: DriveAccountInfo[];
+  stored: { count: number; bytes: number };
+  candidates: { count: number; bytes: number };
+  running: "move" | "restore" | null;
+  lastRun: ColdRunResult | null;
+}
+export interface CalendarSyncResult {
+  pulledNew: number;
+  pulledUpdated: number;
+  pulledRemoved: number;
+  pushedNew: number;
+  pushedUpdated: number;
+  pushedDeleted: number;
 }

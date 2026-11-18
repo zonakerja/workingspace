@@ -1,52 +1,15 @@
-import { ExternalLink, KeyRound, Lock, LockOpen, ShieldCheck, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { ExternalLink, KeyRound, Lock, LockOpen, ShieldCheck } from "lucide-react";
 import { SectionCard } from "@/components/common/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { useLockPin, usePinStatus, useRemovePin, useSetPin } from "@/data/use-pin";
-import { errorMessage } from "@/lib/api/client";
-import { pinProblem } from "./pin-logic";
+import { useLockPin, usePinStatus } from "@/data/use-pin";
 import { requestUnlock } from "./pin-prompt";
 
-const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 6);
-
-/** Profil Saya → PIN Keamanan: atur/ganti PIN, kunci sekarang, hapus PIN. */
+/** Profil Saya → PIN Keamanan: status, kunci sekarang / buka; PIN sendiri diatur di akun Workingspace (SSO). */
 export function PinSettingsCard() {
   const { data: status, isLoading } = usePinStatus();
-  const setPin = useSetPin();
   const lock = useLockPin();
-  const [pin, setPinValue] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [password, setPassword] = useState("");
-  const [removing, setRemoving] = useState(false);
-  const problem = pin ? pinProblem(pin, confirm) : null;
-
-  const save = async () => {
-    if (problem) return;
-    try {
-      await setPin.mutateAsync({ password, pin });
-      toast.success(status?.hasPin ? "PIN diganti" : "PIN keamanan aktif", {
-        description: "Sesi ini terbuka. Sesi lain perlu memasukkan PIN baru.",
-      });
-      setPinValue("");
-      setConfirm("");
-      setPassword("");
-    } catch (error) {
-      toast.error("PIN gagal disimpan", { description: errorMessage(error) });
-    }
-  };
 
   return (
     <div id="pin" className="scroll-mt-16">
@@ -105,11 +68,6 @@ export function PinSettingsCard() {
                       <LockOpen /> Buka dengan PIN
                     </Button>
                   )}
-                  {!status.managedBySso && (
-                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setRemoving(true)}>
-                      <Trash2 /> Hapus PIN
-                    </Button>
-                  )}
                 </span>
               </div>
             )}
@@ -130,122 +88,13 @@ export function PinSettingsCard() {
                 )}
               </div>
             ) : (
-              <form
-                className="rounded-xl border p-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void save();
-                }}
-              >
-                <FieldGroup className="gap-3">
-                  <p className="flex items-center gap-2 text-sm font-semibold">
-                    <KeyRound className="size-4 text-module" /> {status?.hasPin ? "Ganti PIN" : "Atur PIN"}
-                  </p>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <Field>
-                      <FieldLabel htmlFor="pin-new">PIN baru (6 angka)</FieldLabel>
-                      <Input
-                        id="pin-new"
-                        type="password"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        maxLength={6}
-                        value={pin}
-                        onChange={(e) => setPinValue(digitsOnly(e.target.value))}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="pin-confirm">Ulangi PIN</FieldLabel>
-                      <Input
-                        id="pin-confirm"
-                        type="password"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        maxLength={6}
-                        value={confirm}
-                        onChange={(e) => setConfirm(digitsOnly(e.target.value))}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="pin-password">Kata sandi akun</FieldLabel>
-                      <Input
-                        id="pin-password"
-                        type="password"
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </Field>
-                  </div>
-                  <FieldDescription>
-                    {problem ??
-                      "Lupa PIN? Atur PIN baru di sini dengan kata sandi akun. Sesi lain akan terkunci dan perlu PIN baru."}
-                  </FieldDescription>
-                  <div className="flex justify-end">
-                    <Button type="submit" size="sm" disabled={!pin || !!problem || !password || setPin.isPending}>
-                      {setPin.isPending ? <Spinner /> : <ShieldCheck />} {status?.hasPin ? "Ganti PIN" : "Aktifkan PIN"}
-                    </Button>
-                  </div>
-                </FieldGroup>
-              </form>
+              <p className="rounded-xl border p-3 text-sm text-muted-foreground">
+                PIN diatur di <b>akun Workingspace</b> (satu PIN untuk semua aplikasi).
+              </p>
             )}
           </div>
         )}
       </SectionCard>
-      <RemovePinDialog open={removing} onOpenChange={setRemoving} />
     </div>
-  );
-}
-
-function RemovePinDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const remove = useRemovePin();
-  const [password, setPassword] = useState("");
-  const submit = async () => {
-    try {
-      await remove.mutateAsync(password);
-      toast.success("PIN keamanan dihapus");
-      setPassword("");
-      onOpenChange(false);
-    } catch (error) {
-      toast.error("PIN gagal dihapus", { description: errorMessage(error) });
-    }
-  };
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <form
-          className="grid gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void submit();
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Hapus PIN keamanan?</DialogTitle>
-            <DialogDescription>
-              Hanya bisa bila tidak ada item yang masih terkunci. Lepas kunci item lebih dulu.
-            </DialogDescription>
-          </DialogHeader>
-          <Field>
-            <FieldLabel htmlFor="pin-remove-password">Kata sandi akun</FieldLabel>
-            <Input
-              id="pin-remove-password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </Field>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Batal
-            </Button>
-            <Button type="submit" variant="destructive" disabled={!password || remove.isPending}>
-              {remove.isPending ? <Spinner /> : <Trash2 />} Hapus PIN
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

@@ -79,9 +79,7 @@ model User {
   id              String      @id @default(cuid())
   name            String
   email           String      @unique
-  /// Hash kata sandi lokal; null = akun hanya masuk lewat SSO workingspace.id
-  passwordHash    String?     @map("password_hash")
-  /// `sub` akun SSO workingspace.id (docs/SSO.md); null = akun lokal yang belum pernah masuk lewat SSO
+  /// `sub` akun SSO workingspace.id (docs/SSO.md); null = akun uji tanpa SSO (smoke test)
   ssoSubject      String?     @unique @map("sso_subject")
   /// Cermin "PIN sudah diatur" untuk akun SSO (PIN-nya sendiri disimpan & diperiksa SSO)
   ssoPin          Boolean     @default(false) @map("sso_pin")
@@ -109,6 +107,8 @@ model User {
   ekinerjaPrefs   Json?       @map("ekinerja_prefs")
   /// Preferensi Markdown Converter: { enabled, pdfMode: auto|markitdown|docling, aiOcrFallback } (Tools → Markdown Converter)
   converterPrefs  Json?       @map("converter_prefs")
+  /// Arsip dingin ke Drive (docs/AKUN-TERSAMBUNG.md tahap 4): { enabled, accountId, afterDays, minSizeMb, folderId }
+  coldStorage     Json?       @map("cold_storage")
   /// PIN keamanan (6 angka, hash argon2) untuk membuka item terkunci; null = belum diatur
   pinHash         String?     @map("pin_hash")
   /// Salah PIN berturut-turut (direset saat benar) & waktu blokir sementara
@@ -180,7 +180,12 @@ model User {
   agentMenus            AgentMenu[]
   trashItems            TrashItem[]
   agentActions          AgentAction[]
-  mcpConnections        McpConnection[]
+  calendarFeed          CalendarFeed?
+  mailAccounts          MailAccount[]
+  mailMessages          MailMessage[]
+  oauthAccounts         OAuthAccount[]
+  calendarConnections   CalendarConnection[]
+  coldObjects           ColdObject[]
   convertedDocuments    ConvertedDocument[]
   agentRuns             AgentRun[]
   /// Sakelar darurat Kebijakan Otomatis: true = tidak ada tugas/keputusan/kiriman otomatis baru
@@ -501,6 +506,8 @@ model Asset {
   versionedAt     DateTime?         @map("versioned_at") @db.Timestamptz(3)
   // Dokumen final (mis. PDF bertanda tangan) → konsepnya (dokumen ONLYOFFICE); konsep dihapus = tautan dilepas
   draftId         String?           @map("draft_id")
+  // Terakhir dibaca dari storage (dicatat paling sering sekali per 6 jam) — dasar arsip dingin; null = createdAt
+  lastAccessedAt  DateTime?         @map("last_accessed_at") @db.Timestamptz(3)
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1862,52 +1869,6 @@ model AgentAction {
   @@map("agent_actions")
 }
 
-/// Koneksi ke server MCP aplikasi luar (Canva, Notion, GitHub, …): Akasha menjadi klien MCP. Kredensial (token / OAuth)
-/// terenkripsi dan tidak pernah dikirim ke browser maupun ke agen; agen memakai alatnya lewat MCP Akasha bila diizinkan.
-model McpConnection {
-  id                   String    @id @default(cuid())
-  userId               String    @map("user_id")
-  name                 String
-  /// Bagian alamat halaman /mcp-app/<slug>, unik per user
-  slug                 String
-  url                  String
-  /// Kunci katalog (canva, notion, …) atau null = alamat sendiri
-  preset               String?
-  icon                 String?
-  /// none | token | oauth
-  authType             String    @map("auth_type")
-  /// Token bearer terenkripsi (authType token)
-  tokenEnc             String?   @map("token_enc")
-  /// Data OAuth terenkripsi: client information, tokens, code verifier
-  oauthEnc             String?   @map("oauth_enc")
-  /// Nilai state OAuth yang sedang menunggu callback
-  oauthState           String?   @unique @map("oauth_state")
-  /// OAuth client yang didaftarkan pemilik (aplikasi tanpa pendaftaran klien dinamis: Google, GitHub OAuth App)
-  oauthClientId        String?   @map("oauth_client_id")
-  /// Client secret terenkripsi
-  oauthClientSecretEnc String?   @map("oauth_client_secret_enc")
-  /// Scope OAuth yang diminta (kosong = sesuai daftar server)
-  oauthScope           String?   @map("oauth_scope")
-  /// new | connected | auth_required | error
-  status               String    @default("new")
-  statusMessage        String?   @map("status_message")
-  /// Daftar alat terakhir: [{ name, title, description, readOnly, destructive }]
-  tools                Json      @default("[]")
-  /// Agen boleh melihat & memakai alat koneksi ini
-  agentEnabled         Boolean   @default(false) @map("agent_enabled")
-  /// Agen boleh memakai alat yang bisa mengubah data di aplikasi itu (selain alat baca)
-  allowWrite           Boolean   @default(false) @map("allow_write")
-  /// Alat bertanda Hapus yang tetap diizinkan pemilik untuk agen (mis. simpan hasil sunting Canva)
-  agentTools           Json      @default("[]") @map("agent_tools")
-  lastCheckedAt        DateTime? @map("last_checked_at") @db.Timestamptz(3)
-  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, slug])
-  @@map("mcp_connections")
-}
-
 /// Pustaka Markdown Converter: hasil konversi yang disimpan (berkas asal tidak disimpan). Hapus = permanen.
 model ConvertedDocument {
   id               String    @id @default(cuid())
@@ -1933,4 +1894,212 @@ model ConvertedDocument {
 
   @@index([userId, createdAt])
   @@map("converted_documents")
+}
+
+/// Langganan kalender ICS (docs/AKUN-TERSAMBUNG.md tahap 0): satu alamat rahasia per user yang dilanggan Google Calendar / Outlook /
+/// kalender HP. Token disimpan hash (pencarian) + terenkripsi (agar alamatnya bisa ditampilkan lagi ke pemilik).
+model CalendarFeed {
+  id           String    @id @default(cuid())
+  userId       String    @unique @map("user_id")
+  tokenHash    String    @unique @map("token_hash")
+  tokenEnc     String    @map("token_enc")
+  /// Isi feed: { agenda, tasks, todos } (boolean)
+  include      Json      @default("{}")
+  /// Zona waktu jam agenda: Asia/Jakarta | Asia/Makassar | Asia/Jayapura
+  timezone     String    @default("Asia/Jakarta")
+  lastAccessAt DateTime? @map("last_access_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("calendar_feeds")
+}
+
+/// Akun email milik user (docs/AKUN-TERSAMBUNG.md): banyak akun per user. Tahap 0 = kirim lewat SMTP (sandi aplikasi Gmail / server
+/// lain) + ringkasan harian; tahap berikutnya menambah ambil email (IMAP / Microsoft Graph) dan login OAuth.
+model MailAccount {
+  id               String        @id @default(cuid())
+  userId           String        @map("user_id")
+  /// gmail | outlook | custom
+  provider         String
+  label            String
+  address          String
+  displayName      String?       @map("display_name")
+  /// password (sandi / sandi aplikasi) | oauth (tahap berikutnya)
+  authType         String        @default("password") @map("auth_type")
+  smtpHost         String?       @map("smtp_host")
+  smtpPort         Int?          @map("smtp_port")
+  /// true = TLS langsung (465), false = STARTTLS (587)
+  smtpSecure       Boolean       @default(true) @map("smtp_secure")
+  smtpUser         String?       @map("smtp_user")
+  /// Sandi terenkripsi, tidak pernah dikembalikan ke browser
+  passwordEnc      String?       @map("password_enc")
+  isDefault        Boolean       @default(false) @map("is_default")
+  /// ok | error | new
+  status           String        @default("new")
+  statusMessage    String?       @map("status_message")
+  checkedAt        DateTime?     @map("checked_at") @db.Timestamptz(3)
+  digestEnabled    Boolean       @default(false) @map("digest_enabled")
+  /// HH:mm waktu lokal kirim ringkasan harian
+  digestTime       String        @default("06:30") @map("digest_time")
+  digestTimezone   String        @default("Asia/Jakarta") @map("digest_timezone")
+  /// Tanggal lokal (YYYY-MM-DD) ringkasan terakhir terkirim
+  digestLastSent   String?       @map("digest_last_sent")
+  /// Kotak masuk (IMAP, tahap 1): baca berkala, tidak pernah menandai dibaca / menghapus di server
+  imapHost         String?       @map("imap_host")
+  imapPort         Int?          @map("imap_port")
+  inboxEnabled     Boolean       @default(false) @map("inbox_enabled")
+  /// Masukkan email ke indeks AI (chatbot & Pencarian Pintar); isi email dikirim ke model embedding
+  inboxIndex       Boolean       @default(false) @map("inbox_index")
+  /// Rentang awal sinkron (hari ke belakang)
+  inboxDays        Int           @default(14) @map("inbox_days")
+  inboxUidValidity String?       @map("inbox_uid_validity")
+  inboxLastUid     Int           @default(0) @map("inbox_last_uid")
+  inboxSyncedAt    DateTime?     @map("inbox_synced_at") @db.Timestamptz(3)
+  inboxError       String?       @map("inbox_error")
+  /// Akun OAuth (Outlook lewat Microsoft Graph); null = sandi (SMTP/IMAP)
+  oauthAccountId   String?       @map("oauth_account_id")
+  /// Penanda sinkron Graph (deltaLink)
+  inboxCursor      String?       @map("inbox_cursor")
+  oauthAccount     OAuthAccount? @relation(fields: [oauthAccountId], references: [id], onDelete: Cascade)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages         MailMessage[]
+
+  @@unique([userId, address])
+  @@index([digestEnabled])
+  @@index([inboxEnabled])
+  @@map("mail_accounts")
+}
+
+/// Email masuk hasil sinkron IMAP (salinan baca saja; email asli tetap di server penyedia)
+model MailMessage {
+  id          String      @id @default(cuid())
+  userId      String      @map("user_id")
+  accountId   String      @map("account_id")
+  uid         Int?
+  uidValidity String?     @map("uid_validity")
+  /// ID pesan di penyedia (Microsoft Graph)
+  externalId  String?     @map("external_id")
+  messageId   String?     @map("message_id")
+  fromAddress String      @map("from_address")
+  fromName    String?     @map("from_name")
+  toText      String?     @map("to_text")
+  subject     String
+  sentAt      DateTime    @map("sent_at") @db.Timestamptz(3)
+  snippet     String
+  /// Isi teks (dipotong), HTML dikonversi ke teks
+  body        String
+  /// [{ name, size, type }] — berkas lampiran tidak disimpan
+  attachments Json        @default("[]")
+  /// Petunjuk otomatis tanpa AI: tagihan / jadwal, nominal, tanggal
+  hints       Json        @default("{}")
+  /// new | done | ignored
+  status      String      @default("new")
+  /// Record yang dibuat dari email ini: { type, id }
+  linked      Json?
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  account     MailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, uidValidity, uid])
+  @@unique([accountId, externalId])
+  @@index([userId, sentAt])
+  @@index([userId, status])
+  @@map("mail_messages")
+}
+
+/// Akun Google / Microsoft yang disambungkan lewat OAuth (docs/AKUN-TERSAMBUNG.md tahap 2). Token terenkripsi, tidak pernah ke browser.
+model OAuthAccount {
+  id            String              @id @default(cuid())
+  userId        String              @map("user_id")
+  /// google | microsoft
+  provider      String
+  email         String
+  displayName   String?             @map("display_name")
+  scopes        String
+  /// JSON terenkripsi { access_token, refresh_token, expires_at }
+  tokenEnc      String              @map("token_enc")
+  /// ok | error
+  status        String              @default("ok")
+  statusMessage String?             @map("status_message")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendar      CalendarConnection?
+  mailAccounts  MailAccount[]
+  coldObjects   ColdObject[]
+
+  @@unique([userId, provider, email])
+  @@map("oauth_accounts")
+}
+
+/// Kalender "Akasha" di Google / Outlook yang disinkron dua arah dengan agenda Akasha
+model CalendarConnection {
+  id             String              @id @default(cuid())
+  userId         String              @map("user_id")
+  oauthAccountId String              @unique @map("oauth_account_id")
+  calendarId     String              @map("calendar_id")
+  calendarName   String              @map("calendar_name")
+  /// Google syncToken / Microsoft deltaLink
+  syncState      String?             @map("sync_state")
+  enabled        Boolean             @default(true)
+  syncedAt       DateTime?           @map("synced_at") @db.Timestamptz(3)
+  /// new | ok | error
+  status         String              @default("new")
+  statusMessage  String?             @map("status_message")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  oauthAccount   OAuthAccount        @relation(fields: [oauthAccountId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  links          CalendarEventLink[]
+
+  @@index([enabled])
+  @@map("calendar_connections")
+}
+
+/// Pasangan agenda Akasha ↔ acara kalender luar
+model CalendarEventLink {
+  id           String             @id @default(cuid())
+  connectionId String             @map("connection_id")
+  userId       String             @map("user_id")
+  /// clientId record schedule
+  scheduleId   String             @map("schedule_id")
+  externalId   String             @map("external_id")
+  /// etag Google / changeKey Microsoft terakhir yang dikenal
+  etag         String?
+  /// Sidik jari isi agenda saat terakhir disamakan
+  localHash    String             @map("local_hash")
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  connection   CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, scheduleId])
+  @@unique([connectionId, externalId])
+  @@map("calendar_event_links")
+}
+
+/// Berkas yang dipindah dari object storage ke Drive/OneDrive pemilik (arsip dingin, docs/AKUN-TERSAMBUNG.md tahap 4). Dikunci
+/// per key objek (bukan per asset) agar ObjectStorageService bisa mengambilnya kembali dari mana pun objek itu dibaca.
+model ColdObject {
+  id             String       @id @default(cuid())
+  objectKey      String       @unique @map("object_key")
+  userId         String       @map("user_id")
+  oauthAccountId String       @map("oauth_account_id")
+  /// google | microsoft
+  provider       String
+  /// ID berkas di Drive / OneDrive
+  fileId         String       @map("file_id")
+  size           Int
+  mimeType       String       @map("mime_type")
+  checksum       String
+  movedAt        DateTime     @default(now()) @map("moved_at") @db.Timestamptz(3)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oauthAccount   OAuthAccount @relation(fields: [oauthAccountId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([oauthAccountId])
+  @@map("cold_objects")
 }

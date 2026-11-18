@@ -9,7 +9,7 @@ import type {
 } from "@/types/api";
 
 /** Cara berkas dibaca (`asset_extractions.metadata.method`) → label. */
-export const METHOD_LABELS: Record<string, string> = {
+const METHOD_LABELS: Record<string, string> = {
   markitdown: "MarkItDown",
   docling: "Docling (OCR lokal)",
   ocr: "OCR AI (memakai token)",
@@ -21,7 +21,7 @@ export const METHOD_LABELS: Record<string, string> = {
 };
 
 /** Cara baca yang tidak memakai token AI. */
-export const isFreeMethod = (method: string) => method !== "ocr";
+const isFreeMethod = (method: string) => method !== "ocr";
 
 export const PDF_MODE_OPTIONS: { value: ConverterMode; label: string; hint: string }[] = [
   {

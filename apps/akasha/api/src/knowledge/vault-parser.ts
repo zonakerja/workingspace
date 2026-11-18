@@ -70,7 +70,7 @@ export function splitFrontmatter(raw: string): { frontmatter: Record<string, unk
 /** `[[Target]]`, `[[Target|alias]]`, `[[Target#Judul]]`, `![[berkas.pdf]]` → target tanpa alias/judul/blok. */
 const WIKILINK = /(!?)\[\[([^\]|#^\n]+)(?:[#^][^\]|\n]*)?(?:\|[^\]\n]*)?\]\]/g;
 
-export function extractLinks(text: string, kind?: "property") {
+function extractLinks(text: string, kind?: "property") {
   const links: ParsedNote["links"] = [];
   for (const [, bang, target] of text.matchAll(WIKILINK)) {
     const clean = target.trim();
@@ -101,7 +101,7 @@ function inlineTags(body: string) {
 }
 
 /** Judul catatan = properti `title`/`judul`, lalu nama berkas tanpa `.md` (aturan Obsidian). */
-export const noteTitle = (path: string, frontmatter: Record<string, unknown> | null) => {
+const noteTitle = (path: string, frontmatter: Record<string, unknown> | null) => {
   const fromProps = frontmatter?.title ?? frontmatter?.judul;
   return typeof fromProps === "string" && fromProps.trim() ? fromProps.trim() : basename(path, extname(path));
 };

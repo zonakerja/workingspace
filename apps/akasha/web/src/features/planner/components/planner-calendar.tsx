@@ -16,7 +16,7 @@ import {
 } from "../lib/planner-logic";
 
 /** Warna penanda kalender (sama dengan garis kiri item di daftar harian). */
-export const INDICATORS = {
+const INDICATORS = {
   routine: { label: "Rutinitas", dot: "bg-mod-overview", ring: "border-mod-overview" },
   schedule: { label: "Agenda", dot: "bg-mod-planner", ring: "border-mod-planner" },
   todo: { label: "Todo", dot: "bg-mod-working-space", ring: "border-mod-working-space" },

@@ -1,6 +1,7 @@
 import {
   BookMarked,
   CalendarDays,
+  Mails,
   FileText,
   FolderArchive,
   Layers,
@@ -26,6 +27,7 @@ import { requestUnlock } from "@/features/security/pin-prompt";
 
 const MODULE_ICON: Record<SmartModule, LucideIcon> = {
   planner: CalendarDays,
+  email: Mails,
   notes: StickyNote,
   "working-space": Layers,
   file_control: FolderArchive,

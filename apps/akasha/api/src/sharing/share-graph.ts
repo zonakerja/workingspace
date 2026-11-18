@@ -16,7 +16,7 @@
 export type SharePermission = "view" | "comment" | "edit";
 type Payload = Record<string, unknown>;
 
-export const PERMISSION_RANK: Record<SharePermission, number> = { view: 1, comment: 2, edit: 3 };
+const PERMISSION_RANK: Record<SharePermission, number> = { view: 1, comment: 2, edit: 3 };
 export const atLeast = (have: SharePermission | undefined, need: SharePermission) =>
   !!have && PERMISSION_RANK[have] >= PERMISSION_RANK[need];
 const maxPermission = (a: SharePermission | undefined, b: SharePermission): SharePermission =>
@@ -36,9 +36,6 @@ export const SHAREABLE_TYPES = [
 
 /** Item virtual: seluruh pertemuan satu seri agenda berulang (`id` = `seriesId` di payload agenda). */
 export const SERIES_TYPE = "schedule_series";
-export type ShareableType = (typeof SHAREABLE_TYPES)[number];
-export const isShareableType = (type: string): type is ShareableType =>
-  (SHAREABLE_TYPES as readonly string[]).includes(type);
 
 /** Kolom relasi ringan untuk menghitung turunan (dimuat tanpa payload penuh). */
 export interface ShareStructure {

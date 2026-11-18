@@ -9,7 +9,7 @@ export interface OutgoingPick {
   label: string;
 }
 
-export interface OutgoingFile {
+interface OutgoingFile {
   uploadId: string;
   name: string;
 }
@@ -69,7 +69,7 @@ export function cleanAttachmentName(name: string) {
 }
 
 /** Pilihan entri → label + jabatan dari referensi (membedakan nama kembar di opsi SRIKANDI "Nama - Jabatan"). */
-export function toPicks(picks: OutgoingPick[] | undefined, refs: Map<string, ReferenceLite>): RegisterPick[] {
+function toPicks(picks: OutgoingPick[] | undefined, refs: Map<string, ReferenceLite>): RegisterPick[] {
   return (picks ?? []).map((p) => {
     const hint = refs.get(p.id)?.fields?.["Jabatan"];
     return hint ? { label: p.label, hint } : { label: p.label };

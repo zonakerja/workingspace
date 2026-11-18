@@ -40,7 +40,7 @@ import { analyzeTemplate, fillTemplate, unfilledFields, isSrikandiTag } from "./
 
 /** Konteks upload berkas pemohon & dokumen yang dibuat dari templat (ikut terhapus bersama pengajuan). */
 export const REQUEST_UPLOAD_CONTEXT = "request";
-export const REQUEST_DOCUMENT_CONTEXT = "request-document";
+const REQUEST_DOCUMENT_CONTEXT = "request-document";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 export interface Attachment {

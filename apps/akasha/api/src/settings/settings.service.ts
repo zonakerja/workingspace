@@ -7,7 +7,7 @@ import { UpdateAppSettingsDto } from "./dto/update-app-settings.dto";
  * Bentuk publik pengaturan: logo (data URL hingga ~1 MB) tidak ikut dikirim di setiap respons —
  * cukup `logoVersion`; gambarnya diambil lewat `GET /settings/app/logo?v=<logoVersion>` yang bisa di-cache.
  */
-export type PublicAppSettings = Omit<AppSettings, "appLogo"> & { logoVersion: string | null };
+type PublicAppSettings = Omit<AppSettings, "appLogo"> & { logoVersion: string | null };
 
 const DATA_URL = /^data:([a-z0-9.+/-]+);base64,(.*)$/s;
 

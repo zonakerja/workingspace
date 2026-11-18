@@ -5,7 +5,7 @@
  */
 
 /** Panjang satu bagian yang dikirim ke AI (± 3.000 token; output model tetap jauh di bawah batas 16 rb token). */
-export const ENHANCE_CHUNK_CHARS = 12_000;
+const ENHANCE_CHUNK_CHARS = 12_000;
 /** Batas total teks yang dirapikan per berkas (± 50 rb token masukan); lebih panjang = tidak dirapikan. */
 export const ENHANCE_MAX_CHARS = 200_000;
 

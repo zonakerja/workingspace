@@ -21,7 +21,7 @@ export const usePinPrompt = create<PinPromptState>((set) => ({
 
 // Ditandai saat login berhasil (bukan saat sesi dipulihkan dari cookie / muat ulang halaman), dibaca sekali oleh AppShell
 let loginPromptPending = false;
-export const markLoginPinPrompt = () => {
+const markLoginPinPrompt = () => {
   loginPromptPending = true;
 };
 export function consumeLoginPinPrompt() {

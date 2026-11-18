@@ -133,7 +133,7 @@ function AssistantMessage({
   );
 }
 
-export interface AskOptions {
+interface AskOptions {
   /** Gambar yang dilampirkan (sudah diunggah) */
   attachments?: NotebookAttachment[];
   onSuccess?: () => void;

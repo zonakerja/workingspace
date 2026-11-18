@@ -29,7 +29,7 @@ export function useNotebook(id: string | null) {
 }
 
 /** Pesan yang dimuat sekaligus; "Muat pesan lama" menambah sebanyak ini. */
-export const NOTEBOOK_MESSAGES_PAGE = 100;
+const NOTEBOOK_MESSAGES_PAGE = 100;
 
 /** Riwayat chat: pesan terbaru dulu dimuat, pesan lama dimuat bertahap. */
 export function useNotebookMessages(id: string) {

@@ -1,4 +1,4 @@
-import { Activity, ChevronRight, ChevronsUpDown, LogOut, UserRound } from "lucide-react";
+import { ChevronRight, ChevronsUpDown, LogOut, UserRound } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -29,6 +29,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { MODULES, ROLE_LABELS, type ModuleDef, visibleTabs } from "@/config/navigation";
+import { AkashaMark } from "@workingspace/ui/brand";
 import { appLogoUrl, useAppSettings } from "@/data/use-app-settings";
 import { useLogout } from "@/data/use-auth";
 import { cn } from "@/lib/utils";
@@ -97,16 +98,14 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="hover:bg-transparent">
               <NavLink to="/" onClick={closeMobile}>
-                <span
-                  data-module="overview"
-                  className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-module-gradient text-white shadow-md shadow-module/30 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-lg"
-                >
-                  {logoUrl ? (
+                {logoUrl ? (
+                  <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-md group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-lg">
                     <img src={logoUrl} alt="" className="size-full object-cover" />
-                  ) : (
-                    <Activity className="size-5" strokeWidth={2.5} />
-                  )}
-                </span>
+                  </span>
+                ) : (
+                  // Tombol menu sidebar memaksa semua svg di dalamnya 16 px ([&_svg]:size-4) → ukuran logo dipaksa
+                  <AkashaMark className="size-9! rounded-xl shadow-md group-data-[collapsible=icon]:size-8!" />
+                )}
                 <span className="grid min-w-0 leading-tight">
                   <span className="truncate text-base font-extrabold tracking-tight">{settings.name}</span>
                   <span className="truncate text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
@@ -138,7 +137,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Connection &amp; MCP</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {connectionModules.filter((m) => m.key !== "mcp").map(renderItem)}
+              {connectionModules.map(renderItem)}
               {agentMenus.map((menu) => {
                 const path = `/custom/${menu.slug}`;
                 const active = pathname === path;
@@ -169,7 +168,6 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
-              {connectionModules.filter((m) => m.key === "mcp").map(renderItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

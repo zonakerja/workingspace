@@ -260,7 +260,7 @@ export interface KnowledgePrefs {
   activeField: string | null;
 }
 
-export const GRAPH_COLORS = ["blue", "green", "orange", "red", "violet", "teal", "pink", "yellow"] as const;
+const GRAPH_COLORS = ["blue", "green", "orange", "red", "violet", "teal", "pink", "yellow"] as const;
 
 export function parsePrefs(value: unknown): KnowledgePrefs {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};

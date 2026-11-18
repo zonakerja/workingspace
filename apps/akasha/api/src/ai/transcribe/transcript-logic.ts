@@ -43,7 +43,7 @@ export interface SegmentResult {
 }
 
 /** Penanda bagian yang gagal di dalam teks transkrip (juga dikenali frontend untuk menawarkan pengulangan). */
-export const failedSegmentMark = (minute: number) => `[Menit ${minute}: gagal ditranskrip]`;
+const failedSegmentMark = (minute: number) => `[Menit ${minute}: gagal ditranskrip]`;
 
 /**
  * Transkrip potongan dengan jumlah paralel terbatas, lalu gabung berurutan dengan penanda menit. Potongan yang gagal
@@ -120,9 +120,9 @@ export async function runSegments(
 }
 
 /** Batas sambungan: audio berjam-jam pun selesai jauh sebelum ini; mencegah perulangan tanpa akhir. */
-export const MAX_TRANSCRIPT_PASSES = 8;
+const MAX_TRANSCRIPT_PASSES = 8;
 /** Satu bagian transkrip yang gagal karena provider sibuk dicoba ulang sekian kali. */
-export const MAX_PASS_RETRIES = 2;
+const MAX_PASS_RETRIES = 2;
 
 export interface TranscriptPass {
   text: string;

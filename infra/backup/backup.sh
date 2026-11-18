@@ -10,7 +10,8 @@
 #   db-<waktu>.dump              pg_dump format custom (divalidasi pg_restore --list), retensi BACKUP_RETENTION_DAYS
 #   storage/current/             cermin bucket object storage (diambil lewat API S3, konsisten walau storage berjalan)
 #   storage/changed/<waktu>/     berkas yang dihapus/diganti sejak backup sebelumnya, retensi BACKUP_RETENTION_DAYS
-# Salinan luar server (opsional, bila OFFSITE_S3_BUCKET diisi): remote S3 lain, terenkripsi rclone crypt
+# Salinan luar server (opsional, bila OFFSITE_S3_BUCKET atau OFFSITE_DRIVE_TYPE diisi): remote S3 lain atau Google Drive /
+# OneDrive, terenkripsi rclone crypt
 # (isi & nama berkas) dengan BACKUP_ENCRYPTION_PASSWORD, retensi OFFSITE_RETENTION_DAYS.
 # Pemantauan (opsional): BACKUP_HEALTHCHECK_URL di-ping saat sukses, <url>/fail saat gagal (healthchecks.io).
 set -eu
@@ -24,8 +25,11 @@ MARKER="$DIR/.last-success"
 
 log() { echo "[backup] $*"; }
 
+# Salinan luar server aktif bila S3 atau Drive/OneDrive diatur (S3 menang bila keduanya diisi)
+offsite_enabled() { [ -n "${OFFSITE_S3_BUCKET:-}" ] || [ -n "${OFFSITE_DRIVE_TYPE:-}" ]; }
+
 # Remote rclone dari env (tanpa file konfigurasi). `src` = object storage aplikasi; `offsite` = crypt di atas
-# `offsiteraw` (S3 luar server).
+# `offsiteraw` (S3 luar server, Google Drive, atau OneDrive).
 configure_rclone() {
   export RCLONE_CONFIG_SRC_TYPE=s3
   export RCLONE_CONFIG_SRC_PROVIDER=Other
@@ -34,11 +38,44 @@ configure_rclone() {
   export RCLONE_CONFIG_SRC_ACCESS_KEY_ID="${S3_ACCESS_KEY_ID:-}"
   export RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY:-}"
   export RCLONE_CONFIG_SRC_FORCE_PATH_STYLE="${S3_FORCE_PATH_STYLE:-true}"
-  if [ -n "${OFFSITE_S3_BUCKET:-}" ]; then
+  if offsite_enabled; then
     if [ -z "${BACKUP_ENCRYPTION_PASSWORD:-}" ]; then
-      log "OFFSITE_S3_BUCKET diisi tetapi BACKUP_ENCRYPTION_PASSWORD kosong" >&2
+      log "Salinan luar server diatur tetapi BACKUP_ENCRYPTION_PASSWORD kosong" >&2
       return 1
     fi
+  fi
+  if [ -n "${OFFSITE_DRIVE_TYPE:-}" ] && [ -z "${OFFSITE_S3_BUCKET:-}" ]; then
+    # Google Drive / OneDrive (docs/AKUN-TERSAMBUNG.md tahap 0): token OAuth dari `rclone authorize "drive"` / `"onedrive"`
+    # di laptop. Isi tetap dienkripsi rclone crypt, jadi penyedia drive hanya melihat berkas acak.
+    case "$OFFSITE_DRIVE_TYPE" in
+      drive)
+        export RCLONE_CONFIG_OFFSITERAW_TYPE=drive
+        # drive.file: rclone hanya melihat berkas yang dibuatnya sendiri, bukan seluruh isi Drive
+        export RCLONE_CONFIG_OFFSITERAW_SCOPE="${OFFSITE_DRIVE_SCOPE:-drive.file}"
+        ;;
+      onedrive)
+        export RCLONE_CONFIG_OFFSITERAW_TYPE=onedrive
+        export RCLONE_CONFIG_OFFSITERAW_DRIVE_TYPE="${OFFSITE_ONEDRIVE_DRIVE_TYPE:-personal}"
+        export RCLONE_CONFIG_OFFSITERAW_DRIVE_ID="${OFFSITE_ONEDRIVE_DRIVE_ID:-}"
+        ;;
+      *)
+        log "OFFSITE_DRIVE_TYPE harus drive atau onedrive" >&2
+        return 1
+        ;;
+    esac
+    if [ -z "${OFFSITE_DRIVE_TOKEN:-}" ]; then
+      log "OFFSITE_DRIVE_TOKEN kosong (jalankan rclone authorize \"$OFFSITE_DRIVE_TYPE\" di laptop)" >&2
+      return 1
+    fi
+    export RCLONE_CONFIG_OFFSITERAW_TOKEN="$OFFSITE_DRIVE_TOKEN"
+    [ -z "${OFFSITE_DRIVE_CLIENT_ID:-}" ] || export RCLONE_CONFIG_OFFSITERAW_CLIENT_ID="$OFFSITE_DRIVE_CLIENT_ID"
+    [ -z "${OFFSITE_DRIVE_CLIENT_SECRET:-}" ] || export RCLONE_CONFIG_OFFSITERAW_CLIENT_SECRET="$OFFSITE_DRIVE_CLIENT_SECRET"
+    export RCLONE_CONFIG_OFFSITE_TYPE=crypt
+    export RCLONE_CONFIG_OFFSITE_REMOTE="offsiteraw:${OFFSITE_DRIVE_FOLDER:-akasha-backup}"
+    RCLONE_CONFIG_OFFSITE_PASSWORD="$(rclone obscure "$BACKUP_ENCRYPTION_PASSWORD")" || return 1
+    export RCLONE_CONFIG_OFFSITE_PASSWORD
+  fi
+  if [ -n "${OFFSITE_S3_BUCKET:-}" ]; then
     export RCLONE_CONFIG_OFFSITERAW_TYPE=s3
     export RCLONE_CONFIG_OFFSITERAW_PROVIDER="${OFFSITE_S3_PROVIDER:-Other}"
     export RCLONE_CONFIG_OFFSITERAW_ENDPOINT="${OFFSITE_S3_ENDPOINT:-}"
@@ -100,8 +137,8 @@ backup_storage() { # <stamp>
 }
 
 backup_offsite() { # <stamp>
-  if [ -z "${OFFSITE_S3_BUCKET:-}" ]; then
-    log "PERINGATAN: OFFSITE_S3_BUCKET kosong — backup hanya ada di server ini"
+  if ! offsite_enabled; then
+    log "PERINGATAN: salinan luar server belum diatur — backup hanya ada di server ini"
     return 0
   fi
   rclone copy "$DIR" offsite:db --max-depth 1 --include 'db-*.dump' || return 1

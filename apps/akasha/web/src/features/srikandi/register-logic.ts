@@ -29,7 +29,7 @@ export const ATTACHMENT_EXTENSIONS = [
   "mp4",
   "wav",
 ];
-export const MAX_ATTACHMENT_BYTES = 5 * MB;
+const MAX_ATTACHMENT_BYTES = 5 * MB;
 export const MAX_ATTACHMENTS_TOTAL_BYTES = 20 * MB;
 
 /** Saran isian (pilihan sebenarnya diatur per instansi di SRIKANDI; tetap boleh diketik bebas). */
@@ -146,7 +146,7 @@ export function registerStatus(entry: SrikandiOutgoing): RegisterStatus {
 }
 
 /** Jenis tujuan/tembusan referensi: SRIKANDI (internal/eksternal) atau eksternal non SRIKANDI. */
-export const isNonSrikandi = (ref: SrikandiReference) =>
+const isNonSrikandi = (ref: SrikandiReference) =>
   /non\s*srikandi/i.test(ref.fields?.["Jenis Tujuan"] ?? ref.fields?.["Jenis Tembusan"] ?? "");
 
 /** Pilihan referensi satu kategori; `nonSrikandi` menyaring jenis tujuan/tembusan. */

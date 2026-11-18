@@ -6,27 +6,12 @@ import { isRecordingActive } from "@/lib/recording-guard";
 import { flushPendingWrites } from "@/data/use-collection";
 import { queryKeys } from "@/data/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
-import { markLoginPinPrompt } from "@/features/security/pin-prompt";
 
-export function useLogin() {
-  const setSession = useAuthStore((s) => s.setSession);
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) => authApi.login(email.trim(), password),
-    onSuccess: (session) => {
-      client.clear();
-      // Akun ber-PIN: setelah masuk ditawarkan membuka item terkunci dengan PIN atau lanjut tanpa PIN
-      if (session.user.hasPin) markLoginPinPrompt();
-      setSession(session);
-    },
-  });
-}
-
-/** Cara masuk yang tersedia; tanpa backend (galat) dianggap hanya kata sandi lokal. */
+/** Konfigurasi masuk SSO; tanpa backend (galat) dianggap SSO belum diatur. */
 export function useSsoConfig() {
   return useQuery({
     queryKey: ["auth", "sso-config"],
-    queryFn: () => authApi.ssoConfig().catch(() => ({ enabled: false, passwordLogin: true, accountUrl: null })),
+    queryFn: () => authApi.ssoConfig().catch(() => ({ enabled: false, accountUrl: null })),
     staleTime: 5 * 60_000,
   });
 }
@@ -75,12 +60,5 @@ export function useUpdateProfile() {
       setUser(profile);
       client.setQueryData(queryKeys.profile, profile);
     },
-  });
-}
-
-export function useChangePassword() {
-  return useMutation({
-    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
-      authApi.changePassword(currentPassword, newPassword),
   });
 }

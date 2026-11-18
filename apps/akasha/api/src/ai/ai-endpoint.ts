@@ -11,7 +11,6 @@ import { AI_PROVIDERS, type AttachmentKind } from "./ai-providers";
  * - `anthropic` — Anthropic Messages (`POST {base tanpa /v1}/v1/messages`), hanya untuk Claude
  */
 export type AiApiFormat = "openai" | "anthropic";
-export const AI_API_FORMATS: readonly AiApiFormat[] = ["openai", "anthropic"];
 
 export interface AiEndpoint {
   /** Alamat API router (sudah dinormalkan, tanpa garis miring akhir). */

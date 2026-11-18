@@ -63,7 +63,7 @@ import { fetchWebSource, WebSourceError } from "./web-source";
 import { LockService } from "../security/lock.service";
 import { PinService } from "../security/pin.service";
 
-export type SourceStatus = "ready" | "processing" | "failed" | "missing";
+type SourceStatus = "ready" | "processing" | "failed" | "missing";
 
 interface FindDelegate {
   findUnique(args: object): Promise<DomainRow | null>;

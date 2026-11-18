@@ -3,6 +3,25 @@ import { withOfficeKeptToast } from "@/lib/office-kept-toast";
 import { apiUrl, request } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type {
+  ColdStorageSettings,
+  ColdStorageStatus,
+  DriveAccountsInfo,
+  DriveListing,
+  DrivePickerConfig,
+  CalendarConnectionInfo,
+  CalendarFeedInclude,
+  CalendarSyncResult,
+  ConnectionsInfo,
+  OAuthProviderId,
+  CalendarFeedStatus,
+  FeedTimezone,
+  MailAccount,
+  MailAccountInput,
+  MailInboxSettingsInput,
+  MailMessageDetail,
+  MailMessageSummary,
+  MailStatus,
+  MailPreset,
   ConverterMode,
   ConverterPrefs,
   ConverterReconvertScope,
@@ -95,9 +114,6 @@ import type {
   SmartSearchMode,
   TrashItemInfo,
   AgentActionInfo,
-  McpAuthType,
-  McpConnectionInfo,
-  McpPreset,
   SmartSearchResponse,
   AiProviderId,
   AiProviderInput,
@@ -108,7 +124,6 @@ import type {
   AppSettings,
   AppSettingsInput,
   AssetMetadata,
-  AuthSession,
   PinStatus,
   PublicUser,
   RecordComment,
@@ -117,7 +132,6 @@ import type {
   ShareEntry,
   SharePermission,
   UploadedAsset,
-  UserRole,
   UserStats,
   UserSummary,
   KnowledgeExtractInput,
@@ -128,50 +142,31 @@ import type {
   KnowledgePeriod,
 } from "@/types/api";
 
+/** Data tambahan Akasha (nama & email dikelola akun Workingspace). */
 export interface ProfileInput {
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-}
-
-export interface UserInput {
-  name: string;
-  email: string;
-  password?: string;
-  role: UserRole;
   phone?: string;
   address?: string;
 }
 
 export const authApi = {
-  login: (email: string, password: string) =>
-    request<AuthSession>("/auth/login", { method: "POST", body: { email, password }, auth: false }),
   /** `ssoLogoutUrl` = halaman keluar akun Workingspace (SSO aktif) — frontend mengarahkan ke sana. */
   logout: () =>
     request<{ success: boolean; ssoLogoutUrl?: string | null }>("/auth/logout", { method: "POST", auth: false }),
-  /** Cara masuk yang tersedia (SSO workingspace.id / kata sandi lokal). */
-  ssoConfig: () =>
-    request<{ enabled: boolean; passwordLogin: boolean; accountUrl: string | null }>("/auth/sso/config", {
-      auth: false,
-    }),
+  /** Masuk lewat SSO workingspace.id (satu-satunya cara masuk). */
+  ssoConfig: () => request<{ enabled: boolean; accountUrl: string | null }>("/auth/sso/config", { auth: false }),
   me: () => request<PublicUser>("/auth/me"),
   updateMe: (input: ProfileInput) => request<PublicUser>("/auth/me", { method: "PATCH", body: input }),
-  changePassword: (currentPassword: string, newPassword: string) =>
-    request<{ success: boolean }>("/auth/change-password", {
-      method: "POST",
-      body: { currentPassword, newPassword },
-    }),
 };
 
 /** PIN keamanan: membuka item terkunci selama sesi login (sampai logout / Kunci sekarang). */
 export const securityApi = {
   status: () => request<PinStatus>("/security/pin"),
-  setPin: (password: string, pin: string) =>
-    request<PinStatus>("/security/pin", { method: "PUT", body: { password, pin } }),
+  /** Akun tanpa SSO (uji/dev): ganti PIN wajib PIN lama. Akun SSO mengatur PIN di akun Workingspace. */
+  setPin: (pin: string, currentPin?: string) =>
+    request<PinStatus>("/security/pin", { method: "PUT", body: { pin, ...(currentPin ? { currentPin } : {}) } }),
   unlock: (pin: string) => request<PinStatus>("/security/pin/unlock", { method: "POST", body: { pin } }),
   lock: () => request<PinStatus>("/security/pin/lock", { method: "POST" }),
-  removePin: (password: string) => request<PinStatus>("/security/pin", { method: "DELETE", body: { password } }),
+  removePin: (pin: string) => request<PinStatus>("/security/pin", { method: "DELETE", body: { pin } }),
 };
 
 export const settingsApi = {
@@ -181,9 +176,6 @@ export const settingsApi = {
 
 export const usersApi = {
   list: () => request<PublicUser[]>("/users"),
-  create: (input: UserInput) => request<PublicUser>("/users", { method: "POST", body: input }),
-  update: (id: string, input: Partial<UserInput>) =>
-    request<PublicUser>(`/users/${id}`, { method: "PATCH", body: input }),
   remove: (id: string) => request<{ success: boolean }>(`/users/${id}`, { method: "DELETE" }),
   /** Statistik pemakaian per user (admin) — tanpa isi data */
   stats: () => request<UserStats[]>("/users/stats"),
@@ -377,43 +369,6 @@ export const officeApi = {
   },
 };
 
-export interface McpConnectionInput {
-  name?: string;
-  url?: string;
-  preset?: string;
-  authType?: McpAuthType;
-  token?: string;
-  icon?: string;
-  agentEnabled?: boolean;
-  allowWrite?: boolean;
-  oauthClientId?: string;
-  oauthClientSecret?: string;
-  oauthScope?: string;
-  agentTools?: string[];
-}
-
-/** Koneksi aplikasi MCP luar (Canva, Notion, …). */
-export const mcpConnectionsApi = {
-  presets: () => request<McpPreset[]>("/mcp-connections/presets"),
-  list: () => request<McpConnectionInfo[]>("/mcp-connections"),
-  get: (idOrSlug: string) => request<McpConnectionInfo>(`/mcp-connections/${encodeURIComponent(idOrSlug)}`),
-  create: (input: McpConnectionInput) =>
-    request<McpConnectionInfo>("/mcp-connections", { method: "POST", body: input }),
-  update: (id: string, input: McpConnectionInput) =>
-    request<McpConnectionInfo>(`/mcp-connections/${id}`, { method: "PATCH", body: input }),
-  remove: (id: string) => request<{ success: boolean }>(`/mcp-connections/${id}`, { method: "DELETE" }),
-  connect: (id: string) =>
-    request<{ connection?: McpConnectionInfo; authorizationUrl?: string }>(`/mcp-connections/${id}/connect`, {
-      method: "POST",
-    }),
-  refresh: (id: string) => request<McpConnectionInfo>(`/mcp-connections/${id}/refresh`, { method: "POST" }),
-  call: (id: string, tool: string, args: Record<string, unknown>) =>
-    request<{ isError: boolean; text: string }>(`/mcp-connections/${id}/call`, {
-      method: "POST",
-      body: { tool, arguments: args },
-    }),
-};
-
 export const agentActionsApi = {
   list: (status?: AgentActionInfo["status"]) =>
     request<AgentActionInfo[]>("/agent/actions", { query: status ? { status } : undefined }),
@@ -494,6 +449,59 @@ export const integrationsApi = {
     request<CreatedApiToken>("/integrations/tokens", { method: "POST", body: input }),
   revokeToken: (id: string) => request<{ success: boolean }>(`/integrations/tokens/${id}`, { method: "DELETE" }),
   activity: (take = 50) => request<AgentActivity[]>("/integrations/activity", { query: { take } }),
+};
+
+/** Pengaturan → Akun Tersambung: langganan kalender ICS & akun email (docs/AKUN-TERSAMBUNG.md). */
+export const calendarFeedApi = {
+  status: () => request<CalendarFeedStatus>("/calendar-feed"),
+  update: (input: { include?: Partial<CalendarFeedInclude>; timezone?: FeedTimezone }) =>
+    request<CalendarFeedStatus>("/calendar-feed", { method: "PUT", body: input }),
+  rotate: () => request<CalendarFeedStatus>("/calendar-feed/rotate", { method: "POST" }),
+  remove: () => request<CalendarFeedStatus>("/calendar-feed", { method: "DELETE" }),
+};
+
+export const connectionsApi = {
+  list: () => request<ConnectionsInfo>("/connections"),
+  start: (provider: OAuthProviderId, options: { drive?: boolean; accountId?: string } = {}) =>
+    request<{ url: string }>("/connections/oauth/start", { method: "POST", body: { provider, ...options } }),
+  remove: (id: string) => request<{ ok: boolean }>(`/connections/${id}`, { method: "DELETE" }),
+  connectCalendar: (id: string) => request<CalendarConnectionInfo>(`/connections/${id}/calendar`, { method: "POST" }),
+  toggleCalendar: (id: string, enabled: boolean) =>
+    request<CalendarConnectionInfo>(`/connections/${id}/calendar`, { method: "PATCH", body: { enabled } }),
+  syncCalendar: (id: string) => request<CalendarSyncResult>(`/connections/${id}/calendar/sync`, { method: "POST" }),
+  disconnectCalendar: (id: string) => request<{ ok: boolean }>(`/connections/${id}/calendar`, { method: "DELETE" }),
+};
+
+export const mailApi = {
+  createOutlook: (oauthAccountId: string) =>
+    request<MailAccount>("/mail/accounts/outlook", { method: "POST", body: { oauthAccountId } }),
+  presets: () => request<MailPreset[]>("/mail/presets"),
+  accounts: () => request<MailAccount[]>("/mail/accounts"),
+  create: (input: MailAccountInput) => request<MailAccount>("/mail/accounts", { method: "POST", body: input }),
+  update: (id: string, input: MailAccountInput) =>
+    request<MailAccount>(`/mail/accounts/${id}`, { method: "PATCH", body: input }),
+  remove: (id: string) => request<{ ok: boolean }>(`/mail/accounts/${id}`, { method: "DELETE" }),
+  test: (id: string, to?: string) =>
+    request<MailAccount>(`/mail/accounts/${id}/test`, { method: "POST", body: to ? { to } : {} }),
+  digest: (id: string) => request<MailAccount>(`/mail/accounts/${id}/digest`, { method: "POST" }),
+  inboxSettings: (id: string, input: MailInboxSettingsInput) =>
+    request<MailAccount>(`/mail/accounts/${id}/inbox`, { method: "PATCH", body: input }),
+  inboxSync: (id: string) =>
+    request<{ added: number; pending: number; account: MailAccount }>(`/mail/accounts/${id}/inbox/sync`, {
+      method: "POST",
+    }),
+  messages: (query: { accountId?: string; status?: MailStatus; q?: string; before?: string; take?: number }) =>
+    request<{ messages: MailMessageSummary[]; hasMore: boolean; counts: Partial<Record<MailStatus, number>> }>(
+      "/mail/messages",
+      { query },
+    ),
+  message: (id: string) => request<MailMessageDetail>(`/mail/messages/${id}`),
+  setMessageStatus: (id: string, status: MailStatus) =>
+    request<MailMessageDetail>(`/mail/messages/${id}`, { method: "PATCH", body: { status } }),
+  messageTodo: (id: string, input: { title: string; date: string; priority: string }) =>
+    request<MailMessageDetail>(`/mail/messages/${id}/todo`, { method: "POST", body: input }),
+  messageAgenda: (id: string, input: { title: string; startDate: string; startTime?: string; endTime?: string }) =>
+    request<MailMessageDetail>(`/mail/messages/${id}/agenda`, { method: "POST", body: input }),
 };
 
 /** Basis pengetahuan: vault Obsidian milik user (Tools → Basis Pengetahuan). */
@@ -717,7 +725,7 @@ export const whatsappApi = {
 const authHeader = () => ({ Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` });
 
 /** Penyiapan agen tanpa terminal: izin (token "Agen Hermes"), model lewat Akasha, panggilan model terakhir. */
-export interface AgentSetupState {
+interface AgentSetupState {
   /** HERMES_API_KEY di server berbentuk valid (huruf/angka/_/-, 24–128 karakter) */
   keyValid: boolean;
   token: { id: string; scopes: ApiScope[]; lastUsedAt: string | null; createdAt: string } | null;
@@ -781,9 +789,9 @@ export interface AgentMenu {
   instructions: string;
   /**
    * workflow = AI Agent → Workflow; connection = menu di Connection & MCP; ekinerja = e-Kinerja → Workflow;
-   * srikandi = SRIKANDI → Workflow; siman = SIMAN → Workflow; mcp = Aplikasi MCP → Workflow
+   * srikandi = SRIKANDI → Workflow; siman = SIMAN → Workflow
    */
-  placement: "workflow" | "connection" | "ekinerja" | "srikandi" | "siman" | "mcp";
+  placement: "workflow" | "connection" | "ekinerja" | "srikandi" | "siman";
   form: AgentMenuField[];
   status: "draft" | "active";
   createdAt: string;
@@ -856,10 +864,8 @@ export const automationApi = {
 
 export const robotApi = {
   status: () => request<{ configured: boolean; reachable: boolean; vault: boolean }>("/robot/status"),
-  setCredentials: (
-    system: RobotSystem,
-    input: { username: string; password: string; accountPassword?: string; accountPin?: string },
-  ) => request<RobotConnector>(`/robot/connectors/${system}/credentials`, { method: "POST", body: input }),
+  setCredentials: (system: RobotSystem, input: { username: string; password: string; accountPin: string }) =>
+    request<RobotConnector>(`/robot/connectors/${system}/credentials`, { method: "POST", body: input }),
   deleteCredentials: (system: RobotSystem) =>
     request<RobotConnector>(`/robot/connectors/${system}/credentials`, { method: "DELETE" }),
   autoLogin: (system: RobotSystem) =>
@@ -1049,4 +1055,31 @@ export const publicVaultApi = {
     ),
   fileUrl: (token: string, fileId: string, download = false) =>
     apiUrl(`/public/vaults/${encodeURIComponent(token)}/files/${fileId}${download ? "?download=1" : ""}`),
+};
+
+/** Drive sebagai penyimpanan (docs/AKUN-TERSAMBUNG.md tahap 4): pilih berkas dari Google Drive / OneDrive + arsip dingin. */
+export const driveApi = {
+  accounts: () => request<DriveAccountsInfo>("/drive/accounts"),
+  picker: (accountId: string) => request<DrivePickerConfig>(`/drive/accounts/${accountId}/picker`),
+  items: (accountId: string, input: { folder?: string; q?: string } = {}) =>
+    request<DriveListing>(`/drive/accounts/${accountId}/items`, { query: input }),
+  /** Isi berkas Drive sebagai File (lalu diunggah lewat jalur unggah form biasa). */
+  file: async (accountId: string, fileId: string) => {
+    const response = await fetch(apiUrl(`/drive/accounts/${accountId}/files/${encodeURIComponent(fileId)}/content`), {
+      headers: authHeader(),
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(body?.message ?? `Berkas gagal diambil (status ${response.status}).`);
+    }
+    const name = decodeURIComponent(response.headers.get("x-file-name") ?? "berkas");
+    const blob = await response.blob();
+    return new File([blob], name, { type: response.headers.get("content-type") ?? blob.type });
+  },
+  cold: () => request<ColdStorageStatus>("/drive/cold"),
+  updateCold: (input: Partial<ColdStorageSettings>) =>
+    request<ColdStorageStatus>("/drive/cold", { method: "PUT", body: input }),
+  runCold: () => request<ColdStorageStatus>("/drive/cold/run", { method: "POST" }),
+  restoreCold: () => request<ColdStorageStatus>("/drive/cold/restore", { method: "POST" }),
 };

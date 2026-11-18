@@ -13,7 +13,7 @@ export interface VaultChoice {
   name: string;
 }
 
-export const VAULT_UPLOAD_CONTEXT = "renaksi-vault";
+const VAULT_UPLOAD_CONTEXT = "renaksi-vault";
 
 /**
  * Pilihan berkas brankas digital satu poin renaksi: lampiran item + berkas yang sudah ada di brankas + unggahan baru.

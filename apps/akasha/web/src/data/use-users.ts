@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { usersApi, type UserInput } from "@/lib/api/endpoints";
+import { usersApi } from "@/lib/api/endpoints";
 import { queryKeys } from "@/data/query-keys";
 import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 
@@ -12,15 +12,11 @@ export function useUsers() {
   });
 }
 
+/** Akun dibuat & diubah di SSO workingspace.id; di Akasha hanya hapus akun beserta datanya. */
 export function useUserMutations() {
   const client = useQueryClient();
   const invalidate = () => client.invalidateQueries({ queryKey: queryKeys.users });
   return {
-    create: useMutation({ mutationFn: (input: UserInput) => usersApi.create(input), onSuccess: invalidate }),
-    update: useMutation({
-      mutationFn: ({ id, input }: { id: string; input: Partial<UserInput> }) => usersApi.update(id, input),
-      onSuccess: invalidate,
-    }),
     remove: useMutation({ mutationFn: (id: string) => usersApi.remove(id), onSuccess: invalidate }),
   };
 }

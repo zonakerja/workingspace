@@ -294,7 +294,7 @@ class EnvironmentVariables {
   HERMES_OWNER_EMAIL?: string;
 
   /**
-   * SSO workingspace.id (docs/SSO.md). Kosong = masuk hanya dengan kata sandi lokal. Issuer = alamat OIDC SSO
+   * SSO workingspace.id (docs/SSO.md) — satu-satunya cara masuk Akasha. Issuer = alamat OIDC SSO
    * (dev `http://auth.workingspace.localhost:5175/oidc`, produksi `https://auth.workingspace.id/oidc`).
    */
   @Transform(emptyToUndefined)
@@ -325,19 +325,6 @@ class EnvironmentVariables {
   @Matches(/^https?:\/\/\S+$/, { message: "SSO_POST_LOGOUT_URI harus URL http(s)." })
   SSO_POST_LOGOUT_URI?: string;
 
-  /**
-   * Masuk dengan kata sandi lokal Akasha (`POST /auth/login`). Bawaan: aktif di luar production (smoke test & dev),
-   * mati di production — akun masuk lewat SSO.
-   */
-  @Transform(({ value }) =>
-    value === undefined || value === ""
-      ? undefined
-      : value === true || ["true", "1"].includes(String(value).toLowerCase()),
-  )
-  @IsOptional()
-  @IsBoolean()
-  PASSWORD_LOGIN?: boolean;
-
   // ---- Akai (gateway model ekosistem, docs/AKAI.md §5 langkah 6a.4). Kosong = AI hanya memakai key di Pengaturan → Model AI.
   /** Alamat Akai API dari backend, mis. http://localhost:4400 (production: http://akai-api:4400) */
   @Transform(emptyToUndefined)
@@ -363,6 +350,51 @@ class EnvironmentVariables {
   @Matches(/^https?:\/\/\S+$/, { message: "AKAI_WEB_URL harus URL http(s)." })
   AKAI_WEB_URL?: string;
 
+  /** OAuth client Google milik pemilik untuk Akun Tersambung (Google Calendar), docs/AKUN-TERSAMBUNG.md tahap 2 */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_ID?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  GOOGLE_OAUTH_CLIENT_SECRET?: string;
+
+  /** App registration Microsoft Entra untuk Outlook (email & kalender lewat Microsoft Graph) */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  MICROSOFT_OAUTH_CLIENT_ID?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  MICROSOFT_OAUTH_CLIENT_SECRET?: string;
+
+  /** consumers (Outlook.com pribadi) | common | organizations | ID tenant */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9.-]+$/, { message: "MICROSOFT_OAUTH_TENANT tidak valid." })
+  MICROSOFT_OAUTH_TENANT?: string;
+
+  /** Google Picker (memilih berkas Google Drive, tahap 4): API key browser & nomor project Google Cloud yang sama dengan OAuth client */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  GOOGLE_PICKER_API_KEY?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^\d{4,20}$/, { message: "GOOGLE_PICKER_APP_ID = nomor project Google Cloud (angka)." })
+  GOOGLE_PICKER_APP_ID?: string;
+
+  /** Khusus uji di luar production: arahkan semua alamat OAuth & API Google/Microsoft ke server tiruan */
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: "OAUTH_TEST_BASE harus URL http(s)." })
+  OAUTH_TEST_BASE?: string;
+
   /** true bila API berada di belakang reverse proxy (nginx) agar IP klien asli terbaca (rate limit). */
   @Transform(({ value }) => value === true || ["true", "1"].includes(String(value).toLowerCase()))
   @IsBoolean()
@@ -377,13 +409,25 @@ export function validateEnv(config: Record<string, unknown>) {
   const errors = validateSync(env, { skipMissingProperties: false });
 
   env.COOKIE_SECURE ??= env.NODE_ENV === "production";
-  env.PASSWORD_LOGIN ??= env.NODE_ENV !== "production";
 
   const sso = [env.SSO_ISSUER, env.SSO_CLIENT_ID, env.SSO_CLIENT_SECRET, env.SSO_REDIRECT_URI];
   if (sso.some(Boolean) && !sso.every(Boolean)) {
     throw new Error(
       "Konfigurasi environment tidak valid:\n- SSO_ISSUER, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_REDIRECT_URI harus diisi bersamaan.",
     );
+  }
+
+  for (const [id, secret, name] of [
+    [env.GOOGLE_OAUTH_CLIENT_ID, env.GOOGLE_OAUTH_CLIENT_SECRET, "GOOGLE_OAUTH"],
+    [env.MICROSOFT_OAUTH_CLIENT_ID, env.MICROSOFT_OAUTH_CLIENT_SECRET, "MICROSOFT_OAUTH"],
+  ] as const) {
+    if (Boolean(id) !== Boolean(secret))
+      throw new Error(
+        `Konfigurasi environment tidak valid:\n- ${name}_CLIENT_ID dan ${name}_CLIENT_SECRET harus diisi bersamaan.`,
+      );
+  }
+  if (env.OAUTH_TEST_BASE && env.NODE_ENV === "production") {
+    throw new Error("Konfigurasi environment tidak valid:\n- OAUTH_TEST_BASE tidak boleh diisi di production.");
   }
 
   if (env.AKAI_URL && !env.AKAI_CLIENT_SECRET) {

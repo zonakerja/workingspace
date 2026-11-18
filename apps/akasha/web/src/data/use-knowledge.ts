@@ -16,10 +16,6 @@ export function useKnowledgeFolders(enabled: boolean) {
   return useQuery({ queryKey: queryKeys.knowledgeFolders, queryFn: knowledgeApi.folders, enabled });
 }
 
-export function useKnowledgeNotes(enabled: boolean) {
-  return useQuery({ queryKey: queryKeys.knowledgeNotes, queryFn: () => knowledgeApi.notes(), enabled });
-}
-
 export function useKnowledgeNote(id: string | null) {
   return useQuery({
     queryKey: queryKeys.knowledgeNote(id ?? "-"),

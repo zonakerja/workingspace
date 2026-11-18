@@ -18,7 +18,7 @@ import type {
  * `proposed`), dan pemilik memutuskan lewat centang.
  */
 
-export type CandidateSource = "task" | "schedule" | "activity";
+type CandidateSource = "task" | "schedule" | "activity";
 
 export interface RenaksiCandidate {
   sourceType: CandidateSource;

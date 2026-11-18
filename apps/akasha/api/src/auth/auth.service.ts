@@ -1,13 +1,6 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from "@nestjs/common";
+import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { hash, verify } from "@node-rs/argon2";
 import { User } from "../generated/prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { AuthUser } from "../common/types/auth-user";
@@ -16,8 +9,6 @@ import { PrismaService } from "../prisma/prisma.service";
 import { toPublicUser } from "../users/user.mapper";
 import { AkaiService } from "../akai/akai.service";
 import { AccessTokenPayload, RefreshTokenPayload } from "./auth.types";
-import { ChangePasswordDto } from "./dto/change-password.dto";
-import { LoginDto } from "./dto/login.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { SsoService } from "./sso.service";
 
@@ -29,7 +20,7 @@ const sha256 = (value: string) => createHash("sha256").update(value).digest("hex
  */
 const REUSE_GRACE_MS = 30_000;
 
-export type Session = Awaited<ReturnType<AuthService["login"]>>;
+export type Session = Awaited<ReturnType<AuthService["sessionFor"]>>;
 
 /** Sesi token lama (baris sebelum migrasi: id token = id sesi). */
 const sessionOf = (record: { id: string; sessionId: string | null; pinUnlocked: boolean; ssoSid: string | null }) => ({
@@ -42,7 +33,6 @@ const sessionOf = (record: { id: string; sessionId: string | null; pinUnlocked: 
 export class AuthService {
   private readonly refreshSecret: string;
   private readonly refreshTtlSeconds: number;
-  private readonly passwordLogin: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -51,7 +41,6 @@ export class AuthService {
     private readonly akai: AkaiService,
     config: ConfigService,
   ) {
-    this.passwordLogin = config.get<boolean>("PASSWORD_LOGIN") ?? false;
     this.refreshSecret = config.getOrThrow<string>("JWT_REFRESH_SECRET");
     this.refreshTtlSeconds = durationToSeconds(config.getOrThrow<string>("JWT_REFRESH_EXPIRES_IN"));
   }
@@ -59,20 +48,6 @@ export class AuthService {
   /** User untuk browser + `aiViaAkai` (fitur AI bisa dipakai lewat Akai walau belum ada key di Pengaturan → Model AI). */
   private async publicUser(user: User) {
     return { ...toPublicUser(user), aiViaAkai: await this.akai.ready(user) };
-  }
-
-  async login(dto: LoginDto) {
-    if (!this.passwordLogin)
-      throw new ForbiddenException("Masuk dengan kata sandi lokal dimatikan. Gunakan Masuk dengan akun Workingspace.");
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
-    });
-
-    if (!user?.passwordHash || !(await verify(user.passwordHash, dto.password))) {
-      throw new UnauthorizedException("Email atau password salah.");
-    }
-
-    return this.createSession(user);
   }
 
   /** Rotasi refresh token. Token lama dicabut; pemakaian ulang token yang sudah dicabut mencabut semua sesi user. */
@@ -128,43 +103,10 @@ export class AuthService {
     return this.publicUser(user);
   }
 
+  /** Nama, email, dan role disalin dari akun Workingspace setiap masuk; di sini hanya data tambahan Akasha. */
   async updateProfile(authUser: AuthUser, dto: UpdateProfileDto) {
-    const current = await this.prisma.user.findUnique({ where: { id: authUser.id }, select: { ssoSubject: true } });
-    // Akun SSO: nama & email disalin dari akun Workingspace setiap masuk → ubah di halaman akun SSO
-    if (current?.ssoSubject && (dto.name !== undefined || dto.email !== undefined))
-      throw new BadRequestException("Nama dan email akun ini diubah di halaman akun Workingspace.");
-    const user = await this.prisma.user.update({
-      where: { id: authUser.id },
-      data: { ...dto, email: dto.email?.toLowerCase() },
-    });
+    const user = await this.prisma.user.update({ where: { id: authUser.id }, data: dto });
     return this.publicUser(user);
-  }
-
-  async changePassword(authUser: AuthUser, dto: ChangePasswordDto, currentRefreshToken?: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: authUser.id },
-    });
-    if (!user) throw new NotFoundException("User tidak ditemukan.");
-    if (!user.passwordHash)
-      throw new BadRequestException("Akun ini memakai kata sandi akun Workingspace. Ganti di halaman akun SSO.");
-    if (!(await verify(user.passwordHash, dto.currentPassword))) {
-      throw new BadRequestException("Password saat ini salah.");
-    }
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash: await hash(dto.newPassword) },
-    });
-    // Cabut semua sesi lain; sesi perangkat yang sedang dipakai dipertahankan
-    const currentJti = currentRefreshToken
-      ? await this.verifyRefreshToken(currentRefreshToken)
-          .then((p) => p.jti)
-          .catch(() => undefined)
-      : undefined;
-    await this.prisma.refreshToken.deleteMany({
-      where: { userId: user.id, ...(currentJti ? { id: { not: currentJti } } : {}) },
-    });
-    return { success: true };
   }
 
   /**

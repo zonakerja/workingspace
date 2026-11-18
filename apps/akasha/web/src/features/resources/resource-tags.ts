@@ -6,7 +6,7 @@ import type { Resource } from "@/types/entities";
  *   Project/Action/Task/Agenda (`contextTag` di `mergeIntoGlobalResources` / `useAttachmentCleanup`). Tidak diubah user.
  * - **Tag bebas** (kategori isi, mis. "Regulasi", "SOP"): diketik user di form Resource.
  */
-export const CONTEXT_TAGS = [
+const CONTEXT_TAGS = [
   "Global Resource",
   "Project Basis",
   "Project",

@@ -130,3 +130,18 @@
 .akai-table tr:last-child td {
   border-bottom: none;
 }
+
+/* Slide artifact (6b.9): kertas putih di tema apa pun; ukuran huruf mengikuti lebar slide */
+.akai-slide-body {
+  --border: #d9dcec;
+  --muted: #f1f2f8;
+  --muted-foreground: #5b6080;
+  --primary: #4b45d6;
+}
+.akai-slide-body .akai-md {
+  font-size: inherit;
+  line-height: 1.5;
+}
+.akai-slide-body .akai-md li + li {
+  margin-top: 0.4em;
+}

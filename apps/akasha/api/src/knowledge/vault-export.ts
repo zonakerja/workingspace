@@ -43,7 +43,7 @@ export const isExportPath = (path: string) => path.split("/")[0] === EXPORT_DIR;
 
 type P = Record<string, unknown> & { id: string };
 
-export interface ExportNotebook {
+interface ExportNotebook {
   id: string;
   title: string;
   description?: string | null;

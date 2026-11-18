@@ -18,7 +18,7 @@ export const NOTEBOOK_RECORD_TYPES = ["free_note", "ai_note", "list", "para_reso
 export type NotebookRecordType = (typeof NOTEBOOK_RECORD_TYPES)[number];
 
 /** Batas teks tempel (karakter). */
-export const MAX_TEXT_SOURCE_CHARS = 500_000;
+const MAX_TEXT_SOURCE_CHARS = 500_000;
 
 export class CreateNotebookDto {
   @ApiProperty()
@@ -126,7 +126,7 @@ export class UpdateNotebookSourceDto {
 }
 
 /** Lampiran per pesan chat (backend AI menerima maks. 5 lampiran / 20 MB per permintaan). */
-export const MAX_CHAT_FILES = 4;
+const MAX_CHAT_FILES = 4;
 export const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_CHAT_FILE_BYTES = 20 * 1024 * 1024;
 /** Context upload untuk berkas yang diunggah langsung ke notebook (ikut terhapus bersama notebook). */

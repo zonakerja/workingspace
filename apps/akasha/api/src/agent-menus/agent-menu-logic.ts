@@ -9,10 +9,10 @@ export type MenuStatus = (typeof MENU_STATUSES)[number];
 
 /**
  * `workflow` = tab Workflow di AI Agent; `connection` = menu di kelompok Connection & MCP; `ekinerja` = tab Workflow
- * di menu e-Kinerja; `srikandi` = tab Workflow di menu SRIKANDI; `siman` = tab Workflow di menu SIMAN; `mcp` = tab Workflow di menu Aplikasi MCP (keempatnya fitur terbuka,
+ * di menu e-Kinerja; `srikandi` = tab Workflow di menu SRIKANDI; `siman` = tab Workflow di menu SIMAN (ketiganya fitur terbuka,
  * lihat `EXTENSIBLE_FEATURES`).
  */
-export const MENU_PLACEMENTS = ["workflow", "connection", "ekinerja", "srikandi", "siman", "mcp"] as const;
+export const MENU_PLACEMENTS = ["workflow", "connection", "ekinerja", "srikandi", "siman"] as const;
 export type MenuPlacement = (typeof MENU_PLACEMENTS)[number];
 
 /**
@@ -31,14 +31,13 @@ export const NATIVE_FEATURES = [
   "e-Kinerja",
   "SRIKANDI",
   "SIMAN",
-  "Aplikasi MCP",
   "Tools",
   "Pengaturan",
   "Profil Saya",
 ] as const;
 
 /**
- * Fitur native yang **terbuka** untuk agen (keputusan user 2026-11-12 e-Kinerja, 2026-11-13 SRIKANDI, SIMAN & Aplikasi MCP): namanya tetap tidak bisa dipakai fitur buatan
+ * Fitur native yang **terbuka** untuk agen (keputusan user 2026-11-12 e-Kinerja, 2026-11-13 SRIKANDI & SIMAN): namanya tetap tidak bisa dipakai fitur buatan
  * agen dan kodenya tetap bawaan, tetapi agen boleh menambah workflow di dalamnya (penempatan) dan menjalankan
  * robotnya lewat alat MCP berizin. Pengisian ke sistem asal tetap menunggu persetujuan pemilik.
  */
@@ -46,18 +45,17 @@ export const EXTENSIBLE_FEATURES: Partial<Record<(typeof NATIVE_FEATURES)[number
   "e-Kinerja": "ekinerja",
   SRIKANDI: "srikandi",
   SIMAN: "siman",
-  "Aplikasi MCP": "mcp",
 };
 
 /** Batas fitur per user agar menu tetap terbaca. */
 export const MAX_MENUS_PER_USER = 30;
 const MAX_FIELDS = 20;
 
-export const MENU_SKILL = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const MENU_SKILL = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const FIELD_NAME = /^[a-z][a-z0-9_]{0,39}$/;
 
 export const FIELD_TYPES = ["text", "textarea", "number", "date", "select"] as const;
-export type FieldType = (typeof FIELD_TYPES)[number];
+type FieldType = (typeof FIELD_TYPES)[number];
 
 /** Satu isian modal buatan agen. Modal berupa data, bukan kode, sehingga agen tidak bisa menyisipkan skrip ke aplikasi. */
 export interface MenuField {

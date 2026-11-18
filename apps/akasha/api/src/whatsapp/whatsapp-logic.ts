@@ -8,7 +8,7 @@ import { parseJsonObject, type RequestKind, STATUS_LABELS, type RequestStatus } 
  */
 
 /** Batas teks satu pesan WhatsApp (Cloud API: 4096 karakter). */
-export const WA_TEXT_LIMIT = 4096;
+const WA_TEXT_LIMIT = 4096;
 /** Pesan bebas hanya boleh dikirim ≤ 24 jam sejak pesan terakhir dari kontak (di luar itu wajib pesan templat). */
 export const WA_SERVICE_WINDOW_MS = 24 * 3600 * 1000;
 /** Berkas yang dikirim dalam rentang ini digabung ke pengajuan yang sama. */
@@ -77,7 +77,7 @@ export function verifySignature(rawBody: Buffer, header: string | undefined, app
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
-export interface InboundMedia {
+interface InboundMedia {
   mediaId: string;
   mimeType: string;
   name: string;
@@ -174,7 +174,6 @@ export function botProfile(value: unknown): BotProfile {
 }
 
 export const GROUP_KINDS = ["satker", "instansi", "masyarakat", "internal", "lainnya"] as const;
-export type GroupKind = (typeof GROUP_KINDS)[number];
 
 /** Hak akses grup kontak lewat bot (AG-20): yang boleh dilihat/dikirim ditentukan grup, bukan isi pesan. */
 export interface GroupAccess {

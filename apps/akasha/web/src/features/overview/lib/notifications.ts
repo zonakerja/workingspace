@@ -50,7 +50,7 @@ export const overdueReminders = (todos: Todo[], tasks: ProjectTask[], today: Dat
 };
 
 /** Berapa hari terakhir item yang dibagikan kepada user ditampilkan sebagai notifikasi. */
-export const RECENT_SHARE_DAYS = 7;
+const RECENT_SHARE_DAYS = 7;
 
 /** Item yang dibagikan kepada user dalam `RECENT_SHARE_DAYS` hari terakhir (item yang sudah dihapus dilewati), terbaru dulu. */
 export const recentIncomingShares = (shares: ShareEntry[], now: Date) => {

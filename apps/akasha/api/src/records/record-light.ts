@@ -7,7 +7,7 @@ import type { RecordType } from "./record-schema";
  * diberi `partial` (key yang tidak utuh); isi lengkap diambil lewat `GET /records/:type/:clientId`. Saat menulis item
  * yang tidak utuh, client mengirim `preserve` → server mempertahankan nilai key itu (tidak terhapus).
  */
-export const LIGHT_FIELDS: Partial<Record<RecordType, readonly string[]>> = {
+const LIGHT_FIELDS: Partial<Record<RecordType, readonly string[]>> = {
   // doc = JSON editor, ink = goresan tulis tangan (bisa beberapa MB)
   free_note: ["doc", "ink"],
   // Teks dokumen terlampir (bisa ratusan rb karakter) — transkrip & ringkasan tetap dikirim (dipakai pencarian)
@@ -15,7 +15,7 @@ export const LIGHT_FIELDS: Partial<Record<RecordType, readonly string[]>> = {
 };
 
 /** Tinggi pratinjau tulis tangan di kartu (koordinat logis, sama dengan frontend). */
-export const INK_PREVIEW_HEIGHT = 600;
+const INK_PREVIEW_HEIGHT = 600;
 
 type InkStroke = { points?: unknown };
 type Ink = { strokes?: unknown } & Record<string, unknown>;

@@ -9,6 +9,7 @@ export const links = {
   srikandiRegisterFromRequest: (requestId: string, uploadId: string) =>
     `/srikandi/register?register=new&request=${encodeURIComponent(requestId)}&doc=${encodeURIComponent(uploadId)}`,
   /** Naskah Masuk SRIKANDI (disorot) dan Register baru sebagai balasannya */
+  email: (id: string) => `/email/inbox?message=${encodeURIComponent(id)}`,
   srikandiInbox: (id: string) => `/srikandi/inbox?inbox=${encodeURIComponent(id)}`,
   srikandiRegisterReply: (inboxId: string) => `/srikandi/register?register=new&reply=${encodeURIComponent(inboxId)}`,
   /** Tampilan lihat agenda (link meeting, dasar pelaksanaan, hasil agenda) */
