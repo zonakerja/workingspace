@@ -1,3 +1,4 @@
+import { AccessStateService } from "../access/access-state.service";
 import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
@@ -10,7 +11,7 @@ import { toPublicUser } from "../users/user.mapper";
 import { AkaiService } from "../akai/akai.service";
 import { AccessTokenPayload, RefreshTokenPayload } from "./auth.types";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
-import { SsoService } from "./sso.service";
+import { accessColumns, SsoService } from "./sso.service";
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
@@ -39,6 +40,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly sso: SsoService,
     private readonly akai: AkaiService,
+    private readonly accessState: AccessStateService,
     config: ConfigService,
   ) {
     this.refreshSecret = config.getOrThrow<string>("JWT_REFRESH_SECRET");
@@ -122,10 +124,20 @@ export class AuthService {
       throw new UnauthorizedException("Akses akun Anda ke Akasha sudah berakhir. Silakan masuk lagi.");
     }
     const role = status.superAdmin ? "super_admin" : (status.role ?? user.role);
-    if (role === user.role && status.name === user.name && status.hasPin === user.ssoPin) return user;
+    const access = accessColumns(status);
+    const same = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
+    if (
+      role === user.role &&
+      status.name === user.name &&
+      status.hasPin === user.ssoPin &&
+      same(access.accessExpiresAt, user.accessExpiresAt) &&
+      same(access.accessDeleteAt, user.accessDeleteAt)
+    )
+      return user;
+    this.accessState.forget(user.id);
     return this.prisma.user.update({
       where: { id: user.id },
-      data: { role, name: status.name, ssoPin: status.hasPin },
+      data: { role, name: status.name, ssoPin: status.hasPin, ...access },
     });
   }
 

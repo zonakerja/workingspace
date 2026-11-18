@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
+import { AccessController } from "./access/access.controller";
+import { AccessService } from "./access/access.service";
 import { AccountsController } from "./accounts/accounts.controller";
 import { AdminController } from "./admin/admin.controller";
 import { ClientApiController } from "./admin/client-api.controller";
@@ -29,6 +31,7 @@ import { PrismaModule } from "./prisma/prisma.module";
   controllers: [
     HealthController,
     AccountsController,
+    AccessController,
     AdminController,
     ClientApiController,
     PinController,
@@ -38,6 +41,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     MailService,
     AccountsService,
+    AccessService,
     SessionsService,
     OidcService,
     PinService,

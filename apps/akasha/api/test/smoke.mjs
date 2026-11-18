@@ -4203,6 +4203,26 @@ try {
 
   r = await j("POST", "/auth/logout", null, null, "x".repeat(30));
   ok("logout idempotent", r.s === 200, r);
+  // ------------------------------------------------------------ masa akses habis → baca saja (kolom diisi dari SSO)
+  const roEmail = `smoke-ro-${Date.now()}@akasha.test`;
+  const ro = await session(roEmail, "Smoke Baca Saja");
+  await db.query(
+    "UPDATE users SET access_expires_at = now() - interval '1 day', access_delete_at = now() + interval '179 days' WHERE id = $1",
+    [ro.userId],
+  );
+  r = await j("GET", "/auth/me", null, ro.d.accessToken);
+  ok("me shows read-only access", r.s === 200 && r.d.accessState === "read_only" && !!r.d.accessDeleteAt, r.d);
+  r = await j("GET", "/records/todo", null, ro.d.accessToken);
+  ok("read-only: reading allowed", r.s === 200, r);
+  r = await j("PUT", "/records/todo/ro-1", { payload: { title: "x" } }, ro.d.accessToken);
+  ok("read-only: write rejected 403 ACCESS_READ_ONLY", r.s === 403 && r.d.code === "ACCESS_READ_ONLY", r);
+  r = await j("PATCH", "/auth/me", { phone: "0811" }, ro.d.accessToken);
+  ok("read-only: profile write rejected", r.s === 403, r);
+  r = await j("POST", "/auth/logout", null, null, ro.rt);
+  ok("read-only: logout still allowed", r.s === 200, r);
+  r = await j("DELETE", `/users/${ro.userId}`, null, admin);
+  ok("delete read-only temp user", r.s === 200, r);
+
   const docs = await fetch(B.replace("/api/v1", "/api/docs-json"));
   if (docs.status === 404) console.log("SKIP swagger json (dinonaktifkan di production)");
   else ok("swagger json", docs.status === 200);

@@ -1,3 +1,4 @@
+import { AccessStateService } from "../access/access-state.service";
 import { ConflictException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { type Job, Worker } from "bullmq";
@@ -24,6 +25,7 @@ export class AutomationWorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly robot: RobotService,
     private readonly automation: AutomationService,
+    private readonly accessState: AccessStateService,
   ) {}
 
   onModuleInit() {
@@ -80,6 +82,8 @@ export class AutomationWorkerService implements OnModuleInit, OnModuleDestroy {
    * user mendapat notifikasi lewat `/automation/alerts` dan jadwal berjalan lagi sendiri setelah login ulang.
    */
   private async pauseReason(userId: string, kind: AutomationKind) {
+    if (await this.accessState.isReadOnly(userId))
+      return "Masa akses Akasha sudah berakhir (baca saja): tugas terjadwal dihentikan.";
     const system = ROBOT_JOBS[kind].system;
     const label = SYSTEM_INFO[system].label;
     const connector = await this.prisma.robotConnector.findUnique({

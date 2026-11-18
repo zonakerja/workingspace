@@ -1,3 +1,4 @@
+import { activeAccessWhere } from "../access/access-state";
 import {
   BadRequestException,
   ConflictException,
@@ -182,7 +183,11 @@ export class MailInboxService implements OnModuleInit, OnModuleDestroy {
     try {
       const due = new Date(Date.now() - SYNC_INTERVAL_MS);
       const accounts = await this.prisma.mailAccount.findMany({
-        where: { inboxEnabled: true, OR: [{ inboxSyncedAt: null }, { inboxSyncedAt: { lt: due } }] },
+        where: {
+          inboxEnabled: true,
+          user: activeAccessWhere(),
+          OR: [{ inboxSyncedAt: null }, { inboxSyncedAt: { lt: due } }],
+        },
         take: 20,
       });
       for (const account of accounts) {

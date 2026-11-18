@@ -689,6 +689,12 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   refresh, dan status PIN) → `hasPin` publik. Kredensial robot dikonfirmasi `accountPin` (`PinService.confirmOwner`). Akun tanpa `sso_subject` (hanya akun uji smoke)
   memakai PIN lokal: atur sekali, ganti wajib `currentPin`, hapus wajib `pin`. Frontend: tawaran PIN setelah masuk lewat SSO memakai penanda sessionStorage (`rememberSsoLogin` sebelum
   pindah ke SSO, `restoreSsoLoginPrompt` di `main.tsx`).
+- **Masa akses dari SSO** (`src/access/` `@Global`, logika murni + test `access-state.ts`, detail docs/SSO.md §2.12, keputusan user 2026-11-18):
+  `users.access_expires_at` / `access_delete_at` diisi dari `/api/client/account` SSO (`accessColumns`) saat masuk & refresh; publik `accessState`.
+  Baca saja → `ReadOnlyInterceptor` (APP_INTERCEPTOR, 403 `ACCESS_READ_ONLY`; daftar izin `allowedWhileReadOnly`), ONLYOFFICE mode lihat, MCP
+  menolak alat di luar `READ_ONLY_TOOLS`; pekerjaan latar belakang memakai `activeAccessWhere()` / `AccessStateService.isReadOnly`. Penghapusan:
+  `users/access-cleanup.service.ts` → `UsersService.purge` setelah SSO memastikan `ended`. Pekerjaan latar belakang baru yang menulis data
+  user → saring dengan `activeAccessWhere()`. Frontend: `features/security/access-banner.tsx` (+ `access-logic.ts`).
 - **Akun tersambung tahap 0** (`src/calendar-feed/`, `src/mail/`, logika murni + test `ics-logic.ts` & `mail-logic.ts`, detail docs/AKUN-TERSAMBUNG.md §7,
   keputusan user 2026-11-17): **langganan kalender ICS** satu alamat rahasia per akun (`calendar_feeds`, token `cal_…` = hash + terenkripsi kunci
   turunan `akasha:calendar-feed:v1`), publik `GET /api/v1/public/calendar/<token>.ics`, agenda/task/to-do milik sendiri, item terkunci PIN judul
@@ -1650,6 +1656,7 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Akun tersambung tahap 4: Drive** (Dari Drive di form lampiran & Resource: OneDrive dijelajahi, Google lewat Picker; arsip dingin ke Drive yang diambil kembali otomatis) | ✅ 2026-11-18 — unit backend +10 (550) & frontend +2 (352), migrasi `20261118160000_drive_cold_storage` tanpa drift, uji ujung-ke-ujung server tiruan Google & Microsoft 38/38, smoke penuh 680, lint, typecheck, build; browser (Izinkan OneDrive, kartu arsip dingin, Dari Drive → OneDrive → berkas masuk form, Batal membuang unggahan; data uji dihapus). **Belum**: Google/Microsoft sungguhan & Picker di CSP produksi (A49, A51) |
 | **Branding ekosistem di halaman depan & SSO** (One Space. Infinite Possibilities.; Akasha / **Akasha AI** (Akai) / Cendekia dengan tagline & visi; bagian Ekosistem + diagram, sorotan Akasha AI, Cendekia, visi; tanda produk; panel masuk & kartu Aplikasi SSO) | ✅ 2026-11-18 — `turbo run lint typecheck test build format:check` 22/22 (landing, auth web & api, Akai web, ui), seed SSO (nama aplikasi Akasha AI), browser halaman depan 1366×768 gelap & terang + 375 px tanpa luberan, dashboard & halaman daftar SSO |
 | **Akasha hanya lewat SSO + logo Akasha baru + pembersihan kode** (login kata sandi, ganti kata sandi, buat/ubah user, kolom `password_hash`, `PASSWORD_LOGIN`, seed akun dihapus; logo sidebar/login/favicon = `AkashaMark`; kalimat panel masuk SSO; 230+ export & kode mati, 5 dependensi, berkas tak terpakai dibuang) | ✅ 2026-11-18 — unit backend 550 & frontend 350, smoke penuh 677 (sesi uji dari database), `sso-smoke.mjs` lulus, migrasi tanpa drift, lint, typecheck, build; browser (sidebar, Profil, Manajemen User). **Belum**: halaman masuk dilihat di browser tanpa sesi (keluar = keluar SSO pemilik), CI baru (butuh push) |
+| **Daftar lengkap (wizard) + pengajuan akses + masa akses** (SSO: data diri wajib, pengajuan dengan tujuan, admin setujui dengan lama akses / tolak, email pengingat; Akasha: baca saja + pita + pembekuan pekerjaan latar belakang + hapus otomatis 180 hari) | ✅ 2026-11-18 — unit SSO 48 & Akasha 554 & web, smoke SSO 137 (+25) & Akasha 683 (+6), migrasi tanpa drift, typecheck, lint; browser (wizard 4 langkah, Akses di halaman akun, tab Pengajuan + dialog setujui, pita baca saja disimulasikan). **Belum**: backup ke Google Drive (tahap berikutnya), baca saja di Akai, email sungguhan (SMTP Titan dev gagal login, lihat TODO-USER) |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -2837,6 +2844,12 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   digantikan. Aplikasi memanggil Akai server ke server (HTTP Basic klien + `X-Akai-Subject` sub SSO); sesi web Akai (cookie `akai_sid`, masuk SSO) sejak 6a.3. Akun Akai
   dibuat saat pertama dipakai (tanpa daftar terpisah).
 - 2026-11-16 — **Akai web (6a.3)**: sesi web Akai disimpan sebagai token acak di tabel (bukan JWT) agar bisa dicabut satu per satu dan oleh back-channel logout; CSRF dicegah header `X-Akai-Web` (browser tidak bisa mengirimnya lintas situs tanpa preflight) + SameSite Lax, bukan token CSRF terpisah. Satu akun Akai untuk web & aplikasi (kunci = sub SSO), jadi pengaturan di web langsung dipakai gateway untuk Akasha. Halaman Akai web memakai identitas visual `packages/ui` + tanda Akai sendiri (percikan). Produksi (compose/Caddy) dikerjakan saat deploy.
+- 2026-11-18 — **Pengajuan & masa akses aplikasi** (permintaan user: form daftar lengkap & menarik, pengajuan akses dengan tujuan,
+  pembatasan waktu → baca saja 180 hari → backup Drive). Keputusan lewat pertanyaan: admin memilih lama akses (akses lama tanpa batas), data
+  dihapus otomatis setelah 180 hari dengan email pengingat, backup Drive dibangun nanti. Aturan masa akses tinggal di SSO (satu sumber untuk
+  semua aplikasi); Akasha hanya menyimpan tanggal dari SSO dan memastikan ulang ke SSO sebelum menghapus (admin bisa sudah memperpanjang).
+  Baca saja dijaga di satu titik (interceptor global) + MCP + pekerjaan latar belakang, bukan per fitur. Perpanjangan dibuka 30 hari sebelum
+  habis agar pengajuan tidak menumpuk. Data diri (HP, pekerjaan, tempat bekerja) wajib saat daftar karena dipakai admin menilai pengajuan.
 - 2026-11-18 — **Akasha hanya masuk lewat SSO** (permintaan user: "seperti Akai, tidak ada login lokal"). Login & ganti kata sandi, buat/ubah
   user, `PASSWORD_LOGIN`, seed akun, dan kolom `users.password_hash` dihapus; akun & role dikelola admin SSO, Akasha hanya menghapus akun beserta
   datanya. Smoke test tetap berjalan tanpa SSO dengan membuat sesi langsung di database (pola smoke Akai), jadi CI tidak perlu SSO untuk Akasha.
@@ -3111,6 +3124,11 @@ utama tetap < 500 kB (cek output `npm run build`).
 
 ## 15. Jebakan yang Sudah Diketahui
 
+- SSO dev dengan SMTP terisi di `apps/auth/api/.env` mengirim email sungguhan (dan galat SMTP = daftar 500). Untuk uji/smoke tanpa
+  menyentuh `.env`: hentikan preview `auth-api`, jalankan `SMTP_HOST= SMTP_USER= SMTP_PASSWORD= npm --prefix apps/auth/api run dev` di
+  latar (env proses menang atas `.env` → email ke folder `.mail`), lalu setelah selesai hentikan juga proses anak `dist\main` di port 4300.
+- Vite dev memuat store dengan dua URL (`auth-store.ts` dan `auth-store.ts?t=…`); `import()` dari `javascript_tool` untuk simulasi state
+  harus memakai URL yang sama dengan yang dipakai aplikasi (`performance.getEntriesByType('resource')`).
 - Tombol menu sidebar shadcn memaksa **semua** svg di dalamnya 16 px (`[&_svg]:size-4`, selektor turunan) → ikon/logo yang lebih besar di
   dalam `SidebarMenuButton` wajib memakai ukuran penting (`size-9!`), pembungkus span tidak cukup.
 - knip melaporkan tipe yang dipakai sebagai tipe kembalian method publik sebagai "tidak dipakai"; mencabut `export`-nya membuat `tsc`

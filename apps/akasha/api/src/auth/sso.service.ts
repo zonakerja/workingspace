@@ -36,7 +36,15 @@ export interface AccountStatus {
   email: string;
   name: string;
   hasPin: boolean;
+  /** Masa akses Akasha (SSO): active | read_only | ended */
+  access?: { state: "active" | "read_only" | "ended"; expiresAt: string | null; deleteAt: string | null };
 }
+
+/** Kolom masa akses user dari status SSO. */
+export const accessColumns = (status: AccountStatus) => ({
+  accessExpiresAt: status.access?.expiresAt ? new Date(status.access.expiresAt) : null,
+  accessDeleteAt: status.access?.deleteAt ? new Date(status.access.deleteAt) : null,
+});
 
 /**
  * Masuk Akasha lewat SSO workingspace.id (OIDC kode otorisasi + PKCE, klien confidential). Akasha tetap memegang sesinya
@@ -146,8 +154,11 @@ export class SsoService {
     let user = await this.upsertUser(claims);
     // Cermin "PIN sudah diatur" (dipakai tawaran PIN setelah masuk & penanda di aplikasi)
     const status = await this.accountStatus(claims.sub, true);
-    if (status && status !== "missing" && status.hasPin !== user.ssoPin)
-      user = await this.prisma.user.update({ where: { id: user.id }, data: { ssoPin: status.hasPin } });
+    if (status && status !== "missing")
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { ssoPin: status.hasPin, ...accessColumns(status) },
+      });
     return { user, returnTo: flow.returnTo, ssoSid: claims.sid };
   }
 

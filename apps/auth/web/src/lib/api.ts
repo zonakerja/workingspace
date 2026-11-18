@@ -44,11 +44,19 @@ export async function request<T>(method: string, path: string, body?: unknown): 
 export const errorText = (error: unknown) =>
   error instanceof ApiError ? error.message : "Terjadi kesalahan. Coba lagi.";
 
+/** Masa akses aplikasi: active, read_only (habis, baca saja 180 hari), ended (data dihapus aplikasi). */
+export interface AccessInfo {
+  state: "active" | "read_only" | "ended";
+  expiresAt: string | null;
+  deleteAt: string | null;
+}
+
 export interface AppAccess {
   key: string;
   name: string;
   url: string;
   role: "admin" | "member";
+  access: AccessInfo;
 }
 
 export interface Account {
@@ -99,6 +107,7 @@ export interface AdminAccount {
   lastLoginAt: string | null;
   createdAt: string;
   apps: Record<string, AppRole>;
+  access: Record<string, AccessInfo>;
 }
 
 export interface AdminApp {
@@ -127,6 +136,66 @@ export interface AdminStats {
   active30d: number;
   unverified: number;
   disabled: number;
+  pendingRequests: number;
+}
+
+export interface CatalogApp {
+  key: string;
+  name: string;
+  description: string | null;
+  /** Diberikan otomatis saat mendaftar (tanpa pengajuan) */
+  autoAccess: boolean;
+}
+
+export interface AccessRequestRow {
+  id: string;
+  appKey: string;
+  appName: string;
+  purpose: string;
+  status: "pending" | "approved" | "rejected";
+  role: AppRole | null;
+  durationDays: number | null;
+  note: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export interface AccessOverview {
+  apps: {
+    key: string;
+    name: string;
+    url: string;
+    description: string | null;
+    role: AppRole | null;
+    access: AccessInfo | null;
+    pendingRequestId: string | null;
+    canRequest: boolean;
+    requestBlock: string | null;
+  }[];
+  requests: AccessRequestRow[];
+}
+
+export interface AdminAccessRequest extends AccessRequestRow {
+  account: {
+    id: string;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+    occupation: string | null;
+    workplace: string | null;
+  };
+  current: { role: AppRole; access: AccessInfo } | null;
+}
+
+export interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  occupation: string;
+  workplace: string;
+  address?: string;
+  requests?: { appKey: string; purpose: string }[];
 }
 
 export const adminApi = {
@@ -148,10 +217,20 @@ export const adminApi = {
   passwordLink: (id: string) =>
     request<{ message: string }>("POST", `/api/admin/accounts/${encodeURIComponent(id)}/password-link`),
   signOut: (id: string) => request<void>("POST", `/api/admin/accounts/${encodeURIComponent(id)}/sign-out`),
-  setRole: (id: string, app: string, role: AppRole | null) =>
+  /** `days`: lama akses dari sekarang (null = tanpa batas, undefined = tidak diubah) */
+  setRole: (id: string, app: string, role: AppRole | null, days?: number | null) =>
     role
-      ? request<{ success: boolean }>("PUT", `/api/admin/accounts/${encodeURIComponent(id)}/apps/${app}`, { role })
+      ? request<{ success: boolean }>("PUT", `/api/admin/accounts/${encodeURIComponent(id)}/apps/${app}`, {
+          role,
+          ...(days !== undefined ? { days } : {}),
+        })
       : request<void>("DELETE", `/api/admin/accounts/${encodeURIComponent(id)}/apps/${app}`),
+  requests: (status: "pending" | "all") =>
+    request<AdminAccessRequest[]>("GET", `/api/admin/access-requests?status=${status}`),
+  approve: (id: string, body: { role: AppRole; days: number | null }) =>
+    request<{ expiresAt: string | null }>("POST", `/api/admin/access-requests/${encodeURIComponent(id)}/approve`, body),
+  reject: (id: string, note?: string) =>
+    request<void>("POST", `/api/admin/access-requests/${encodeURIComponent(id)}/reject`, { note }),
   events: (id: string) => request<SecurityEventRow[]>("GET", `/api/admin/accounts/${encodeURIComponent(id)}/events`),
   apps: () => request<AdminApp[]>("GET", "/api/admin/apps"),
   updateApp: (key: string, body: { name?: string; url?: string; description?: string; selfSignup?: AppRole | null }) =>
@@ -170,8 +249,11 @@ export const api = {
   me: () => request<Account>("GET", "/api/auth/me"),
   login: (email: string, password: string) => request<Account>("POST", "/api/auth/login", { email, password }),
   logout: () => request<void>("POST", "/api/auth/logout"),
-  register: (name: string, email: string, password: string) =>
-    request<{ message: string }>("POST", "/api/auth/register", { name, email, password }),
+  register: (body: RegisterInput) => request<{ message: string }>("POST", "/api/auth/register", body),
+  accessCatalog: () => request<CatalogApp[]>("GET", "/api/access/apps"),
+  access: () => request<AccessOverview>("GET", "/api/access"),
+  requestAccess: (requests: { appKey: string; purpose: string }[]) =>
+    request<AccessOverview>("POST", "/api/access/requests", { requests }),
   resendVerification: (email: string) =>
     request<{ message: string }>("POST", "/api/auth/resend-verification", { email }),
   verify: (token: string) => request<Account>("POST", "/api/auth/verify", { token }),

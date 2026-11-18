@@ -1,3 +1,4 @@
+import { accessInfo } from "../access/access-logic";
 /** Pembacaan konfigurasi OIDC dari env (logika murni, diuji di oidc-config.spec.ts). */
 
 export interface OidcClientConfig {
@@ -86,12 +87,23 @@ export function parseJwks(raw: string): { keys: Record<string, unknown>[] } {
   return { keys: keys as Record<string, unknown>[] };
 }
 
-/** Klaim aplikasi di token: `{ akasha: "admin" }`; super admin ekosistem = admin di semua aplikasi. */
-export function appClaims(memberships: { appKey: string; role: string }[]) {
-  return Object.fromEntries(memberships.map((m) => [m.appKey, m.role]));
+/** Klaim aplikasi di token: `{ akasha: "admin" }`; akses yang sudah berakhir (lewat masa beku) tidak ikut. */
+export function appClaims(memberships: { appKey: string; role: string; expiresAt?: Date | null }[], now = new Date()) {
+  return Object.fromEntries(
+    memberships.filter((m) => accessInfo(m.expiresAt ?? null, now).state !== "ended").map((m) => [m.appKey, m.role]),
+  );
 }
 
-/** Boleh membuka aplikasi? Super admin selalu boleh; lainnya wajib punya keanggotaan aplikasi itu. */
-export function canOpenApp(account: { superAdmin: boolean; memberships: { appKey: string }[] }, appKey: string) {
-  return account.superAdmin || account.memberships.some((m) => m.appKey === appKey);
+/**
+ * Boleh membuka aplikasi? Super admin selalu boleh; lainnya wajib punya keanggotaan aplikasi itu yang belum berakhir
+ * (masa akses habis = masih boleh masuk untuk membaca selama masa beku).
+ */
+export function canOpenApp(
+  account: { superAdmin: boolean; memberships: { appKey: string; expiresAt?: Date | null }[] },
+  appKey: string,
+  now = new Date(),
+) {
+  if (account.superAdmin) return true;
+  const m = account.memberships.find((x) => x.appKey === appKey);
+  return !!m && accessInfo(m.expiresAt ?? null, now).state !== "ended";
 }

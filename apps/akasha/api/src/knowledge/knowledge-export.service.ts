@@ -1,3 +1,4 @@
+import { activeAccessWhere } from "../access/access-state";
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
@@ -122,7 +123,7 @@ export class KnowledgeExportService implements OnModuleInit, OnModuleDestroy {
 
   private async checkAll() {
     const users = await this.prisma.user.findMany({
-      where: { knowledgeVault: { not: null } },
+      where: { knowledgeVault: { not: null }, ...activeAccessWhere() },
       select: { id: true, knowledgePrefs: true },
     });
     for (const user of users) {

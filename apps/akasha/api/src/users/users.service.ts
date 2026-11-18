@@ -37,6 +37,11 @@ export class UsersService {
     if (id === actor.id) throw new BadRequestException("Tidak dapat menghapus akun Anda sendiri.");
     const target = await this.findById(id);
     this.ensureCanManage(actor, target.role);
+    return this.purge(id);
+  }
+
+  /** Hapus akun beserta seluruh datanya (cascade) dan berkasnya di object storage. Tanpa pemeriksaan hak — pemanggil yang menjaga. */
+  async purge(id: string) {
     const assets = [
       ...(await this.prisma.asset.findMany({ where: { userId: id }, select: { objectKey: true } })),
       // Versi lama dokumen yang diedit di ONLYOFFICE

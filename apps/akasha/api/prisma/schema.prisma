@@ -83,6 +83,9 @@ model User {
   ssoSubject      String?     @unique @map("sso_subject")
   /// Cermin "PIN sudah diatur" untuk akun SSO (PIN-nya sendiri disimpan & diperiksa SSO)
   ssoPin          Boolean     @default(false) @map("sso_pin")
+  /// Masa akses dari SSO: setelah `accessExpiresAt` baca saja sampai `accessDeleteAt`, lalu data dihapus (null = tanpa batas)
+  accessExpiresAt DateTime?   @map("access_expires_at") @db.Timestamptz(3)
+  accessDeleteAt  DateTime?   @map("access_delete_at") @db.Timestamptz(3)
   role            UserRole    @default(member)
   phone           String?
   address         String?

@@ -68,3 +68,93 @@ export function inviteEmail(name: string, url: string): MailContent {
     "Bila Anda tidak mengenal undangan ini, abaikan email ini.",
   );
 }
+
+/** Tanggal untuk isi email (WIB). */
+export const mailDate = (date: Date) =>
+  new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: "Asia/Jakarta" }).format(date);
+
+export function accessRequestedEmail(
+  adminName: string,
+  input: { requester: string; email: string; app: string; purpose: string; renewal: boolean },
+  url: string,
+): MailContent {
+  return layout(
+    `${input.renewal ? "Perpanjangan" : "Pengajuan"} akses ${input.app}`,
+    adminName,
+    [
+      `${input.requester} (${input.email}) mengajukan ${input.renewal ? "perpanjangan akses" : "akses"} ke ${input.app}.`,
+      `Tujuan / kepentingan: ${input.purpose}`,
+    ],
+    { label: "Tinjau pengajuan", url },
+    "Email ini dikirim ke super admin Workingspace.",
+  );
+}
+
+export function accessApprovedEmail(name: string, app: string, expiresAt: Date | null, url: string): MailContent {
+  return layout(
+    `Akses ${app} disetujui`,
+    name,
+    [
+      `Pengajuan akses Anda ke ${app} disetujui.`,
+      expiresAt
+        ? `Akses berlaku sampai ${mailDate(expiresAt)}. Perpanjangan bisa diajukan dari halaman akun mulai 30 hari sebelumnya.`
+        : "Akses berlaku tanpa batas waktu.",
+    ],
+    { label: `Buka ${app}`, url },
+    "Masuk dengan akun Workingspace Anda.",
+  );
+}
+
+export function accessRejectedEmail(name: string, app: string, note: string | null, url: string): MailContent {
+  return layout(
+    `Pengajuan akses ${app} belum disetujui`,
+    name,
+    [`Pengajuan akses Anda ke ${app} belum disetujui.`, ...(note ? [`Catatan admin: ${note}`] : [])],
+    { label: "Buka halaman akun", url },
+    "Anda bisa mengajukan lagi dengan tujuan yang lebih lengkap.",
+  );
+}
+
+/** Pengingat masa akses (tahap di access-logic.ts). */
+export function accessNoticeEmail(
+  name: string,
+  input: { app: string; stage: number; expiresAt: Date; deleteAt: Date },
+  url: string,
+): MailContent {
+  const { app, stage, expiresAt, deleteAt } = input;
+  const backup =
+    "Cadangkan data Anda sebelum tanggal itu (fitur backup ke Google Drive tersedia di aplikasi saat siap).";
+  const lines: Record<number, [string, string[]]> = {
+    1: [
+      `Akses ${app} berakhir dalam 7 hari`,
+      [
+        `Masa akses Anda ke ${app} berakhir pada ${mailDate(expiresAt)}.`,
+        "Setelah itu data hanya bisa dibaca selama 180 hari. Ajukan perpanjangan dari halaman akun bila masih membutuhkan.",
+      ],
+    ],
+    2: [
+      `Akses ${app} berakhir — data kini baca saja`,
+      [
+        `Masa akses Anda ke ${app} berakhir pada ${mailDate(expiresAt)}. Data Anda dibekukan: masih bisa dibuka & dibaca, tetapi tidak bisa diubah.`,
+        `Data akan dihapus permanen pada ${mailDate(deleteAt)}. ${backup}`,
+      ],
+    ],
+    3: [
+      `Data ${app} dihapus dalam 30 hari`,
+      [`Data Anda di ${app} akan dihapus permanen pada ${mailDate(deleteAt)}.`, backup],
+    ],
+    4: [
+      `Data ${app} dihapus dalam 7 hari`,
+      [`Data Anda di ${app} akan dihapus permanen pada ${mailDate(deleteAt)}.`, backup],
+    ],
+    5: [`Data ${app} dihapus besok`, [`Data Anda di ${app} akan dihapus permanen pada ${mailDate(deleteAt)}.`, backup]],
+  };
+  const [title, body] = lines[stage] ?? lines[2];
+  return layout(
+    title,
+    name,
+    body,
+    { label: "Ajukan perpanjangan", url },
+    "Perpanjangan yang disetujui sebelum data dihapus memulihkan akses penuh.",
+  );
+}

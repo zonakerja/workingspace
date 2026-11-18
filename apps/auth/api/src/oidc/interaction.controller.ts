@@ -69,7 +69,7 @@ export class InteractionController {
     if (!canOpenApp(account, clientId)) {
       const app = await this.appOf(clientId);
       throw new ForbiddenException({
-        message: `Akun Anda belum punya akses ke ${app?.name ?? clientId}. Minta admin memberi akses.`,
+        message: `Akun Anda belum punya akses ke ${app?.name ?? clientId} (atau masa aksesnya sudah berakhir). Ajukan akses dari halaman akun Workingspace.`,
         code: "APP_FORBIDDEN",
       });
     }

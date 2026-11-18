@@ -1,3 +1,5 @@
+import { RequestsPanel } from "./admin-requests";
+import { DURATION_CHOICES, accessLabel, durationLabel } from "@/lib/access";
 import {
   Activity,
   AppWindow,
@@ -12,6 +14,7 @@ import {
   ShieldOff,
   UserPlus,
   UsersRound,
+  Inbox,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { AccountShell } from "@/components/account-shell";
@@ -64,7 +67,10 @@ export function AdminPage() {
   const [me] = useMe("/admin", { superAdminOnly: true });
   const [apps, setApps] = useState<AdminApp[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [tab, setTab] = useState<"accounts" | "apps">("accounts");
+  // #pengajuan (tautan email pengajuan akses) membuka tab Pengajuan
+  const [tab, setTab] = useState<"accounts" | "requests" | "apps">(() =>
+    window.location.hash === "#pengajuan" ? "requests" : "accounts",
+  );
   const [status, setStatus] = useState<AccountStatus>("all");
   const [creating, setCreating] = useState(false);
   const [version, setVersion] = useState(0);
@@ -159,6 +165,14 @@ export function AdminPage() {
             <TabButton active={tab === "accounts"} onClick={() => setTab("accounts")} icon={<UsersRound />}>
               Akun
             </TabButton>
+            <TabButton active={tab === "requests"} onClick={() => setTab("requests")} icon={<Inbox />}>
+              Pengajuan
+              {!!stats?.pendingRequests && (
+                <span className="rounded-full bg-coral px-1.5 text-[11px] font-bold text-white">
+                  {stats.pendingRequests}
+                </span>
+              )}
+            </TabButton>
             <TabButton active={tab === "apps"} onClick={() => setTab("apps")} icon={<AppWindow />}>
               Aplikasi
               <span className="rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground">{apps.length}</span>
@@ -174,6 +188,8 @@ export function AdminPage() {
               onStatus={setStatus}
               onChanged={loadMeta}
             />
+          ) : tab === "requests" ? (
+            <RequestsPanel onChanged={changed} />
           ) : (
             <AppsPanel apps={apps} onSaved={loadMeta} />
           )}
@@ -580,6 +596,15 @@ function ManageAccount({
       return value === NONE ? `Akses ${app.name} dicabut.` : `Akses ${app.name}: ${ROLE_LABELS[value as AppRole]}.`;
     });
 
+  const setDuration = (app: AdminApp, value: string) =>
+    run(async () => {
+      const role = account.apps[app.key];
+      if (!role) return "Beri akses dulu.";
+      const days = value === "none" ? null : Number(value);
+      await adminApi.setRole(account.id, app.key, role, days);
+      return `Masa akses ${app.name}: ${durationLabel(days)} mulai hari ini.`;
+    });
+
   return (
     <>
       <SheetHeader className="relative overflow-hidden bg-aurora p-5 pt-6 text-ink-foreground">
@@ -676,13 +701,36 @@ function ManageAccount({
                 <span className="font-display flex size-9 shrink-0 items-center justify-center rounded-xl bg-aurora text-sm font-bold text-ink-foreground">
                   {app.name.slice(0, 1)}
                 </span>
-                <span className="truncate text-sm font-medium">{app.name}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{app.name}</span>
+                  {account.apps[app.key] && (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {account.superAdmin ? "Super admin · tanpa batas" : accessLabel(account.access?.[app.key]).text}
+                    </span>
+                  )}
+                </span>
               </span>
-              <RoleSelect
-                value={account.apps[app.key] ?? NONE}
-                onChange={(v) => setRole(app, v)}
-                label={`Akses ${app.name}`}
-              />
+              <span className="flex shrink-0 flex-col items-end gap-1.5">
+                <RoleSelect
+                  value={account.apps[app.key] ?? NONE}
+                  onChange={(v) => setRole(app, v)}
+                  label={`Akses ${app.name}`}
+                />
+                {account.apps[app.key] && !account.superAdmin && (
+                  <Select value="" onValueChange={(v) => setDuration(app, v)}>
+                    <SelectTrigger size="sm" className="w-32" aria-label={`Masa akses ${app.name}`}>
+                      <SelectValue placeholder="Atur masa…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATION_CHOICES.map((c) => (
+                        <SelectItem key={String(c.days)} value={c.days === null ? "none" : String(c.days)}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </span>
             </div>
           ))}
         </div>

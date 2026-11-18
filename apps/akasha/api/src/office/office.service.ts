@@ -1,3 +1,4 @@
+import { AccessStateService } from "../access/access-state.service";
 import {
   BadRequestException,
   ForbiddenException,
@@ -144,6 +145,7 @@ export class OfficeService {
     private readonly jwt: JwtService,
     private readonly ai: AiService,
     private readonly converter: OfficeTextConverter,
+    private readonly accessState: AccessStateService,
   ) {
     this.publicUrl = config.get<string>("ONLYOFFICE_URL")?.replace(/\/+$/, "") || undefined;
     this.internalUrl = config.get<string>("ONLYOFFICE_INTERNAL_URL")?.replace(/\/+$/, "") || this.publicUrl;
@@ -634,7 +636,8 @@ export class OfficeService {
     if (!documentType) throw new BadRequestException("Format berkas ini tidak dapat dibuka di ONLYOFFICE.");
 
     const officeKey = asset.officeKey ?? (await this.ensureOfficeKey(asset.id));
-    const access = effectiveAccess({ format, permission, requestedMode: dto.mode });
+    const readOnly = await this.accessState.isReadOnly(user.id);
+    const access = effectiveAccess({ format, permission: readOnly ? "view" : permission, requestedMode: dto.mode });
     const profile = await this.prisma.user.findUnique({
       where: { id: user.id },
       select: { name: true, officeAi: true },

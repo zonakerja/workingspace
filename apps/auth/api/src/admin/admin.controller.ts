@@ -34,6 +34,7 @@ import type { Request } from "express";
 import { AccountsService } from "../accounts/accounts.service";
 import { normalizeEmail, passwordProblem } from "../accounts/password-policy";
 import { SessionsService } from "../accounts/sessions.service";
+import { DURATION_OPTIONS, accessJson, newExpiry } from "../access/access-logic";
 import { clientInfo } from "../common/http";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -114,6 +115,12 @@ class UpdateAccountDto {
 class MembershipDto {
   @IsIn(ROLES)
   role: "admin" | "member";
+
+  /** Lama akses dari sekarang (hari); null = tanpa batas; tidak dikirim = masa akses tidak diubah */
+  @IsOptional()
+  @IsInt()
+  @IsIn([...DURATION_OPTIONS, null])
+  days?: number | null;
 }
 
 class UpdateAppDto {
@@ -171,14 +178,15 @@ export class AdminController {
   async stats(@Req() req: Request) {
     await this.admin(req);
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const [total, superAdmins, active30d, unverified, disabled] = await Promise.all([
+    const [total, superAdmins, active30d, unverified, disabled, pendingRequests] = await Promise.all([
       this.prisma.account.count(),
       this.prisma.account.count({ where: { superAdmin: true } }),
       this.prisma.account.count({ where: { lastLoginAt: { gte: since }, disabled: false } }),
       this.prisma.account.count({ where: accountStatusFilter("unverified") }),
       this.prisma.account.count({ where: { disabled: true } }),
+      this.prisma.accessRequest.count({ where: { status: "pending" } }),
     ]);
-    return { total, superAdmins, active30d, unverified, disabled };
+    return { total, superAdmins, active30d, unverified, disabled, pendingRequests };
   }
 
   @Get("accounts")
@@ -216,6 +224,7 @@ export class AdminController {
         lastLoginAt: a.lastLoginAt,
         createdAt: a.createdAt,
         apps: Object.fromEntries(a.memberships.map((m) => [m.appKey, m.role])),
+        access: Object.fromEntries(a.memberships.map((m) => [m.appKey, accessJson(m.expiresAt)])),
       })),
     };
   }
@@ -297,12 +306,18 @@ export class AdminController {
     const admin = await this.admin(req);
     await this.findAccount(id);
     await this.findApp(app);
+    const expiry = dto.days === undefined ? {} : { expiresAt: newExpiry(dto.days, null), expiryNotice: 0 };
     await this.prisma.appMembership.upsert({
       where: { accountId_appKey: { accountId: id, appKey: app } },
-      create: { accountId: id, appKey: app, role: dto.role },
-      update: { role: dto.role },
+      create: { accountId: id, appKey: app, role: dto.role, ...expiry },
+      update: { role: dto.role, ...expiry },
     });
-    await this.accounts.log(id, "admin_app_access", clientInfo(req), { by: admin.id, app, role: dto.role });
+    await this.accounts.log(id, "admin_app_access", clientInfo(req), {
+      by: admin.id,
+      app,
+      role: dto.role,
+      ...(dto.days !== undefined ? { days: dto.days } : {}),
+    });
     return { success: true };
   }
 

@@ -1,3 +1,5 @@
+import { AccessStateService } from "../access/access-state.service";
+import { READ_ONLY_MESSAGE } from "../access/access-state";
 import { freeSlots } from "../mail/agent-mail-logic";
 import { MailInboxService } from "../mail/mail-inbox.service";
 import { Injectable } from "@nestjs/common";
@@ -110,6 +112,7 @@ const READ_ONLY_TOOLS = new Set([
 @Injectable()
 export class AkashaMcpService {
   constructor(
+    private readonly accessState: AccessStateService,
     private readonly tokens: ApiTokensService,
     private readonly index: AiIndexService,
     private readonly chat: AiChatService,
@@ -155,6 +158,8 @@ export class AkashaMcpService {
       <A>(tool: string, handler: (args: A) => Promise<ToolResult>) =>
       async (args: A): Promise<ToolResult> => {
         try {
+          if (!READ_ONLY_TOOLS.has(tool) && (await this.accessState.isReadOnly(userId)))
+            return failure(READ_ONLY_MESSAGE);
           const result = await handler(args);
           await this.tokens.log(
             principal,

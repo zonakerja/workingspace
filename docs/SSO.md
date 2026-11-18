@@ -180,6 +180,35 @@ Workingspace punya tampilan sendiri, terpisah dari Akasha (keputusan pemilik 202
   Akai web), `CendekiaMark` (chevron naik), `ProductMark appKey`. Halaman depan, panel masuk SSO, dan kartu Aplikasi di halaman akun memakai
   nama & tagline dari berkas ini; nama aplikasi di tabel `apps` SSO = "Akasha AI" (seed). Halaman depan butuh `VITE_AKAI_URL` (build arg).
 
+### 2.12 Pendaftaran lengkap, pengajuan akses & masa akses (2026-11-18)
+
+Keputusan pemilik: akses aplikasi diberikan **terbatas** — pengguna mengajukan dengan tujuan/kepentingan, super admin memutuskan dan
+**memilih lama akses** (30 hari / 3 bulan / 6 bulan / 1 tahun / tanpa batas; akses yang sudah ada sebelumnya = tanpa batas). Setelah masa
+akses habis, data aplikasi **dibekukan (baca saja) 180 hari**, lalu **dihapus otomatis** dengan email pengingat; backup ke Google Drive
+dibangun di tahap berikutnya (sekarang arahan saja).
+
+- **Daftar** (`/register`, wizard 4 langkah: Akun → Data diri → Akses aplikasi → Periksa): No. HP, pekerjaan, tempat bekerja **wajib**,
+  alamat opsional (aturan `profile-logic.ts`); pengajuan akses ikut dikirim (`requests: [{ appKey, purpose }]`, aplikasi
+  `selfSignup` = langsung aktif, tidak diajukan). Pengajuan dari pendaftaran dikirim ke super admin **setelah email diverifikasi**.
+- **Pengajuan** (`access_requests`: purpose 20–1000 karakter, status pending | approved | rejected, keputusan role + `duration_days` /
+  catatan): `GET /api/access/apps` (publik, katalog daftar), `GET /api/access` (akun: semua aplikasi + masa akses + riwayat),
+  `POST /api/access/requests`; perpanjangan dibuka 30 hari sebelum habis (atau setelah habis). Admin: `GET /api/admin/access-requests
+  ?status=pending|all`, `POST …/:id/approve { role, days }` (perpanjangan selagi aktif dihitung dari akhir masa lama), `POST …/:id/reject
+  { note? }`, `PUT /api/admin/accounts/:id/apps/:app { role, days? }` (atur masa langsung, dari hari ini), `stats.pendingRequests`.
+  Email: pengajuan → semua super admin (`/admin#pengajuan`), keputusan → pengaju.
+- **Masa akses** (`app_memberships.expires_at`, logika murni + test `src/access/access-logic.ts`): `active` → `read_only` (setelah
+  `expires_at`, 180 hari) → `ended`. Super admin tidak dibatasi waktu. `ended` = tidak bisa membuka aplikasi (`canOpenApp`, klaim `apps`
+  tanpa aplikasi itu) dan `/api/client/account` → `active: false`; `read_only` = masih bisa masuk. `/api/client/account` membawa
+  `access { state, expiresAt, deleteAt }`. Pengingat email per tahap (`expiry_notice`): 7 hari sebelum habis, saat habis, 30 / 7 / 1 hari
+  sebelum data dihapus — putaran tiap jam, satu email per putaran (klaim bersyarat).
+- **Di Akasha**: kolom `users.access_expires_at` / `access_delete_at` diisi dari SSO saat masuk & refresh. Baca saja = penjaga global
+  (`ReadOnlyInterceptor`, 403 `ACCESS_READ_ONLY`; yang tetap boleh: keluar/refresh/SSO, buka/kunci PIN, tautan unduh, editor ONLYOFFICE
+  dipaksa mode lihat, MCP dengan alat tulis ditolak), pekerjaan latar belakang (sinkron email & kalender, otomasi robot, arsip dingin,
+  cermin Obsidian) melewati akun beku, pita di atas konten (hampir habis ≤ 14 hari / dibekukan + tombol Ajukan perpanjangan & Backup ke
+  Google Drive "segera"). `AccessCleanupService` (tiap 6 jam) menghapus akun yang `access_delete_at`-nya lewat **setelah** memastikan ulang ke
+  SSO bahwa aksesnya `ended` (diperpanjang = tanggal diperbarui, SSO tak terjangkau = dilewati).
+- Aplikasi lain (Akai) belum menerapkan baca saja — pola yang sama dipasang saat dibutuhkan.
+
 ## 3. Urutan kerja
 
 1. **B1 — Layanan SSO**: `apps/auth/api` (DB, akun, daftar + verifikasi email, masuk, lupa kata sandi, OIDC, Google, admin akun &

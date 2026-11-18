@@ -27,6 +27,7 @@ import { RedisModule } from "./redis/redis.module";
 import { SettingsModule } from "./settings/settings.module";
 import { SharingModule } from "./sharing/sharing.module";
 import { ObjectStorageModule } from "./storage/object-storage.module";
+import { AccessModule } from "./access/access.module";
 import { TrashModule } from "./trash/trash.module";
 import { CalendarFeedModule } from "./calendar-feed/calendar-feed.module";
 import { MailModule } from "./mail/mail.module";
@@ -46,6 +47,7 @@ import { UsersModule } from "./users/users.module";
     PrismaModule,
     RedisModule,
     ObjectStorageModule,
+    AccessModule,
     TrashModule,
     SecurityModule,
     AkaiModule,

@@ -15,6 +15,7 @@ import { FocusModeButton } from "@/features/focus/focus-mode";
 import { NotificationsPopover } from "@/features/overview/components/notifications-popover";
 import { useRobotAlertToasts } from "@/features/tools/automation/robot-alerts";
 import { PinLockButton, PinUnlockHost } from "@/features/security/pin-unlock-host";
+import { AccessBanner } from "@/features/security/access-banner";
 
 export function AppShell() {
   useProfileSync();
@@ -37,6 +38,7 @@ export function AppShell() {
             </>
           }
         />
+        <AccessBanner />
         <main className="flex-1 p-3 pb-24 md:px-5 md:pt-4 md:pb-24">
           <Suspense fallback={<PageLoader />}>
             <Outlet />

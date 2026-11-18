@@ -1,3 +1,4 @@
+import { activeAccessWhere } from "../access/access-state";
 import { createHash } from "node:crypto";
 import {
   BadRequestException,
@@ -158,7 +159,12 @@ export class CalendarSyncService implements OnModuleInit, OnModuleDestroy {
     try {
       const due = new Date(Date.now() - SYNC_INTERVAL_MS);
       const conns = await this.prisma.calendarConnection.findMany({
-        where: { enabled: true, oauthAccount: { status: "ok" }, OR: [{ syncedAt: null }, { syncedAt: { lt: due } }] },
+        where: {
+          enabled: true,
+          oauthAccount: { status: "ok" },
+          user: activeAccessWhere(),
+          OR: [{ syncedAt: null }, { syncedAt: { lt: due } }],
+        },
         include: { oauthAccount: true },
         take: 20,
       });

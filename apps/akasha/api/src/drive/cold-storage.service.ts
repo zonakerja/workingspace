@@ -1,3 +1,4 @@
+import { activeAccessWhere } from "../access/access-state";
 import { Readable } from "node:stream";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import {
@@ -178,7 +179,7 @@ export class ColdStorageService implements OnModuleInit, OnModuleDestroy {
 
   private async tick() {
     const users = await this.prisma.user.findMany({
-      where: { coldStorage: { path: ["enabled"], equals: true } },
+      where: { coldStorage: { path: ["enabled"], equals: true }, ...activeAccessWhere() },
       select: { id: true, coldStorage: true },
     });
     for (const user of users) {

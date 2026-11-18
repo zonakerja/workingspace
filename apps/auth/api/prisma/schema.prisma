@@ -22,6 +22,14 @@ enum AppRole {
   @@map("app_role")
 }
 
+enum AccessRequestStatus {
+  pending
+  approved
+  rejected
+
+  @@map("access_request_status")
+}
+
 enum EmailTokenKind {
   verify
   reset
@@ -54,11 +62,12 @@ model Account {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  identities  AccountIdentity[]
-  memberships AppMembership[]
-  emailTokens EmailToken[]
-  sessions    AuthSession[]
-  events      SecurityEvent[]
+  identities     AccountIdentity[]
+  memberships    AppMembership[]
+  accessRequests AccessRequest[]
+  emailTokens    EmailToken[]
+  sessions       AuthSession[]
+  events         SecurityEvent[]
 
   @@map("accounts")
 }
@@ -90,25 +99,55 @@ model App {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships AppMembership[]
+  memberships    AppMembership[]
+  accessRequests AccessRequest[]
 
   @@map("apps")
 }
 
 /// Akses akun ke satu aplikasi + role-nya di aplikasi itu
 model AppMembership {
-  accountId String   @map("account_id")
-  appKey    String   @map("app_key")
-  role      AppRole  @default(member)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  accountId    String    @map("account_id")
+  appKey       String    @map("app_key")
+  role         AppRole   @default(member)
+  /// Akses berakhir (null = tanpa batas). Setelahnya baca saja 180 hari, lalu data aplikasi dihapus (access-logic.ts)
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz(3)
+  /// Tahap email pengingat masa akses yang sudah terkirim (0 = belum ada; access-logic.ts)
+  expiryNotice Int       @default(0) @map("expiry_notice")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   app     App     @relation(fields: [appKey], references: [key], onDelete: Cascade)
 
   @@id([accountId, appKey])
+  @@index([expiresAt])
   @@index([appKey])
   @@map("app_memberships")
+}
+
+/// Pengajuan akses / perpanjangan akses aplikasi beserta tujuannya; diputuskan super admin
+model AccessRequest {
+  id           String              @id @default(cuid())
+  accountId    String              @map("account_id")
+  appKey       String              @map("app_key")
+  purpose      String
+  status       AccessRequestStatus @default(pending)
+  /// Keputusan: role & lama akses (hari; null = tanpa batas) yang diberikan, atau alasan penolakan
+  role         AppRole?
+  durationDays Int?                @map("duration_days")
+  note         String?
+  decidedById  String?             @map("decided_by_id")
+  decidedAt    DateTime?           @map("decided_at") @db.Timestamptz(3)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  app     App     @relation(fields: [appKey], references: [key], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([accountId])
+  @@map("access_requests")
 }
 
 /// Token sekali pakai di tautan email (verifikasi / reset kata sandi); hanya hash yang disimpan
@@ -138,7 +177,7 @@ model AuthSession {
   lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account  Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
   appLinks AppSessionLink[]
 
   @@index([accountId])

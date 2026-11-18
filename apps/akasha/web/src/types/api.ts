@@ -15,6 +15,10 @@ export interface PublicUser {
   hasPin?: boolean;
   /** `sub` akun SSO workingspace.id (null = akun uji tanpa SSO) */
   ssoSubject?: string | null;
+  /** Masa akses dari SSO: setelah habis baca saja sampai accessDeleteAt, lalu data dihapus (null = tanpa batas) */
+  accessExpiresAt?: string | null;
+  accessDeleteAt?: string | null;
+  accessState?: "active" | "read_only" | "ended";
   createdAt: string;
   updatedAt: string;
 }

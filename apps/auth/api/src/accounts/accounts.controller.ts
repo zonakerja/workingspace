@@ -13,7 +13,18 @@ import {
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { ConfigService } from "@nestjs/config";
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { Type } from "class-transformer";
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsEmail,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  ValidateNested,
+} from "class-validator";
+import { AccessRequestItemDto } from "../access/access.controller";
 import { PROFILE_LIMITS } from "./profile-logic";
 import { landingOrigins } from "./landing-origins";
 import type { Request, Response } from "express";
@@ -34,6 +45,31 @@ class RegisterDto {
   @IsString()
   @MaxLength(200)
   password: string;
+
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.phone)
+  phone: string;
+
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.occupation)
+  occupation: string;
+
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.workplace)
+  workplace: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_LIMITS.address)
+  address?: string;
+
+  /** Pengajuan akses aplikasi sekaligus (opsional) */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => AccessRequestItemDto)
+  requests?: AccessRequestItemDto[];
 }
 
 class LoginDto {

@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   AtSign,
   BadgeCheck,
   Briefcase,
@@ -12,15 +11,13 @@ import {
   MapPin,
   Phone,
   Smartphone,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 import { type ComponentProps, type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AccountShell } from "@/components/account-shell";
 import { Notice } from "@/components/auth-layout";
-import { ProductMark, UserAvatar } from "@workingspace/ui/brand";
-import { PRODUCTS, productName } from "@workingspace/ui/ecosystem";
+import { UserAvatar } from "@workingspace/ui/brand";
 import { NameField, PASSWORD_HINT, PasswordField } from "@/components/form-fields";
 import { Section, StatusPill } from "@/components/section";
 import { Button } from "@/components/ui/button";
@@ -29,14 +26,11 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { type Account, type SessionRow, api, errorText } from "@/lib/api";
-import { ROLE_LABELS, deviceLabel, isMobileAgent, relativeTime, securityChecks } from "@/lib/format";
+import { deviceLabel, isMobileAgent, relativeTime, securityChecks } from "@/lib/format";
 import { useMe } from "@/lib/use-me";
 import { cn } from "@/lib/utils";
+import { AccessSection } from "./access-section";
 import { PinSection } from "./pin-section";
-
-/** Aplikasi ekosistem yang sedang dibangun (ditampilkan bila akun belum punya aksesnya). */
-const UPCOMING_APPS = PRODUCTS.filter((p) => !p.available);
-const taglineOf = (key: string) => PRODUCTS.find((p) => p.key === key)?.tagline;
 
 /** Halaman akun: ringkasan, aplikasi, profil, kata sandi, PIN, perangkat. */
 export function AccountPage() {
@@ -49,7 +43,7 @@ export function AccountPage() {
         <>
           {params.get("verified") && <Notice tone="success">Email terverifikasi. Akun Anda sudah aktif.</Notice>}
           <Hero account={account} />
-          <AppsSection account={account} />
+          <AccessSection />
           <ProfileSection account={account} onSaved={setAccount} />
           <div id="keamanan" className="grid scroll-mt-24 grid-cols-1 gap-5 xl:grid-cols-2">
             <PasswordSection account={account} onChanged={() => setAccount({ ...account, hasPassword: true })} />
@@ -167,67 +161,6 @@ function HeroChip({ children }: { children: ReactNode }) {
     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/15 [&_svg]:size-3.5">
       {children}
     </span>
-  );
-}
-
-const hostOf = (url: string) => url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-
-function AppsSection({ account }: { account: Account }) {
-  const upcoming = UPCOMING_APPS.filter((app) => !account.apps.some((a) => a.key === app.key));
-  return (
-    <Section
-      id="aplikasi"
-      icon={<LayoutGrid />}
-      eyebrow="Akses"
-      title="Aplikasi Anda"
-      description="Masuk sekali, buka aplikasi mana pun tanpa login ulang."
-    >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {account.apps.map((app) => (
-          <a
-            key={app.key}
-            href={app.url}
-            className="group ring-aurora relative flex flex-col gap-4 rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-lift"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <ProductMark appKey={app.key} name={app.name} className="size-12 shadow-soft" />
-              <ArrowUpRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-display truncate text-lg font-bold">{productName(app.key, app.name)}</p>
-              {taglineOf(app.key) && (
-                <p className="truncate text-xs font-medium text-primary italic">{taglineOf(app.key)}</p>
-              )}
-              <p className="truncate text-xs text-muted-foreground">{hostOf(app.url)}</p>
-            </div>
-            <StatusPill tone={app.role === "admin" ? "brand" : "muted"} className="self-start">
-              {ROLE_LABELS[app.role]}
-            </StatusPill>
-          </a>
-        ))}
-        {upcoming.map((app) => (
-          <div
-            key={app.key}
-            className="flex flex-col gap-4 rounded-2xl border border-dashed bg-surface/60 p-4 text-muted-foreground"
-          >
-            <ProductMark appKey={app.key} name={app.name} className="size-12 opacity-60 grayscale-[35%]" />
-            <div className="min-w-0">
-              <p className="font-display truncate text-lg font-bold text-foreground/70">{app.name}</p>
-              <p className="truncate text-xs font-medium italic">{app.tagline}</p>
-              <p className="mt-1 line-clamp-2 text-xs">{app.lead}</p>
-            </div>
-            <StatusPill tone="info" className="self-start">
-              <Sparkles /> Segera hadir
-            </StatusPill>
-          </div>
-        ))}
-      </div>
-      {account.apps.length === 0 && (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Belum ada aplikasi yang bisa dibuka. Minta admin memberi akses ke aplikasi yang Anda butuhkan.
-        </p>
-      )}
-    </Section>
   );
 }
 

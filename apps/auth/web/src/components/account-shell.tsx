@@ -26,7 +26,7 @@ interface NavItem {
 /** Bagian halaman akun (anchor; `#pin` dipakai tautan "Kelola PIN" dari aplikasi). */
 export const ACCOUNT_SECTIONS: NavItem[] = [
   { to: "/account", hash: "ringkasan", label: "Ringkasan", icon: <LayoutDashboard /> },
-  { to: "/account", hash: "aplikasi", label: "Aplikasi", icon: <AppWindow /> },
+  { to: "/account", hash: "akses", label: "Akses", icon: <AppWindow /> },
   { to: "/account", hash: "profil", label: "Profil", icon: <UserRound /> },
   { to: "/account", hash: "keamanan", label: "Kata sandi & PIN", icon: <KeyRound /> },
   { to: "/account", hash: "perangkat", label: "Perangkat", icon: <LaptopMinimal /> },

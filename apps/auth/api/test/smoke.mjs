@@ -138,11 +138,16 @@ const jwks = (await new Browser().get("/oidc/jwks")).d;
 ok("jwks public only", jwks.keys.length > 0 && jwks.keys.every((k) => !k.d), jwks);
 
 // ---------------------------------------------------------------- daftar & verifikasi
+const PROFILE = { phone: "0812 3456 7890", occupation: "Analis", workplace: "Kantor Uji Smoke" };
 const a = new Browser();
-r = await a.post("/api/auth/register", { name: "Smoke", email, password: "123" });
+r = await a.post("/api/auth/register", { name: "Smoke", email, password: "123", ...PROFILE });
 ok("register weak password 400", r.s === 400, r);
 let mark = mailMark();
 r = await a.post("/api/auth/register", { name: "Smoke", email, password });
+ok("register without profile 400", r.s === 400, r);
+r = await a.post("/api/auth/register", { name: "Smoke", email, password, ...PROFILE, phone: "12" });
+ok("register invalid phone 400", r.s === 400, r);
+r = await a.post("/api/auth/register", { name: "Smoke", email, password, ...PROFILE });
 ok("register 202", r.s === 202, r);
 await sleep(200);
 const verifyMail = await latestMail(email, mark);
@@ -154,13 +159,24 @@ ok("verify → signed in", r.s === 200 && r.d.email === email && r.d.emailVerifi
 r = await a.post("/api/auth/verify", { token: tokenFrom(verifyMail) });
 ok("verify token single use", r.s === 400, r);
 r = await a.get("/api/auth/me");
-ok("me", r.s === 200 && r.d.apps.length === 0 && !r.d.superAdmin, r);
+ok(
+  "me (profile from registration)",
+  r.s === 200 && r.d.apps.length === 0 && !r.d.superAdmin && r.d.phone === "+6281234567890" && r.d.workplace === "Kantor Uji Smoke",
+  r,
+);
+const memberId = r.d.id;
 mark = mailMark();
-r = await new Browser().post("/api/auth/register", { name: "Lain", email, password });
+r = await new Browser().post("/api/auth/register", { name: "Lain", email, password, ...PROFILE });
 ok("register existing email = same generic answer", r.s === 202, r);
 await sleep(200);
 ok("register existing verified email sends nothing", latestMailNow(email, mark) === null);
-r = await new Browser().post("/api/auth/register", { name: "Belum", email: unverified, password });
+r = await new Browser().post("/api/auth/register", {
+  name: "Belum",
+  email: unverified,
+  password,
+  ...PROFILE,
+  requests: [{ appKey: "akai", purpose: "Mencoba asisten AI untuk menyusun konsep surat dinas." }],
+});
 ok("register second account", r.s === 202, r);
 
 // ---------------------------------------------------------------- masuk, keluar, lupa kata sandi
@@ -478,7 +494,7 @@ ok("admin apps list", r.s === 200 && r.d.some((a) => a.key === "akasha" && a.mem
 r = await adm.req("PATCH", "/api/admin/apps/akasha", { selfSignup: "member" });
 ok("admin app self signup on", r.s === 200 && r.d.selfSignup === "member", r);
 const selfSigned = `smoke-${stamp}-f@example.test`;
-await new Browser().post("/api/auth/register", { name: "Mandiri", email: selfSigned, password });
+await new Browser().post("/api/auth/register", { name: "Mandiri", email: selfSigned, password, ...PROFILE });
 r = await adm.get("/api/admin/accounts?q=" + encodeURIComponent(selfSigned));
 ok("self signup gets app role", r.d.items[0]?.apps?.akasha === "member", r.d);
 r = await adm.req("PATCH", "/api/admin/apps/akasha", { selfSignup: null });
@@ -533,6 +549,103 @@ r = await pinUser.req("DELETE", "/api/pin", { password: "Undangan-Akasha-2026" }
 ok("remove pin", r.s === 200 && r.d.hasPin === false, r);
 r = await new Browser().get("/api/pin");
 ok("pin status without session 401", r.s === 401, r);
+
+// ---------------------------------------------------------------- pengajuan akses & masa akses
+const m = new Browser();
+r = await m.login(email, `${password}-baru`);
+ok("member login for access tests", r.s === 200, r);
+r = await new Browser().get("/api/access/apps");
+ok("access catalog public", r.s === 200 && r.d.some((x) => x.key === "akasha"), r);
+r = await m.req("POST", "/api/access/requests", { requests: [{ appKey: "akasha", purpose: "pendek" }] });
+ok("request purpose too short 400", r.s === 400, r);
+r = await new Browser().req("POST", "/api/access/requests", {
+  requests: [{ appKey: "akasha", purpose: "Mengelola agenda dan arsip unit kerja." }],
+});
+ok("request without session 401", r.s === 401, r);
+r = await m.req("POST", "/api/access/requests", {
+  requests: [{ appKey: "akasha", purpose: "Mengelola agenda, arsip, dan laporan kinerja unit kerja." }],
+});
+const akashaRow = r.d?.apps?.find((x) => x.key === "akasha");
+ok("request access → pending", r.s === 201 && !!akashaRow?.pendingRequestId && !akashaRow.canRequest, r.d);
+r = await m.req("POST", "/api/access/requests", {
+  requests: [{ appKey: "akasha", purpose: "Mengelola agenda, arsip, dan laporan kinerja unit kerja." }],
+});
+ok("duplicate pending request 400", r.s === 400, r);
+r = await m.get("/api/admin/access-requests");
+ok("member cannot list requests 403", r.s === 403, r);
+r = await adm.get("/api/admin/access-requests");
+const pendingRow = r.d?.find?.((x) => x.account.id === memberId && x.appKey === "akasha");
+const unverifiedRow = r.d?.find?.((x) => x.account.email === unverified && x.appKey === "akai");
+ok("admin sees pending request with purpose", r.s === 200 && /agenda, arsip/.test(pendingRow?.purpose ?? ""), r.d);
+ok("request from registration listed (unverified)", unverifiedRow && !unverifiedRow.account.emailVerified, r.d);
+r = await adm.req("POST", `/api/admin/access-requests/${unverifiedRow?.id}/approve`, { role: "member", days: 30 });
+ok("approve unverified account 400", r.s === 400, r);
+r = await adm.get("/api/admin/stats");
+ok("stats pending requests", r.s === 200 && r.d.pendingRequests >= 2, r.d);
+r = await adm.req("POST", `/api/admin/access-requests/${pendingRow?.id}/approve`, { role: "member", days: 45 });
+ok("approve invalid duration 400", r.s === 400, r);
+r = await adm.req("POST", `/api/admin/access-requests/${pendingRow?.id}/approve`, { role: "member", days: 90 });
+const expires = r.d?.expiresAt ? new Date(r.d.expiresAt) : null;
+ok(
+  "approve 90 days",
+  (r.s === 200 || r.s === 201) && expires && Math.abs(expires - Date.now() - 90 * 864e5) < 60_000,
+  r,
+);
+r = await adm.req("POST", `/api/admin/access-requests/${pendingRow?.id}/approve`, { role: "member", days: 30 });
+ok("approve twice 400", r.s === 400, r);
+const clientAccount = () =>
+  fetch(`${BASE}/api/client/account?sub=${memberId}`, { headers: { Authorization: basic } }).then((x) => x.json());
+r = await clientAccount();
+ok("client api: active with expiry", r.active === true && r.access?.state === "active" && !!r.access.expiresAt, r);
+r = await m.req("POST", "/api/access/requests", {
+  requests: [{ appKey: "akasha", purpose: "Perpanjangan untuk melanjutkan pekerjaan arsip." }],
+});
+ok("renewal too early 400", r.s === 400 && /30 hari/.test(r.d?.message ?? ""), r);
+const accessDb = new pg.Client({ connectionString: env.DATABASE_URL.replace(/\?.*$/, "") });
+await accessDb.connect();
+await accessDb.query(
+  "UPDATE app_memberships SET expires_at = now() - interval '1 day' WHERE account_id = $1 AND app_key = 'akasha'",
+  [memberId],
+);
+r = await clientAccount();
+ok("expired → read_only, still active (read)", r.active === true && r.access?.state === "read_only" && !!r.access.deleteAt, r);
+r = await m.get("/api/access");
+ok(
+  "account sees read-only + can renew",
+  r.d?.apps?.find((x) => x.key === "akasha")?.access?.state === "read_only" &&
+    r.d.apps.find((x) => x.key === "akasha").canRequest,
+  r.d,
+);
+await accessDb.query(
+  "UPDATE app_memberships SET expires_at = now() - interval '181 days' WHERE account_id = $1 AND app_key = 'akasha'",
+  [memberId],
+);
+r = await clientAccount();
+ok("after 180 days → ended, inactive", r.active === false && r.access?.state === "ended", r);
+r = await m.req("POST", "/api/access/requests", {
+  requests: [{ appKey: "akasha", purpose: "Perpanjangan untuk melanjutkan pekerjaan arsip." }],
+});
+const renewal = r.d?.apps?.find((x) => x.key === "akasha")?.pendingRequestId;
+ok("renewal after expiry allowed", r.s === 201 && !!renewal, r.d);
+r = await adm.req("POST", `/api/admin/access-requests/${renewal}/approve`, { role: "admin", days: null });
+r = await clientAccount();
+ok("renewal unlimited → active again", r.active === true && r.access?.state === "active" && r.access.expiresAt === null && r.role === "admin", r);
+r = await m.req("POST", "/api/access/requests", {
+  requests: [{ appKey: "akai", purpose: "Menyusun konsep surat dan ringkasan rapat dengan bantuan AI." }],
+});
+const akaiReq = r.d?.apps?.find((x) => x.key === "akai")?.pendingRequestId;
+r = await adm.req("POST", `/api/admin/access-requests/${akaiReq}/reject`, { note: "Belum dibuka untuk umum." });
+ok("reject request 204", r.s === 204, r);
+r = await m.get("/api/access");
+ok(
+  "rejected request in history with note",
+  r.d?.requests?.some((x) => x.appKey === "akai" && x.status === "rejected" && x.note === "Belum dibuka untuk umum."),
+  r.d,
+);
+r = await adm.req("PUT", `/api/admin/accounts/${memberId}/apps/akasha`, { role: "member", days: 90 });
+r = await clientAccount();
+ok("admin sets duration directly", r.access?.state === "active" && !!r.access.expiresAt && r.role === "member", r);
+await accessDb.end();
 
 // ---------------------------------------------------------------- bersihkan
 const db = new pg.Client({ connectionString: env.DATABASE_URL.replace(/\?.*$/, "") });
