@@ -26,6 +26,8 @@ AKAI_ENCRYPTION_KEY=${randomBytes(32).toString("hex")}
 AKAI_CLIENTS='${JSON.stringify(clients)}'
 # Konektor Akasha (MCP Akasha, 6b.5)
 AKASHA_MCP_URL="http://localhost:4000/api/v1/mcp"
+# Alamat Akai web (callback OAuth konektor & tautan email tugas terjadwal; tanpa SSO tidak bisa diturunkan dari SSO_REDIRECT_URI)
+AKAI_WEB_URL="http://akai.workingspace.localhost:5177"
 `,
   );
   console.log("apps/akai/api/.env dibuat (kunci acak baru).");

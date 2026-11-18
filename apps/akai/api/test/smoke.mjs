@@ -615,7 +615,7 @@ try {
     let webAccountExisted = true;
     if (ssoOn) {
       const authDb = new pg.Client({
-        connectionString: env.DATABASE_URL.replace(/\/akai(\?|$)/, "/workingspace_auth$1").replace(
+        connectionString: env.DATABASE_URL.replace(/\/[^/?]+(\?|$)/, "/workingspace_auth$1").replace(
           /\?schema=public$/,
           "",
         ),

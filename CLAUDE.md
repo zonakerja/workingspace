@@ -27,8 +27,8 @@ AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, AKUN-T
 
 ## 0a. Chat per Platform (mulai 2026-11-18)
 
-Pemilik membagi pekerjaan menjadi **empat chat**, satu per platform. Setiap chat tetap membaca seluruh file ini (aturan umum, §2a,
-§12–§16), lalu fokus pada bagiannya. Perubahan lintas platform (mis. `packages/ui`, kontrak `/api/client/account`, klaim OIDC,
+Pemilik membagi pekerjaan menjadi **empat chat platform + satu chat Setup**. Setiap chat tetap membaca seluruh file ini (aturan umum, §2a,
+§12–§16), lalu fokus pada bagiannya. Kegagalan CI dari platform tertentu diperbaiki di chat platform itu; perubahan alur CI-nya sendiri di chat Setup. Perubahan lintas platform (mis. `packages/ui`, kontrak `/api/client/account`, klaim OIDC,
 gateway Akai) dicatat di dokumen **kedua** platform dan disebut di §12.
 
 | Chat | Cakupan & folder | Dokumen utama | Mulai dari |
@@ -36,6 +36,7 @@ gateway Akai) dicatat di dokumen **kedua** platform dan disebut di §12.
 | 1. Landing, SSO & Dashboard SSO | `apps/landing`, `apps/auth/{api,web}` (masuk, daftar wizard, akun, admin, pengajuan & masa akses, PIN, OIDC), `packages/ui` (identitas & penamaan ekosistem) | docs/SSO.md (§2.12 masa akses), DEPLOYMENT §15–§16 | Belum ada pekerjaan terbuka; menunggu pemilik: SMTP Titan dev (A52), masuk dengan Google (A42). Kandidat: backup Google Drive saat akses habis (tombol di pita Akasha) |
 | 2. Akasha | `apps/akasha/{api,web}`, `services/{robot,converter}`, `infra/onlyoffice` — §8, §8b | docs/ARCHITECTURE.md, FILE-CONTROL, ONLYOFFICE, AI-AGENT, AKUN-TERSAMBUNG | §11 "Lanjutan yang disepakati" butir 1–7. Chatbot bawaan Akasha masih bernama "Akasha AI" (`floating-chatbot.tsx`, `ai-chat-context.ts`, `knowledge-utils.ts`) — sesuaikan dengan penamaan Akai bila pemilik setuju |
 | 3. Akai (Akasha AI) | `apps/akai/{api,web,agent}` (gateway model, chat, proyek, memori, artifact, skill, plugin, konektor, terjadwal, Hermes) | docs/AKAI.md (§6 status, §8 selisih dengan Claude) | Kandidat: pencarian web, mode baca saja seperti Akasha, menggantikan Hermes (AK-3), melepas key lama Akasha (A44) |
+| 0. Setup (infrastruktur & operasional) | Lingkungan dev laptop (§2, §2a, nyala/matikan, WSL/Docker), `docker-compose*.yml`, `infra/` (Caddy, backup, postgres init, ONLYOFFICE image), CI `.github/workflows/ci.yml` & Dependabot, upgrade dependensi & `npm audit`, deploy VPS & domain/DNS/email Titan, root `package.json`/`turbo.json`/`.env.example`. **Tidak** mengubah perilaku fitur | docs/SETUP.md, DEPLOYMENT.md, ARCHITECTURE.md §2 (versi), UPGRADE-PLAN.md | Pantau CI di GitHub Actions setelah push; PR Dependabot yang merah karena `main` → setelah `main` hijau, pemilik mengomentari `@dependabot rebase`. Menunggu pemilik: VPS & domain (TODO-USER B1–B3), SMTP Titan (A52) |
 | 4. Cendekia | `apps/cendekia/{api,web}` (belum ada) | docs/AKASHA-PLAN.md (tahap C) | Dibangun baru di stack yang sama (bukan upgrade repo lama); daftarkan aplikasi `cendekia` di SSO, pakai `packages/ui`, Akai sebagai lapisan AI |
 
 **Penamaan** (keputusan pemilik 2026-11-18): Akasha AI diperkenalkan sekali dengan nama lengkap — "Akasha AI (selanjutnya disebut Akai)" —
@@ -3160,6 +3161,9 @@ utama tetap < 500 kB (cek output `npm run build`).
 - `prisma migrate diff … --script > berkas` ikut menulis kotak "Update available" Prisma ke stdout → berkas SQL migrasi rusak (migrasi gagal P3009/P3018).
   Jalankan dengan `PRISMA_HIDE_UPDATE_MESSAGE=1` dan periksa `tail` berkas sebelum `migrate deploy`; bila sudah terlanjur: rapikan berkas →
   `prisma migrate resolve --rolled-back <nama>` → deploy ulang (migrasi gagal dijalankan dalam satu transaksi, tidak ada yang tertinggal).
+- CI menjalankan Akai **tanpa SSO** dengan `.env` hasil `npm run setup:dev -w @akai/api` (database kosong); lokal SSO menyala sehingga
+  alamat Akai web diturunkan dari `SSO_REDIRECT_URI`. Env baru yang di lokal "terisi sendiri" wajib ditulis juga oleh skrip setup dev
+  (contoh `AKAI_WEB_URL`). Tiru CI: database kosong + server di port lain (`PORT=4401`, env SSO dikosongkan) + `AKAI_URL`/`AKAI_ENV` smoke.
 - Smoke Akai yang berhenti di tengah (galat skrip) tidak membersihkan akun uji `user@workingspace.id` (sumber "Smoke chat", skill bawaan mati)
   → run berikutnya bisa salah memilih model. Smoke kini menghapus sumber "Smoke chat" lama lebih dulu; bila aneh, periksa akun uji itu.
 - `prompt=none` dari aplikasi selalu `login_required` walau sudah masuk di halaman SSO: masuk di halaman SSO hanya membuat sesi

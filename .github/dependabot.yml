@@ -24,7 +24,7 @@ updates:
   # Dockerfile aplikasi + image service backup (base = image postgres; versi major PostgreSQL ada di sufiks tag)
   - package-ecosystem: docker
     directories:
-      [/apps/akasha/api, /apps/akasha/web, /apps/auth/api, /apps/auth/web, /apps/landing, /infra/backup, /infra/onlyoffice, /services/robot]
+      [/apps/akasha/api, /apps/akasha/web, /apps/auth/api, /apps/auth/web, /apps/landing, /apps/akai/api, /apps/akai/web, /infra/backup, /infra/onlyoffice, /services/robot]
     schedule: { interval: weekly }
     ignore:
       - dependency-name: "*"

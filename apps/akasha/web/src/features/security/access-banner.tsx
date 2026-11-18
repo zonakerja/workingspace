@@ -1,6 +1,7 @@
 import { CloudUpload, ExternalLink, Snowflake, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSsoConfig } from "@/data/use-auth";
+import { useToday } from "@/hooks/use-today";
 import { useAuthStore } from "@/stores/auth-store";
 import { accessBannerInfo } from "./access-logic";
 
@@ -11,7 +12,8 @@ import { accessBannerInfo } from "./access-logic";
 export function AccessBanner() {
   const user = useAuthStore((s) => s.user);
   const { data: sso } = useSsoConfig();
-  const info = accessBannerInfo(user, new Date());
+  const today = useToday();
+  const info = accessBannerInfo(user, today);
   if (!info) return null;
   const renewUrl = sso?.accountUrl ? `${sso.accountUrl}#akses` : null;
 
