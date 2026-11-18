@@ -57,7 +57,7 @@ const BTN_OUTLINE =
 const NAV = [
   { href: "#ekosistem", label: "Ekosistem" },
   { href: "#akasha", label: "Akasha" },
-  { href: "#akasha-ai", label: "Akasha AI" },
+  { href: "#akasha-ai", label: "Akai" },
   { href: "#keamanan", label: "Keamanan" },
   { href: "#tanya", label: "Tanya jawab" },
 ];
@@ -155,8 +155,8 @@ function Hero({ signedIn }: { signedIn: boolean }) {
               <span className="text-gradient">Infinite Possibilities.</span>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed opacity-85 sm:text-lg">
-              {ECOSYSTEM.lead} Rencanakan dan kerjakan di <b>Akasha</b>, berpikir lebih cepat bersama <b>Akasha AI</b>,
-              dan bertumbuh lewat <b>Cendekia</b> — semuanya dengan satu akun aman.
+              {ECOSYSTEM.lead} Rencanakan dan kerjakan di <b>Akasha</b>, berpikir lebih cepat bersama <b>Akasha AI</b>{" "}
+              (selanjutnya disebut <b>Akai</b>), dan bertumbuh lewat <b>Cendekia</b> — semuanya dengan satu akun aman.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               {signedIn ? (
@@ -243,7 +243,7 @@ function HeroVisual() {
       <div className="absolute -bottom-10 -left-4 w-60 rounded-2xl bg-card p-3.5 text-card-foreground shadow-lift ring-1 ring-border sm:-left-10">
         <div className="flex items-center gap-2 text-xs font-semibold">
           <AkaiMark className="size-6" />
-          Akasha AI
+          Akai
           <span className="ml-auto rounded-full bg-success/12 px-1.5 py-0.5 text-[10px] text-success">aktif</span>
         </div>
         <p className="mt-2 rounded-xl bg-muted px-3 py-2 text-xs leading-snug">
@@ -321,8 +321,7 @@ function Ecosystem() {
   return (
     <section id="ekosistem" className="scroll-mt-20 px-4 py-20 sm:px-6 md:py-28">
       <SectionHeading eyebrow="Ekosistem" title={<>{ECOSYSTEM.motto}</>}>
-        Tiga aplikasi dengan satu akun. Akasha AI hidup di aplikasinya sendiri sekaligus menempel di Akasha dan
-        Cendekia.
+        Tiga aplikasi dengan satu akun. Akai hidup di aplikasinya sendiri sekaligus menempel di Akasha dan Cendekia.
       </SectionHeading>
       <div className="mx-auto mt-14 grid max-w-6xl grid-cols-1 items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
         <OrbitDiagram />
@@ -338,7 +337,7 @@ function Ecosystem() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-xl font-bold">{p.name}</h3>
-                      {p.alias && <span className="text-xs text-muted-foreground">({p.alias})</span>}
+                      {p.fullName && <span className="text-xs text-muted-foreground">({p.fullName})</span>}
                       <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
                         <Icon className="size-3" /> {pillar.word} · {pillar.label}
                       </span>
@@ -385,7 +384,7 @@ function Ecosystem() {
 function OrbitDiagram() {
   const nodes = [
     { key: "akasha", label: "Akasha", sub: "Work", pos: "left-1/2 top-0 -translate-x-1/2" },
-    { key: "akai", label: "Akasha AI", sub: "Mind", pos: "bottom-[6%] left-0" },
+    { key: "akai", label: "Akai", sub: "Mind", pos: "bottom-[6%] left-0" },
     { key: "cendekia", label: "Cendekia", sub: "Growth", pos: "right-0 bottom-[6%]" },
   ];
   return (
@@ -517,7 +516,7 @@ const AKAI_FEATURES = [
   },
 ];
 
-/** Sorotan Akasha AI (Akai): latar tinta, mockup percakapan. */
+/** Sorotan Akai (Akasha AI): latar tinta, mockup percakapan. */
 function AkashaAiSpotlight() {
   return (
     <section id="akasha-ai" className="scroll-mt-20 px-3 py-3 sm:px-4">
@@ -529,7 +528,7 @@ function AkashaAiSpotlight() {
           <div>
             <div className="flex items-center gap-3">
               <AkaiMark className="size-11" />
-              <p className="text-xs font-semibold tracking-[0.18em] text-lime uppercase">Akasha AI · {AKAI.role}</p>
+              <p className="text-xs font-semibold tracking-[0.18em] text-lime uppercase">Akai · {AKAI.role}</p>
             </div>
             <h2 className="mt-5 text-3xl font-bold sm:text-5xl">
               Intelligence That <span className="text-gradient">Moves With You.</span>
@@ -550,7 +549,7 @@ function AkashaAiSpotlight() {
             </div>
             <div className="mt-8 flex flex-wrap gap-3">
               <a href={AKAI_URL} className={BTN_PRIMARY}>
-                Buka Akasha AI <ArrowUpRight />
+                Buka Akai <ArrowUpRight />
               </a>
               <span className="inline-flex items-center gap-2 px-2 text-sm opacity-70">
                 <Waypoints className="size-4" /> Juga hadir di dalam Akasha
@@ -570,7 +569,7 @@ function AkaiChatVisual() {
       <div className="rounded-3xl bg-white/[0.06] p-5 ring-1 ring-white/12 backdrop-blur-md">
         <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
           <AkaiMark className="size-7" />
-          <span className="text-sm font-semibold">Akasha AI</span>
+          <span className="text-sm font-semibold">Akai</span>
           <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold">
             Proyek: Laporan Q4
           </span>
@@ -634,7 +633,7 @@ function CendekiaTeaser() {
           {[
             { icon: GraduationCap, text: "Kuliah & sertifikasi" },
             { icon: Target, text: "Target & progres terukur" },
-            { icon: BrainCircuit, text: "Didampingi Akasha AI" },
+            { icon: BrainCircuit, text: "Didampingi Akai" },
           ].map((item) => (
             <li
               key={item.text}
@@ -674,7 +673,7 @@ const FEATURES = [
   {
     icon: KeyRound,
     title: "AI dengan kunci Anda",
-    text: "Atur model di Akasha AI sekali, dipakai semua aplikasi. Kunci API disimpan terenkripsi dan hanya dipakai dari server.",
+    text: "Atur model di Akai sekali, dipakai semua aplikasi. Kunci API disimpan terenkripsi dan hanya dipakai dari server.",
   },
 ];
 
@@ -755,9 +754,21 @@ function Vision() {
 }
 
 const STEPS = [
-  { icon: UserPlus, title: "Daftar", text: "Isi nama, email, dan kata sandi di halaman akun workingspace.id." },
-  { icon: MailCheck, title: "Verifikasi email", text: "Klik tautan yang kami kirim dari noreply@workingspace.id." },
-  { icon: LayoutGrid, title: "Buka aplikasi", text: "Pilih Akasha atau Akasha AI dari dashboard — tanpa login ulang." },
+  {
+    icon: UserPlus,
+    title: "Daftar & ajukan akses",
+    text: "Isi akun dan data diri (No. HP, pekerjaan, tempat bekerja), lalu pilih aplikasi beserta tujuan pemakaiannya.",
+  },
+  {
+    icon: MailCheck,
+    title: "Verifikasi email",
+    text: "Klik tautan dari noreply@workingspace.id. Setelah itu pengajuan Anda diteruskan ke admin.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Disetujui, langsung bekerja",
+    text: "Admin menyetujui beserta masa aksesnya. Buka Akasha atau Akai dari dashboard — tanpa login ulang.",
+  },
 ];
 
 function Steps() {
@@ -781,6 +792,10 @@ function Steps() {
           );
         })}
       </ol>
+      <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted-foreground">
+        Akses aplikasi diberikan per pengajuan dan bisa berbatas waktu. Perpanjangan diajukan dari halaman akun; bila
+        masa akses habis, data tetap bisa dibaca selama 180 hari sebelum dihapus.
+      </p>
     </section>
   );
 }
@@ -788,19 +803,23 @@ function Steps() {
 const FAQ = [
   {
     q: "Apakah satu akun berlaku untuk semua aplikasi?",
-    a: "Ya. Akun workingspace.id dipakai untuk Akasha, Akasha AI, dan aplikasi lain di ekosistem ini. Akses per aplikasi bisa diatur oleh admin.",
+    a: "Ya. Akun workingspace.id dipakai untuk Akasha, Akai, dan aplikasi lain di ekosistem ini. Akses per aplikasi bisa diatur oleh admin.",
   },
   {
-    q: "Apa itu Akasha AI?",
-    a: "Akasha AI (Akai) adalah lapisan kecerdasan ekosistem: aplikasi chat & agen tersendiri yang juga dipakai di dalam Akasha. Model AI diatur sekali di Akasha AI lalu dipakai semua aplikasi.",
+    q: "Apa itu Akai?",
+    a: "Akai adalah nama panggilan Akasha AI, lapisan kecerdasan ekosistem: aplikasi chat & agen tersendiri yang juga dipakai di dalam Akasha. Model AI diatur sekali di Akai lalu dipakai semua aplikasi.",
   },
   {
-    q: "Apakah Akasha AI bisa bertindak tanpa izin saya?",
-    a: "Tidak untuk hal penting. Akasha AI menyiapkan pekerjaan — menghapus data, mengirim email, atau mengirim dokumen resmi selalu menunggu persetujuan Anda.",
+    q: "Apakah Akai bisa bertindak tanpa izin saya?",
+    a: "Tidak untuk hal penting. Akai menyiapkan pekerjaan — menghapus data, mengirim email, atau mengirim dokumen resmi selalu menunggu persetujuan Anda.",
   },
   {
     q: "Siapa yang bisa melihat data pekerjaan saya?",
     a: "Hanya Anda dan orang yang Anda beri akses (berbagi). Admin hanya mengelola akun dan akses aplikasi, tidak membaca isi data.",
+  },
+  {
+    q: "Bagaimana mendapat akses aplikasi, dan berapa lama?",
+    a: "Saat mendaftar (atau dari halaman akun) pilih aplikasi dan tuliskan tujuan pemakaiannya. Admin menyetujui beserta masa aksesnya. Sebelum masa akses habis Anda mendapat email pengingat dan bisa mengajukan perpanjangan; setelah habis data hanya bisa dibaca selama 180 hari, lalu dihapus.",
   },
   {
     q: "Apa itu PIN keamanan?",
@@ -848,7 +867,7 @@ function CallToAction({ signedIn }: { signedIn: boolean }) {
           <p className="mt-4 text-base opacity-80">
             {signedIn
               ? "Lanjutkan pekerjaan Anda dari dashboard akun."
-              : "Buat akun sekarang dan buka Akasha serta Akasha AI dalam hitungan menit."}
+              : "Buat akun sekarang dan ajukan akses ke Akasha serta Akai dalam hitungan menit."}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             {signedIn ? (
@@ -891,7 +910,7 @@ function Footer({ signedIn }: { signedIn: boolean }) {
             </li>
             <li>
               <a href={AKAI_URL} className="hover:text-primary">
-                Akasha AI
+                Akai
               </a>
             </li>
             <li className="text-muted-foreground">Cendekia · segera</li>

@@ -105,7 +105,7 @@ function LoginPage() {
                 <ShieldCheck /> Masuk dengan akun Workingspace
               </Button>
               <p className="mt-4 text-center text-xs text-muted-foreground">
-                Satu akun untuk Akasha, Akasha AI, dan aplikasi workingspace.id lainnya.
+                Satu akun untuk Akasha, Akai, dan aplikasi workingspace.id lainnya.
               </p>
             </>
           ) : (

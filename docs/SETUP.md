@@ -201,8 +201,8 @@ npm --prefix apps/auth/api run prisma:seed          # aplikasi Akasha + akun dem
 `setup:dev` aman dijalankan ulang: berkas yang sudah ada tidak diubah. Email (verifikasi, lupa kata sandi) di development tidak
 dikirim, melainkan ditulis ke folder `apps/auth/api/.mail/`.
 
-**Langkah 6 — coba jalankan** mengikuti §4, buka http://localhost:5173 lalu **Masuk dengan akun Workingspace** (atau kata sandi lokal di
-bawahnya): `admin@workingspace.id` / `123` (akun kedua untuk uji berbagi: `user@workingspace.id` / `123`). Halaman akun SSO:
+**Langkah 6 — coba jalankan** mengikuti §4, buka http://localhost:5173 lalu **Masuk dengan akun Workingspace** (SSO; Akasha tidak punya
+login lokal): `noreply@workingspace.id` / `123` (akun kedua untuk uji berbagi: `user@workingspace.id` / `123`). Halaman akun SSO:
 http://auth.workingspace.localhost:5175. Opsional, pastikan semuanya sehat:
 
 ```powershell
@@ -245,8 +245,8 @@ Setelah ini, cukup ikuti §4 setiap mulai bekerja.
 | G (opsional)       | `npm --prefix apps/akai/api run dev`                                                           | ya — Akai API (4400), hanya saat mengerjakan Akai                                                    |
 | H (opsional)       | `npm --prefix apps/akai/web run dev`                                                           | ya — Akai web (5177, buka `http://akai.workingspace.localhost:5177`); butuh SSO (tab E/F) & Akai API |
 
-Lalu buka http://localhost:5173 → **Masuk dengan akun Workingspace** (di halaman SSO: `admin@workingspace.id` / `123`; Akasha tidak punya login lokal). Halaman akun & admin
-SSO: http://auth.workingspace.localhost:5175. Tanpa tab D & E Akasha tetap bisa dimasuki dengan kata sandi lokal (hanya di development).
+Lalu buka http://localhost:5173 → **Masuk dengan akun Workingspace** (di halaman SSO: `noreply@workingspace.id` / `123`; Akasha tidak punya login lokal). Halaman akun & admin
+SSO: http://auth.workingspace.localhost:5175. Tanpa tab D & E Akasha tidak bisa dimasuki (masuk hanya lewat SSO).
 
 0. **Cek status dulu** (§6) — nyalakan hanya yang belum aktif.
 1. **Tab A — WSL & Docker**: `wsl -e lazydocker` (atau `wsl -e sh -c "sleep infinity"`). Biarkan terbuka.
@@ -467,7 +467,7 @@ npm run dev                     # http://localhost:4000/api/v1
 - Swagger UI: `http://localhost:4000/api/docs` (non-production).
 - Health: `GET /api/v1/health` (readiness: database, redis, storage) dan `GET /api/v1/health/live` (liveness).
 - Log: format mudah dibaca di development, JSON di production (`LOG_LEVEL`).
-- Akun demo (seed SSO development; masuk Akasha lewat SSO): `admin@workingspace.id` / `123` (super_admin), `user@workingspace.id` / `123` (member, untuk uji
+- Akun demo (seed SSO development; masuk Akasha lewat SSO): `noreply@workingspace.id` / `123` (super_admin), `user@workingspace.id` / `123` (member, untuk uji
   berbagi). Data setiap akun terisolasi — admin pun tidak melihat data akun lain kecuali dibagikan.
 - Semua env divalidasi saat boot (`src/config/env.validation.ts`); daftar lengkap di `apps/akasha/api/.env.example`.
 - **Basis pengetahuan (vault Obsidian)**: `KNOWLEDGE_VAULTS_DIR="../infra/knowledge-vaults"` — setiap subfolder = satu

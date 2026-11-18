@@ -1,7 +1,7 @@
 // Uji ujung-ke-ujung Akasha ↔ SSO workingspace.id (jalankan saat Akasha, frontend Vite, dan SSO menyala):
 //   node test/sso-smoke.mjs
 // Env: APP_URL (bawaan http://localhost:5173), SSO_URL (bawaan http://auth.workingspace.localhost:5175), SSO_ADMIN_EMAIL/PASSWORD
-// (bawaan seed dev admin@workingspace.id / 123). Membuat akun SSO sementara smoke-sso-*@example.test lalu menghapusnya
+// (bawaan seed dev noreply@workingspace.id / 123). Membuat akun SSO sementara smoke-sso-*@example.test lalu menghapusnya
 // (SSO lewat database workingspace_auth, Akasha lewat DELETE /users).
 import dns from "node:dns";
 import pg from "pg";
@@ -13,7 +13,7 @@ dns.lookup = (hostname, ...rest) => lookup(hostname.endsWith(".localhost") ? "lo
 const APP = (process.env.APP_URL ?? "http://localhost:5173").replace(/\/+$/, "");
 const SSO = (process.env.SSO_URL ?? "http://auth.workingspace.localhost:5175").replace(/\/+$/, "");
 const ADMIN = {
-  email: process.env.SSO_ADMIN_EMAIL ?? "admin@workingspace.id",
+  email: process.env.SSO_ADMIN_EMAIL ?? "noreply@workingspace.id",
   password: process.env.SSO_ADMIN_PASSWORD ?? "123",
 };
 const SSO_DB = process.env.SSO_DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/workingspace_auth";

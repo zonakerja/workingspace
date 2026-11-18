@@ -6,7 +6,7 @@ import { createPrismaAdapter } from "../prisma/prisma-adapter";
 
 /**
  * Seed SSO.
- * - development: aplikasi ekosistem + akun demo `admin@workingspace.id` (super admin) & `user@workingspace.id` (member Akasha & Akai),
+ * - development: aplikasi ekosistem + akun demo `noreply@workingspace.id` (super admin) & `user@workingspace.id` (member Akasha & Akai),
  *   kata sandi `123` (khusus dev, aturan kata sandi dilewati).
  * - production: aplikasi + super admin dari SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (aturan kata sandi berlaku).
  * Aman dijalankan ulang (upsert; kata sandi akun yang sudah ada tidak diubah).
@@ -23,8 +23,8 @@ const APPS = [
   },
   {
     key: "akai",
-    // Akai = nama panggilan; nama tampilan ekosistem "Akasha AI" (packages/ui/src/ecosystem.ts)
-    name: "Akasha AI",
+    // Akai = nama tampilan (kepanjangan "Akasha AI" hanya untuk memperkenalkan, packages/ui/src/ecosystem.ts)
+    name: "Akai",
     url:
       process.env.SEED_AKAI_URL ??
       (production ? "https://akai.workingspace.id" : "http://akai.workingspace.localhost:5177"),
@@ -69,7 +69,7 @@ async function main() {
     await account(email, "Super Admin", password, true, { akasha: "admin", akai: "admin" });
     return;
   }
-  await account("admin@workingspace.id", "Admin Workingspace", "123", true, { akasha: "admin", akai: "admin" });
+  await account("noreply@workingspace.id", "Admin Workingspace", "123", true, { akasha: "admin", akai: "admin" });
   await account("user@workingspace.id", "User Workingspace", "123", false, { akasha: "member", akai: "member" });
 }
 

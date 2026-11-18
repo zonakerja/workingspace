@@ -27,7 +27,7 @@ Panduan lengkap (setup awal, menyalakan, mematikan, aturan port, laptop Windows 
 docker compose up -d                 # postgres, redis, object storage
 npm install                          # semua workspace (root monorepo)
 cd apps/akasha/api && cp .env.example .env && npx prisma migrate deploy && npm run prisma:seed && npm run dev
-cd apps/akasha/web && npm run dev   # http://localhost:5173 — admin@workingspace.id / 123
+cd apps/akasha/web && npm run dev   # http://localhost:5173 — noreply@workingspace.id / 123
 ```
 
 ## Dokumentasi

@@ -1,7 +1,7 @@
 // Smoke test API end-to-end terhadap server yang sedang berjalan.
 // Pemakaian: npm run test:smoke
 //   API_URL              default http://localhost:4000/api/v1
-//   SMOKE_ADMIN_EMAIL    akun super_admin (default admin@workingspace.id; dibuat bila belum ada)
+//   SMOKE_ADMIN_EMAIL    akun super_admin (default noreply@workingspace.id; dibuat bila belum ada)
 //   DATABASE_URL, JWT_REFRESH_SECRET, JWT_REFRESH_EXPIRES_IN  (default dibaca dari apps/akasha/api/.env)
 //
 // Akasha hanya bisa dimasuki lewat SSO, jadi sesi uji dibuat langsung di database (baris refresh_tokens + refresh token
@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import pg from "pg";
 
 const B = process.env.API_URL ?? "http://localhost:4000/api/v1";
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "admin@workingspace.id";
+const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "noreply@workingspace.id";
 const dotenv = (() => {
   try {
     return Object.fromEntries(

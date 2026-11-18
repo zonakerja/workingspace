@@ -1,5 +1,5 @@
 /**
- * Identitas ekosistem workingspace.id: nama, tagline, dan visi tiap produk (pedoman branding pemilik, 2026-11-18). Satu sumber untuk
+ * Identitas ekosistem workingspace.id: nama, tagline, dan visi tiap produk (pedoman branding pemilik, 2026-11-18). Akasha AI diperkenalkan sekali dengan nama lengkapnya, selanjutnya disebut **Akai**. Satu sumber untuk
  * halaman depan dan dashboard SSO agar penamaan selalu sama. Tagline resmi berbahasa Inggris; `lead` = penjelasan Indonesia.
  */
 
@@ -8,8 +8,8 @@ export interface EcosystemProduct {
   key: "akasha" | "akai" | "cendekia";
   /** Nama tampilan */
   name: string;
-  /** Nama pendek / panggilan (mis. "Akai" untuk Akasha AI) */
-  alias?: string;
+  /** Kepanjangan nama, disebut sekali saat memperkenalkan produk (mis. "Akasha AI" untuk Akai) */
+  fullName?: string;
   /** Peran produk dalam ekosistem */
   role: string;
   tagline: string;
@@ -42,8 +42,8 @@ export const PRODUCTS: readonly EcosystemProduct[] = [
   },
   {
     key: "akai",
-    name: "Akasha AI",
-    alias: "Akai",
+    name: "Akai",
+    fullName: "Akasha AI",
     role: "The Intelligence Layer",
     tagline: "Intelligence That Moves With You.",
     lead: "Pendamping cerdas yang bekerja mandiri maupun di dalam Akasha dan Cendekia: chat, agen, dan otomasi.",

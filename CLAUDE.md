@@ -19,11 +19,28 @@ AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, AKUN-T
 3. **Cek status lingkungan dulu (§2a)** — jangan menyalakan yang sudah aktif. Yang belum aktif: nyalakan (lihat §2):
    `wsl -e sh -c "sleep infinity"` (background) →
    `wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose up -d"` → preview `backend` & `frontend`
-   (`.claude/launch.json`) + SSO (`auth-api`, `auth-web`). Masuk Akasha **hanya lewat SSO**: `admin@workingspace.id` / `123` di halaman SSO.
+   (`.claude/launch.json`) + SSO (`auth-api`, `auth-web`). Masuk Akasha **hanya lewat SSO**: `noreply@workingspace.id` / `123` di halaman SSO.
 4. Pastikan baseline sehat sebelum mengubah apa pun: `npm test` (backend & frontend), `npm run test:smoke` (backend).
 5. Tanyakan/konfirmasi ruang lingkup thread ke user bila belum jelas; catat keputusan di §12.
 6. **Sebelum thread berakhir**: perbarui §11 Status, §12 Log Keputusan, pola baru di §8/§8b/§14, jebakan baru di §15,
    dokumen `docs/` yang terdampak, dan `docs/TODO-USER.md` bila ada tugas baru / selesai untuk user — lalu tawarkan commit (commit hanya atas perintah user). Knowledge yang hanya ada di percakapan akan hilang.
+
+## 0a. Chat per Platform (mulai 2026-11-18)
+
+Pemilik membagi pekerjaan menjadi **empat chat**, satu per platform. Setiap chat tetap membaca seluruh file ini (aturan umum, §2a,
+§12–§16), lalu fokus pada bagiannya. Perubahan lintas platform (mis. `packages/ui`, kontrak `/api/client/account`, klaim OIDC,
+gateway Akai) dicatat di dokumen **kedua** platform dan disebut di §12.
+
+| Chat | Cakupan & folder | Dokumen utama | Mulai dari |
+|---|---|---|---|
+| 1. Landing, SSO & Dashboard SSO | `apps/landing`, `apps/auth/{api,web}` (masuk, daftar wizard, akun, admin, pengajuan & masa akses, PIN, OIDC), `packages/ui` (identitas & penamaan ekosistem) | docs/SSO.md (§2.12 masa akses), DEPLOYMENT §15–§16 | Belum ada pekerjaan terbuka; menunggu pemilik: SMTP Titan dev (A52), masuk dengan Google (A42). Kandidat: backup Google Drive saat akses habis (tombol di pita Akasha) |
+| 2. Akasha | `apps/akasha/{api,web}`, `services/{robot,converter}`, `infra/onlyoffice` — §8, §8b | docs/ARCHITECTURE.md, FILE-CONTROL, ONLYOFFICE, AI-AGENT, AKUN-TERSAMBUNG | §11 "Lanjutan yang disepakati" butir 1–7. Chatbot bawaan Akasha masih bernama "Akasha AI" (`floating-chatbot.tsx`, `ai-chat-context.ts`, `knowledge-utils.ts`) — sesuaikan dengan penamaan Akai bila pemilik setuju |
+| 3. Akai (Akasha AI) | `apps/akai/{api,web,agent}` (gateway model, chat, proyek, memori, artifact, skill, plugin, konektor, terjadwal, Hermes) | docs/AKAI.md (§6 status, §8 selisih dengan Claude) | Kandidat: pencarian web, mode baca saja seperti Akasha, menggantikan Hermes (AK-3), melepas key lama Akasha (A44) |
+| 4. Cendekia | `apps/cendekia/{api,web}` (belum ada) | docs/AKASHA-PLAN.md (tahap C) | Dibangun baru di stack yang sama (bukan upgrade repo lama); daftarkan aplikasi `cendekia` di SSO, pakai `packages/ui`, Akai sebagai lapisan AI |
+
+**Penamaan** (keputusan pemilik 2026-11-18): Akasha AI diperkenalkan sekali dengan nama lengkap — "Akasha AI (selanjutnya disebut Akai)" —
+lalu selalu disebut **Akai** (nama tampilan di `packages/ui/src/ecosystem.ts` = `Akai`, `fullName` = `Akasha AI`; aplikasi SSO `akai` bernama Akai).
+**Akun super admin dev** = `noreply@workingspace.id` / `123` (sama dengan alamat email Titan pengirim email sistem); member uji = `user@workingspace.id` / `123`.
 
 ---
 
@@ -80,7 +97,7 @@ ingatan percakapan.
 
 | Komponen | Port | Status | Dijalankan oleh | Catatan |
 |---|---|---|---|---|
-| Frontend (Vite) | 5173 | 🟢 aktif / ⚪ mati | preview Claude / terminal user / — | http://localhost:5173 (masuk lewat SSO: `admin@workingspace.id` / `123`) |
+| Frontend (Vite) | 5173 | 🟢 aktif / ⚪ mati | preview Claude / terminal user / — | http://localhost:5173 (masuk lewat SSO: `noreply@workingspace.id` / `123`) |
 | Backend (NestJS) | 4000 | … | … | http://localhost:4000/api/v1/health · Swagger `/api/docs` |
 | SSO API (NestJS) | 4300 | … | … | http://localhost:4300/api/health · OIDC `/oidc/.well-known/openid-configuration` |
 | SSO halaman masuk (Vite) | 5175 | … | … | http://auth.workingspace.localhost:5175 |
@@ -203,7 +220,7 @@ workingspace/  (monorepo ekosistem workingspace: npm workspaces + Turborepo, doc
 | Markdown Converter (opsional, profile `converter`) | akasha-converter | 127.0.0.1:4200 | image `akasha-converter:2.142.1` dari `services/converter/Dockerfile` (± 5 GB: torch CPU + model Docling + Tesseract `ind`); token dev di compose = `CONVERTER_TOKEN` apps/akasha/api/.env; tanpa volume; jaringan sendiri; nyala: `docker compose --profile converter up -d --wait converter`; test Python: `docker run --rm -e CONVERTER_TOKEN=x akasha-converter:2.142.1 python -m pytest -q -p no:cacheprovider tests` |
 | ONLYOFFICE Docs 10.0 (opsional, profile `office`) | akasha-onlyoffice | 8080 | image `akasha-onlyoffice:10.0` dibangun dari `infra/onlyoffice/Dockerfile` (+ plugin AI resmi + jembatan AI + pemantau font); font tambahan diunggah admin ke `infra/onlyoffice/fonts` (`ONLYOFFICE_FONTS_DIR`, daftar font dibuat ulang otomatis); JWT secret dev di compose, header `AuthorizationJwt`; nyala: `docker compose --profile office up -d --wait onlyoffice` |
 
-Akun development ada di **SSO** (`npm run prisma:seed -w @workingspace/auth-api`): `admin@workingspace.id` / `123` (super admin), `user@workingspace.id` / `123` (member, untuk uji berbagi). Akun Akasha dibuat otomatis saat pertama masuk lewat SSO; seed Akasha hanya pengaturan aplikasi.
+Akun development ada di **SSO** (`npm run prisma:seed -w @workingspace/auth-api`): `noreply@workingspace.id` / `123` (super admin), `user@workingspace.id` / `123` (member, untuk uji berbagi). Akun Akasha dibuat otomatis saat pertama masuk lewat SSO; seed Akasha hanya pengaturan aplikasi.
 Akun `viewer@workingspace.id` lama (dev) kini member ("Tamu Viewer") — boleh dihapus.
 Volume PostgreSQL memuat nomor major (`akasha-postgres18-data`, prod `postgres18-data`) dan di-mount ke
 `/var/lib/postgresql`. Data dev hanya dummy: boleh direset kapan saja (`docker compose down -v` → `up -d --wait` →
@@ -1625,7 +1642,7 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Instansi Pengirim** (referensi "Dikirimkan melalui" dari daftar pilihan formulir Registrasi SRIKANDI) + **Register naskah dari editor ONLYOFFICE** + Tautkan final setelah Kirim Konsep | ✅ 2026-11-15 — unit robot +1 (72), backend 513, frontend +1 (348), smoke penuh lulus (+1), lint, typecheck, format; **diuji ke SRIKANDI sungguhan** (baca saja: 1.472 instansi, formulir tidak diisi/disimpan); browser: pilihan bercari di formulir Register, tombol Register naskah di editor (templat Nota Dinas, dibatalkan — tanpa entri baru & tanpa versi templat). **Belum**: robot Register memilih Dikirimkan melalui dari daftar baru (masih mengetik istilah cari seperti sebelumnya — sudah teruji) |
 | Lepas kunci PIN tanpa notifikasi palsu + Overview Working Space diperkaya (kesehatan project, pekerjaan 7 hari, selesai per minggu, ringkasan Area) | ✅ 2026-11-15 — unit frontend +7 (355), lint, typecheck, format; browser 1366×768 (klik tugas terlambat → modal Area dengan kegiatan terpilih) & 375 px tanpa luberan. **Belum**: alur lepas kunci diklik di browser dengan akun ber-PIN (diperiksa lewat kode) |
 | **Monorepo workingspace tahap A no. 3**: folder → `apps/akasha/{api,web}`, `services/{robot,converter}`, `apps/akai/agent/{skills,hermes}`; npm workspaces (satu lockfile root) + Turborepo 2.11.10; Dockerfile dibangun dari root (`turbo prune --docker`); CI satu job Turborepo + smoke + image | ✅ 2026-11-15 — `npm run check` 12/12, smoke penuh lulus dari lokasi baru, image api/web/robot dibangun dari root, Hermes membaca skill dari path baru, UI login tampil. Dependensi ikut naik minor/patch (rilis ≤ 1 Nov) karena lockfile digabung. **Belum**: rebrand (tahap A no. 4), `packages/` bersama (dibuat saat dibutuhkan) |
-| **Rebrand total LifeOS → Akasha + Productivity → Working Space (tahap A no. 4)**: teks, kode, berkas, alamat (`/working-space/*`, kunci modul `working-space`, jenis cermin `workingSpace`), cookie `akasha_rt`, token `akasha_pat_`, MCP `akasha`, container/volume/DB/bucket `akasha*`, konstanta & kunci enkripsi baru, vault dev (`80-Akasha/`, cermin lama dihapus), branding bawaan (Akasha · Ruang Kerja); database & storage dimulai dari nol, seed `admin@workingspace.id` / `user@workingspace.id` (`123`) | ✅ 2026-11-15 — `npm run check` lulus, migrasi + seed + cek drift bersih, smoke penuh, UI (login, sidebar, Working Space, Ctrl+K). Folder proyek & repo GitHub sudah diganti (tahap A 5a/5b ✅ 2026-11-16, smoke lulus dari lokasi baru). **Belum**: uji ulang memakai berkas `_uji/` lalu hapus folder itu, isi ulang API key/router, login robot, vault, Hermes |
+| **Rebrand total LifeOS → Akasha + Productivity → Working Space (tahap A no. 4)**: teks, kode, berkas, alamat (`/working-space/*`, kunci modul `working-space`, jenis cermin `workingSpace`), cookie `akasha_rt`, token `akasha_pat_`, MCP `akasha`, container/volume/DB/bucket `akasha*`, konstanta & kunci enkripsi baru, vault dev (`80-Akasha/`, cermin lama dihapus), branding bawaan (Akasha · Ruang Kerja); database & storage dimulai dari nol, seed `noreply@workingspace.id` / `user@workingspace.id` (`123`) | ✅ 2026-11-15 — `npm run check` lulus, migrasi + seed + cek drift bersih, smoke penuh, UI (login, sidebar, Working Space, Ctrl+K). Folder proyek & repo GitHub sudah diganti (tahap A 5a/5b ✅ 2026-11-16, smoke lulus dari lokasi baru). **Belum**: uji ulang memakai berkas `_uji/` lalu hapus folder itu, isi ulang API key/router, login robot, vault, Hermes |
 | **Halaman depan workingspace.id (B3)** `apps/landing` + paket bersama `packages/ui` (identitas visual dipindah dari auth web) | ✅ 2026-11-16 — unit 1, `turbo run lint typecheck test build format:check` 29/29, browser 1366×768 terang/gelap & 375 px tanpa luberan |
 | **Produksi SSO + halaman depan (B4)**: compose `auth-api`/`auth-web`/`landing`, env SSO Akasha, Caddy tiga host + www, DB & backup `workingspace_auth`, `generate-prod-secrets.mjs`, CI (smoke SSO + 3 image), Dependabot | ✅ 2026-11-16 — stack produksi lokal (`akasha-prodtest`, http `*.localhost`): semua service healthy, seed SSO & Akasha, halaman depan → masuk SSO → Akasha tertaut sebagai Super Admin, www 301, header keamanan, backup dua database diuji di container postgres; stack uji dihapus. Image `backup` dibangun 2026-11-16 (apt lewat https, tanpa repo pgdg) dan `backup.sh --once` sungguhan ke infrastruktur dev: dump `akasha` + `workingspace_auth` + 159 berkas. **Belum**: CI baru belum dijalankan (butuh push), email sungguhan (SMTP Titan, A42) |
 | **Keluar SSO = keluar Akasha** (OIDC Back-Channel Logout + access token dicek terhadap sesi), **halaman depan Dashboard saat sudah masuk** (`GET /api/auth/status`), host dev `auth.workingspace.localhost` / `workingspace.localhost`, favicon Workingspace | ✅ 2026-11-16 — unit SSO 26 & Akasha, `turbo run lint typecheck test build format:check` 29/29, smoke SSO, smoke Akasha penuh, `sso-smoke.mjs` (+5: logout SSO → refresh & access token tab terbuka 401, browser lain tetap masuk, token palsu 400), browser (keluar dari halaman akun SSO → tab Akasha diarahkan ke /login; halaman depan berganti Dashboard → /account); stack produksi lokal ulang dengan host `*.workingspace.localhost`: semua service + `backup` sehat, CSP `connect-src` & CORS status benar, logout token lewat jaringan Docker diterima Akasha (200), `backup.sh --once` dua database. Tab Akasha yang diam baru keluar pada permintaan API berikutnya (mis. polling ± 2 menit) |
@@ -1657,19 +1674,21 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Branding ekosistem di halaman depan & SSO** (One Space. Infinite Possibilities.; Akasha / **Akasha AI** (Akai) / Cendekia dengan tagline & visi; bagian Ekosistem + diagram, sorotan Akasha AI, Cendekia, visi; tanda produk; panel masuk & kartu Aplikasi SSO) | ✅ 2026-11-18 — `turbo run lint typecheck test build format:check` 22/22 (landing, auth web & api, Akai web, ui), seed SSO (nama aplikasi Akasha AI), browser halaman depan 1366×768 gelap & terang + 375 px tanpa luberan, dashboard & halaman daftar SSO |
 | **Akasha hanya lewat SSO + logo Akasha baru + pembersihan kode** (login kata sandi, ganti kata sandi, buat/ubah user, kolom `password_hash`, `PASSWORD_LOGIN`, seed akun dihapus; logo sidebar/login/favicon = `AkashaMark`; kalimat panel masuk SSO; 230+ export & kode mati, 5 dependensi, berkas tak terpakai dibuang) | ✅ 2026-11-18 — unit backend 550 & frontend 350, smoke penuh 677 (sesi uji dari database), `sso-smoke.mjs` lulus, migrasi tanpa drift, lint, typecheck, build; browser (sidebar, Profil, Manajemen User). **Belum**: halaman masuk dilihat di browser tanpa sesi (keluar = keluar SSO pemilik), CI baru (butuh push) |
 | **Daftar lengkap (wizard) + pengajuan akses + masa akses** (SSO: data diri wajib, pengajuan dengan tujuan, admin setujui dengan lama akses / tolak, email pengingat; Akasha: baca saja + pita + pembekuan pekerjaan latar belakang + hapus otomatis 180 hari) | ✅ 2026-11-18 — unit SSO 48 & Akasha 554 & web, smoke SSO 137 (+25) & Akasha 683 (+6), migrasi tanpa drift, typecheck, lint; browser (wizard 4 langkah, Akses di halaman akun, tab Pengajuan + dialog setujui, pita baca saja disimulasikan). **Belum**: backup ke Google Drive (tahap berikutnya), baca saja di Akai, email sungguhan (SMTP Titan dev gagal login, lihat TODO-USER) |
+| **Chat per platform + nama Akai + email admin** (§0a; halaman depan: Tiga langkah alur pengajuan akses, "Akasha AI (selanjutnya disebut Akai)", FAQ masa akses; super admin dev `noreply@workingspace.id`) | ✅ 2026-11-18 — turbo lint/typecheck/test/format 18/18, seed SSO, smoke SSO & Akasha penuh, `sso-smoke.mjs`, browser halaman depan. Smoke SSO dijalankan dengan SSO tanpa SMTP (SMTP Titan dev masih gagal, A52) |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
 Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 
 **Lanjutan yang disepakati (per 2026-11-09, diperbarui 2026-11-16)** — mulai dari sini di chat baru:
-00. **MULAI DI SINI (2026-11-16, pemilik berganti akun Claude & chat lama dihapus)**: pekerjaan berikutnya = **Akai 6a.4 tahap 2**,
-   rencana langkah demi langkah di `docs/AKAI.md` §7 (embedding lewat Akai ✅ → proxy agen Hermes lewat Akai ✅ → Model AI Akasha menjadikan Akai utama ✅ → produksi Akai ✅;
-   6b.1 chat Akai ✅, 6b.2 Proyek ✅, 6b.3 Memori ✅, 6b.4 Artifact ✅, 6b.5 Alat & konektor ✅, 6b.6 Skill ✅, 6b.7 Plugin JavaScript ✅, 6b.8 Tugas terjadwal ✅, 6b.9 Dokumen & ekspor ✅, 6b.10 Konektor aplikasi ✅ (selisih dengan Claude: docs/AKAI.md §8, usulan berikutnya pencarian web) (lanjutan yang belum di docs/AKAI.md §8),
-   Masuk dengan Google setelah pemilik membuat OAuth client (A42), melepas modul key lama setelah pemilik memindahkan semua tugas ke Akai). Status langkah Akai: `docs/AKAI.md` §6.
-   Semua pekerjaan s.d. 6a.4 tahap 1 sudah di-commit (belum di-push). Lingkungan dev: §2a (nyalakan WSL + Docker + preview `backend`,
-   `frontend`, `auth-api`, `auth-web`, `akai-api`; `akai-web` bila perlu — batas panel preview 5 server, matikan `frontend` sementara).
-   Akun admin dev Akasha sudah tertaut SSO (`sso_subject` terisi). Akai milik akun admin dev **kosong** (belum ada sumber model).
+00. **MULAI DI SINI (diperbarui 2026-11-18)**: pekerjaan kini dibagi per platform — lihat **§0a** untuk cakupan & titik mulai tiap chat. Semua pekerjaan sudah di-commit **dan di-push** ke `origin/main` (terakhir:
+   pendaftaran lengkap + pengajuan akses + masa akses SSO/Akasha). Akai 6a.1–6a.4 & 6b.1–6b.10 ✅ (status: `docs/AKAI.md` §6, selisih dengan
+   Claude: §8); akun tersambung tahap 0–4 ✅ (`docs/AKUN-TERSAMBUNG.md`); Akasha hanya masuk lewat SSO. **Kandidat berikutnya** (tanyakan ke
+   pemilik, belum diputuskan): (a) backup data ke Google Drive saat masa akses habis (arahan di pita baca saja sudah ada, docs/SSO.md §2.12);
+   (b) mode baca saja di Akai; (c) pencarian web di Akai (docs/AKAI.md §8); (d) masuk dengan Google di SSO (menunggu OAuth client, A42);
+   (e) melepas modul key AI lama Akasha (menunggu pemilik memindahkan semua tugas ke Akai, A44). Menunggu pemilik: SMTP Titan dev gagal login
+   (A52), OAuth Google/Microsoft (A49), VPS. Lingkungan dev: §2a (WSL + Docker + preview `backend`, `frontend`, `auth-api`, `auth-web`,
+   `landing`; Akai API & web lewat terminal karena batas panel preview 5 server). Akai akun admin dev sudah berisi sumber Classai + pembagian tugas.
 0. **Folder proyek & repo GitHub sudah berganti (2026-11-16)**: folder `D:\Development\Application\Workingspace`, remote
    `origin` = `https://github.com/zonakerja/workingspace.git`. Diverifikasi dari lokasi baru: `npm install` (junction menunjuk path baru),
    lint/typecheck/test/build tanpa cache, smoke penuh lulus, halaman login tampil. Commit lokal belum di-push (push atas perintah user).
@@ -2844,6 +2863,11 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   digantikan. Aplikasi memanggil Akai server ke server (HTTP Basic klien + `X-Akai-Subject` sub SSO); sesi web Akai (cookie `akai_sid`, masuk SSO) sejak 6a.3. Akun Akai
   dibuat saat pertama dipakai (tanpa daftar terpisah).
 - 2026-11-16 — **Akai web (6a.3)**: sesi web Akai disimpan sebagai token acak di tabel (bukan JWT) agar bisa dicabut satu per satu dan oleh back-channel logout; CSRF dicegah header `X-Akai-Web` (browser tidak bisa mengirimnya lintas situs tanpa preflight) + SameSite Lax, bukan token CSRF terpisah. Satu akun Akai untuk web & aplikasi (kunci = sub SSO), jadi pengaturan di web langsung dipakai gateway untuk Akasha. Halaman Akai web memakai identitas visual `packages/ui` + tanda Akai sendiri (percikan). Produksi (compose/Caddy) dikerjakan saat deploy.
+- 2026-11-18 — **Chat per platform, nama Akai, email admin** (permintaan pemilik sebelum membuka chat baru per platform): pekerjaan dibagi
+  empat chat (§0a). Akasha AI diperkenalkan sekali lalu disebut **Akai** — merevisi keputusan branding hari yang sama yang menulis "Akasha AI"
+  di halaman depan & dashboard SSO (kunci `akai` dan domain tetap). Email super admin dev & contoh `SEED_ADMIN_EMAIL` = `noreply@workingspace.id`
+  (sesuai akun email Titan); akun dev yang sudah ada diubah emailnya di database SSO, Akasha, dan Akai (ID & tautan tetap). Halaman depan
+  "Tiga langkah" mengikuti alur baru: daftar & ajukan akses → verifikasi email → disetujui admin dengan masa akses.
 - 2026-11-18 — **Pengajuan & masa akses aplikasi** (permintaan user: form daftar lengkap & menarik, pengajuan akses dengan tujuan,
   pembatasan waktu → baca saja 180 hari → backup Drive). Keputusan lewat pertanyaan: admin memilih lama akses (akses lama tanpa batas), data
   dihapus otomatis setelah 180 hari dengan email pengingat, backup Drive dibangun nanti. Aturan masa akses tinggal di SSO (satu sumber untuk

@@ -265,7 +265,7 @@ r = await c.post(`/interaction/${uid}/login`, { email: unverified, password });
 ok("unverified account 403", r.s === 403 && r.d.code === "EMAIL_UNVERIFIED", r);
 
 // Super admin (seed dev) → kode → token
-r = await c.post(`/interaction/${uid}/login`, { email: "admin@workingspace.id", password: "123" });
+r = await c.post(`/interaction/${uid}/login`, { email: "noreply@workingspace.id", password: "123" });
 ok("interaction login", r.s === 200 && typeof r.d.redirectTo === "string", r);
 r = await c.follow(r.d.redirectTo);
 ok("resume → redirect to app with code", r.s === 303 && (r.location ?? "").startsWith(redirectUri), r);
@@ -306,7 +306,7 @@ ok(
   id.claims.iss === `${PUBLIC}/oidc` &&
     id.claims.aud === "akasha" &&
     id.claims.nonce === "no-1" &&
-    id.claims.email === "admin@workingspace.id" &&
+    id.claims.email === "noreply@workingspace.id" &&
     id.claims.apps?.akasha === "admin" &&
     id.claims.super_admin === true,
   id.claims,
@@ -350,7 +350,7 @@ ok("after SSO logout → login required again", r.s === 303 && r.location?.start
 const d = new Browser();
 r = await d.get(authorize());
 const uid2 = r.location.split("/").pop();
-r = await d.post(`/interaction/${uid2}/login`, { email: "admin@workingspace.id", password: "123" });
+r = await d.post(`/interaction/${uid2}/login`, { email: "noreply@workingspace.id", password: "123" });
 r = await d.follow(r.d.redirectTo);
 cb = new URL(r.location);
 r = await token({
@@ -378,7 +378,7 @@ ok("old id_token kept for test", !!idToken);
 
 // ---------------------------------------------------------------- admin (super admin ekosistem)
 const adm = new Browser();
-r = await adm.login("admin@workingspace.id", "123");
+r = await adm.login("noreply@workingspace.id", "123");
 ok("admin login", r.s === 200 && r.d.superAdmin, r);
 const plain = new Browser();
 await plain.login("user@workingspace.id", "123");
@@ -406,7 +406,7 @@ ok(
 );
 r = await adm.req("PATCH", "/api/auth/me", { phone: "abc" });
 ok("profile invalid phone 400", r.s === 400, r);
-r = await adm.get("/api/admin/accounts?q=admin%40workingspace.id");
+r = await adm.get("/api/admin/accounts?q=noreply%40workingspace.id");
 ok("admin list shows profile", r.d.items?.[0]?.workplace === "Uji Smoke", r.d);
 r = await adm.req("PATCH", "/api/auth/me", { phone: "", occupation: "", workplace: "", address: "" });
 ok("profile cleared", r.s === 200 && r.d.phone === null && r.d.address === null, r.d);

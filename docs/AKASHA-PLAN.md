@@ -3,7 +3,7 @@
 Dokumen kerja (2026-11-15). Permintaan pemilik: domain **workingspace.id** sudah dibeli untuk ekosistem banyak aplikasi
 dengan satu akun (SSO `auth.workingspace.id`) dan halaman depan `workingspace.id`. LifeOS berganti nama total menjadi
 **Akasha** ("ruang" untuk mengelola pekerjaan, kehidupan, dan sumber daya) di `akasha.workingspace.id`. Agen Hermes
-dikembangkan menjadi **Akasha AI / Akai** (chat sekaligus agen, backend sendiri) di `akai.workingspace.id` yang juga dipakai
+dikembangkan menjadi **Akai** (Akasha AI) (chat sekaligus agen, backend sendiri) di `akai.workingspace.id` yang juga dipakai
 dari dalam aplikasi lain. Aplikasi berikutnya: **Cendekia** (ruang kerja sekolah/kuliah), lalu aplikasi lain.
 
 Status: **rencana, belum ada kode yang diubah.** Keputusan pemilik dicatat di §5 lalu di CLAUDE.md §12.
