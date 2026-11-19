@@ -7,9 +7,7 @@ export interface PublicUser {
   role: UserRole;
   phone: string | null;
   address: string | null;
-  /** Provider AI yang sedang dipakai (null = AI belum diatur). */
-  aiProvider: AiProviderId | null;
-  /** Fitur AI bisa dipakai lewat Akai (tugas Umum/Chat sudah punya model di Akai), walau belum ada key di Model AI. */
+  /** Fitur AI bisa dipakai (tugas Umum/Chat sudah punya model di Akai). */
   aiViaAkai?: boolean;
   /** PIN keamanan sudah diatur (membuka item terkunci) */
   hasPin?: boolean;
@@ -23,48 +21,9 @@ export interface PublicUser {
   updatedAt: string;
 }
 
-export type AiProviderId = "gemini" | "anthropic" | "openai";
 export type AiAttachmentKind = "image" | "pdf" | "audio" | "text";
 
-export interface AiProviderSettings {
-  id: AiProviderId;
-  label: string;
-  defaultModel: string;
-  suggestedModels: string[];
-  supports: Record<AiAttachmentKind, boolean>;
-  keyUrl: string;
-  configured: boolean;
-  /** 4 karakter terakhir API key (key utuh tidak pernah dikirim ke browser). */
-  keyHint: string | null;
-  /** null = model default provider. */
-  model: string | null;
-  updatedAt: string | null;
-  /** Alamat API router; null = langsung ke API resmi provider. */
-  baseUrl: string | null;
-  apiFormat: AiApiFormat | null;
-  /** ID model embedding di router (null = ID resmi). */
-  embeddingModel: string | null;
-  /** Host router untuk label (null = langsung). */
-  via: string | null;
-  /** Format API yang bisa dipakai provider ini lewat router. */
-  formats: AiApiFormat[];
-  /** Model embedding resmi (null = provider ini tidak dipakai untuk embedding). */
-  defaultEmbeddingModel: string | null;
-}
-
-/** Format API router: OpenAI Chat Completions atau Anthropic Messages (khusus Claude). */
-export type AiApiFormat = "openai" | "anthropic";
-
-export interface AiProviderInput {
-  apiKey?: string;
-  model?: string | null;
-  /** null/"" = langsung ke API resmi; alamat = lewat router */
-  baseUrl?: string | null;
-  apiFormat?: AiApiFormat;
-  embeddingModel?: string | null;
-}
-
-/** Akai (gateway model ekosistem): tugas yang punya model di Akai dijawab Akai. */
+/** Akai (gateway model ekosistem): semua fitur AI Akasha dijawab Akai. */
 interface AkaiStatus {
   /** Akai aktif di server & akun masuk lewat SSO */
   available: boolean;
@@ -76,44 +35,8 @@ interface AkaiStatus {
 
 export interface AiSettings {
   akai: AkaiStatus;
-  activeProvider: AiProviderId | null;
-  /** Cadangan otomatis ke provider lain yang punya key (kuota habis, tidak terjangkau, lampiran tak didukung). */
-  fallbackEnabled: boolean;
-  /** Indeks pengetahuan (RAG) dengan embedding Gemini/OpenAI. */
+  /** Indeks pengetahuan (RAG) dengan model Embedding di Akai. */
   indexEnabled: boolean;
-  /** Pembagian tugas AI yang dipilih user (kosong = bawaan) */
-  routing: AiRouting;
-  /** Provider yang benar-benar dipakai per tugas (pilihan + key yang tersedia) */
-  effective: {
-    chat: AiProviderId | null;
-    general: AiProviderId | null;
-    agent: AiProviderId | null;
-    document: AiProviderId | null;
-    ocr: AiProviderId | null;
-    embedding: AiEmbeddingProvider | null;
-    /** Cadangan pertama yang benar-benar dipakai bila provider tugas gagal (null = tidak ada cadangan) */
-    chatBackup: AiProviderId | null;
-    generalBackup: AiProviderId | null;
-    agentBackup: AiProviderId | null;
-    documentBackup: AiProviderId | null;
-  };
-  providers: AiProviderSettings[];
-}
-
-type AiEmbeddingProvider = "gemini" | "openai";
-
-export interface AiRouting {
-  chat?: AiProviderId | null;
-  general?: AiProviderId | null;
-  agent?: AiProviderId | null;
-  document?: AiProviderId | null;
-  ocr?: AiProviderId | null;
-  embedding?: AiEmbeddingProvider | null;
-  /** Cadangan pertama per tugas (kuota habis / provider sibuk / tak terjangkau); kosong = urutan bawaan */
-  chatBackup?: AiProviderId | null;
-  generalBackup?: AiProviderId | null;
-  agentBackup?: AiProviderId | null;
-  documentBackup?: AiProviderId | null;
 }
 
 export interface AiIndexStatus {
@@ -121,7 +44,7 @@ export interface AiIndexStatus {
   /** User punya API key untuk embedding (Gemini atau OpenAI). */
   embeddingAvailable: boolean;
   /** `akai` = embedding lewat gateway Akai (tugas Embedding diatur di Akai) */
-  embeddingProvider: AiEmbeddingProvider | "akai" | null;
+  embeddingProvider: "akai" | null;
   /** Model embedding yang dipakai (`akai/<id>` bila lewat Akai); null = pencarian kata saja */
   model: string | null;
   sources: number;
@@ -326,7 +249,7 @@ export interface AiChatResult {
   conversation: AiConversation;
   userMessage: AiChatMessage;
   assistantMessage: AiChatMessage;
-  fallback?: { from: AiProviderId; reason: string; message: string };
+  fallback?: { from: string; reason: string; message: string };
   used: { knowledge: number; workspace: number };
 }
 
@@ -414,15 +337,11 @@ export interface KnowledgeNoteDetail {
 
 export interface AiGenerateResult {
   text: string;
-  /** "akai" = dijawab gateway Akai */
-  provider: AiProviderId | "akai";
+  /** Selalu "akai" (dijawab gateway Akai) */
+  provider: "akai";
   model: string;
-  /** Terisi bila jawaban diberikan provider cadangan, bukan provider aktif. */
-  fallback?: {
-    from: AiProviderId | "akai";
-    reason: "attachment" | "quota" | "unavailable" | "credential";
-    message: string;
-  } | null;
+  /** Terisi bila Akai memakai model cadangan. */
+  fallback?: { from: "akai"; reason: string; message: string } | null;
 }
 
 interface AiTranscript {
@@ -431,7 +350,7 @@ interface AiTranscript {
   passes: number;
   /** Kelengkapan yang perlu diperiksa user (bagian gagal / terpotong). */
   warning: string | null;
-  provider: AiProviderId;
+  provider: string;
   model: string;
 }
 
@@ -534,6 +453,8 @@ export interface PinStatus {
   /** PIN diatur di halaman akun Workingspace (SSO), bukan di Akasha */
   managedBySso?: boolean;
   accountUrl?: string | null;
+  /** Kunci otomatis setelah n menit tanpa aktivitas atas item terkunci; null = sampai logout */
+  autoLockMinutes?: number | null;
 }
 
 // ============================================================================
@@ -1542,18 +1463,6 @@ interface ConverterEnhanced {
   notes: string[];
 }
 
-/** Token menurut tokenizer Gemini (countTokens): berkas dibaca AI langsung vs Markdown vs hasil rapikan. */
-export type ConverterTokenComparison =
-  | { available: false; reason: string }
-  | {
-      available: true;
-      model: string;
-      rawFile: number | null;
-      rawFileNote: string | null;
-      markdown: number;
-      enhance: { input: number; output: number; result: number } | null;
-    };
-
 export interface ConverterResult {
   markdown: string;
   engine: ConverterEngine;
@@ -1569,7 +1478,6 @@ export interface ConverterResult {
   size: number;
   enhanced: ConverterEnhanced | null;
   enhanceError: string | null;
-  tokenComparison: ConverterTokenComparison | null;
 }
 
 /** Pustaka Markdown Converter: hasil konversi yang disimpan (berkas asal tidak disimpan). */
@@ -1577,11 +1485,13 @@ export type ConvertedDocumentStatus = "queued" | "processing" | "done" | "failed
 
 export interface ConvertedDocumentSummary {
   id: string;
+  /** Berkas sama + pilihan sama sudah ada di pustaka → dokumen lama dibuka, tidak dikonversi lagi */
+  reused?: boolean;
   title: string;
   fileName: string;
   mimeType: string;
   size: number;
-  options: { mode?: ConverterMode; enhance?: boolean; compareTokens?: boolean };
+  options: { mode?: ConverterMode; enhance?: boolean };
   status: ConvertedDocumentStatus;
   error: string | null;
   engine: ConverterEngine | null;
@@ -1804,6 +1714,55 @@ export interface ColdStorageStatus {
   candidates: { count: number; bytes: number };
   running: "move" | "restore" | null;
   lastRun: ColdRunResult | null;
+}
+export interface ColdFile {
+  id: string;
+  assetId: string | null;
+  name: string;
+  context: string | null;
+  size: number;
+  mimeType: string;
+  provider: "google" | "microsoft";
+  account: string;
+  movedAt: string;
+  lastOpenedAt: string | null;
+}
+export type BackupSchedule = "off" | "weekly" | "monthly";
+export interface DriveBackupSettings {
+  accountId: string | null;
+  schedule: BackupSchedule;
+  keep: number;
+  includeFiles: boolean;
+  onExpiry: boolean;
+}
+export interface DriveBackupStats {
+  records: number;
+  notebooks: number;
+  requests: number;
+  files: number;
+  uploaded: number;
+  reused: number;
+  cold: number;
+  skipped: number;
+  bytes: number;
+}
+export interface DriveBackupRun {
+  id: string;
+  provider: "google" | "microsoft";
+  trigger: "button" | "schedule" | "expiry";
+  status: "running" | "done" | "failed";
+  stats: DriveBackupStats | null;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+export interface DriveBackupStatus {
+  settings: DriveBackupSettings;
+  accounts: DriveAccountInfo[];
+  running: { phase: "data" | "files" | "finishing"; done: number; total: number } | null;
+  runs: DriveBackupRun[];
+  stored: { files: number; bytes: number };
+  accessExpiresAt: string | null;
 }
 export interface CalendarSyncResult {
   pulledNew: number;

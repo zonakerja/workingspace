@@ -151,3 +151,62 @@ export function parseSkillFile(text: string, folder: string): AgentSkill | null 
   if (!SKILL_NAME.test(name)) return null;
   return { name, description: field("description"), category: AKASHA_SKILL_CATEGORY, akasha: true };
 }
+
+/** Judul percakapan dari pesan pertama: satu baris, maks. 60 karakter (dipotong di batas kata). */
+export function conversationTitle(message: string) {
+  const line = message.replace(/\s+/g, " ").trim();
+  if (line.length <= 60) return line || "Percakapan baru";
+  const cut = line.slice(0, 60);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > 30 ? cut.slice(0, space) : cut).trim()}…`;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: "user" | "agent";
+  text: string;
+  at: string;
+  /** Jawaban agen: running = masih dikerjakan; error = gagal/dihentikan */
+  status?: "running" | "done" | "error";
+  /** ID tugas Hermes (untuk memantau / menghentikan jawaban yang masih berjalan) */
+  runId?: string;
+}
+
+/** Tugas chat (urut waktu) → pesan percakapan: setiap tugas = satu pesan user + satu jawaban agen. */
+export function runsToMessages(
+  runs: {
+    id: string;
+    hermesRunId: string | null;
+    input: string;
+    status: string;
+    output: string | null;
+    error: string | null;
+    createdAt: Date;
+    finishedAt: Date | null;
+  }[],
+): ConversationMessage[] {
+  return runs.flatMap((run) => {
+    const runId = run.hermesRunId ?? run.id;
+    const user: ConversationMessage = {
+      id: `${run.id}-u`,
+      role: "user",
+      text: run.input,
+      at: run.createdAt.toISOString(),
+    };
+    const pending = run.status === "running" || run.status === "queued";
+    const ok = run.status === "completed";
+    const agent: ConversationMessage = {
+      id: `${run.id}-a`,
+      role: "agent",
+      text: pending
+        ? ""
+        : ok
+          ? run.output || "(tanpa jawaban)"
+          : run.error || run.output || `Tugas berakhir (${run.status}).`,
+      at: (run.finishedAt ?? run.createdAt).toISOString(),
+      status: pending ? "running" : ok ? "done" : "error",
+      runId,
+    };
+    return [user, agent];
+  });
+}

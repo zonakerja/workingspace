@@ -22,11 +22,10 @@ import {
   coldFileName,
   coldMinBytes,
   type ColdStorageSettings,
-  contentRange,
   normalizeColdSettings,
   pickColdBatch,
-  UPLOAD_CHUNK,
 } from "./drive-logic";
+import { DriveFolderMissingError, DriveUploadService } from "./drive-upload.service";
 import { DriveService } from "./drive.service";
 
 const HOUR = 60 * 60_000;
@@ -74,6 +73,7 @@ export class ColdStorageService implements OnModuleInit, OnModuleDestroy {
     private readonly storage: ObjectStorageService,
     private readonly oauth: OAuthService,
     private readonly drive: DriveService,
+    private readonly uploader: DriveUploadService,
   ) {}
 
   onModuleInit() {
@@ -225,7 +225,7 @@ export class ColdStorageService implements OnModuleInit, OnModuleDestroy {
   private async moveOne(userId: string, account: OAuthAccount, settings: ColdStorageSettings, asset: Candidate) {
     const name = coldFileName(asset.objectKey, asset.originalName);
     const sessionUrl = await this.createUploadSession(userId, account, settings, name, asset);
-    const fileId = await this.uploadChunks(
+    const fileId = await this.uploader.upload(
       account.provider,
       sessionUrl,
       await this.storage.getObjectRaw(asset.objectKey),
@@ -263,22 +263,14 @@ export class ColdStorageService implements OnModuleInit, OnModuleDestroy {
 
   private async googleFolder(userId: string, account: OAuthAccount, settings: ColdStorageSettings) {
     if (settings.folderId) return settings.folderId;
-    const { data } = await this.oauth.api<{ id?: string }>(
-      account,
-      `${this.oauth.endpoints("google").drive}/files?fields=id`,
-      {
-        method: "POST",
-        body: { name: GOOGLE_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" },
-      },
-    );
-    if (!data?.id) throw new Error("Folder arsip di Google Drive gagal dibuat.");
-    settings.folderId = data.id;
+    const id = await this.uploader.createGoogleFolder(account, GOOGLE_FOLDER_NAME);
+    settings.folderId = id;
     const latest = await this.settings(userId);
-    if (latest.accountId === account.id) await this.saveSettings(userId, { ...latest, folderId: data.id });
-    return data.id;
+    if (latest.accountId === account.id) await this.saveSettings(userId, { ...latest, folderId: id });
+    return id;
   }
 
-  /** Sesi unggahan bertahap (Google resumable / OneDrive createUploadSession). Mengembalikan alamat sesi. */
+  /** Sesi unggahan bertahap ke folder arsip (Google "Akasha Arsip" / OneDrive folder aplikasi "Arsip dingin"). */
   private async createUploadSession(
     userId: string,
     account: OAuthAccount,
@@ -286,89 +278,26 @@ export class ColdStorageService implements OnModuleInit, OnModuleDestroy {
     name: string,
     asset: Candidate,
   ) {
-    const endpoints = this.oauth.endpoints(account.provider as OAuthProvider);
-    if (account.provider === "google") {
-      const folderId = await this.googleFolder(userId, account, settings);
-      const res = await this.drive.fetchRaw(
-        account,
-        `${endpoints.driveUpload}/files?uploadType=resumable&fields=id`,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json; charset=UTF-8",
-            "x-upload-content-type": asset.mimeType || "application/octet-stream",
-            "x-upload-content-length": String(asset.size),
-          },
-          body: JSON.stringify({ name, parents: [folderId], appProperties: { akasha: "arsip-dingin" } }),
-        },
-        60_000,
-      );
-      const location = res.headers.get("location");
-      if (!res.ok || !location) {
-        if (res.status === 404) await this.saveSettings(userId, { ...settings, folderId: null }); // folder dihapus user
-        throw new Error(`Google Drive menolak unggahan (status ${res.status}): ${(await res.text()).slice(0, 200)}`);
-      }
-      return location;
-    }
-    const path = [ONEDRIVE_FOLDER, name].map(encodeURIComponent).join("/");
-    const { data } = await this.oauth.api<{ uploadUrl?: string }>(
-      account,
-      `${endpoints.drive}/me/drive/special/approot:/${path}:/createUploadSession`,
-      { method: "POST", body: { item: { "@microsoft.graph.conflictBehavior": "rename" } } },
-    );
-    if (!data?.uploadUrl) throw new Error("OneDrive tidak memberi alamat unggahan.");
-    return data.uploadUrl;
-  }
-
-  /** Unggah isi objek per potongan 10 MiB ke alamat sesi (tanpa token: alamat sesi = izinnya). Mengembalikan ID berkas. */
-  private async uploadChunks(provider: string, url: string, stream: Readable, total: number) {
-    let sent = 0;
-    let pending: Buffer[] = [];
-    let pendingBytes = 0;
-    const put = async (chunk: Buffer) => {
-      const res = await fetch(url, {
-        method: "PUT",
-        headers: { "content-length": String(chunk.length), "content-range": contentRange(sent, chunk.length, total) },
-        body: new Uint8Array(chunk),
-        signal: AbortSignal.timeout(5 * 60_000),
-      });
-      sent += chunk.length;
-      const last = sent >= total;
-      // Google: 308 = lanjut; OneDrive: 202 = lanjut; keduanya 200/201 + JSON berkas di potongan terakhir
-      if (!last && (res.status === 308 || res.status === 202)) {
-        await res.arrayBuffer().catch(() => undefined);
-        return null;
-      }
-      const text = await res.text();
-      if (!res.ok || !last) throw new Error(`Unggahan ${provider} gagal (status ${res.status}): ${text.slice(0, 200)}`);
-      const id = (JSON.parse(text || "{}") as { id?: string }).id;
-      if (!id) throw new Error("Penyedia tidak mengembalikan ID berkas.");
-      return id;
-    };
-    for await (const part of stream) {
-      const buf = Buffer.isBuffer(part) ? part : Buffer.from(part as Uint8Array);
-      pending.push(buf);
-      pendingBytes += buf.length;
-      while (pendingBytes >= UPLOAD_CHUNK && sent + UPLOAD_CHUNK < total) {
-        const all = Buffer.concat(pending);
-        await put(all.subarray(0, UPLOAD_CHUNK));
-        pending = [all.subarray(UPLOAD_CHUNK)];
-        pendingBytes = pending[0].length;
-      }
-    }
-    if (sent + pendingBytes !== total) throw new Error("Ukuran berkas di storage tidak sama dengan catatan Akasha.");
-    const id = await put(Buffer.concat(pending));
-    if (!id) throw new Error("Unggahan belum selesai.");
-    return id;
-  }
-
-  private async deleteRemote(account: OAuthAccount, fileId: string) {
-    const base = this.oauth.endpoints(account.provider as OAuthProvider).drive;
-    const url =
+    const target =
       account.provider === "google"
-        ? `${base}/files/${encodeURIComponent(fileId)}`
-        : `${base}/me/drive/items/${encodeURIComponent(fileId)}`;
-    await this.oauth.api(account, url, { method: "DELETE", allow: [404] });
+        ? { googleFolderId: await this.googleFolder(userId, account, settings) }
+        : { onedriveFolder: ONEDRIVE_FOLDER };
+    try {
+      return await this.uploader.createSession(account, target, {
+        name,
+        mimeType: asset.mimeType,
+        size: asset.size,
+        appProperty: "arsip-dingin",
+      });
+    } catch (error) {
+      // Folder dihapus user → dibuat ulang pada putaran berikutnya
+      if (error instanceof DriveFolderMissingError) await this.saveSettings(userId, { ...settings, folderId: null });
+      throw error;
+    }
+  }
+
+  private deleteRemote(account: OAuthAccount, fileId: string) {
+    return this.uploader.deleteRemote(account, fileId);
   }
 
   // ------------------------------------------------------------------------------------------ pengambilan kembali
@@ -444,6 +373,44 @@ export class ColdStorageService implements OnModuleInit, OnModuleDestroy {
     void this.prisma.asset
       .updateMany({ where: { objectKey: key }, data: { lastAccessedAt: new Date(now) } })
       .catch(() => undefined);
+  }
+
+  /** Daftar berkas di arsip dingin (terbaru dipindah dulu), dengan nama berkas Akasha-nya. */
+  async files(userId: string, take = 200) {
+    const rows = await this.prisma.coldObject.findMany({
+      where: { userId },
+      orderBy: { movedAt: "desc" },
+      take: Math.min(Math.max(take, 1), 500),
+      include: { oauthAccount: { select: { email: true } } },
+    });
+    const assets = await this.prisma.asset.findMany({
+      where: { objectKey: { in: rows.map((r) => r.objectKey) } },
+      select: { id: true, objectKey: true, originalName: true, context: true, lastAccessedAt: true },
+    });
+    const byKey = new Map(assets.map((a) => [a.objectKey, a]));
+    return rows.map((row) => {
+      const asset = byKey.get(row.objectKey);
+      return {
+        id: row.id,
+        assetId: asset?.id ?? null,
+        name: asset?.originalName ?? row.objectKey.split("/").pop() ?? row.objectKey,
+        context: asset?.context ?? null,
+        size: row.size,
+        mimeType: row.mimeType,
+        provider: row.provider,
+        account: row.oauthAccount.email,
+        movedAt: row.movedAt,
+        lastOpenedAt: asset?.lastAccessedAt ?? null,
+      };
+    });
+  }
+
+  /** Kembalikan satu berkas ke storage sekarang (tanpa menunggu dibuka). */
+  async restoreOne(userId: string, id: string) {
+    const row = await this.prisma.coldObject.findFirst({ where: { id, userId }, select: { objectKey: true } });
+    if (!row) throw new BadRequestException("Berkas tidak ada di arsip dingin.");
+    await this.restore(row.objectKey);
+    return { restored: true };
   }
 
   /** Kembalikan semua berkas arsip dingin user ke storage (latar belakang) dan matikan pemindahan otomatis. */

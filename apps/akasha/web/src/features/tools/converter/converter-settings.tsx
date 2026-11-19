@@ -175,7 +175,7 @@ function PrefsCard({ prefs, status }: { prefs: ConverterPrefs; status?: Converte
             </label>
             <p className="text-xs text-muted-foreground">
               Bila converter tidak menemukan teks (tulisan tangan, foto buram) atau service mati, gambar & PDF scan
-              dibaca AI di Pengaturan → Model AI (memakai token). Matikan agar berkas tidak pernah dikirim ke AI untuk
+              dibaca AI lewat tugas OCR di Akai (memakai token). Matikan agar berkas tidak pernah dikirim ke AI untuk
               dibaca.
             </p>
           </div>

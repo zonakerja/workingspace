@@ -148,6 +148,10 @@ unduhan disensor; health check tidak dicatat.
 
 ### 3.1 AI multi-provider (`src/ai/`)
 
+> **Sejak 2026-11-19 semua AI Akasha lewat Akai** (docs/KAJIAN-AI-TERPUSAT.md, CLAUDE.md §8 "AI — semua lewat Akai"): klien provider,
+> pembagian tugas, cadangan, jalur router, dan proxy agen di bawah ini **sudah dipindah ke Akai** (`apps/akai/api/src/gateway/`, `transcribe/`).
+> Bagian ini dipertahankan sebagai catatan rancangan; `ai_credentials` tinggal dibaca tombol Pindahkan key lalu di-drop.
+
 | Endpoint | Fungsi |
 |---|---|
 | `GET /ai/settings` | provider aktif, `fallbackEnabled`, daftar provider (label, model default & saran, lampiran yang didukung, `configured`, `keyHint`, `model`) |
@@ -792,7 +796,7 @@ terpenggal, dan salah baca OCR yang jelas; dilarang meringkas, menambah, menyusu
 `[tidak terbaca]`. **Penjaga** `checkEnhanced`: huruf+angka hasil 85–115 % asli dan ≥ 95 % angka ≥ 3 digit tetap ada — gagal = bagian
 asli dipakai (catatan menyebut angka yang hilang). Angka dibandingkan per **deret digit** (merapikan spasi/pemisah nomor surat diterima, mengganti digit ditolak); kepala/kaki halaman berulang (`boilerplateLines`), nomor halaman, dan gambar berkas lokal tidak dihitung karena boleh dibuang. Semua bagian gagal dipanggil = galat (worker memakai Markdown converter apa adanya,
 `metadata.converter.enhanceError`); berhasil = `metadata.converter.enhance` (provider, bagian, ditolak, perkiraan token). Cakupan baca
-ulang `unenhanced` = sudah dibaca converter tetapi belum dirapikan. **Bandingkan token** (`POST /converter/documents` `compareTokens`):
+ulang `unenhanced` = sudah dibaca converter tetapi belum dirapikan. **Bandingkan token** (dihapus 2026-11-19; catatan lama) (`POST /converter/documents` `compareTokens`):
 `AiService.countTokens` = `countTokens` Gemini (key Gemini langsung, tanpa menjalankan model): berkas mentah (PDF/gambar seperti dikirim ke
 AI), Markdown, hasil rapikan, biaya rapikan (overhead prompt × bagian + Markdown masuk, hasil keluar). Gemini di sini hanya **alat hitung** (perapi tetap provider tugas Rapikan dokumen); centang bawaan mati karena isi berkas ikut dikirim ke Google; `countTokens` tidak ditagih.
 

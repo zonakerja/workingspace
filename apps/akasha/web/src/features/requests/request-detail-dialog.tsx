@@ -88,7 +88,7 @@ export function RequestDetailDialog({ requestId, onClose }: { requestId: string 
 
 function RequestDetailBody({ request: r, onDeleted }: { request: RequestDetail; onDeleted: () => void }) {
   const m = useRequestMutations();
-  const aiReady = useAuthStore((s) => !!s.user?.aiProvider || !!s.user?.aiViaAkai);
+  const aiReady = useAuthStore((s) => !!s.user?.aiViaAkai);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -199,7 +199,7 @@ function RequestDetailBody({ request: r, onDeleted }: { request: RequestDetail; 
 
       {!aiReady && (
         <p className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
-          AI belum diatur. Simpan API key di Pengaturan → Model AI untuk memakai analisis, telaah, dan isi templat
+          AI belum diatur. Atur model di Akai (Pengaturan → Model AI) untuk memakai analisis, telaah, dan isi templat
           otomatis.
         </p>
       )}

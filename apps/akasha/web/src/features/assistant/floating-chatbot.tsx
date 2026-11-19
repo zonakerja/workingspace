@@ -39,7 +39,7 @@ import type { AiChatCitation, AiChatMessage } from "@/types/api";
 import { aiErrorMessage, buildAkashaContext, useAkashaData } from "./akasha-context";
 
 const GREETING =
-  "Halo! Saya **Akasha AI**. Saya menjawab dari **basis pengetahuan** Anda (vault Obsidian) dan **data kerja** " +
+  "Halo! Saya **Akai**. Saya menjawab dari **basis pengetahuan** Anda (vault Obsidian) dan **data kerja** " +
   "(catatan, agenda, project, berkas) — lengkap dengan sumbernya. Ada yang bisa saya bantu?";
 
 /** Tanggal hari ini menurut perangkat, untuk konteks pertanyaan seperti "agenda besok". */

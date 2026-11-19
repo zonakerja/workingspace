@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AiCrypto, keyHint } from "./ai-crypto";
-import { AI_PROVIDERS, attachmentKind } from "./ai-providers";
-import { kindFromStatus } from "./providers/ai-client";
+import { attachmentKind } from "./ai-providers";
 
 const KEY_A = "a".repeat(64);
 const KEY_B = "b".repeat(64);
@@ -54,26 +53,5 @@ describe("attachmentKind", () => {
     ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", null],
   ])("%s → %s", (mime, kind) => {
     expect(attachmentKind(mime)).toBe(kind);
-  });
-
-  it("hanya Gemini yang menerima audio", () => {
-    expect(AI_PROVIDERS.gemini.supports.audio).toBe(true);
-    expect(AI_PROVIDERS.anthropic.supports.audio).toBe(false);
-    expect(AI_PROVIDERS.openai.supports.audio).toBe(false);
-  });
-});
-
-describe("kindFromStatus", () => {
-  it.each([
-    [401, "", "auth"],
-    [403, "", "auth"],
-    [404, "", "model"],
-    [429, "", "quota"],
-    [400, "API key not valid. Please pass a valid API key.", "auth"],
-    [400, "Unsupported MIME type", "invalid"],
-    [500, "", "unavailable"],
-    [undefined, "", "unavailable"],
-  ])("%s %s → %s", (status, message, kind) => {
-    expect(kindFromStatus(status, message)).toBe(kind);
   });
 });

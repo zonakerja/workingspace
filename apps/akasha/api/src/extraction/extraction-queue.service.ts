@@ -27,7 +27,8 @@ export class ExtractionQueueService implements OnModuleDestroy {
   /** `rerun`: ekstrak ulang berkas yang dulu belum didukung (job lama dengan id yang sama masih tersimpan). */
   async enqueue(assetId: string, options: { rerun?: boolean } = {}) {
     const jobId = options.rerun ? `${assetId}-rerun-${Date.now()}` : assetId;
-    await this.queue.add("extract", { assetId }, { jobId });
+    // Baca ulang = selalu dikonversi lagi (tidak memakai hasil berkas identik)
+    await this.queue.add("extract", { assetId, ...(options.rerun ? { rerun: true } : {}) }, { jobId });
   }
 
   async onModuleDestroy() {

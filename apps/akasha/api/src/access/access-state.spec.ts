@@ -28,6 +28,9 @@ describe("allowedWhileReadOnly", () => {
     expect(allowedWhileReadOnly("POST", "/api/v1/security/pin/unlock")).toBe(true);
     expect(allowedWhileReadOnly("PUT", "/api/v1/security/pin")).toBe(false);
     expect(allowedWhileReadOnly("POST", "/api/v1/uploads/abc/link?x=1")).toBe(true);
+    expect(allowedWhileReadOnly("POST", "/api/v1/drive/backup/run")).toBe(true);
+    expect(allowedWhileReadOnly("PUT", "/api/v1/drive/backup")).toBe(true);
+    expect(allowedWhileReadOnly("PUT", "/api/v1/drive/cold")).toBe(false);
     expect(allowedWhileReadOnly("POST", "/api/v1/office/config")).toBe(true);
   });
 });

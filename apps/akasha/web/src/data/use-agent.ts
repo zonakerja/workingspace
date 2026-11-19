@@ -108,3 +108,30 @@ export function useAgentPolicyMutations() {
     }),
   };
 }
+
+/** Riwayat percakapan AI Agent (tersimpan di server). */
+export function useAgentConversations(enabled: boolean) {
+  return useQuery({ queryKey: queryKeys.agentConversations, queryFn: agentApi.conversations, enabled });
+}
+
+export function useAgentConversation(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.agentConversation(id ?? ""),
+    queryFn: () => agentApi.conversation(id!),
+    enabled: !!id,
+    retry: false,
+  });
+}
+
+export function useAgentConversationMutations() {
+  const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: queryKeys.agentConversations });
+  return {
+    update: useMutation({
+      mutationFn: ({ id, ...patch }: { id: string; title?: string; pinned?: boolean }) =>
+        agentApi.updateConversation(id, patch),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({ mutationFn: agentApi.removeConversation, onSuccess: refresh }),
+  };
+}

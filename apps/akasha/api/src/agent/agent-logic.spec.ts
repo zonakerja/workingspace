@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  conversationTitle,
   isAgentOwner,
+  runsToMessages,
   parseRun,
   parseSkillFile,
   parseSkills,
@@ -75,5 +77,62 @@ describe("parseSkillFile", () => {
     expect(parseSkillFile("---\ndescription: tanpa nama\n---", "folder-ku")?.name).toBe("folder-ku");
     expect(parseSkillFile("# tanpa frontmatter", "x")).toBeNull();
     expect(parseSkillFile("---\nname: Nama Salah\n---", "x")).toBeNull();
+  });
+});
+
+describe("riwayat percakapan", () => {
+  it("judul dari pesan pertama, dipotong di batas kata", () => {
+    expect(conversationTitle("  Halo   agen\n apa kabar ")).toBe("Halo agen apa kabar");
+    expect(conversationTitle("")).toBe("Percakapan baru");
+    const long = conversationTitle(
+      "Tolong telaah pengajuan penetapan status penggunaan barang milik negara dari satker",
+    );
+    expect(long.endsWith("…")).toBe(true);
+    expect(long.length).toBeLessThanOrEqual(61);
+  });
+
+  it("tugas → pesan user + jawaban agen", () => {
+    const at = new Date("2026-11-18T01:00:00Z");
+    const msgs = runsToMessages([
+      {
+        id: "r1",
+        hermesRunId: "h1",
+        input: "Halo",
+        status: "completed",
+        output: "Hai",
+        error: null,
+        createdAt: at,
+        finishedAt: at,
+      },
+      {
+        id: "r2",
+        hermesRunId: null,
+        input: "Lagi",
+        status: "running",
+        output: null,
+        error: null,
+        createdAt: at,
+        finishedAt: null,
+      },
+      {
+        id: "r3",
+        hermesRunId: "h3",
+        input: "x",
+        status: "failed",
+        output: null,
+        error: "Gagal",
+        createdAt: at,
+        finishedAt: at,
+      },
+    ]);
+    expect(msgs.map((m) => [m.role, m.text, m.status])).toEqual([
+      ["user", "Halo", undefined],
+      ["agent", "Hai", "done"],
+      ["user", "Lagi", undefined],
+      ["agent", "", "running"],
+      ["user", "x", undefined],
+      ["agent", "Gagal", "error"],
+    ]);
+    expect(msgs[3].runId).toBe("r2");
   });
 });

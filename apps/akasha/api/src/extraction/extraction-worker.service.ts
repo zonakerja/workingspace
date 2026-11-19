@@ -1,12 +1,12 @@
 import { forwardRef, Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AssetExtractionStatus, AssetStatus } from "../generated/prisma/client";
+import { AssetExtractionStatus, AssetStatus, type Prisma } from "../generated/prisma/client";
 import { Job, Worker } from "bullmq";
 import { AiService } from "../ai/ai.service";
 import { isFallbackError } from "../ai/ai-routing";
 import { AiIndexQueueService } from "../ai/index/ai-index-queue.service";
 import { ASSET_SOURCE } from "../ai/index/index-text";
-import { AiProviderError } from "../ai/providers/ai-client";
+import { AiProviderError } from "../ai/ai-errors";
 import { redisConnectionOptions } from "../redis/redis.module";
 import { ASSET_EXTRACTION_QUEUE } from "./extraction-queue.service";
 import { ObjectStorageService } from "../storage/object-storage.service";
@@ -19,6 +19,7 @@ import { shouldEnhance } from "../converter/markdown-enhance";
 import {
   type ConverterPrefs,
   converterHandles,
+  extractionCacheSignature,
   isOcrCandidate,
   normalizeConverterPrefs,
 } from "../converter/converter-logic";
@@ -55,7 +56,7 @@ interface ConverterNote {
 }
 
 type ReadResult =
-  | { text: string; method: ExtractionMethod; pages?: number; converter?: ConverterNote }
+  | { text: string; method: ExtractionMethod; pages?: number; converter?: ConverterNote; settings?: string }
   | { reason: SkipReason; converterError?: string };
 
 /**
@@ -97,7 +98,7 @@ export class ExtractionWorkerService implements OnModuleInit, OnModuleDestroy {
     await this.worker?.close();
   }
 
-  private async extract(job: Job<{ assetId: string }>) {
+  private async extract(job: Job<{ assetId: string; rerun?: boolean }>) {
     const asset = await this.prisma.asset.findUnique({
       where: { id: job.data.assetId },
     });
@@ -118,6 +119,9 @@ export class ExtractionWorkerService implements OnModuleInit, OnModuleDestroy {
 
     const mimeType = normalizeMimeType(asset.mimeType, asset.originalName);
     try {
+      // Berkas identik yang sudah dikonversi (unggah ulang / lampiran sama di fitur lain) → pakai hasilnya, tanpa
+      // memanggil converter maupun AI lagi
+      if (!job.data.rerun && (await this.reuseCached(asset, mimeType))) return;
       const result = await this.readText(asset, mimeType);
       const text = "text" in result ? result.text.slice(0, MAX_EXTRACTED_CHARS) : null;
 
@@ -135,7 +139,7 @@ export class ExtractionWorkerService implements OnModuleInit, OnModuleDestroy {
                   method: result.method,
                   pages: result.pages,
                   format: result.converter ? "markdown" : "text",
-                  ...(result.converter ? { converter: { ...result.converter } } : {}),
+                  ...(result.converter ? { converter: { ...result.converter, settings: result.settings } } : {}),
                 }
               : { reason: result.reason, ...(result.converterError ? { converterError: result.converterError } : {}) }),
           },
@@ -169,6 +173,48 @@ export class ExtractionWorkerService implements OnModuleInit, OnModuleDestroy {
       // Key ditolak / berkas rusak tidak akan berhasil bila diulang; kuota habis & gangguan jaringan diulang BullMQ
       if (!(error instanceof AiProviderError) || isFallbackError(error.kind)) throw error;
     }
+  }
+
+  /**
+   * Cache hasil Markdown per checksum: ekstraksi converter yang selesai untuk berkas identik milik pemilik yang sama,
+   * dengan pengaturan yang sama, disalin apa adanya (`metadata.cachedFrom`). True = sudah ditangani.
+   */
+  private async reuseCached(
+    asset: { id: string; userId: string; checksum: string },
+    mimeType: string,
+  ): Promise<boolean> {
+    if (!asset.checksum) return false;
+    const signature = extractionCacheSignature(await this.prefs(asset.userId));
+    const candidates = await this.prisma.assetExtraction.findMany({
+      where: {
+        status: AssetExtractionStatus.completed,
+        extractedText: { not: null },
+        asset: { userId: asset.userId, checksum: asset.checksum, id: { not: asset.id } },
+        metadata: { path: ["format"], equals: "markdown" },
+      },
+      orderBy: { completedAt: "desc" },
+      take: 5,
+      select: { assetId: true, extractedText: true, summary: true, metadata: true },
+    });
+    const hit = candidates.find((c) => {
+      const meta = (c.metadata ?? {}) as { converter?: { settings?: string } };
+      return meta.converter?.settings === signature;
+    });
+    if (!hit?.extractedText) return false;
+    const meta = (hit.metadata ?? {}) as Record<string, unknown>;
+    await this.prisma.assetExtraction.update({
+      where: { assetId: asset.id },
+      data: {
+        status: AssetExtractionStatus.completed,
+        extractedText: hit.extractedText,
+        summary: hit.summary,
+        metadata: { ...meta, mimeType, cachedFrom: hit.assetId } as Prisma.InputJsonValue,
+        completedAt: new Date(),
+      },
+    });
+    await this.prisma.asset.update({ where: { id: asset.id }, data: { status: AssetStatus.ready } });
+    await this.indexQueue.enqueueSource(asset.userId, ASSET_SOURCE, asset.id);
+    return true;
   }
 
   private async readText(
@@ -221,7 +267,13 @@ export class ExtractionWorkerService implements OnModuleInit, OnModuleDestroy {
               this.logger.warn(`Rapikan AI ${asset.id} gagal: ${note.enhanceError}`);
             }
           }
-          return { text, method: result.engine, pages: result.pages ?? undefined, converter: note };
+          return {
+            text,
+            method: result.engine,
+            pages: result.pages ?? undefined,
+            converter: note,
+            settings: extractionCacheSignature(prefs),
+          };
         }
         // Docling tidak menemukan teks (foto tanpa tulisan, tulisan tangan) → hanya AI yang mungkin bisa membaca
         if (!isOcrCandidate(mimeType, name) || !prefs.aiOcrFallback) return { reason: "empty" };

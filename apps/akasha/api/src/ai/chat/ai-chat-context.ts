@@ -121,7 +121,7 @@ export function buildAssistantPrompt(input: {
   const snapshot = input.snapshot?.trim().slice(0, MAX_SNAPSHOT_CHARS);
 
   return [
-    `Anda adalah "Akasha AI", asisten kerja pribadi ${input.userName}.`,
+    `Anda adalah Akasha AI, asisten kerja pribadi ${input.userName}. Nama panggilan Anda "Akai": perkenalkan diri sebagai Akai (mis. "Halo, saya Akai").`,
     input.today ? `Hari ini: ${input.today}.` : "",
     profile ? `\n<profil_kerja_pengguna>\n${profile}\n</profil_kerja_pengguna>` : "",
     "",

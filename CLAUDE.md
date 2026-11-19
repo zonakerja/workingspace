@@ -7,7 +7,7 @@ Dokumen ini menggantikan memori percakapan: keputusan, konteks user, status, dan
 Perbarui **§11 Status** dan **§12 Log Keputusan** setiap selesai satu langkah berarti.
 Dokumentasi untuk manusia ada di `docs/` (SETUP, DEPLOYMENT, ARCHITECTURE = fondasi + tech stack & versi, UPGRADE-PLAN, FILE-CONTROL,
 ONLYOFFICE = riset & rencana integrasi editor dokumen, AI-AGENT = riset & rencana AI Agent: Hermes, Obsidian, WhatsApp, SRIKANDI/SIMAN/e-Kinerja,
-AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, AKUN-TERSAMBUNG = kajian email, kalender & drive (Google, Microsoft, IMAP/CalDAV, ICS), TODO-USER = **to-do pemilik** langkah demi langkah — perbarui setiap ada pekerjaan baru yang harus dikerjakan user).
+AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, AKUN-TERSAMBUNG = kajian email, kalender & drive (Google, Microsoft, IMAP/CalDAV, ICS), KAJIAN-AI-TERPUSAT = kajian semua AI Akasha lewat Akai (menunggu keputusan), TODO-USER = **to-do pemilik** langkah demi langkah — perbarui setiap ada pekerjaan baru yang harus dikerjakan user).
 
 ## 0. Memulai Thread Baru (checklist wajib)
 
@@ -34,7 +34,7 @@ gateway Akai) dicatat di dokumen **kedua** platform dan disebut di §12.
 | Chat | Cakupan & folder | Dokumen utama | Mulai dari |
 |---|---|---|---|
 | 1. Landing, SSO & Dashboard SSO | `apps/landing`, `apps/auth/{api,web}` (masuk, daftar wizard, akun, admin, pengajuan & masa akses, PIN, OIDC), `packages/ui` (identitas & penamaan ekosistem) | docs/SSO.md (§2.12 masa akses), DEPLOYMENT §15–§16 | Belum ada pekerjaan terbuka; menunggu pemilik: SMTP Titan dev (A52), masuk dengan Google (A42). Kandidat: backup Google Drive saat akses habis (tombol di pita Akasha) |
-| 2. Akasha | `apps/akasha/{api,web}`, `services/{robot,converter}`, `infra/onlyoffice` — §8, §8b | docs/ARCHITECTURE.md, FILE-CONTROL, ONLYOFFICE, AI-AGENT, AKUN-TERSAMBUNG | §11 "Lanjutan yang disepakati" butir 1–7. Chatbot bawaan Akasha masih bernama "Akasha AI" (`floating-chatbot.tsx`, `ai-chat-context.ts`, `knowledge-utils.ts`) — sesuaikan dengan penamaan Akai bila pemilik setuju |
+| 2. Akasha | `apps/akasha/{api,web}`, `services/{robot,converter}`, `infra/onlyoffice` — §8, §8b | docs/ARCHITECTURE.md, FILE-CONTROL, ONLYOFFICE, AI-AGENT, AKUN-TERSAMBUNG | §11 "Lanjutan yang disepakati" butir 1–7. Chatbot bawaan: judul tetap "Akasha AI", nama panggilan **Akai** ("Halo, saya Akai") — keputusan pemilik 2026-11-18 |
 | 3. Akai (Akasha AI) | `apps/akai/{api,web,agent}` (gateway model, chat, proyek, memori, artifact, skill, plugin, konektor, terjadwal, Hermes) | docs/AKAI.md (§6 status, §8 selisih dengan Claude) | Kandidat: pencarian web, mode baca saja seperti Akasha, menggantikan Hermes (AK-3), melepas key lama Akasha (A44) |
 | 0. Setup (infrastruktur & operasional) | Lingkungan dev laptop (§2, §2a, nyala/matikan, WSL/Docker), `docker-compose*.yml`, `infra/` (Caddy, backup, postgres init, ONLYOFFICE image), CI `.github/workflows/ci.yml` & Dependabot, upgrade dependensi & `npm audit`, deploy VPS & domain/DNS/email Titan, root `package.json`/`turbo.json`/`.env.example`. **Tidak** mengubah perilaku fitur | docs/SETUP.md, DEPLOYMENT.md, ARCHITECTURE.md §2 (versi), UPGRADE-PLAN.md | Pantau CI di GitHub Actions setelah push; PR Dependabot yang merah karena `main` → setelah `main` hijau, pemilik mengomentari `@dependabot rebase`. Menunggu pemilik: VPS & domain (TODO-USER B1–B3), SMTP Titan (A52) |
 | 4. Cendekia | `apps/cendekia/{api,web}` (belum ada) | docs/AKASHA-PLAN.md (tahap C) | Dibangun baru di stack yang sama (bukan upgrade repo lama); daftarkan aplikasi `cendekia` di SSO, pakai `packages/ui`, Akai sebagai lapisan AI |
@@ -276,9 +276,11 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
 - **Isolasi data** (detail: `docs/ARCHITECTURE.md` §3.3): role `super_admin | admin | member` (viewer dihapus). Setiap
   user — termasuk admin — hanya membaca/menulis datanya sendiri + item yang **dibagikan** kepadanya. Role hanya untuk
   pengelolaan akun & aplikasi. **Jangan** menambah jalan pintas "admin melihat semua data" di endpoint mana pun.
-- **Users**: list/get (admin, super_admin), delete (super_admin; admin hanya non-super-admin) — **buat/ubah akun & role hanya di admin SSO**,
+- **Users**: list/get (admin, super_admin) — **buat/ubah/hapus akun & role hanya di admin SSO** (tombol & `DELETE /users/:id` dihapus 2026-11-19;
+  data akun yang aksesnya berakhir dihapus otomatis `AccessCleanupService` → `UsersService.purge`),
   `GET /users/stats` (admin: jumlah data/berkas/ukuran/berbagi/aktif terakhir, tanpa isi), `GET /users/directory?q=`
-  (semua user: cari penerima berbagi, min. 3 huruf, nama+email). Hapus user → berkasnya ikut dihapus dari storage.
+  (semua user: cari penerima berbagi, min. 3 huruf, nama+email). Hapus user → berkasnya ikut dihapus dari storage (`UsersService.purge`: key Asset + versi **dan** semua objek berawalan
+  `<userId>/` & `robot/<userId>/` lewat `ObjectStorageService.listKeys`, termasuk berkas yang sedang di Sampah).
 - **Berbagi & komentar** (`src/sharing/`): tabel `shares` (item induk `para_project | para_area | para_resource |
   free_note | ai_note | list | schedule` + virtual `schedule_series` = seluruh pertemuan agenda berulang, `recordId` =
   `seriesId`), izin `view | comment | edit`) + `record_comments`. Akses dihitung saat request
@@ -303,45 +305,31 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
 - **Settings**: `GET /settings/app` publik (branding login; **tanpa** data logo, hanya `logoVersion`); `GET /settings/app/logo`
   publik = gambar logo (data URL di kolom `app_logo` didekode; `Cache-Control: immutable` karena URL memuat `?v=`,
   `CSP: sandbox`); `PATCH` admin (`appLogo`: tidak dikirim = tetap, `""` = hapus, data URL PNG/JPG/WEBP/GIF/SVG = ganti).
-- **AI** (`src/ai/`, detail: `docs/ARCHITECTURE.md` §3.1): `GET/PATCH /ai/settings`, `PUT/DELETE /ai/settings/:provider`,
-  `POST /ai/settings/:provider/test`, `POST /ai/generate` (multipart `prompt` + `files[]`, maks. 5 / 20 MB). Katalog
-  provider & model default di `ai-providers.ts`; satu klien per provider di `providers/` (Gemini `generateContent`
-  stateless, Claude Messages streaming + `effort`/`fallbacks`, OpenAI Responses `store:false`). Kredensial di
-  `ai_credentials` (terenkripsi, API hanya mengembalikan `keyHint`), provider aktif di `users.ai_provider`, sakelar
-  **cadangan otomatis** `users.ai_fallback` (`ai-routing.ts`: lampiran tak didukung / kuota / tak terjangkau → provider
-  lain yang punya key; respons `fallback`). **Pembagian tugas** `users.ai_routing` (jsonb; `ai-routing.ts` + test):
-  provider per tugas `chat` (asisten & My Notebook) / `general` (bawaan `generate`) / `ocr` (pilihan → Gemini → OpenAI
-  → Claude) / `embedding` (Gemini | OpenAI, `index/embedding.ts`, 768 dimensi; pencarian hanya vektor model sama; ganti
-  ⇒ indeks dibangun ulang); `generate(userId, prompt, files, task)`. **Cadangan per tugas** (`chatBackup` /
-  `generalBackup` / `agentBackup` di `ai_routing`, keputusan user 2026-11-06): dicoba tepat setelah provider tugas, lalu
-  provider lain (hanya bila cadangan otomatis menyala; `taskBackup` = cadangan efektif di `effective`). **Proxy agen** ikut:
-  `AiService.agentCredentials` = urutan kandidat, `AgentService.proxyChat` pindah ke berikutnya bila gagal **sebelum
-  menjawab** dengan `isFallbackStatus` (429/402/408/5xx; 401/403/404/400 tidak) — `lastModelCall.fallbackFrom`. Error
-  provider → 429 (kuota) / 422 (lainnya) — **jangan** 401 atau ≥ 502 (lihat §15). Semua role boleh memakai AI.
-  **Jalur lewat router** (keputusan user 2026-11-06; `ai-endpoint.ts` + test): setiap kredensial bisa **langsung** (SDK resmi)
-  atau **lewat router** pihak ketiga mana pun (`ai_credentials.base_url` + `api_format` openai | anthropic (khusus Claude) +
-  `embedding_model`). Format OpenAI → `providers/openai-compatible.client.ts` (Chat Completions, gambar + PDF `file`, tanpa
-  audio); format Anthropic → SDK Claude dengan `baseURL` (akhiran `/v1` dibuang), fitur beta ditolak router → diulang
-  sekali tanpa fitur itu (`isUnsupportedFeatureError`; agen: `basicClaudeRequest`). Embedding lewat router = `/embeddings`
-  OpenAI-compatible dengan ID model isian user. Proxy agen Hermes ikut (OpenAI → `{base}/chat/completions`, Anthropic →
-  `proxyClaude`). ID model ditulis sesuai dokumentasi router; kemampuan Claude dikenali dari nama yang dinormalkan
-  (`canonicalClaudeModel`: `claude-opus-5.5` = `claude-opus-5-5`). Alamat wajib https publik (`normalizeBaseUrl`; http/host
-  lokal hanya di luar production); ganti jalur wajib key baru (key lama tidak pernah dikirim ke alamat lain). Label error &
-  cadangan menyebut jalur ("Google Gemini lewat host").
-- **Transkrip audio** (`src/ai/transcribe/` + `providers/gemini-transcribe.ts`, logika murni + test `transcript-logic.ts`, `webm-split.ts`): `POST /ai/transcribe { uploadId }` (202, pekerjaan latar belakang) + `GET /ai/transcribe/:uploadId` (running | done | failed), wajib key Gemini langsung (bukan router). Status & hasil di memori satu proses, disimpan 24 jam: berkas sama tidak dikerjakan dua kali; restart backend = mulai lagi. Rekaman WebM dipotong per ± 10 menit tanpa encode ulang (header baru per potongan: ukuran Segment benar, tanpa SeekHead/Cues/Duration lama), 3 paralel, inline; gabung berpenanda `[Menit N]`. Hasil per potongan disimpan (`done`): mengulang tidak membayar lagi bagian yang berhasil. Jawaban tanpa `finishReason` = gagal, `MAX_TOKENS` = disambung otomatis. Potongan yang ditolak (`blockReason: OTHER`) dicoba dengan `REJECTED_FALLBACK_MODELS`. Format lain dikirim utuh lewat Files API (berkas dihapus setelah selesai) dan > 30 MB diberi `warning`, karena model bisa berhenti lebih awal. `/ai/generate` tetap batas 20 MB.
-- **Akai (gateway model ekosistem)** (`src/akai/`, modul `@Global`, logika murni + test `akai-logic.ts`, detail docs/AKAI.md §4, langkah 6a.4 tahap 1):
-  env opsional `AKAI_URL`, `AKAI_CLIENT_ID` (bawaan `akasha`), `AKAI_CLIENT_SECRET`, `AKAI_WEB_URL` (dev diisi `npm run setup:dev -w @akai/api`).
-  `AiService.generate` & `ocr` memakai Akai lebih dulu bila akun ber-`sso_subject` sudah punya model untuk tugas itu di Akai
-  (`AkaiService.handles`, status gateway di-cache 30 dtk; tugas `chat | general | document | ocr`; hasil `provider: "akai"`). Tugas yang
-  belum diatur, akun lokal, lampiran audio, agen, transkrip = jalur lama. Galat Akai 429 / 422; Akai tak terjangkau → jalur
-  lama bila ada key. **Embedding lewat Akai** (tahap 2 langkah 1): `embeddingCredential` → `provider: "akai"` + `remote` =
-  `AkaiService.embed` bila tugas `embedding` punya model di Akai (`primary` dari status); `ai_chunks.model` = model yang benar-benar
-  menjawab `akai/<ID>`, pencarian memakai model hasil embedding pertanyaan (`embedQuery` → `{ vector, model }`); detail docs/AKAI.md §4.
-  **Agen lewat Akai** (langkah 2): `AgentService.proxyChat` → `AkaiService.proxyAgent` bila tugas `agent` diatur di Akai (gateway jalur
-  native: cache & pemikiran Claude, Responses API OpenAI — `apps/akai/api/src/gateway/agent-model.service.ts`); kode proxy lama Akasha
-  tetap untuk akun yang belum memindahkan tugas Agen. **Model AI** (langkah 3): bila Akai utama (`isAkaiPrimary` di
-  `ai-settings-tab.tsx`) pengaturan lama dilipat "Pengaturan lama (cadangan)"; modul key lama belum dihapus (tunggu pemilik). `GET /ai/settings` → `akai { available, reachable, webUrl, tasks }`; user dari `/auth/*` membawa `aiViaAkai`
-  (frontend `useAi().isConfigured`).
+- **AI — semua lewat Akai** (keputusan pemilik 2026-11-19, docs/KAJIAN-AI-TERPUSAT.md; `src/ai/` + `src/akai/`): Akasha **tidak menyimpan API
+  key** dan tidak memanggil provider sendiri. `AiService` = penyusun permintaan: `generate(userId, prompt, files, task)` (tugas `chat | general |
+  document`; `POST /ai/generate` multipart, maks. 5 / 20 MB, lampiran audio ditolak 400 → transkrip dulu), `ocr` (tugas `ocr`; belum diatur =
+  null, berkas tetap tanpa OCR), `embeddingCredential` (tugas `embedding`, `{ model: "akai/<ID>", remote }`, `index/embedding.ts`). Semua lewat
+  `AkaiService` (HTTP Basic klien `akasha` + `X-Akai-Subject` sub SSO; status tugas `GET /gateway/v1/status` di-cache 30 dtk). Akun tanpa SSO /
+  tugas belum diatur = 400 "AI belum diatur…" (`AKAI_REQUIRED`); **Akai tak terjangkau = 422, AI berhenti** (tidak ada jalur cadangan di Akasha).
+  Galat Akai → 429 (kuota) / 400 / 422 — **jangan** 401 atau ≥ 502 (lihat §15). `GET /ai/settings` → `{ akai { available, reachable, webUrl, tasks },
+  indexEnabled }`; `PATCH /ai/settings { indexEnabled }`; user dari `/auth/*` membawa `aiViaAkai` (= tugas Umum/Chat punya model;
+  frontend `useAi().isConfigured`). Key lama sudah dipindah lalu tabel `ai_credentials` & kolom `users.ai_provider/ai_fallback/ai_routing`
+  di-drop (2026-11-19, migrasi `20261119130000_drop_legacy_ai_keys`). `AI_ENCRYPTION_KEY` tetap wajib (robot, email, OAuth, kalender, brankas
+  memakai kunci turunannya). Isian penting lain: `ai-routing.ts` = tipe `AiTask` + `isFallbackError` (antrian indeks/ekstraksi mengulang kuota/tak
+  terjangkau), `ai-errors.ts` = `AiProviderError`/`AiAttachment`, `common/private-host.ts` = `isPrivateHost` (email). SDK Gemini/Claude/OpenAI
+  **tidak lagi** dipasang di Akasha. Semua role boleh memakai AI.
+- **Transkrip audio** (`src/ai/transcribe/transcribe.service.ts` → Akai): `POST /ai/transcribe { uploadId }` (202) + `GET /ai/transcribe/:uploadId`
+  (running | done | failed). Audio dialirkan dari object storage ke `POST /gateway/v1/audio/transcriptions` Akai (kunci pekerjaan = ID berkas) lalu
+  dipantau tiap 5 dtk (batas 3 jam); status di memori satu proses Akasha 24 jam (berkas sama tidak dikerjakan dua kali; hasil terpotong boleh
+  diulang). Pemotongan WebM ± 10 menit, 3 paralel, `[Menit N]`, sambung `MAX_TOKENS`, model cadangan untuk potongan ditolak, Files API untuk format
+  lain = **di Akai** (`apps/akai/api/src/transcribe/`, tugas `transcribe` wajib model Gemini langsung).
+- **Akai (gateway model ekosistem)** (`src/akai/`, modul `@Global`, logika murni + test `akai-logic.ts`, detail docs/AKAI.md §4): env `AKAI_URL`,
+  `AKAI_CLIENT_ID` (bawaan `akasha`), `AKAI_CLIENT_SECRET`, `AKAI_WEB_URL` (dev diisi `npm run setup:dev -w @akai/api`; kosong = AI Akasha mati).
+  `AkaiService`: `status/handles/ready/primaryModel`, `generate`, `embed` (batch 50, model batch pertama dipakai batch berikutnya agar ruang vektor tidak
+  campur; `ai_chunks.model` = model yang menjawab), `proxyAgent` (Hermes → `task: "agent"`, jalur native Claude/Responses OpenAI di Akai), `transcribeStart/
+  transcribeStatus`, `importSources`. **Agen**: `AgentService.proxyChat` hanya meneruskan ke Akai (proxy Claude/OpenAI lama dihapus); `models` = satu
+  model `akasha-agent` (konteks 128 rb). Office AI (`/office/preferences` → `aiReady` = tugas Umum di Akai) dan bot WhatsApp (tanpa tugas Umum →
+  diteruskan ke petugas) memakai status yang sama.
 - **Indeks pengetahuan / RAG** (`src/ai/index/`, detail: `docs/ARCHITECTURE.md` §3.2): tabel `ai_chunks` (pgvector 768,
   `gemini-embedding-2` dengan key Gemini pemilik data; tanpa key → tanpa embedding, pencarian kata saja), antrian BullMQ
   `ai-index` dipicu `RecordsService` & ekstraksi, sakelar `users.ai_index_enabled`, `GET /ai/index`,
@@ -420,7 +408,8 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   MCP: agen tetap hanya menulis `00-Inbox`. **Rujukan canvas** kini ikut saat catatan/folder diganti nama atau dipindah (`retargetCanvasNodes`).
   **Ganti nama tag se-vault** (K10, logika murni + test `vault-tags.ts`): `POST /knowledge/tags/rename { from, to }` = properti `tags`/`tag` + `#tag` di isi + turunan
   (`#a/b`), tanpa peka huruf besar/kecil, tag yang sudah ada digabung; kode, judul, `[[a#b]]`, URL tidak tersentuh; kueri `tag:` grup graf ikut; cermin 80-Akasha dilewati; versi
-  `before_tag`; catatan ber-YAML rusak dilewati & dilaporkan (`failed`). Filter `.base` & teks canvas **tidak** ikut diubah.
+  `before_tag`; catatan ber-YAML rusak dilewati & dilaporkan (`failed`). Argumen `file.hasTag(…)` / `tags.contains*(…)` di berkas `.base` (teks mentah, komentar tetap; `renameTagInBase`) dan `#tag` di kartu teks canvas
+  (`renameTagInCanvasNodes`) ikut diubah sejak 2026-11-18; respons `{ notes, bases, canvases, occurrences }`.
   **Cermin hasil kerja → vault** (keputusan user 2026-11-06, `KnowledgeExportService` + logika murni & test `vault-export.ts`):
   satu arah Akasha → folder `80-Akasha/` (Catatan Bebas, List Bebas, Notes AI, My Notebook = indeks + catatan Studio + riwayat
   chat, Working Space = Project + Action, Area + struktur, Agenda yang punya hasil/induk, Resource Global), saling bertaut
@@ -584,7 +573,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   (record type `action_plan_month` — potret bulan Rencana Aksi e-Kinerja) + `20261031140000_public_vaults` (brankas digital + log
   akses) + `20261101120000_automation_jobs` (jadwal & riwayat otomasi) + `20261106130000_ai_router_endpoints` (jalur router per kredensial AI) + `20261106140000_knowledge_prefs` (preferensi menu Knowledge) + `20261106120000_agent_policies` (Kebijakan Otomatis,
   `agent_runs`, sakelar darurat, `requests.asset_check`/`auto_decision`) + `20261107120000_knowledge_note_versions` (riwayat versi
-  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI) + `20261113130000_mcp_oauth_client` (OAuth client & scope milik pemilik di `mcp_connections`) + `20261113140000_mcp_agent_tools` (`mcp_connections.agent_tools`: alat bertanda Hapus yang diizinkan untuk agen) + `20261113150000_converter_prefs` + `20261113160000_security_pin` (PIN keamanan, sesi login, `notebooks.locked`) + `20261114120000_converted_documents` (pustaka Markdown Converter) + … + `20261117190000_drop_mcp_connections` (tabel koneksi aplikasi MCP dihapus) + `20261117200000_calendar_feed_mail_accounts` (langganan kalender ICS, akun email) + `20261118120000_mail_inbox` (kotak masuk IMAP) + `20261118140000_oauth_calendar_sync` (akun OAuth, kalender dua arah, Outlook) + `20261118160000_drive_cold_storage` (arsip dingin: `cold_objects`, `assets.last_accessed_at`, `users.cold_storage`). Migrasi baru → lihat docs/SETUP.md §10
+  catatan vault) + `20261109120000_agent_menus` (fitur buatan agen, `agent_runs.menu_id`, `agent_policies.verify_assets`) + `20261109130000_agent_menu_form` (penempatan & modal) + `20261110120000_trash` (Sampah) + `20261110130000_agent_actions` (aksi agen) + `20261110140000_mcp_connections` (koneksi aplikasi MCP) + `20261112120000_vault_access_referrer` (asal pembuka brankas) + `20261112130000_ekinerja_prefs` (`users.ekinerja_prefs`: cakupan renaksi) + `20261113120000_srikandi_inbox` (record type `srikandi_inbox` — Naskah Masuk SRIKANDI) + `20261113130000_mcp_oauth_client` (OAuth client & scope milik pemilik di `mcp_connections`) + `20261113140000_mcp_agent_tools` (`mcp_connections.agent_tools`: alat bertanda Hapus yang diizinkan untuk agen) + `20261113150000_converter_prefs` + `20261113160000_security_pin` (PIN keamanan, sesi login, `notebooks.locked`) + `20261114120000_converted_documents` (pustaka Markdown Converter) + … + `20261117190000_drop_mcp_connections` (tabel koneksi aplikasi MCP dihapus) + `20261117200000_calendar_feed_mail_accounts` (langganan kalender ICS, akun email) + `20261118120000_mail_inbox` (kotak masuk IMAP) + `20261118140000_oauth_calendar_sync` (akun OAuth, kalender dua arah, Outlook) + `20261118160000_drive_cold_storage` (arsip dingin: `cold_objects`, `assets.last_accessed_at`, `users.cold_storage`) + … + `20261118220000_agent_conversations` (riwayat chat AI Agent) + `20261118230000_pin_auto_lock` (kunci otomatis PIN) + `20261118235000_converted_document_checksum` (cache pustaka Markdown) + `20261119120000_drive_backup` (backup ke Drive: `users.drive_backup`, `drive_backups`, `drive_backup_files`) + `20261119130000_drop_legacy_ai_keys` (tabel `ai_credentials`, enum `ai_provider`, kolom `users.ai_provider/ai_fallback/ai_routing` dihapus). Migrasi baru → lihat docs/SETUP.md §10
     (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`, lalu cek
     drift dengan `--exit-code`; shadow DB dari `SHADOW_DATABASE_URL`).
 - **Records API**: `GET /records/:type?from&to` (milik sendiri + item bersama bertanda `share`), `PUT
@@ -602,12 +591,16 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   PDF scan/bergambar; OCR Tesseract `ind,eng`) → Markdown di `extracted_text`, `metadata.method = markitdown|docling`, `format: markdown`,
   `converter{…}`. Mati/menolak → pembaca bawaan; `aiOcrFallback` mati = OCR AI tidak pernah dipakai (`reason: ocr_off`). Pembagian mesin &
   pembersih Markdown di Python (`services/converter/app/logic.py` + pytest), pilihan format & cakupan baca ulang di `converter-logic.ts` (+ test).
+  **Cache per checksum** (2026-11-18): worker memakai ulang ekstraksi Markdown berkas identik milik pemilik yang sama bila tanda pengaturan
+  sama (`extractionCacheSignature` = cara baca PDF + Rapikan AI, disimpan di `metadata.converter.settings`; salinan bertanda `metadata.cachedFrom`);
+  Baca ulang (`rerun`) selalu mengonversi lagi. Pustaka Dokumen menyimpan `converted_documents.checksum`: berkas + pilihan sama (`libraryOptionsKey`)
+  → dokumen lama dikembalikan `reused: true`, tidak dikonversi lagi.
   Endpoint `/converter/status|preferences|stats|reconvert|documents` (`POST /converter/convert` "Coba konversi" dihapus 2026-11-14). `ConverterClient` disediakan `ExtractionModule` (hindari impor melingkar).
   **Fitur baru yang membaca isi berkas untuk AI wajib memakai teks hasil ekstraksi** (`extractedText`), bukan mengirim berkas mentah.
   **Rapikan dengan AI** (opsional, `aiEnhance` + `aiEnhanceScope` ocr|all; `MarkdownEnhancerService` + logika & test `markdown-enhance.ts`):
   per bagian ± 12 rb karakter ke tugas AI **`document`** (Pembagian tugas "Rapikan dokumen", kosong = ikuti Umum; `taskProvider`), prompt
-  struktur & salah baca saja, penjaga `checkEnhanced` (isi 85–115 %, angka ≥ 95 % tetap) → gagal = bagian asli. `AiService.countTokens` =
-  countTokens Gemini (Bandingkan token di pustaka Dokumen). Python: tabel palsu PDF rata kiri-kanan diratakan (`_flatten_fake_tables`), kepala/kaki & nomor
+  struktur & salah baca saja, penjaga `checkEnhanced` (isi 85–115 %, angka ≥ 95 % tetap) → gagal = bagian asli. (Bandingkan token dihapus
+  2026-11-19 — keputusan pemilik saat AI dipusatkan di Akai.) Python: tabel palsu PDF rata kiri-kanan diratakan (`_flatten_fake_tables`), kepala/kaki & nomor
   halaman berulang dibuang (`_drop_page_furniture`), gambar berkas lokal PPTX/DOCX dibuang (alt bermakna → `[Gambar: …]`), `[Slide n]`.
   **Pustaka hasil konversi** (keputusan user 2026-11-14, `ConverterLibraryService`, tabel `converted_documents`): `POST /converter/documents`
   (202, multipart sama dengan `convert`) → antrean **di memori** satu proses (2 paralel, maks. 10 antre & 500 dokumen per user) memanggil
@@ -679,7 +672,10 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   `GET /agent/actions/pending-count`. Agen tetap tidak punya jalur hapus langsung.
 - **PIN keamanan & item terkunci** (`src/security/` `@Global`, detail `docs/ARCHITECTURE.md` §3.15, keputusan user 2026-11-14): PIN 6 angka per akun
   (`users.pin_hash`, blokir bertahap), status terbuka per **sesi login** (`refresh_tokens.session_id` + `pin_unlocked`, claim `sid`; sampai logout /
-  Kunci sekarang; token agen tanpa `sid` = selalu terkunci). Item induk `locked: true` (Area, Project, Resource, Catatan Bebas, Notes AI, List) +
+  Kunci sekarang; token agen tanpa `sid` = selalu terkunci; **kunci otomatis** opsional `users.pin_auto_lock_minutes` 5/15/30/60/240 →
+  `refresh_tokens.pin_active_at` = aktivitas terakhir atas item terkunci (dicatat ≤ 1×/menit, `pinStillUnlocked`; status berkala memakai
+  `isUnlocked(user, { touch: false })`), `PATCH /security/pin/auto-lock`). Item induk `locked: true` (Area, **Sub Area/Kegiatan/Sub Kegiatan**
+  `para_activity` sejak 2026-11-18, Project, Resource, Catatan Bebas, Notes AI, List) +
   `notebooks.locked`; turunan & berkas ikut (`LockService.lockSet`). Sesi terkunci: records = kerangka + nilai kosong (`sealLocked`, `locked`,
   `partial`), tulis/hapus/berkas/notebook → **403 `PIN_REQUIRED`**; `preserve` item terkunci berlaku untuk semua key. RAG: `search` membuang item
   terkunci kecuali `includeLocked` (chatbot & Notebook = status sesi; MCP/agen/WA tidak pernah), Pencarian Pintar = judul + `locked`. Cermin
@@ -742,7 +738,12 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   memindah objek lama (`assets.last_accessed_at`) ke Drive → `cold_objects` (kunci = key objek) → objek dihapus dari bucket; **pengait di
   `ObjectStorageService`** (`setColdStorageHooks`: `restore` saat objek hilang dibaca/disalin, `removed` saat dihapus, `touched` saat dibaca) sehingga
   semua fitur tetap jalan tanpa tahu. Pemindah memakai `getObjectRaw` & `deleteObject(key, { keepCold: true })`. Berkas bertautan publik/brankas,
-  vault, templat, sumber Notebook tidak dipindah. Putuskan akun OAuth berarsip dingin → 409. `/drive/cold` (GET/PUT), `cold/run`, `cold/restore`.
+  vault, templat, sumber Notebook tidak dipindah. Putuskan akun OAuth berarsip dingin → 409. `/drive/cold` (GET/PUT), `cold/run`, `cold/restore`, `cold/files` + `cold/files/:id/restore` (per berkas).
+  **Backup ke Drive** (2026-11-19, `DriveBackupService` + logika murni & test `backup-logic.ts`, detail docs/AKUN-TERSAMBUNG.md §11a): tombol / jadwal
+  mingguan-bulanan / otomatis saat masa akses ≤ 7 hari atau habis → folder `Backup <waktu>` berisi `akasha-backup.json` (semua record, Notebook,
+  Pengajuan, pustaka Markdown, riwayat AI Agent, daftar berkas) + berkas di folder bersama `berkas` (sekali per akun + checksum, `drive_backup_files`);
+  arsip dingin dirujuk; simpan *n* backup; boleh saat baca saja. Unggah Drive bersama = `DriveUploadService` (backup & arsip dingin). Data baru
+  milik user (tabel sendiri) → tambahkan ke `collectData`.
 - **Health**: `/health` (readiness, 503 bila dependensi down), `/health/live` (liveness).
 - **Seed**: `src/database/seed.ts` = pengaturan aplikasi saja (dev `prisma db seed` → `tsx`; production `node dist/database/seed.js`).
   Akun tidak dibuat seed: super admin produksi = `SEED_ADMIN_*` di **SSO**, akun Akasha dibuat saat masuk lewat SSO.
@@ -826,10 +827,13 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   - File Control: pengelolaan (daftar, penataan, transaksi, auto-dispose) hanya arsip milik sendiri
     (`useArchiveFiles()`); tab **Dibagikan** + detail memakai `useArchiveFiles({ includeShared: true })`.
 - **AI**: hanya via `useAi()` (`src/lib/ai/use-ai.ts`) → `aiApi.generate(prompt, files)` (`POST /ai/generate`);
-  `isConfigured` dari `user.aiProvider`; bila backend memakai provider cadangan, `useAi` menampilkan toast (fitur tidak
-  perlu menangani). Pesan belum diatur: `AI_NOT_CONFIGURED`; kuota habis = `ApiError` status 429.
-  Pengaturan: `features/settings/ai-settings-tab.tsx` + hook `src/data/use-ai-settings.ts` (tab URL tetap `/settings/api`).
-- **Pencarian global (Ctrl+K)** (`features/assistant/global-search.tsx`, keputusan user 2026-11-10): tab **Cepat** = pencarian di
+  `isConfigured` dari `user.aiViaAkai`; bila Akai memakai model cadangan, `useAi` menampilkan toast. Pesan belum diatur: `AI_NOT_CONFIGURED`;
+  kuota habis = `ApiError` status 429. **Pengaturan → Model AI** (`features/settings/ai-settings-tab.tsx` + `ai-settings-utils.ts`, hook
+  `data/use-ai-settings.ts`, tab URL tetap `/settings/api`) = status 7 tugas Akai (`AKAI_TASKS`: chat, umum, rapikan dokumen, OCR, embedding,
+  transkrip, agen) + tombol **Atur di Akai**; kartu provider/key/pembagian tugas lama & kartu pindah key dihapus. **Manajemen User**
+  (`users-tab.tsx`) = daftar + statistik + tautan admin SSO, tanpa tombol hapus.
+- **Pencarian global (Ctrl+K)** (`features/assistant/global-search.tsx`, keputusan user 2026-11-10; 2026-11-18: hasil Pintar = `CommandItem` cmdk
+  → ↑↓ + Enter (mode Makna: Enter pertama mengirim kueri), grup **Dibagikan kepada Anda** = pencarian browser atas item bertanda `share`): tab **Cepat** = pencarian di
   browser atas data termuat (termasuk item yang dibagikan orang lain) dan tab **Pintar** (`smart-search-panel.tsx`, hook
   `data/use-smart-search.ts`, logika murni + test `smart-search-utils.ts`) = `GET /ai/search`: mode Kata saat mengetik (debounce
   250 ms), mode Makna saat Enter, filter chip per modul, sorotan kata (`highlightParts`), klik = `smartTarget` (catatan vault →
@@ -918,7 +922,11 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     klik di luar = simpan, **Esc = batal**. Tulis memakai penggabungan `base` (List bersama tidak saling menimpa).
     `?list=<id>` menyorot list dan menaruhnya paling atas; list diarsipkan / hilang → keterangan + "Lihat arsip".
   - **Notes AI** (`ai-note-editor.tsx`, simpan eksplisit — lihat "Editor dengan simpan eksplisit"): judul, tanggal, agenda
-    terkait (`agenda-options.ts`, `?note=new&schedule=<id>` terisi dari agenda), **pengaman rekaman** (selama merekam: peringatan merah + pewaktu, judul tab "🔴 Merekam 12:34", dialog browser saat tab/browser ditutup, modal "Rekaman masih berjalan" saat pindah menu, logout ditolak lewat `lib/recording-guard.ts`), **audio** (rekam 48 kbps / unggah → masuk storage dulu, lalu transkrip lewat `useAi().transcribe`, maks. `UPLOAD_MAX_MB`; gagal unggah → Simpan ditolak, tombol Unggah ulang & Unduh rekaman; tanpa transkrip / ada bagian gagal → Transkrip ulang), **dokumen tambahan** maks. `MAX_NOTE_DOCUMENTS` (10; `fileAttachments` + `documentTexts` per dokumen, tidak ikut daftar ringan; catatan lama `fileAttachment` + `fileContext` tetap terbaca dan diubah `withDocumentList`; jatah 200 rb karakter dibagi rata; audio = sumber utama ringkasan, dokumen hanya pelengkap), catatan kasar, **ringkasan AI**
+    terkait (`agenda-options.ts`, `?note=new&schedule=<id>` terisi dari agenda), **pengaman rekaman** (selama merekam: peringatan merah + pewaktu, judul tab "🔴 Merekam 12:34", dialog browser saat tab/browser ditutup, modal "Rekaman masih berjalan" saat pindah menu, logout ditolak lewat `lib/recording-guard.ts`), **audio banyak berkas** (2026-11-18: `audioItems` maks. `MAX_NOTE_AUDIOS` 10, rekam berkali-kali / unggah beberapa sekaligus, transkrip per
+  berkas; `audioFields` mengisi kolom lama: `audioTranscript` = gabungan "### Audio n: nama" (`combinedTranscript`), `audioUploadId` = audio pertama,
+  `hasAudio`; catatan lama dibaca `audiosOf`/`withAudioList`; `audioItems` tidak ikut daftar ringan; **cadangan rekaman** di IndexedDB tiap 10 dtk
+  `lib/recording-backup.ts` (kunci user + catatan) → banner "Ada rekaman yang terputus · Pulihkan / Buang" saat catatan dibuka lagi, dihapus setelah
+  audio terunggah) (rekam 48 kbps / unggah → masuk storage dulu, lalu transkrip lewat `useAi().transcribe`, maks. `UPLOAD_MAX_MB`; gagal unggah → Simpan ditolak, tombol Unggah ulang & Unduh rekaman; tanpa transkrip / ada bagian gagal → Transkrip ulang), **dokumen tambahan** maks. `MAX_NOTE_DOCUMENTS` (10; `fileAttachments` + `documentTexts` per dokumen, tidak ikut daftar ringan; catatan lama `fileAttachment` + `fileContext` tetap terbaca dan diubah `withDocumentList`; jatah 200 rb karakter dibagi rata; audio = sumber utama ringkasan, dokumen hanya pelengkap), catatan kasar, **ringkasan AI**
     dengan gaya Standar / Akademis / Risalah Rapat / Catatan Mudah / Kustom (`summary-style-dialog.tsx`, `SUMMARY_STYLES`)
     yang bisa disunting. Unggahan dicatat `trackPendingUpload` sampai Simpan/Buang; **Simpan dikunci selama merekam**.
     Berkas audio/dokumen dihapus dari storage saat diganti, perubahan dibuang, atau catatan dihapus (`removeUploads`).
@@ -1032,8 +1040,8 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     (di `AppShell`): saat tab di-reload/ditutup (`pagehide`) berkas dihapus dengan fetch `keepalive`; sapuan tiap menit di
     tab mana pun menghapus catatan halaman lain yang ditinggalkan atau tidak berdetak > 24 jam. Hanya berkas yang belum
     pernah tersimpan yang dicatat → sapuan tidak menyentuh berkas yang dipakai. Form lain yang menampung lampiran dari
-    `AttachmentForm` (mis. agenda Planner) belum mencatat berkas sesi-nya → bila ingin ikut, panggil track saat
-    ditambahkan dan untrack saat disimpan/dibuang.
+    `AttachmentForm` wajib ikut mencatat: track saat ditambahkan, untrack saat disimpan/dibuang (pola form agenda
+    `schedule-form.tsx`: `markSaved`, `discardUnsaved`; form Working Space lewat `useAttachmentEdits`).
   - **Hapus item / lampiran berkas (aturan seragam Planner & Working Space)**: berkas milik item (punya `uploadId`, bukan
     rujukan Resource Global) **ikut dihapus dari storage** agar tidak jadi sampah/duplikat. Konfirmasi lewat
     `<DeleteWithFilesDialog files shared onConfirm={(keepIds) => …}>` (default semua berkas dihapus; user bisa
@@ -1120,8 +1128,8 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     rutinitas & freeze, ringkasan kalender, link meeting), `recurrence.ts`, `reschedule.ts`, `planner-search.ts`. Dipakai
     juga oleh Overview, notifikasi, pencarian global, chatbot, Notes AI, Working Space, dan Basis Pengetahuan — ubah
     dengan hati-hati.
-  - Celah yang diketahui: form agenda membuang upload sesi saat dialog ditutup (`discardUploads`) tetapi belum mencatatnya
-    dengan `trackPendingUpload`, jadi berkas bisa tertinggal bila tab di-reload sebelum agenda disimpan.
+  - Form agenda mencatat unggahan Dasar Pelaksanaan dengan `trackPendingUpload` sampai agenda disimpan (2026-11-18), jadi
+    reload/tutup tab sebelum simpan tetap membersihkan berkasnya.
 - **Peta modul Working Space** (label menu **Working Space** sejak 2026-11-13; key modul `working-space`, path, kode, record type, warna
   `--mod-working-space`, dan folder cermin `80-Akasha/Working Space` tetap) (`features/working-space/`, `/working-space/:tab`, `working-space-page.tsx` = hero jumlah
   projects/areas/resources + 5 tab; `ParaDetailDialogs` & `ScheduleDialogs` dipasang di halaman):
@@ -1131,11 +1139,14 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     perlu perhatian dulu, maks. 6, dua bar `MiniProgress` (`lib/progress.ts`); **Pekerjaan 7 Hari** = action/task terlambat + jatuh tempo
     7 hari (klik → `?task=`); **Selesai per Minggu** (8 minggu Senin–Minggu, `completedAt` atau tenggat); **Ringkasan Area** (project
     berjalan, item area, task terbuka, progres; klik → `?area=`); lalu `ParaCalendar` (`para-calendar.tsx` → `DayDetailDialog`).
-  - **Projects** (`projects-tab.tsx` + `project-dialogs.tsx`): cari judul, `DateRangeFilter` "Aktif Bulan/Tahun Ini"
+  - **Projects** (`projects-tab.tsx` + `project-dialogs.tsx`): cari judul/deskripsi + isi (Action, Agenda, lampiran; `projectSearchMatch`,
+    kartu "Cocok: …"), `DateRangeFilter` "Aktif Bulan/Tahun Ini"
     (`isProjectActiveIn`), paginasi 10; kartu ringkas (`CARD_ACTION_CLASS`: ubah, bagikan, arsip, hapus; label Free Project
     hanya untuk project milik sendiri); form Project = nama, deskripsi, tanggal mulai/deadline, area, Dasar Pelaksanaan
     (tag "Project Basis"; `status` tidak ada di form — bawaan `active`); detail = `ProjectDetailDialog` → `TaskManager`.
-  - **Areas** (`areas-tab.tsx` + `area-dialogs.tsx`): paginasi 10, kartu jumlah sub area + project; hapus area ditolak
+  - **Areas** (`areas-tab.tsx` + `area-dialogs.tsx`): cari per kata atas judul/deskripsi area + nama Sub Area/Kegiatan/Sub
+    Kegiatan + judul project di dalamnya (`areaSearchMatch` di `lib/para.ts` + test; kartu menulis "Cocok: …" bila yang
+    cocok isinya), paginasi 10, kartu jumlah sub area + project; hapus area ditolak
     selama masih berisi sub area/project, arsip lewat `ParaDetailDialogs`. `AreaDetailDialog` = sidebar pohon
     Sub Area → Kegiatan → Sub Kegiatan (buka/tutup, `max-h-[30svh]` di HP) + daftar project area (Ambil dari Free Project /
     Lepas) + panel kanan `TaskManager` item terpilih (`initialSelection`).
@@ -1151,12 +1162,13 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
     dari ekstensi lalu MIME (`resourceKind`); format baru → `EXTENSION_KIND`. Cari nama/tag, filter tanggal & tag, Kelola Tag, paginasi 25, `?resource=<id>`
     menyorot; ringkasan AI per resource, arsipkan, hapus (aturan berkas & arsip terkunci: lihat Lampiran). Form Resource
     (tipe link / file / Buat Dokumen ONLYOFFICE / catatan) di berkas yang sama.
-  - **Archives** (`archives-tab.tsx`): tampilan Arsip (filter jenis project/area/resource, cari, tanggal, paginasi 25,
+  - **Archives** (`archives-tab.tsx`): tampilan Arsip (filter jenis project/area/resource, cari judul + isi snapshot (turunan, lampiran;
+    `archiveSearchMatch`), tanggal, paginasi 25,
     "Lihat isi", Pulihkan dengan konfirmasi) | **Log Arsip & Pemulihan** (filter aksi). Tidak ada hapus arsip permanen.
   - Aksi berantai (arsip/pulihkan/hapus project, area, item area beserta turunan, agenda, berkas, log) terpusat di
     `use-para-actions.ts`; logika murni ber-test: `lib/para.ts`, `lib/para-archive.ts`, `lib/progress.ts`.
   - Celah yang diketahui (belum diperbaiki): kalender Overview masih berlabel "Calendar Overview", form Project masih "Start
-    Date", "Area of Responsibility"; tab Areas belum punya pencarian.
+    Date", "Area of Responsibility" (pemilik memutuskan tidak diubah, 2026-11-18).
 - **Kalender Harian** (`planner-calendar.tsx`): sel tinggi tetap 44–48 px (bukan persegi; dulu 56–64 px); penanda dari `summarizeDay()`
   (`planner-logic.ts`, sumber sama dengan daftar Harian) — titik penuh = ada yang belum selesai, lingkaran = semua
   selesai (todo/task/rutinitas yang sudah selesai tetap ditandai); hover tanggal → tooltip ringkasan agenda, rutinitas,
@@ -1255,7 +1267,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   Tools): status service, sakelar + cara baca PDF + Cadangan OCR AI, Berkas tersimpan (per cara baca + Baca ulang `ai_ocr|missing|legacy`). Ringkasan AI lampiran & Resource memakai teks server lebih
   dulu: `useFileSummarizer().summarize(file, uploadId)` (berkas mentah ke AI hanya bila server tanpa teks), `ResourceAiDialog` (`storedText`),
   Notes AI `readFileText` (tunggu 5 menit). Label `metadata.method` → `METHOD_LABELS`. Kartu pengaturan juga sakelar **Rapikan dengan AI**
-  + cakupan; unggahan pustaka Dokumen punya centang Rapikan & **Bandingkan token** (bawaan **mati**: mengirim isi berkas ke Google untuk `countTokens`; `TokenComparison` menyebut Gemini hanya alat hitung, bukan perapi; `tokenRows` + test), badge "Dirapikan oleh <provider> (model)" (`providerLabel`), tab Dirapikan AI / Hasil
+  + cakupan; unggahan pustaka Dokumen punya centang Rapikan (Bandingkan token dihapus 2026-11-19), badge "Dirapikan oleh <provider> (model)" (`providerLabel`), tab Dirapikan AI / Hasil
   converter; Pengaturan → Model AI punya baris tugas **Rapikan dokumen** (`ai-routing-card.tsx`). Halaman dibagi dua sub-tab `?sub=`: **Dokumen**
   (bawaan, `converter-documents.tsx`: Konversi & simpan — banyak berkas sekaligus, boleh ditinggal — + daftar Dokumen tersimpan dengan cari,
   paginasi, ganti judul, hapus permanen; `?doc=<id>` = modal hasil, dipantau 2 dtk selama diproses) dan **Pengaturan** (`settings`: status,
@@ -1312,9 +1324,12 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   detail `auto-decision-panel.tsx` (keputusan, Batalkan kiriman, tabel verifikasi aset) + penanda di daftar; helper
   `autoDecisionState`/`policyAgreement`/`HISTORY_ACTOR` di `request-utils.ts` (+ test); hook `useAgentPolicies` /
   `useAgentPolicyMutations` (`data/use-agent.ts`).
-- **AI Agent** (dulu Asisten Agen; Workspace setelah Knowledge, `/agent`, `features/agent/`, warna `--mod-agent` violet; **riwayat chat belum disimpan** — hilang saat halaman dimuat ulang, dibangun nanti seperti Claude web/desktop; tab **Workflow** `workflow-tab.tsx` = proses buatan agen yang disetujui, tempat pemrosesan bersama Approval): tab **Chat**
-  (`agent-page.tsx`: pesan → `agentApi.chat` → `useAgentRunWatcher` poll 1,5 dtk; percakapan = sesi Hermes, ID di
-  localStorage, riwayat tampilan hanya di memori tab; Hentikan) & **Status & Skill** (status, skill Akasha + jumlah skill
+- **AI Agent** (dulu Asisten Agen; Workspace setelah Knowledge, `/agent`, `features/agent/`, warna `--mod-agent` violet; **riwayat chat tersimpan seperti Claude** (2026-11-18: `agent-chat.tsx`, daftar percakapan Disematkan/Hari ini/7 hari/30 hari/Lebih
+  lama + cari + ganti judul + sematkan + hapus ke Sampah, `?c=<id>`, tetap bisa dibaca saat Hermes mati; backend tabel `agent_conversations`
+  + `agent_runs.conversation_id`, `/agent/conversations*`, sesi Hermes `akasha-<userId>-<idPercakapan>`, logika + test `conversationTitle`/
+  `runsToMessages` di `agent-logic.ts` & `agent-chat-utils.ts`); tab **Workflow** `workflow-tab.tsx` = proses buatan agen yang disetujui, tempat pemrosesan bersama Approval): tab **Chat**
+  (`agent-chat.tsx`: pesan → `agentApi.chat` (mengembalikan `conversationId`; kosong = percakapan baru, judul dari pesan pertama) →
+  `useAgentRunWatcher` atas jawaban yang masih `running` → muat ulang percakapan; Hentikan) & **Status & Skill** (status, skill Akasha + jumlah skill
   bawaan, tugas terakhir; kartu **Siapkan agen** `agent-setup-card.tsx`: Hermes menyala · model dari Pengaturan → Model AI ·
   izin agen (dialog cakupan → `agentApi.setup`) · panggilan model terakhir). Bukan pemilik / Hermes mati → keterangan cara
   menyalakan. Pembagian tugas AI punya baris **Agen (Hermes)**. Detail Approval: `AgentRunPanel`
@@ -1477,7 +1492,8 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
 - **Drive** (`features/drive/`, hook `data/use-drive.ts`, logika + test `drive-utils.ts`): tombol `DriveFilePicker` ("Dari Drive", hanya bila ada akun
   berizin Drive) di `AttachmentForm` & form Resource → `onPick(File)` ke `handleFile` (pola "Dari MD Converter"); OneDrive = dialog penjelajah,
   Google = jendela `/drive-picker` (rute tanpa AppShell, `google-picker.ts` memuat apis.google.com) yang mengirim ID lewat `postMessage`.
-  `DriveSection` di baris akun (Izinkan Drive) dan `ColdStorageCard` (arsip dingin) di Akun Tersambung.
+  `DriveSection` di baris akun (Izinkan Drive), `DriveBackupCard` (`#backup`, Backup sekarang, jadwal, riwayat) dan `ColdStorageCard` (arsip dingin + dialog
+  `ColdFilesDialog` per berkas) di Akun Tersambung; pita masa akses punya tombol **Backup ke Drive** (`BackupButton`).
 - **Pengaturan → Akun Tersambung** (tab `accounts`, `features/settings/connected-accounts-tab.tsx`, hook `data/use-connected-accounts.ts`): kartu
   Langganan kalender (buat alamat, salin, pilihan isi, zona waktu, Ganti alamat, Matikan, cara memasang) dan Akun email (tambah Gmail/SMTP lain,
   Outlook nonaktif sampai OAuth, Uji, Jadikan utama, ringkasan harian + jam + zona, Kirim contoh sekarang).
@@ -1676,6 +1692,12 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Akasha hanya lewat SSO + logo Akasha baru + pembersihan kode** (login kata sandi, ganti kata sandi, buat/ubah user, kolom `password_hash`, `PASSWORD_LOGIN`, seed akun dihapus; logo sidebar/login/favicon = `AkashaMark`; kalimat panel masuk SSO; 230+ export & kode mati, 5 dependensi, berkas tak terpakai dibuang) | ✅ 2026-11-18 — unit backend 550 & frontend 350, smoke penuh 677 (sesi uji dari database), `sso-smoke.mjs` lulus, migrasi tanpa drift, lint, typecheck, build; browser (sidebar, Profil, Manajemen User). **Belum**: halaman masuk dilihat di browser tanpa sesi (keluar = keluar SSO pemilik), CI baru (butuh push) |
 | **Daftar lengkap (wizard) + pengajuan akses + masa akses** (SSO: data diri wajib, pengajuan dengan tujuan, admin setujui dengan lama akses / tolak, email pengingat; Akasha: baca saja + pita + pembekuan pekerjaan latar belakang + hapus otomatis 180 hari) | ✅ 2026-11-18 — unit SSO 48 & Akasha 554 & web, smoke SSO 137 (+25) & Akasha 683 (+6), migrasi tanpa drift, typecheck, lint; browser (wizard 4 langkah, Akses di halaman akun, tab Pengajuan + dialog setujui, pita baca saja disimulasikan). **Belum**: backup ke Google Drive (tahap berikutnya), baca saja di Akai, email sungguhan (SMTP Titan dev gagal login, lihat TODO-USER) |
 | **Chat per platform + nama Akai + email admin** (§0a; halaman depan: Tiga langkah alur pengajuan akses, "Akasha AI (selanjutnya disebut Akai)", FAQ masa akses; super admin dev `noreply@workingspace.id`) | ✅ 2026-11-18 — turbo lint/typecheck/test/format 18/18, seed SSO, smoke SSO & Akasha penuh, `sso-smoke.mjs`, browser halaman depan. Smoke SSO dijalankan dengan SSO tanpa SMTP (SMTP Titan dev masih gagal, A52) |
+| Pencarian tab Areas, unggahan form agenda tercatat sebagai unggahan tertunda, hapus akun membersihkan seluruh ruang storage-nya (434 berkas yatim akun uji smoke dihapus), chatbot memperkenalkan diri sebagai Akai | ✅ 2026-11-18 — unit backend 554 & frontend 357 (+4), lint, typecheck, format, smoke penuh lulus lalu storage diperiksa (0 objek milik akun terhapus), browser (cari "wawancara"/"gedung arsip" → kartu "Cocok: …", tanpa hasil → Hapus pencarian; data uji dihapus permanen). **Belum**: alur unggah → reload di form agenda diklik di browser (diperiksa lewat kode, pola sama dengan form Working Space) |
+| **Paket fitur Akasha 2026-11-18** (chat Akasha): pencarian Project & Archives ikut isi; riwayat percakapan AI Agent seperti Claude; Pencarian Pintar ↑↓/Enter + item yang dibagikan; catatan kaki sebaris `^[teks]`; ganti nama tag ikut `.base` & canvas; PIN: kunci Sub Area/Kegiatan + kunci otomatis; Notes AI banyak audio + cadangan rekaman yang bisa dipulihkan; cache Markdown per checksum (ekstraksi & pustaka); pending task My Notebook → Akai (docs/AKAI.md 6b.11) | ✅ 2026-11-18 — unit backend 563 & frontend 366, lint, typecheck, format, 3 migrasi tanpa drift, smoke penuh lulus (+3), browser: Notes AI unggah 2 audio sekaligus (data uji terbuang bersih), cari Project "atap" → "Cocok: Survei atap bocor", riwayat percakapan (pemilik, Hermes mati) + ganti judul/sematkan/hapus/pulihkan lewat API, Pintar ↑↓, endpoint kunci otomatis (15 → null, nilai lain 400); data uji dihapus. **Belum**: kirim chat ke Hermes sungguhan, pemulihan rekaman setelah tab ditutup sungguhan (diuji lewat kode), kunci otomatis terpicu (butuh akun ber-PIN + menunggu), cache ekstraksi dengan converter menyala (service converter mati saat uji), arsip dicari di browser |
+| **Backup ke Drive + arsip dingin per berkas + kajian AI terpusat** (tombol, jadwal, otomatis saat masa akses hampir/sudah habis; berkas diunggah sekali & dipakai ulang; daftar & pulihkan berkas arsip dingin; `docs/KAJIAN-AI-TERPUSAT.md`) | ✅ 2026-11-19 — unit backend (+8) & frontend, migrasi tanpa drift, smoke penuh, lint, typecheck; kartu di browser (tanpa akun Drive). **Belum**: Google/Microsoft sungguhan (A51, A54); kajian menunggu keputusan pemilik (A55) |
+| **Semua AI Akasha lewat Akai** (T1–T4 kajian AI terpusat: transkrip audio asinkron di gateway Akai, impor key server ke server, Akasha tanpa API key/klien provider/SDK model, proxy agen hanya ke Akai, Bandingkan token dihapus, Pengaturan → Model AI = status Akai + Pindahkan key) | ✅ 2026-11-19 — Akasha unit 475 & web 366, Akai unit 140, smoke Akasha 678 & Akai 164 (+9: impor, transkrip), lint, typecheck, build; halaman Model AI di browser (status 7 tugas, 3 key lama admin dev). Lanjutan hari yang sama: pemilik memindahkan key (Akai admin dev: Gemini & OpenAI langsung, Classai dipakai ulang, Embedding 2 & Transkrip 1 model), lalu tabel/kolom key lama, tombol & endpoint pindah key (Akasha & Akai), serta hapus akun lokal di Manajemen User dibersihkan — unit Akasha 472 & web 366, Akai 140, smoke Akasha & Akai lulus, migrasi tanpa drift. **Belum**: transkrip & embedding sungguhan lewat Akai |
+| Ringkasan Notes AI panjang gagal (Akasha memutus panggilan Akai setelah 3 menit, padahal Akai selesai 237 dtk) + mode Makna Pencarian Pintar menampilkan semua dokumen | ✅ 2026-11-19 — batas Akasha → Akai 12 mnt + dispatcher undici tanpa batas header (`LONG_CALLS`), batas per model Akai 10 mnt; mode Makna = hasil vektor ≤ 0,05 di bawah kemiripan terbaik (`relevantByMeaning`); uji API akun admin dev ("izin tidak masuk kerja" → Surat Cuti dst. 4 hasil, dulu 30), generate lewat Akai 200; unit Akasha 473 & Akai 140. Pemilik mengulang ringkasan transkrip panjang & mode Makna: berhasil. |
+| Token agen Hermes dibuat ulang (database baru) lewat Siapkan agen dengan izin robot e-Kinerja, SRIKANDI, SIMAN + izin dasar (tanpa email, A50); storage diperiksa: 30 objek, 0 yatim | ✅ 2026-11-19 — **Belum**: Hermes belum dinyalakan (`apps/akai/agent/hermes/up.sh`) sehingga alat robot baru belum dicoba agen |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
@@ -1754,7 +1776,7 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 6b. **Edit register SRIKANDI (2026-11-13)** sudah di-commit (6d); konsep uji `[UJI Akasha] Uji edit register v2 - abaikan` masih di Log Naskah
    Keluar SRIKANDI dan entri ujinya di tab Register (menunggu izin user untuk dihapus — hapus konsep di SRIKANDI butuh izin eksplisit).
 6a. **SRIKANDI fitur terbuka (2026-11-13)** sudah di-commit (`feat(srikandi): open SRIKANDI to the agent…`), belum di-push; Hermes perlu izin `srikandi:robot` (TODO-USER A32).
-6. Peta jalan no. 3 = **AI Agent selayaknya Claude web/desktop** (permintaan user 2026-11-09, dikerjakan nanti): riwayat percakapan tersimpan, daftar percakapan, dan pengalaman chat yang sepadan. Agen juga belum bisa menyimpan skill ke folder yang dibaca Akasha (`apps/akai/agent/skills` baca saja), jadi skill buatan Hermes belum muncul di daftar skill Akasha.
+6. Peta jalan no. 3 = **AI Agent selayaknya Claude web/desktop**: riwayat percakapan tersimpan + daftar percakapan ✅ 2026-11-18 (belum: lampiran, ubah pesan/cabang). Agen juga belum bisa menyimpan skill ke folder yang dibaca Akasha (`apps/akai/agent/skills` baca saja), jadi skill buatan Hermes belum muncul di daftar skill Akasha.
 7. **Pekerjaan e-Kinerja 2026-11-12 (chat ini akan dihapus user — semua konteks ada di sini, `docs/AI-AGENT.md` §21.10b & §26.1–§26.3, `docs/TODO-USER.md` A30–A31)**. Selesai & **di-commit** (`feat(ekinerja): agent-open e-Kinerja…`, belum di-push): e-Kinerja fitur terbuka untuk agen, renaksi ditarik dari Working Space + Generate usulan, filter cakupan Area/Project/Lepas, modal renaksi tidak terpotong, asal pembuka tautan brankas, centang semua usulan, salin dari bulan lalu. **Tertunda**:
    - **Tahap 2 pembatasan tautan bukti** ("hanya bisa dibuka dari e-Kinerja", bukan dari tautan yang ditempel): menunggu data log asal pembuka dari produksi (TODO-USER A31, setelah VPS). Bila e-Kinerja konsisten mengirim referer → sakelar per brankas + izin sementara dari server (cek asal saat halaman dibuka, cookie/token singkat untuk API berkas); bila tidak → beri tahu user pembatasan itu tidak bisa dipakai. Login e-Kinerja pembuka tidak pernah bisa diperiksa.
    - Hermes sungguhan belum menjalankan skill `renaksi-ekinerja` maupun alat robot e-Kinerja: izin `ekinerja:robot` lewat Siapkan agen + restart Hermes (A30).
@@ -2864,6 +2886,36 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   digantikan. Aplikasi memanggil Akai server ke server (HTTP Basic klien + `X-Akai-Subject` sub SSO); sesi web Akai (cookie `akai_sid`, masuk SSO) sejak 6a.3. Akun Akai
   dibuat saat pertama dipakai (tanpa daftar terpisah).
 - 2026-11-16 — **Akai web (6a.3)**: sesi web Akai disimpan sebagai token acak di tabel (bukan JWT) agar bisa dicabut satu per satu dan oleh back-channel logout; CSRF dicegah header `X-Akai-Web` (browser tidak bisa mengirimnya lintas situs tanpa preflight) + SameSite Lax, bukan token CSRF terpisah. Satu akun Akai untuk web & aplikasi (kunci = sub SSO), jadi pengaturan di web langsung dipakai gateway untuk Akasha. Halaman Akai web memakai identitas visual `packages/ui` + tanda Akai sendiri (percikan). Produksi (compose/Caddy) dikerjakan saat deploy.
+- 2026-11-19 — **Ringkasan panjang & mode Makna** (laporan pemilik): log Akai menunjukkan ringkasan berhasil (237 dtk, 32 rb token masukan)
+  tetapi Akasha sudah memutus di 180 dtk → batas dinaikkan, bukan diubah menjadi pekerjaan latar belakang (cukup untuk transkrip rapat;
+  pekerjaan asinkron bila nanti melewati 10 mnt). Mode Makna sebelumnya selalu menyertakan kandidat vektor terdekat apa pun kemiripannya
+  (± 30 hasil) sehingga tampak seperti daftar semua dokumen; skor Gemini Embedding sempit (0,56–0,72) → ambang **relatif** terhadap hasil
+  terbaik, hanya untuk Pencarian Pintar (chatbot/RAG tetap memakai kandidat penuh sebagai konteks).
+- 2026-11-19 — **Pembersihan setelah pindah key + akun hanya di SSO** (permintaan pemilik): tabel & kolom key lama di-drop, tombol/endpoint pindah
+  key (Akasha `POST /ai/settings/migrate`, Akai `POST /gateway/v1/sources/import`) dihapus karena hanya untuk sekali pindah. Manajemen User tidak lagi
+  bisa menghapus akun: akun dikelola di admin SSO; penghapusan data mengikuti masa akses (pembersih otomatis memastikan ulang ke SSO). Smoke test
+  membersihkan akun ujinya langsung (baris user + objek storage berawalan ID-nya) karena tidak ada lagi endpoint hapus.
+- 2026-11-19 — **AI dipusatkan di Akai** (pemilik: "Ikuti semua saran" atas kajian §7). Dieksekusi T1–T4 sekaligus karena belum ada produksi:
+  runtime Akasha langsung Akai-saja (tanpa sakelar `AI_LEGACY_FALLBACK` yang direncanakan) dan tabel key lama dipertahankan hanya untuk tombol
+  Pindahkan, lalu di-drop setelah pemilik memindahkan key. Transkrip dipindah ke Akai sebagai pekerjaan asinkron (audio dialirkan server ke server,
+  bukan tautan unduh: Akai menolak alamat privat lewat safe-fetch). Lampiran audio di `generate` ditolak (bukan ditranskrip otomatis).
+- 2026-11-19 — **Backup ke Drive & kajian AI terpusat** (permintaan pemilik: backup tidak hanya saat masa akses habis, juga tombol; arsip dingin
+  dikembangkan; kaji pelepasan key AI lama). Backup = salinan **data + berkas** ke Drive pemilik dengan berkas dideduplikasi per checksum agar
+  backup berulang murah; arsip dingin dirujuk (tidak diunduh-unggah ulang). Item terkunci PIN ikut tersalin (Drive pribadi pemilik; dinyatakan di
+  UI). Kajian: rekomendasi semua panggilan model lewat Akai, fitur AI tetap di Akasha; eksekusi menunggu lima keputusan pemilik.
+- 2026-11-18 — **Paket fitur Akasha** (permintaan pemilik: commit nanti, fokus fitur). Riwayat AI Agent disimpan di server (tabel percakapan +
+  `agent_runs` sebagai pesan, bukan tabel pesan baru: jawaban agen sudah tersimpan di run). Kunci otomatis dihitung dari aktivitas atas item
+  terkunci (bukan sekadar waktu sejak dibuka) dan status berkala tidak memperpanjangnya. Banyak audio Notes AI tetap mengisi kolom lama
+  (`audioTranscript` gabungan) agar pencarian, ringkasan, indeks, dan cermin Obsidian tidak berubah. Cadangan rekaman di IndexedDB (bukan
+  unggah bertahap ke server) agar tidak ada berkas setengah jadi di storage. Cache Markdown hanya untuk hasil converter, per pemilik (tidak lintas
+  akun) dan per tanda pengaturan. My Notebook didefinisikan ulang & dipindah ke Akai → dicatat sebagai pending (docs/AKAI.md 6b.11).
+- 2026-11-18 — **Chat Akasha: Areas, agenda, berkas yatim, nama Akai** (permintaan pemilik): label Inggris Working Space dibiarkan.
+  Pencarian Areas ikut mencari isi area (kegiatan, project) karena area sering dicari lewat pekerjaan di dalamnya. Saat memeriksa berkas
+  yatim, form agenda ternyata tidak punya sisa (database dimulai dari nol saat rebrand), tetapi bucket berisi 434 objek milik akun uji smoke
+  yang sudah dihapus: `purge` hanya menghapus key Asset yang masih ada, sedangkan berkas di Sampah barisnya sudah dihapus (hanya salinan di
+  `trash_items`, ikut terhapus cascade) dan tangkapan layar robot bukan Asset. Diperbaiki dengan menghapus seluruh awalan ruang akun;
+  objek dihapus hanya bila pemiliknya tidak ada dan key tidak dirujuk. Chatbot: judul "Akasha AI" tetap, nama panggilan Akai (prompt
+  sistem + sapaan).
 - 2026-11-18 — **Chat per platform, nama Akai, email admin** (permintaan pemilik sebelum membuka chat baru per platform): pekerjaan dibagi
   empat chat (§0a). Akasha AI diperkenalkan sekali lalu disebut **Akai** — merevisi keputusan branding hari yang sama yang menulis "Akasha AI"
   di halaman depan & dashboard SSO (kunci `akai` dan domain tetap). Email super admin dev & contoh `SEED_ADMIN_EMAIL` = `noreply@workingspace.id`
@@ -3020,16 +3072,9 @@ DTO class-validator), daftarkan di `app.module.ts`, guard `JwtAuthGuard` + `Role
    lama project uji.
 6. Volume dev lama boleh dihapus setelah verifikasi (data dev dummy); volume produksi lama baru dihapus setelah stabil.
 
-**Memakai router AI baru** (OpenRouter, router lokal, dll.): tanpa kode — user mengisi alamat API, format, key, dan ID model
-di Pengaturan → Model AI → kartu provider → **Lewat router**. Kode hanya perlu diubah bila router memakai format selain
-OpenAI Chat Completions / Anthropic Messages (tambah nilai `AiApiFormat` + klien di `providers/` + cabang di `AiService.call` &
-`AgentService.proxyChat`).
-
-**Menambah provider/model AI**: model baru dari provider yang sama cukup diganti user di Pengaturan → Model AI; ubah default
-di `apps/akasha/api/src/ai/ai-providers.ts` (`defaultModel`, `suggestedModels`) saat generasi model berganti. Provider baru:
-nilai enum `AiProvider` di `schema.prisma` + migrasi, entri katalog `AI_PROVIDERS`, klien `providers/<nama>.client.ts`
-(SDK resmi, petakan error ke `AiProviderError`), daftarkan di `CLIENTS` (`ai.service.ts`), tipe `AiProviderId` di
-frontend `types/api.ts`; tambah kasus di `ai.spec.ts` & smoke test.
+**Router / provider / model AI baru**: sejak 2026-11-19 semuanya di **Akai** (sumber, katalog, model, tugas — docs/AKAI.md §3–§4); Akasha
+tidak perlu diubah. Fitur Akasha baru yang memakai AI → `AiService.generate(userId, prompt, files, task)` (tugas Akai yang sudah ada) atau
+tambah tugas baru di Akai (`AI_TASKS` + `akaiTaskFor` di `akai-logic.ts` Akasha + `AKAI_TASKS` frontend).
 
 **Menambah data ke cermin 80-Akasha** (ekspor ke Obsidian): record type → `SOURCES` (`knowledge-export.service.ts`, juga ikut
 sidik jari), penulis berkas + alokasi path di `buildExport` (`vault-export.ts`, tautan lewat `ref()`/`wikilink` agar tidak
@@ -3513,6 +3558,10 @@ utama tetap < 500 kB (cek output `npm run build`).
   sendiri (pola `/drive-picker` + `postMessage`). Server tiruan yang menerima unggahan biner wajib membaca badan sebagai `Buffer`, bukan string.
 - Mengubah kode backend saat uji panjang berjalan (uji token, transkrip) me-restart `nest --watch` dan memutus uji (ECONNRESET) → tulis
   perubahan setelah uji selesai.
+- Panggilan Akasha → Akai yang menunggu jawaban utuh (generate non-stream, Claude lewat format Anthropic) terputus diam-diam di 5 menit oleh
+  `headersTimeout` undici bawaan `fetch` Node, walau `AbortSignal` lebih panjang → pakai dispatcher `LONG_CALLS` (`akai.service.ts`, paket
+  `undici` 7.x = major yang dibundel Node) + `as RequestInit` (tipe `RequestInit` tidak mengenal `dispatcher`). Cek kegagalan AI di Akasha
+  lewat `ai_usage` Akai: `ok = t` + durasi lama = Akasha yang memutus.
 
 ## 16. Memori & Kesinambungan Antar-Chat
 

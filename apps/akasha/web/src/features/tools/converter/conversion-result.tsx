@@ -10,8 +10,8 @@ import { useKnowledgeStatus } from "@/data/use-knowledge";
 import { errorMessage } from "@/lib/api/client";
 import { knowledgeApi } from "@/lib/api/endpoints";
 import { cn } from "@/lib/utils";
-import type { ConverterResult, ConverterTokenComparison } from "@/types/api";
-import { formatCount, formatDuration, inboxTitle, markdownFileName, providerLabel, tokenRows } from "./converter-utils";
+import type { ConverterResult } from "@/types/api";
+import { formatCount, formatDuration, inboxTitle, markdownFileName, providerLabel } from "./converter-utils";
 
 /** Batas isi catatan Inbox di server (`InboxNoteDto`). */
 const INBOX_MAX_CHARS = 100_000;
@@ -92,7 +92,6 @@ export function ConversionResultView({
           Rapikan AI gagal: {result.enhanceError}
         </p>
       )}
-      {result.tokenComparison && <TokenComparison data={result.tokenComparison} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
           {result.enhanced && (
@@ -138,47 +137,6 @@ export function ConversionResultView({
         ) : (
           <pre className="font-mono text-xs break-words whitespace-pre-wrap">{shown}</pre>
         )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Tabel token: berkas dibaca AI langsung vs Markdown vs hasil rapikan + biaya rapikan. Dihitung dengan penghitung token Gemini
- * (alat ukur), bukan model yang memproses dokumen — dijelaskan di kepala tabel agar tidak dikira perapinya Gemini.
- */
-function TokenComparison({ data }: { data: ConverterTokenComparison }) {
-  if (!data.available) {
-    return <p className="text-xs text-muted-foreground">Perbandingan token tidak tersedia: {data.reason}</p>;
-  }
-  const rows = tokenRows(data);
-  return (
-    <div className="rounded-xl border">
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2 text-xs">
-        <span className="font-medium">Perkiraan token saat berkas dibaca AI</span>
-        <span className="text-right text-muted-foreground">alat hitung: Gemini ({data.model})</span>
-      </div>
-      <p className="border-b px-3 py-1.5 text-[11px] text-muted-foreground">
-        Hanya alat ukur — bukan model yang merapikan. Angka di Claude/OpenAI sedikit berbeda; untuk PDF keduanya menagih
-        teks dan gambar tiap halaman, sehingga membaca PDF langsung biasanya jauh lebih mahal daripada di Gemini.
-      </p>
-      <div className="divide-y text-xs">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between gap-3 px-3 py-1.5">
-            <span className="min-w-0">
-              {row.label}
-              {row.hint && <span className="block text-[11px] text-muted-foreground">{row.hint}</span>}
-            </span>
-            <span className="shrink-0 text-right font-mono">
-              {row.tokens === null ? "—" : formatCount(row.tokens)}
-              {row.saving !== null && (
-                <span className={cn("ml-2 font-sans", row.saving >= 0 ? "text-success" : "text-warning")}>
-                  {row.saving >= 0 ? `hemat ${row.saving}%` : `+${-row.saving}%`}
-                </span>
-              )}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );

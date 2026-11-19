@@ -664,6 +664,16 @@ export interface NoteFileAttachment {
   mimeType?: string;
 }
 
+/** Satu berkas audio Notes AI (rekaman / unggahan). */
+export interface NoteAudioItem {
+  id: string;
+  name: string;
+  /** Asset di object storage (kosong = belum terunggah) */
+  uploadId?: string;
+  mimeType?: string;
+  transcript?: string;
+}
+
 export interface AiNote extends Owned {
   id: string | number;
   title: string;
@@ -677,8 +687,10 @@ export interface AiNote extends Owned {
   /** Teks hasil ekstraksi dokumen oleh AI */
   fileContext?: string;
   hasAudio?: boolean;
-  /** ID Asset rekaman/upload audio */
+  /** ID Asset rekaman/upload audio (bentuk lama satu audio; kini = audio pertama di `audioItems`) */
   audioUploadId?: string;
+  /** Banyak berkas audio; `audioTranscript` = gabungan transkripnya (dipakai pencarian, ringkasan, indeks). */
+  audioItems?: NoteAudioItem[];
   /** Bisa berupa objek kosong bila lampiran tidak tersedia */
   fileAttachment?: NoteFileAttachment | Record<string, never> | null;
   /** Dokumen tambahan (bisa banyak); `fileAttachment` & `fileContext` = bentuk lama satu dokumen, tetap terbaca. */

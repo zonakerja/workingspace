@@ -2,13 +2,15 @@
 // Pemakaian: npm run test:smoke
 //   API_URL              default http://localhost:4000/api/v1
 //   SMOKE_ADMIN_EMAIL    akun super_admin (default noreply@workingspace.id; dibuat bila belum ada)
-//   DATABASE_URL, JWT_REFRESH_SECRET, JWT_REFRESH_EXPIRES_IN  (default dibaca dari apps/akasha/api/.env)
+//   DATABASE_URL, JWT_REFRESH_SECRET, JWT_REFRESH_EXPIRES_IN, S3_* & ASSET_BUCKET  (default dibaca dari apps/akasha/api/.env)
 //
 // Akasha hanya bisa dimasuki lewat SSO, jadi sesi uji dibuat langsung di database (baris refresh_tokens + refresh token
 // bertanda tangan) lalu ditukar lewat POST /auth/refresh — jalur yang sama dengan sesi hasil SSO.
-// Tidak mengubah data asli: semua uji tulis memakai dua user member sementara yang dibuat di awal dan dihapus (cascade) di akhir.
+// Tidak mengubah data asli: semua uji tulis memakai dua user member sementara yang dibuat di awal dan dihapus di akhir
+// (baris cascade + seluruh objek storage miliknya; Akasha tidak punya endpoint hapus akun — akun dikelola di SSO).
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import pg from "pg";
 
 const B = process.env.API_URL ?? "http://localhost:4000/api/v1";
@@ -40,7 +42,7 @@ async function session(email, name, role = "member") {
   if (!row) {
     row = (
       await db.query(
-        'INSERT INTO users (id, email, name, role, updated_at) VALUES ($1, $2, $3, $4::user_role, now()) RETURNING id',
+        "INSERT INTO users (id, email, name, role, updated_at) VALUES ($1, $2, $3, $4::user_role, now()) RETURNING id",
         ["smk" + randomUUID().replace(/-/g, ""), email, name, role],
       )
     ).rows[0];
@@ -56,6 +58,29 @@ async function session(email, name, role = "member") {
   );
   const r = await j("POST", "/auth/refresh", null, null, token);
   return { ...r, userId: row.id };
+}
+/** Hapus akun uji: baris user (cascade ke semua data) + objek storage berawalan `<id>/` & `robot/<id>/` (sama dengan UsersService.purge). */
+const s3 = new S3Client({
+  region: env("S3_REGION"),
+  endpoint: env("S3_ENDPOINT") || undefined,
+  forcePathStyle: String(env("S3_FORCE_PATH_STYLE")) === "true",
+  credentials: { accessKeyId: env("S3_ACCESS_KEY_ID"), secretAccessKey: env("S3_SECRET_ACCESS_KEY") },
+});
+async function purgeUser(id) {
+  const res = await db.query("DELETE FROM users WHERE id = $1", [id]);
+  for (const prefix of [`${id}/`, `robot/${id}/`]) {
+    let token;
+    do {
+      const page = await s3.send(
+        new ListObjectsV2Command({ Bucket: env("ASSET_BUCKET"), Prefix: prefix, ContinuationToken: token }),
+      );
+      const keys = (page.Contents ?? []).map((o) => ({ Key: o.Key }));
+      if (keys.length)
+        await s3.send(new DeleteObjectsCommand({ Bucket: env("ASSET_BUCKET"), Delete: { Objects: keys } }));
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+  }
+  return res.rowCount === 1;
 }
 let failed = 0;
 const j = async (method, path, body, token, cookie) => {
@@ -177,108 +202,34 @@ try {
     for (const [content, type, name] of files) form.append("files", new Blob([content], { type }), name);
     return form;
   };
-  const fakeKey = "smoke-fake-key-ABCD1234";
+  // Semua AI lewat Akai (docs/KAJIAN-AI-TERPUSAT.md): akun uji tanpa SSO = AI belum diatur, tanpa memanggil model
   r = await j("GET", "/ai/settings", null, at);
   ok(
-    "ai settings default",
+    "ai settings = status Akai (tanpa provider/key di Akasha)",
     r.s === 200 &&
-      r.d.activeProvider === null &&
-      r.d.fallbackEnabled === true &&
-      r.d.providers.length === 3 &&
-      r.d.providers.every((p) => !p.configured),
+      r.d.akai?.available === false &&
+      !("legacy" in r.d) &&
+      typeof r.d.indexEnabled === "boolean" &&
+      !("providers" in r.d) &&
+      !("routing" in r.d),
     r,
   );
   r = await j("POST", "/ai/generate", aiForm(), at);
-  ok("ai generate without provider 400", r.s === 400, r);
-  r = await j("PUT", "/ai/settings/gemini", {}, at);
-  ok("ai save without key 400", r.s === 400, r);
-  r = await j("PUT", "/ai/settings/unknown", { apiKey: fakeKey }, at);
-  ok("ai unknown provider 400", r.s === 400, r);
-  r = await j("PUT", "/ai/settings/gemini", { apiKey: fakeKey, model: "gemini-smoke" }, at);
-  const gemini = r.d.providers?.find((p) => p.id === "gemini");
-  ok(
-    "ai save key (first = active, key never returned)",
-    r.s === 200 &&
-      r.d.activeProvider === "gemini" &&
-      gemini.configured &&
-      gemini.keyHint === "1234" &&
-      gemini.model === "gemini-smoke" &&
-      !JSON.stringify(r.d).includes(fakeKey),
-    r,
-  );
-  r = await j("GET", "/auth/me", null, at);
-  ok("me has aiProvider, no key", r.d.aiProvider === "gemini" && !JSON.stringify(r.d).includes(fakeKey), r);
-  r = await j("PUT", "/ai/settings/gemini", { model: null }, at);
-  const geminiReset = r.d.providers?.find((p) => p.id === "gemini");
-  ok("ai reset model keeps key", r.s === 200 && geminiReset.model === null && geminiReset.configured, r);
-  r = await j("PUT", "/ai/settings/anthropic", { apiKey: fakeKey }, at);
-  ok("ai second provider not auto-active", r.s === 200 && r.d.activeProvider === "gemini", r);
-  // Jalur lewat router: hanya https publik / format sah; ganti jalur wajib key baru (key lama tidak dikirim ke alamat lain)
-  r = await j("PUT", "/ai/settings/anthropic", { baseUrl: "ftp://router.example.com" }, at);
-  ok("ai router url not https 400", r.s === 400, r);
-  r = await j("PUT", "/ai/settings/anthropic", { baseUrl: "https://router.example.com/v1/" }, at);
-  ok("ai router change without new key 400", r.s === 400 && /key/i.test(r.d.message), r);
-  r = await j(
-    "PUT",
-    "/ai/settings/openai",
-    { apiKey: fakeKey, baseUrl: "https://router.example.com/v1", apiFormat: "anthropic" },
-    at,
-  );
-  ok("ai router format not allowed 400", r.s === 400, r);
-  r = await j(
-    "PUT",
-    "/ai/settings/anthropic",
-    { apiKey: fakeKey, baseUrl: "https://router.example.com/v1/", model: "claude-opus-5.5" },
-    at,
-  );
-  const viaRouter = r.d.providers?.find((p) => p.id === "anthropic");
-  ok(
-    "ai router saved (normalized, anthropic format, label host)",
-    r.s === 200 &&
-      viaRouter.baseUrl === "https://router.example.com/v1" &&
-      viaRouter.apiFormat === "anthropic" &&
-      viaRouter.via === "router.example.com",
-    r,
-  );
-  r = await j("PUT", "/ai/settings/anthropic", { apiKey: fakeKey, baseUrl: null }, at);
-  ok("ai router back to direct", r.s === 200 && r.d.providers?.find((p) => p.id === "anthropic").baseUrl === null, r);
-  r = await j("PATCH", "/ai/settings", { activeProvider: "openai" }, at);
-  ok("ai activate unconfigured 400", r.s === 400, r);
-  r = await j("PATCH", "/ai/settings", { activeProvider: "anthropic" }, at);
-  ok("ai switch provider", r.s === 200 && r.d.activeProvider === "anthropic", r);
-  // Cadangan per tugas: hanya provider yang punya key; efektif = cadangan yang benar-benar dipakai
-  r = await j("PATCH", "/ai/settings", { routing: { agentBackup: "openai" } }, at);
-  ok("ai task backup without key 400", r.s === 400, r);
-  r = await j("PATCH", "/ai/settings", { routing: { agent: "anthropic", agentBackup: "gemini" } }, at);
-  ok(
-    "ai task backup saved",
-    r.s === 200 &&
-      r.d.routing.agentBackup === "gemini" &&
-      r.d.effective.agent === "anthropic" &&
-      r.d.effective.agentBackup === "gemini" &&
-      r.d.effective.chatBackup === "gemini",
-    r,
-  );
-  r = await j("PATCH", "/ai/settings", { routing: { agent: null, agentBackup: null } }, at);
-  ok("ai task backup reset", r.s === 200 && r.d.routing.agentBackup === undefined, r);
-  // Cadangan dimatikan: audio tidak dialihkan ke Gemini (yang akan memanggil Google dengan key palsu)
-  r = await j("PATCH", "/ai/settings", { fallbackEnabled: false }, at);
-  ok("ai fallback off", r.s === 200 && r.d.fallbackEnabled === false && r.d.activeProvider === "anthropic", r);
+  ok("ai generate without Akai 400", r.s === 400 && /AI belum diatur/.test(r.d.message), r);
+  r = await j("PUT", "/ai/settings/gemini", { apiKey: "smoke-fake-key-ABCD1234" }, at);
+  ok("ai save key in Akasha removed (404)", r.s === 404, r);
+  r = await j("POST", "/ai/settings/gemini/test", null, at);
+  ok("ai provider test removed (404)", r.s === 404, r);
+  r = await j("PATCH", "/ai/settings", { activeProvider: "gemini" }, at);
+  ok("ai settings rejects provider fields 400", r.s === 400, r);
+  r = await j("POST", "/ai/settings/migrate", null, at);
+  ok("ai migrate removed (key lama sudah dipindah) 404", r.s === 404, r);
   r = await j("POST", "/ai/generate", aiForm([["audio", "audio/webm", "rekaman.webm"]]), at);
-  ok(
-    "ai attachment unsupported, no fallback 400",
-    r.s === 400 && /audio/.test(r.d.message) && /Cadangan/.test(r.d.message),
-    r,
-  );
-  r = await j("PATCH", "/ai/settings", { fallbackEnabled: "ya" }, at);
-  ok("ai fallback invalid value 400", r.s === 400, r);
+  ok("ai audio attachment rejected 400", r.s === 400 && /audio/i.test(r.d.message), r);
   r = await j("POST", "/ai/generate", aiForm([["PK", "application/zip", "arsip.zip"]]), at);
   ok("ai unsupported file type 400", r.s === 400, r);
-  r = await j("DELETE", "/ai/settings/anthropic", null, at);
-  ok("ai remove active falls back", r.s === 200 && r.d.activeProvider === "gemini", r);
-  // Hapus key Gemini palsu sebelum ada record/berkas, agar indeks, embedding, & OCR tidak memanggil Google
-  r = await j("DELETE", "/ai/settings/gemini", null, at);
-  ok("ai remove fake gemini key", r.s === 200 && r.d.activeProvider === null, r);
+  r = await j("GET", "/auth/me", null, at);
+  ok("me aiViaAkai false (tanpa SSO)", r.d.aiViaAkai === false, r);
 
   // ------------------------------------------------------------ settings (tulis nilai yang sama)
   const r0 = (r = await j("GET", "/settings/app"));
@@ -798,6 +749,8 @@ try {
   ok("user directory", r.s === 200 && r.d.length === 1 && r.d[0].email === partnerEmail && !("role" in r.d[0]), r);
   r = await j("GET", "/users/directory?q=ab", null, at);
   ok("directory needs 3 chars", r.s === 200 && r.d.length === 0, r);
+  r = await j("DELETE", `/users/${tempPartnerId}`, null, admin);
+  ok("delete user in Akasha removed (404, akun dikelola di SSO)", r.s === 404, r);
   r = await j("GET", "/users/stats", null, admin);
   const stat = r.d?.find?.((x) => x.userId === tempUserId);
   ok(
@@ -990,7 +943,7 @@ try {
   r = await j("GET", `/notebooks/${nb}`, null, at);
   ok("notebook detail lists sources", r.s === 200 && r.d.sources.length === 4 && r.d.summaryStale === false, r);
   r = await j("GET", "/ai/settings", null, at);
-  if (r.d?.activeProvider) console.log("SKIP notebook chat tanpa AI (user uji punya provider aktif)");
+  if (r.d?.akai?.available) console.log("SKIP notebook chat tanpa AI (user uji tersambung ke Akai)");
   else {
     r = await j("POST", `/notebooks/${nb}/chat`, { message: "Berapa kenaikan anggaran?" }, at);
     ok("notebook chat without AI provider 400", r.s === 400, r);
@@ -1028,7 +981,7 @@ try {
   ok("notebook chat unreadable attachment 400", r.s === 400 && /tidak bisa dibaca/.test(JSON.stringify(r.d)), r);
   await j("DELETE", `/uploads/${binAsset.d.id}`, null, at);
   r = await j("GET", "/ai/settings", null, at);
-  if (!r.d?.activeProvider) {
+  if (!r.d?.akai?.available) {
     // Dokumen teks (diekstrak server) + gambar sama-sama diterima → sampai ke tahap AI
     const docForm = new FormData();
     docForm.append("file", new Blob(["Lampiran chat: jadwal rapat 3 November."], { type: "text/plain" }), "jadwal.txt");
@@ -2260,6 +2213,30 @@ try {
   ok("cold storage unknown account 404", r.s === 404, r);
   r = await j("POST", "/drive/cold/run", null, at);
   ok("cold storage run without account 400", r.s === 400, r);
+  r = await j("GET", "/drive/cold/files", null, at);
+  ok("cold storage files list", r.s === 200 && Array.isArray(r.d), r);
+  r = await j("POST", "/drive/cold/files/tidak-ada/restore", null, at);
+  ok("cold storage restore unknown file 400", r.s === 400, r);
+  // Backup ke Drive: tanpa akun berizin Drive → status kosong, tidak bisa dijalankan
+  r = await j("GET", "/drive/backup", null, at);
+  ok(
+    "drive backup status",
+    r.s === 200 &&
+      r.d.settings.keep === 5 &&
+      r.d.settings.schedule === "off" &&
+      r.d.running === null &&
+      Array.isArray(r.d.runs),
+    r,
+  );
+  r = await j("PUT", "/drive/backup", { schedule: "daily" }, at);
+  ok("drive backup invalid schedule 400", r.s === 400, r);
+  r = await j("PUT", "/drive/backup", { accountId: "tidak-ada" }, at);
+  ok("drive backup unknown account 404", r.s === 404, r);
+  r = await j("PUT", "/drive/backup", { schedule: "weekly", keep: 3, includeFiles: false }, at);
+  ok("drive backup settings saved", r.s === 200 && r.d.settings.schedule === "weekly" && r.d.settings.keep === 3, r);
+  await j("PUT", "/drive/backup", { schedule: "off", keep: 5, includeFiles: true }, at);
+  r = await j("POST", "/drive/backup/run", null, at);
+  ok("drive backup run without account 400", r.s === 400, r);
 
   // ---------------------------------------------------------------- Integrasi agen: token akses + MCP
   const mcp = async (token, method, params = {}) => {
@@ -3085,6 +3062,12 @@ try {
     ok("agent status for non-owner", r.s === 200 && r.d.owner === false && r.d.reachable === false, r);
     r = await j("GET", "/agent/skills", null, pt);
     ok("agent skills non-owner rejected", r.s === 403 || r.s === 422, r);
+    r = await j("GET", "/agent/conversations", null, pt);
+    ok("agent conversations non-owner rejected", r.s === 403 || r.s === 422, r);
+    r = await j("GET", "/agent/conversations", null, at);
+    ok("agent conversations owner list / non-owner rejected", (r.s === 200 && Array.isArray(r.d)) || r.s === 403, r);
+    r = await j("PATCH", "/agent/conversations/tidak-ada", { title: "x" }, at);
+    ok("agent conversation unknown 404", r.s === 404 || r.s === 403, r);
     r = await j("POST", "/agent/setup", {}, pt);
     ok("agent setup non-owner rejected", r.s === 403 || r.s === 422, r);
     r = await j("POST", `/agent/requests/${reqId}/run`, { skill: "telaah-pengajuan" }, pt);
@@ -3735,20 +3718,18 @@ try {
         r.d?.status === "done" && r.d.markdown.includes("Laporan uji konverter") && r.d.result?.pages === 1,
         r,
       );
-      // User smoke tanpa key AI: Rapikan gagal dengan pesan (Markdown converter tetap disimpan), token tidak bisa dihitung
+      // User smoke tanpa Akai: Rapikan gagal dengan pesan (Markdown converter tetap disimpan)
       const pdf2 = new FormData();
       pdf2.append("file", new Blob([makePdf("Laporan uji rapikan")], { type: "application/pdf" }), "rapikan.pdf");
       pdf2.append("mode", "markitdown");
       pdf2.append("enhance", "true");
-      pdf2.append("compareTokens", "true");
       r = await convertDoc(pdf2);
       ok(
         "converter enhance without AI key keeps converter markdown",
         r.d?.status === "done" &&
           r.d.markdown.includes("Laporan uji rapikan") &&
           r.d.enhancedMarkdown === null &&
-          typeof r.d.result?.enhanceError === "string" &&
-          r.d.result?.tokenComparison?.available === false,
+          typeof r.d.result?.enhanceError === "string",
         r,
       );
       const bad = new FormData();
@@ -4220,17 +4201,14 @@ try {
   ok("read-only: profile write rejected", r.s === 403, r);
   r = await j("POST", "/auth/logout", null, null, ro.rt);
   ok("read-only: logout still allowed", r.s === 200, r);
-  r = await j("DELETE", `/users/${ro.userId}`, null, admin);
-  ok("delete read-only temp user", r.s === 200, r);
+  ok("delete read-only temp user", await purgeUser(ro.userId));
 
   const docs = await fetch(B.replace("/api/v1", "/api/docs-json"));
   if (docs.status === 404) console.log("SKIP swagger json (dinonaktifkan di production)");
   else ok("swagger json", docs.status === 200);
 } finally {
-  r = await j("DELETE", `/users/${tempUserId}`, null, admin);
-  ok("delete temp user (cascade)", r.s === 200, r);
-  r = await j("DELETE", `/users/${tempPartnerId}`, null, admin);
-  ok("delete temp partner", r.s === 200, r);
+  ok("delete temp user (cascade + storage)", await purgeUser(tempUserId));
+  ok("delete temp partner", await purgeUser(tempPartnerId));
   await db.end();
 }
 

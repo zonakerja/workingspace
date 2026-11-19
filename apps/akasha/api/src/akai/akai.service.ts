@@ -1,7 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { Readable } from "node:stream";
 import type { Response as ExpressResponse } from "express";
-import { type AiAttachment, AiProviderError } from "../ai/providers/ai-client";
+import { Agent } from "undici";
+import { type AiAttachment, AiProviderError } from "../ai/ai-errors";
 import type { AiTask } from "../ai/ai-routing";
 import {
   akaiEmbeddingModel,
@@ -19,10 +21,39 @@ import {
 
 /** Status model per tugas di Akai di-cache sebentar (Pengaturan di Akai web berlaku ≤ 30 dtk kemudian). */
 const STATUS_TTL_MS = 30_000;
-const CHAT_TIMEOUT_MS = 180_000;
+/**
+ * `fetch` Node memutus permintaan yang menunggu header > 5 menit (undici `headersTimeout`). Akai menjawab non-stream (dan Claude lewat
+ * format Anthropic) baru setelah model selesai, jadi panggilan panjang memakai dispatcher tanpa batas header/body — batasnya
+ * `AbortSignal` masing-masing.
+ */
+const LONG_CALLS = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+/** Ringkasan transkrip panjang (± 30 rb token) bisa makan 4+ menit; Akai sendiri membatasi 10 menit per model. */
+const CHAT_TIMEOUT_MS = 12 * 60_000;
 const EMBED_TIMEOUT_MS = 120_000;
 /** Satu giliran agen bisa panjang (pemikiran + jawaban); Akai sendiri membatasi 10 menit per model. */
 const AGENT_TIMEOUT_MS = 30 * 60_000;
+
+/** Mengunggah audio ratusan MB lewat jaringan internal. */
+const TRANSCRIBE_UPLOAD_TIMEOUT_MS = 15 * 60_000;
+export const AKAI_REQUIRED =
+  "AI belum diatur: fitur AI memakai model yang diatur di Akai. Masuk lewat akun Workingspace dan atur model di Akai → Model.";
+
+export type AkaiTranscribeJob =
+  | { status: "running"; startedAt: number }
+  | {
+      status: "done";
+      startedAt: number;
+      finishedAt: number;
+      result: {
+        text: string;
+        truncated: boolean;
+        passes: number;
+        warning: string | null;
+        provider: string;
+        model: string;
+      };
+    }
+  | { status: "failed"; startedAt: number; finishedAt: number; httpStatus: number; message: string };
 
 /** Hasil proxy agen untuk status "Panggilan model terakhir" (Siapkan agen). */
 export interface AgentProxyResult {
@@ -223,7 +254,8 @@ export class AkaiService {
         headers: { ...this.headers(user), "Content-Type": "application/json" },
         body: JSON.stringify(payload),
         signal: controller.signal,
-      });
+        dispatcher: LONG_CALLS,
+      } as RequestInit);
     } catch (error) {
       clearTimeout(timer);
       this.logger.warn(`Akai tidak dapat dihubungi (agen): ${String(error)}`);
@@ -278,6 +310,61 @@ export class AkaiService {
     }
   }
 
+  /** Galat jawaban Akai → AkaiError (429 kuota / 400 isian / 422 lainnya). */
+  private async fail(res: Response): Promise<never> {
+    const body: unknown = await res.json().catch(() => null);
+    throw new AkaiError(res.status === 429 ? 429 : res.status === 400 ? 400 : 422, akaiMessage(body, res.status));
+  }
+
+  private unreachable(error: unknown): never {
+    this.logger.warn(`Akai tidak dapat dihubungi: ${String(error)}`);
+    throw new AkaiError(422, "Akai tidak dapat dihubungi. Coba lagi sebentar.", true);
+  }
+
+  /**
+   * Mulai transkrip audio di Akai: isi audio dialirkan (bukan dimuat ke memori), `key` = kunci pekerjaan (ID berkas). Akai
+   * mengerjakannya di latar belakang memakai model tugas Transkrip (Gemini langsung).
+   */
+  async transcribeStart(user: AkaiUser, key: string, mimeType: string, audio: Readable, size: number) {
+    if (!this.enabled || !user.ssoSubject) throw new AkaiError(422, AKAI_REQUIRED);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/gateway/v1/audio/transcriptions`, {
+        method: "POST",
+        headers: {
+          ...this.headers(user),
+          "Content-Type": mimeType,
+          "Content-Length": String(size),
+          "X-Akai-Key": key,
+        },
+        body: audio as unknown as BodyInit,
+        duplex: "half",
+        signal: AbortSignal.timeout(TRANSCRIBE_UPLOAD_TIMEOUT_MS),
+        dispatcher: LONG_CALLS,
+      } as RequestInit);
+    } catch (error) {
+      this.unreachable(error);
+    }
+    if (!res.ok) await this.fail(res);
+    return (await res.json()) as AkaiTranscribeJob;
+  }
+
+  /** Status transkrip di Akai (null = Akai tidak mengenal pekerjaan ini, mis. Akai baru dimulai ulang). */
+  async transcribeStatus(user: AkaiUser, key: string): Promise<AkaiTranscribeJob | null> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/gateway/v1/audio/transcriptions/${encodeURIComponent(key)}`, {
+        headers: this.headers(user),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (error) {
+      this.unreachable(error);
+    }
+    if (res.status === 404) return null;
+    if (!res.ok) await this.fail(res);
+    return (await res.json()) as AkaiTranscribeJob;
+  }
+
   async generate(user: AkaiUser, task: AiTask, prompt: string, attachments: AiAttachment[]) {
     const messages = toAkaiMessages(prompt, attachments);
     if (!messages) return null;
@@ -288,7 +375,8 @@ export class AkaiService {
         headers: { ...this.headers(user), "Content-Type": "application/json" },
         body: JSON.stringify({ task: akaiTaskFor(task), messages }),
         signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
-      });
+        dispatcher: LONG_CALLS,
+      } as RequestInit);
     } catch (error) {
       this.logger.warn(`Akai tidak dapat dihubungi: ${String(error)}`);
       throw new AkaiError(422, "Akai tidak dapat dihubungi. Coba lagi sebentar.", true);

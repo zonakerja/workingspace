@@ -4,8 +4,8 @@ import { ApiError } from "@/lib/api/client";
 import { aiApi } from "@/lib/api/endpoints";
 import { useAuthStore } from "@/stores/auth-store";
 
-/** Pesan standar bila user belum memilih provider AI. */
-export const AI_NOT_CONFIGURED = "AI belum diatur. Pilih provider dan simpan API key di Pengaturan → Model AI.";
+/** Pesan standar bila model AI belum diatur di Akai. */
+export const AI_NOT_CONFIGURED = "AI belum diatur. Atur model di Akai → Model (Pengaturan → Model AI → Buka Akai).";
 
 const TRANSCRIBE_POLL_MS = 5_000;
 /** Gangguan jaringan / backend restart sesaat tidak langsung dianggap gagal (± 1 menit). */
@@ -31,18 +31,17 @@ async function waitForTranscript(uploadId: string, isActive: () => boolean) {
 
 /**
  * Titik masuk tunggal fitur AI di frontend. Komponen tidak boleh memanggil provider secara langsung — cukup
- * `const ai = useAi(); await ai.generate(prompt, files)`. Permintaan diproses backend (`POST /ai/generate`) memakai
- * provider, model, dan API key terenkripsi milik user; browser tidak pernah memegang API key. Bila backend memakai
- * provider cadangan (kuota habis, provider tidak terjangkau, lampiran tak didukung), user diberi tahu lewat toast.
+ * `const ai = useAi(); await ai.generate(prompt, files)`. Permintaan diproses backend (`POST /ai/generate`) yang
+ * meneruskannya ke gateway Akai (model & cadangan diatur di Akai → Model); browser tidak pernah memegang API key. Bila Akai
+ * memakai model cadangan, user diberi tahu lewat toast.
  */
 export function useAi() {
-  const provider = useAuthStore((s) => s.user?.aiProvider ?? null);
-  // Akun yang sudah mengatur model di Akai bisa memakai AI walau belum menyimpan key di Pengaturan → Model AI
-  const viaAkai = useAuthStore((s) => !!s.user?.aiViaAkai);
+  // Fitur AI siap bila tugas Umum/Chat sudah punya model di Akai
+  const ready = useAuthStore((s) => !!s.user?.aiViaAkai);
 
   const generate = useCallback(async (prompt: string, files: Blob[] = []) => {
     const result = await aiApi.generate(prompt, files);
-    if (result.fallback) toast.info("Provider AI cadangan dipakai", { description: result.fallback.message });
+    if (result.fallback) toast.info("Model cadangan di Akai dipakai", { description: result.fallback.message });
     return result.text;
   }, []);
 
@@ -52,5 +51,5 @@ export function useAi() {
     [],
   );
 
-  return { isConfigured: !!provider || viaAkai, provider, generate, transcribe };
+  return { isConfigured: ready, generate, transcribe };
 }

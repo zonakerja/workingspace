@@ -11,6 +11,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CommandGroup, CommandItem } from "@/components/ui/command";
 import { Link, useNavigate } from "react-router";
 import { previewFile } from "@/components/common/file-preview";
 import { Button } from "@/components/ui/button";
@@ -157,12 +158,12 @@ export function SmartSearchPanel({
           {mode === "text" && " Coba mode Makna."}
         </p>
       ) : (
-        <ul className="flex flex-col gap-1">
+        <CommandGroup className="p-0">
           {mode === "meaning" && data && !data.semantic && (
-            <li className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
-              Pencarian makna butuh key embedding (Gemini atau OpenAI) di Pengaturan → Model AI. Yang tampil adalah
-              hasil pencarian kata.
-            </li>
+            <div className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
+              Pencarian makna butuh model Embedding di Akai (Pengaturan → Model AI). Yang tampil adalah hasil pencarian
+              kata.
+            </div>
           )}
           {shown.map((result) => (
             <ResultRow
@@ -172,12 +173,13 @@ export function SmartSearchPanel({
               onOpen={() => void open(result)}
             />
           ))}
-        </ul>
+        </CommandGroup>
       )}
 
       {results.length > 0 && (
         <p className="px-2 pt-1 text-[11px] text-muted-foreground">
-          Hanya data milik Anda yang terindeks. Item yang dibagikan orang lain dicari di tab Cepat.
+          ↑ ↓ memilih hasil, Enter membuka. Isi berkas hanya dicari pada data milik Anda; item yang dibagikan orang lain
+          dicocokkan dari judul & keterangannya.
         </p>
       )}
     </div>
@@ -231,42 +233,40 @@ function ResultRow({ result, query, onOpen }: { result: SmartSearchResult; query
   const Icon = MODULE_ICON[result.module];
   const disabled = smartTarget(result).kind === "none";
   return (
-    <li>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onOpen}
-        className="flex w-full items-start gap-3 rounded-xl px-2 py-2 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none disabled:cursor-default disabled:hover:bg-transparent"
-      >
-        <span className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted", info.tone)}>
-          <Icon className="size-4" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold">
-              <Highlighted text={result.title} query={query} />
-            </span>
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-              {kindLabel(result)}
-            </span>
+    <CommandItem
+      value={`smart-${result.sourceType}:${result.sourceId}`}
+      disabled={disabled}
+      onSelect={onOpen}
+      className="items-start gap-3 rounded-xl px-2 py-2"
+    >
+      <span className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted", info.tone)}>
+        <Icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-semibold">
+            <Highlighted text={result.title} query={query} />
           </span>
-          {result.locked && (
-            <span className="mt-0.5 flex items-center gap-1 text-xs text-warning">
-              <Lock className="size-3" /> Terkunci — masukkan PIN untuk melihat isinya
-            </span>
-          )}
-          {result.snippet && (
-            <span className="mt-0.5 line-clamp-2 text-xs break-words text-muted-foreground">
-              <Highlighted text={result.snippet} query={query} />
-            </span>
-          )}
-          <span className="mt-0.5 flex gap-2 text-[11px] text-muted-foreground">
-            <span className={info.tone}>{info.label}</span>
-            {result.path && <span className="truncate">{result.path}</span>}
-            {result.matches > 1 && <span>{result.matches} bagian cocok</span>}
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            {kindLabel(result)}
           </span>
         </span>
-      </button>
-    </li>
+        {result.locked && (
+          <span className="mt-0.5 flex items-center gap-1 text-xs text-warning">
+            <Lock className="size-3" /> Terkunci — masukkan PIN untuk melihat isinya
+          </span>
+        )}
+        {result.snippet && (
+          <span className="mt-0.5 line-clamp-2 text-xs break-words text-muted-foreground">
+            <Highlighted text={result.snippet} query={query} />
+          </span>
+        )}
+        <span className="mt-0.5 flex gap-2 text-[11px] text-muted-foreground">
+          <span className={info.tone}>{info.label}</span>
+          {result.path && <span className="truncate">{result.path}</span>}
+          {result.matches > 1 && <span>{result.matches} bagian cocok</span>}
+        </span>
+      </span>
+    </CommandItem>
   );
 }

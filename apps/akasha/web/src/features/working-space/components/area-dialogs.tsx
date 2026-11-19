@@ -9,6 +9,7 @@ import {
   FolderInput,
   Layers,
   ListPlus,
+  Lock,
   PencilLine,
   Plus,
   Trash2,
@@ -71,7 +72,7 @@ import { DiscardScope, useAttachmentEdits, useDiscardScope } from "../use-attach
 import { useParaActions } from "../use-para-actions";
 import { ProjectFormDialog } from "./project-dialogs";
 import { TaskManager } from "./task-manager";
-import { LockedNotice } from "@/features/security/lock-controls";
+import { LockedNotice, LockToggleButton } from "@/features/security/lock-controls";
 
 // ============================================================================
 // Form Area
@@ -539,7 +540,7 @@ function AreaDetail({
   initialSelection: AreaSelection;
   onArchive: (area: Area) => void;
 }) {
-  const { items: activities } = useActivities();
+  const { items: activities, setItems: setActivities } = useActivities();
   const { items: projects } = useProjects();
   const { items: tasks } = useProjectTasks();
   const actions = useParaActions();
@@ -616,7 +617,7 @@ function AreaDetail({
           className={cn(
             "w-full truncate rounded-xl border text-left transition-all",
             depth <= 0 ? "p-3 text-sm font-bold" : depth === 1 ? "p-2 text-xs font-semibold" : "p-1.5 text-xs",
-            childLabel ? "pr-24" : "pr-16",
+            childLabel ? "pr-32" : "pr-24",
             selected
               ? kind === "activity"
                 ? "border-primary/40 bg-card text-primary shadow-md"
@@ -625,6 +626,7 @@ function AreaDetail({
           )}
         >
           {depth > 0 && <CornerDownRight className="mr-1 inline size-3" />}
+          {kind === "activity" && (item as Activity).locked && <Lock className="mr-1 inline size-3 text-warning" />}
           {item.title}
         </button>
         {canEdit && (
@@ -653,6 +655,13 @@ function AreaDetail({
               >
                 <Unlink />
               </Button>
+            )}
+            {kind === "activity" && !sharedArea && !item.share && (
+              <LockToggleButton
+                item={item as Activity}
+                size="icon-xs"
+                onSave={(next) => setActivities((prev) => prev.map((a) => (a.id === next.id ? next : a)))}
+              />
             )}
             <Button
               variant="ghost"

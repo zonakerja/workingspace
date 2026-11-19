@@ -1,11 +1,13 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Put, Query, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { IsBoolean, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min } from "class-validator";
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min } from "class-validator";
 import type { Response } from "express";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
+import { BACKUP_KEEP_MAX, BACKUP_KEEP_MIN, BACKUP_SCHEDULES } from "./backup-logic";
 import { ColdStorageService } from "./cold-storage.service";
+import { DriveBackupService } from "./drive-backup.service";
 import { COLD_MAX_DAYS, COLD_MIN_DAYS } from "./drive-logic";
 import { DriveService } from "./drive.service";
 
@@ -24,6 +26,14 @@ class ColdSettingsDto {
   @IsOptional() @IsNumber() @Min(0) @Max(1024) minSizeMb?: number;
 }
 
+class BackupSettingsDto {
+  @IsOptional() @IsString() @MaxLength(64) accountId?: string;
+  @IsOptional() @IsIn([...BACKUP_SCHEDULES]) schedule?: (typeof BACKUP_SCHEDULES)[number];
+  @IsOptional() @IsNumber() @Min(BACKUP_KEEP_MIN) @Max(BACKUP_KEEP_MAX) keep?: number;
+  @IsOptional() @IsBoolean() includeFiles?: boolean;
+  @IsOptional() @IsBoolean() onExpiry?: boolean;
+}
+
 /** Drive sebagai penyimpanan (docs/AKUN-TERSAMBUNG.md tahap 4): pilih berkas dari Google Drive / OneDrive + arsip dingin. */
 @ApiTags("drive")
 @ApiBearerAuth()
@@ -33,6 +43,7 @@ export class DriveController {
   constructor(
     private readonly drive: DriveService,
     private readonly cold: ColdStorageService,
+    private readonly backup: DriveBackupService,
   ) {}
 
   @Get("accounts")
@@ -92,5 +103,35 @@ export class DriveController {
   @Post("cold/restore")
   coldRestore(@CurrentUser() user: AuthUser) {
     return this.cold.restoreAll(user.id);
+  }
+
+  /** Daftar berkas di arsip dingin. */
+  @Get("cold/files")
+  coldFiles(@CurrentUser() user: AuthUser) {
+    return this.cold.files(user.id);
+  }
+
+  /** Kembalikan satu berkas dari arsip dingin ke storage. */
+  @HttpCode(200)
+  @Post("cold/files/:id/restore")
+  coldRestoreOne(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.cold.restoreOne(user.id, id);
+  }
+
+  @Get("backup")
+  backupStatus(@CurrentUser() user: AuthUser) {
+    return this.backup.status(user.id);
+  }
+
+  @Put("backup")
+  backupUpdate(@CurrentUser() user: AuthUser, @Body() dto: BackupSettingsDto) {
+    return this.backup.update(user.id, dto);
+  }
+
+  /** Backup sekarang (tetap boleh saat masa akses habis / baca saja). */
+  @HttpCode(200)
+  @Post("backup/run")
+  backupRun(@CurrentUser() user: AuthUser) {
+    return this.backup.runNow(user.id);
   }
 }

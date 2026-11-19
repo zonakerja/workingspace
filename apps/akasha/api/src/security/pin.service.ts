@@ -46,7 +46,7 @@ export class PinService {
   async status(user: AuthUser) {
     const row = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { pinHash: true, pinBlockedUntil: true, ssoSubject: true, ssoPin: true },
+      select: { pinHash: true, pinBlockedUntil: true, ssoSubject: true, ssoPin: true, pinAutoLockMinutes: true },
     });
     const set = await this.locks.lockSet(user.id);
     let hasPin = !!row.pinHash;
@@ -62,7 +62,9 @@ export class PinService {
     }
     return {
       hasPin,
-      unlocked: hasPin && (await this.locks.isUnlocked(user)),
+      unlocked: hasPin && (await this.locks.isUnlocked(user, { touch: false })),
+      /** Kunci otomatis setelah n menit tanpa aktivitas atas item terkunci; null = sampai logout */
+      autoLockMinutes: row.pinAutoLockMinutes,
       blockedUntil,
       /** PIN diatur di halaman akun Workingspace (`accountUrl`), bukan di Akasha */
       managedBySso,
@@ -94,6 +96,18 @@ export class PinService {
     // Pengatur PIN baru saja membuktikan diri → sesi ini dibiarkan terbuka
     await this.locks.setSessionUnlocked(user, true);
     return this.status(user);
+  }
+
+  /** Atur kunci otomatis (null = terbuka sampai logout / Kunci sekarang). Berlaku untuk semua sesi akun ini. */
+  async setAutoLock(user: AuthUser, minutes: number | null) {
+    await this.prisma.user.update({ where: { id: user.id }, data: { pinAutoLockMinutes: minutes } });
+    // Sesi yang sedang terbuka mulai dihitung dari sekarang (tidak langsung terkunci)
+    if (minutes && user.sid)
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: user.id, pinUnlocked: true },
+        data: { pinActiveAt: new Date() },
+      });
+    return { autoLockMinutes: minutes };
   }
 
   async unlock(user: AuthUser, pin: string) {

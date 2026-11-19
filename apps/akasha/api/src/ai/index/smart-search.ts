@@ -144,3 +144,16 @@ export function groupBySource<T extends GroupableHit>(hits: T[]) {
 export function fileControlTab(status?: string | null): "pending" | "physical" | "digital" {
   return status === "physical" || status === "digital" ? status : "pending";
 }
+
+/**
+ * Jarak kemiripan Gemini Embedding terpusat sempit (± 0,56–0,72 untuk dokumen sejenis), jadi ambang tetap rapuh. Mode Makna Pencarian
+ * Pintar memakai ambang relatif: hasil vektor yang kemiripannya ≤ `MEANING_WINDOW` di bawah hasil terbaik.
+ */
+export const MEANING_WINDOW = 0.05;
+
+/** Kandidat vektor (urut terdekat dulu) yang cukup dekat dengan hasil terbaik; `distance` = jarak kosinus (1 − kemiripan). */
+export function relevantByMeaning<T extends { distance: number }>(rows: T[], window: number): T[] {
+  if (!rows.length) return rows;
+  const best = Math.min(...rows.map((r) => Number(r.distance)));
+  return rows.filter((r) => Number(r.distance) - best <= window);
+}

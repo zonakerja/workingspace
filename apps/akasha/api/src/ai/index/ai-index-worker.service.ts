@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Job, UnrecoverableError, Worker } from "bullmq";
 import { redisConnectionOptions } from "../../redis/redis.module";
 import { isFallbackError } from "../ai-routing";
-import { AiProviderError } from "../providers/ai-client";
+import { AiProviderError } from "../ai-errors";
 import { AI_INDEX_QUEUE, type AiIndexJob } from "./ai-index-queue.service";
 import { AiIndexService } from "./ai-index.service";
 

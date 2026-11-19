@@ -25,7 +25,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ObjectStorageService } from "../storage/object-storage.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { AiService } from "../ai/ai.service";
-import { AI_PROVIDERS } from "../ai/ai-providers";
+import { AkaiService } from "../akai/akai.service";
 import {
   type CreateOfficeDocumentDto,
   type OfficeConfigDto,
@@ -146,6 +146,7 @@ export class OfficeService {
     private readonly ai: AiService,
     private readonly converter: OfficeTextConverter,
     private readonly accessState: AccessStateService,
+    private readonly akai: AkaiService,
   ) {
     this.publicUrl = config.get<string>("ONLYOFFICE_URL")?.replace(/\/+$/, "") || undefined;
     this.internalUrl = config.get<string>("ONLYOFFICE_INTERNAL_URL")?.replace(/\/+$/, "") || this.publicUrl;
@@ -497,14 +498,14 @@ export class OfficeService {
   async preferences(user: AuthUser) {
     const profile = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { officeAi: true, aiProvider: true, aiCredentials: { select: { provider: true, model: true } } },
+      select: { officeAi: true, ssoSubject: true, email: true, name: true },
     });
-    const credential = profile.aiCredentials.find((c) => c.provider === profile.aiProvider);
-    const provider = credential ? AI_PROVIDERS[credential.provider] : null;
+    // AI di editor = tugas Umum di Akai
+    const model = await this.akai.primaryModel(profile, "general");
     return {
       ai: profile.officeAi,
-      aiReady: !!credential,
-      provider: provider ? { label: provider.label, model: credential!.model || provider.defaultModel } : null,
+      aiReady: !!model,
+      provider: model ? { label: "Akai", model } : null,
     };
   }
 

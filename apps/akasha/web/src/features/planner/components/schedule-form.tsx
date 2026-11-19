@@ -24,6 +24,7 @@ import { AttachmentTable } from "@/features/resources/attachment-table";
 import { ownedFiles } from "@/features/resources/attachment-cleanup";
 import { DeleteWithFilesDialog } from "@/features/resources/delete-with-files-dialog";
 import { useAttachmentCleanup } from "@/features/resources/use-attachment-cleanup";
+import { trackPendingUpload, untrackPendingUpload } from "@/lib/pending-uploads";
 import { useOpenSession, useRetained } from "@/hooks/use-retained";
 import { addDays, formatLocalYMD, parseLocalYMD, todayYMD } from "@/lib/dates";
 import { toExternalHref } from "@/lib/urls";
@@ -128,13 +129,21 @@ function ScheduleForm({
   // Batal melewati penjaga tutup dialog (mis. dokumen ONLYOFFICE berisi di form lampiran)
   const guardedClose = useGuardedClose();
   const cleanup = useAttachmentCleanup();
-  // Berkas yang diunggah di sesi form ini: dibuang bila form ditutup tanpa disimpan
+  // Berkas yang diunggah di sesi form ini: dibuang bila form ditutup tanpa disimpan, dan dicatat sebagai unggahan
+  // tertunda agar tetap dibersihkan bila tab di-reload/ditutup sebelum agenda disimpan
   const sessionUploadsRef = useRef(new Set<string>());
+  /** Agenda tersimpan → berkas sesi kini dirujuk data, lepas dari pencatat unggahan tertunda. */
+  const markSaved = () => {
+    savedRef.current = true;
+    sessionUploadsRef.current.forEach(untrackPendingUpload);
+    sessionUploadsRef.current.clear();
+  };
   const savedRef = useRef(false);
   const [released, setReleased] = useState<ReleasedFiles[]>([]);
   const [removing, setRemoving] = useState<AttachedResource | null>(null);
   const discardUnsaved = () => {
     if (savedRef.current) return;
+    sessionUploadsRef.current.forEach(untrackPendingUpload);
     cleanup.discardUploads([...sessionUploadsRef.current]);
     sessionUploadsRef.current.clear();
   };
@@ -204,13 +213,13 @@ function ScheduleForm({
       setPending(result);
       return;
     }
-    savedRef.current = true;
+    markSaved();
     onSave(result, released, "all");
   };
 
   const confirmScope = () => {
     if (!pending) return;
-    savedRef.current = true;
+    markSaved();
     onSave(pending, released, scope);
     setPending(null);
   };
@@ -390,7 +399,10 @@ function ScheduleForm({
               idPrefix="sb"
               onCancel={() => setAddingBasis(false)}
               onAdd={(att) => {
-                if (att.uploadId && !att.existingId) sessionUploadsRef.current.add(att.uploadId);
+                if (att.uploadId && !att.existingId) {
+                  sessionUploadsRef.current.add(att.uploadId);
+                  trackPendingUpload(att.uploadId);
+                }
                 patch({ resources: [...(form.resources ?? []), att] });
                 setAddingBasis(false);
               }}
@@ -407,6 +419,7 @@ function ScheduleForm({
               if (att.uploadId && sessionUploadsRef.current.has(att.uploadId)) {
                 // Baru diunggah di form ini (belum pernah tersimpan) → langsung dibuang
                 sessionUploadsRef.current.delete(att.uploadId);
+                untrackPendingUpload(att.uploadId);
                 cleanup.discardUploads([att.uploadId]);
                 dropAttachment();
               } else if (ownedFiles([att]).length) {

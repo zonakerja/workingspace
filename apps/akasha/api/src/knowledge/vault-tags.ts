@@ -88,3 +88,40 @@ export function renameTagInQuery(query: string, from: string, to: string) {
     return after ? `${lead}tag:${after}` : match;
   });
 }
+
+/** Literal string `"a"` / `'a'` di dalam teks: nilai yang cocok tag lama diganti (tanda kutip dipertahankan). */
+function renameLiterals(args: string, from: string, to: string, onChange: () => void) {
+  return args.replace(/(["'])((?:(?!\1)[^\\\n])*)\1/g, (match, quote: string, value: string) => {
+    const hash = value.startsWith("#") ? "#" : "";
+    const after = renamed(value.slice(hash.length), from, to);
+    if (!after) return match;
+    onChange();
+    return `${quote}${hash}${after}${quote}`;
+  });
+}
+
+/**
+ * Berkas `.base` (teks YAML mentah, komentar & urutan tetap): argumen `file.hasTag(…)` dan `tags.contains / containsAny /
+ * containsAll(…)` (juga `note.tags`, `tag`) yang berisi tag lama. Ekspresi lain tidak disentuh.
+ */
+export function renameTagInBase(raw: string, from: string, to: string) {
+  let count = 0;
+  const text = raw.replace(
+    /\b((?:file\.)?hasTag|(?:note\.)?(?:tags?|"tags?")\s*\.\s*contains(?:Any|All)?)\s*\(([^()\n]*)\)/g,
+    (_match, fn: string, args: string) => `${fn}(${renameLiterals(args, from, to, () => count++)})`,
+  );
+  return { text, count };
+}
+
+/** Kartu teks canvas: `#tag` di teks Markdown kartu (aturan sama dengan isi catatan). */
+export function renameTagInCanvasNodes(nodes: Record<string, unknown>[], from: string, to: string) {
+  let count = 0;
+  const next = nodes.map((node) => {
+    if (node.type !== "text" || typeof node.text !== "string") return node;
+    const result = renameInline(node.text, from, to);
+    if (!result.count) return node;
+    count += result.count;
+    return { ...node, text: result.text };
+  });
+  return { nodes: next, count };
+}

@@ -46,12 +46,6 @@ export class ConvertFileDto {
   @Transform(({ value }) => value === true || value === "true")
   @IsBoolean()
   enhance?: boolean;
-
-  /** Hitung token (Gemini countTokens): berkas mentah vs Markdown vs hasil rapikan. */
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === "true")
-  @IsBoolean()
-  compareTokens?: boolean;
 }
 
 export class ReconvertDto {

@@ -171,9 +171,7 @@ function UploadSource({ notebookId, onDone }: { notebookId: string; onDone: () =
           e.target.value = "";
         }}
       />
-      <p className="text-xs text-muted-foreground">
-        Gambar dan PDF hasil scan dibaca dengan OCR Gemini (butuh API key Gemini di Pengaturan → Model AI).
-      </p>
+      <p className="text-xs text-muted-foreground">Gambar dan PDF hasil scan dibaca dengan OCR (tugas OCR di Akai).</p>
     </div>
   );
 }

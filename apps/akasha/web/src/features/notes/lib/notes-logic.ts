@@ -1,4 +1,4 @@
-import type { AiNote, FreeList, FreeNote, ListItem, NoteFileAttachment } from "@/types/entities";
+import type { AiNote, FreeList, FreeNote, ListItem, NoteFileAttachment, NoteAudioItem } from "@/types/entities";
 
 // ---------------------------------------------------------------------------- Pencarian & urutan
 
@@ -136,10 +136,55 @@ export const withDocumentList = (note: AiNote): AiNote => {
   };
 };
 
+/** Batas berkas audio per Notes AI. */
+export const MAX_NOTE_AUDIOS = 10;
+
+/** Semua audio sebuah Notes AI, termasuk catatan lama yang menyimpan satu audio (`audioUploadId` + `audioTranscript`). */
+export const audiosOf = (note: AiNote): NoteAudioItem[] => {
+  if (note.audioItems?.length) return note.audioItems;
+  if (!note.audioUploadId && !note.audioTranscript?.trim()) return [];
+  return [
+    {
+      id: note.audioUploadId ?? "audio-lama",
+      name: "Audio",
+      uploadId: note.audioUploadId,
+      transcript: note.audioTranscript,
+    },
+  ];
+};
+
+/**
+ * Gabungan transkrip untuk ringkasan, pencarian, dan indeks: satu audio = transkripnya apa adanya; beberapa audio =
+ * per berkas berjudul "Audio n: nama" (urutan = urutan daftar).
+ */
+export const combinedTranscript = (items: NoteAudioItem[]) => {
+  const done = items.filter((item) => item.transcript?.trim());
+  if (items.length <= 1) return done[0]?.transcript?.trim() ?? "";
+  return done
+    .map((item) => `### Audio ${items.indexOf(item) + 1}: ${item.name}\n${item.transcript!.trim()}`)
+    .join("\n\n");
+};
+
+/** Field turunan yang disimpan bersama daftar audio (kolom lama tetap terisi agar fitur lain tidak berubah). */
+export const audioFields = (items: NoteAudioItem[]): Partial<AiNote> => ({
+  audioItems: items,
+  audioTranscript: combinedTranscript(items),
+  hasAudio: items.length > 0,
+  audioUploadId: items.find((item) => item.uploadId)?.uploadId,
+});
+
+/** Bentuk yang dipakai editor: catatan lama satu audio diubah ke daftar (tersimpan saat catatan disimpan berikutnya). */
+export const withAudioList = (note: AiNote): AiNote =>
+  note.audioItems?.length || !audiosOf(note).length ? note : { ...note, audioItems: audiosOf(note) };
+
 /** ID berkas (object storage) yang dirujuk sebuah Notes AI. */
 export const uploadIdsOf = (note: AiNote | null | undefined): string[] => {
   if (!note) return [];
-  return [note.audioUploadId, ...documentsOf(note).map((doc) => doc.uploadId)].filter((id): id is string => !!id);
+  return [
+    note.audioUploadId,
+    ...audiosOf(note).map((audio) => audio.uploadId),
+    ...documentsOf(note).map((doc) => doc.uploadId),
+  ].filter((id, i, all): id is string => !!id && all.indexOf(id) === i);
 };
 
 /**

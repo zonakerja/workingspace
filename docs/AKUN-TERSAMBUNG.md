@@ -231,6 +231,23 @@ potongan, Kembalikan semua, putuskan akun ditolak), smoke penuh, tombol Dari Dri
 (butuh OAuth client + API key Picker pemilik, TODO-USER A49 & A51), Picker Google di CSP produksi (domain Google ditambahkan ke `nginx.conf`,
 belum diuji dengan Google sungguhan).
 
+### 11a. Backup ke Drive & daftar arsip dingin (dibangun 2026-11-19)
+
+- **Backup data Akasha ke Drive pemilik** (`drive/drive-backup.service.ts`, logika murni + test `backup-logic.ts`, tabel `drive_backups` &
+  `drive_backup_files`, `users.drive_backup`): pemicu **tombol Backup sekarang** (kartu Pengaturan → Akun Tersambung `#backup` dan pita masa
+  akses), **jadwal** mingguan/bulanan, dan **otomatis saat masa akses tinggal ≤ 7 hari / sudah habis** (sakelar, paling sering sekali seminggu).
+  Isi satu backup = folder `Backup YYYY-MM-DD HHmm` (WIB) berisi `akasha-backup.json` (semua record, My Notebook, Pengajuan, pustaka
+  Markdown, riwayat AI Agent, daftar berkas) + `README.txt`; isi berkas di folder bersama `berkas` (nama = 12 huruf checksum + nama asli),
+  diunggah **sekali** per akun Drive + checksum lalu dipakai ulang. Berkas di arsip dingin hanya dirujuk. Simpan *n* backup terakhir (1–20);
+  backup & salinan berkas yang tidak dipakai lagi dihapus dari Drive. Google: folder **Akasha Backup** (scope `drive.file`); OneDrive:
+  `Apps › Akasha › Backup` (approot). Boleh jalan saat akun **baca saja** (daftar izin `ReadOnlyInterceptor`). Item terkunci PIN ikut tersalin.
+  Endpoint `GET|PUT /drive/backup`, `POST /drive/backup/run`.
+- **Mesin unggah bersama** `drive/drive-upload.service.ts` (sesi resumable Google / OneDrive per 10 MiB, folder, hapus) dipakai backup & arsip dingin.
+- **Arsip dingin per berkas**: `GET /drive/cold/files` (nama berkas, akun, waktu dipindah & terakhir dibuka) + `POST /drive/cold/files/:id/restore`;
+  dialog **Lihat berkas** di kartu Arsip dingin.
+- Diuji: unit (logika + orkestrasi dengan tiruan Drive), smoke, kartu di browser (keadaan tanpa akun Drive). **Belum**: Google/Microsoft
+  sungguhan (A49, A51, A54).
+
 ## 12. Berikutnya
 
 Seluruh tahap 0–4 sudah dibangun. Lanjutan bila dibutuhkan: impor kalender utama (bukan hanya kalender "Akasha"), simpan hasil Akasha ke Drive

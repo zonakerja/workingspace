@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractionCacheSignature,
+  libraryOptionsKey,
   libraryAccepts,
   libraryTitle,
   librarySummary,
@@ -89,5 +91,21 @@ describe("converter-logic", () => {
     expect(libraryAccepts("text/plain", "a.txt")).toBe(true);
     expect(libraryAccepts("application/pdf", "a.pdf")).toBe(true);
     expect(libraryAccepts("application/octet-stream", "program.exe")).toBe(false);
+  });
+});
+
+describe("cache hasil Markdown", () => {
+  it("tanda pengaturan berubah bila cara baca PDF / Rapikan AI berubah", () => {
+    const base = normalizeConverterPrefs({});
+    const a = extractionCacheSignature(base);
+    expect(extractionCacheSignature({ ...base, enabled: !base.enabled, aiOcrFallback: !base.aiOcrFallback })).toBe(a);
+    expect(extractionCacheSignature({ ...base, pdfMode: "docling" })).not.toBe(a);
+    expect(extractionCacheSignature({ ...base, aiEnhance: true, aiEnhanceScope: "all" })).not.toBe(
+      extractionCacheSignature({ ...base, aiEnhance: true, aiEnhanceScope: "ocr" }),
+    );
+  });
+  it("pilihan pustaka: bawaan sama dengan kosong", () => {
+    expect(libraryOptionsKey({})).toBe(libraryOptionsKey({ mode: "auto", pdfMode: "auto", enhance: false }));
+    expect(libraryOptionsKey({ enhance: true })).not.toBe(libraryOptionsKey({}));
   });
 });

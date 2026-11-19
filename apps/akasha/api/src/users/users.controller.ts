@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "../generated/prisma/client";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -8,6 +8,10 @@ import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types/auth-user";
 import { UsersService } from "./users.service";
 
+/**
+ * Daftar akun Akasha untuk admin (statistik tanpa isi data) & direktori penerima berbagi. Akun, role, akses, dan penghapusan akun
+ * dikelola di admin SSO workingspace.id; data akun yang aksesnya berakhir dihapus otomatis (`AccessCleanupService`).
+ */
 @ApiTags("users")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -38,11 +42,5 @@ export class UsersController {
   @Get(":id")
   findById(@Param("id") id: string) {
     return this.users.findById(id);
-  }
-
-  @Roles(UserRole.super_admin, UserRole.admin)
-  @Delete(":id")
-  remove(@Param("id") id: string, @CurrentUser() user: AuthUser) {
-    return this.users.remove(id, user);
   }
 }

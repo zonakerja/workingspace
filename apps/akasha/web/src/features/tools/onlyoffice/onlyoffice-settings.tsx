@@ -164,7 +164,7 @@ function UsageCard() {
         </Tip>
         <Tip icon={Sparkles} title="AI di editor">
           Aktifkan di kartu <b>AI di editor</b>: tab <b>AI</b> ONLYOFFICE (Chatbot, Summarization, Translation, Grammar
-          & Spelling) memakai provider & key di Pengaturan → Model AI.
+          & Spelling) memakai model Akai (tugas Umum).
         </Tip>
       </ul>
     </SectionCard>

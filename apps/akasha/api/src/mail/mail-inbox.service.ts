@@ -12,7 +12,7 @@ import { ConfigService } from "@nestjs/config";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { AiCrypto } from "../ai/ai-crypto";
-import { isPrivateHost } from "../ai/ai-endpoint";
+import { isPrivateHost } from "../common/private-host";
 import { AiIndexQueueService } from "../ai/index/ai-index-queue.service";
 import { AiIndexService, type SourceDocument } from "../ai/index/ai-index.service";
 import type { AuthUser } from "../common/types/auth-user";

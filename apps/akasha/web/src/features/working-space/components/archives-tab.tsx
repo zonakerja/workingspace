@@ -37,6 +37,7 @@ import type { Activity, Area, ParaArchive, ParaArchiveLog, Project, Resource } f
 import { activityDepth, AREA_LEVELS, PARA_INFO } from "../lib/para";
 import { withUnlocked } from "@/features/security/lock-controls";
 import { archiveTitle, relatedSummary } from "../lib/para-archive";
+import { archiveSearchMatch } from "../lib/para";
 import { useParaActions } from "../use-para-actions";
 import { ParaInfo } from "./para-info";
 
@@ -82,8 +83,9 @@ export function ArchivesTab() {
   const byType = <T extends { originalType: string }>(items: T[], type: TypeFilter) =>
     type === "all" ? items : items.filter((i) => i.originalType === type);
 
+  const archiveHits = new Map(archives.map((a) => [a.id, archiveSearchMatch(a, search)]));
   const filteredArchives = byType(archives, typeFilter)
-    .filter((a) => !query || archiveTitle(a).toLowerCase().includes(query))
+    .filter((a) => archiveHits.get(a.id)?.match)
     .filter((a) => matchesDateFilter(a.archivedAt, dateFilter, today))
     .sort((a, b) => new Date(b.archivedAt).getTime() - new Date(a.archivedAt).getTime());
   const filteredLogs = byType(logs, typeFilter)
@@ -207,6 +209,7 @@ export function ArchivesTab() {
                 item={item}
                 areas={areas}
                 archivedBy={archivedBy.get(item.id)?.actorName}
+                via={archiveHits.get(item.id)?.via}
                 now={today}
                 onRestore={
                   canEdit
@@ -303,12 +306,14 @@ function ArchiveCard({
   item,
   areas,
   archivedBy,
+  via,
   now,
   onRestore,
 }: {
   item: ParaArchive;
   areas: Area[];
   archivedBy?: string;
+  via?: string[];
   now: Date;
   onRestore?: () => void;
 }) {
@@ -341,6 +346,11 @@ function ArchiveCard({
               )}
             </div>
             <h4 className="truncate text-base font-bold">{archiveTitle(item)}</h4>
+            {!!via?.length && (
+              <p className="truncate text-xs text-module" title={via.join(", ")}>
+                Cocok: {via.join(", ")}
+              </p>
+            )}
             {description && <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>}
             {meta.length > 0 && (
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

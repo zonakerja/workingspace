@@ -63,7 +63,7 @@ function TemplateFillForm({ request, onDone }: { request: RequestDetail; onDone:
   const [values, setValues] = useState<Record<string, string>>({});
   const [name, setName] = useState("");
   const m = useRequestMutations();
-  const aiReady = useAuthStore((s) => !!s.user?.aiProvider || !!s.user?.aiViaAkai);
+  const aiReady = useAuthStore((s) => !!s.user?.aiViaAkai);
   const template = docxTemplates.find((t) => t.id === templateId);
   const fillable = fields.data?.tags.filter((t) => !t.srikandi) ?? [];
   const reserved = fields.data?.tags.filter((t) => t.srikandi) ?? [];

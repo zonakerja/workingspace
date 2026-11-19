@@ -3,9 +3,8 @@ import { Prisma } from "../generated/prisma/client";
 import { ExtractionQueueService } from "../extraction/extraction-queue.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiService } from "../ai/ai.service";
-import { AiProviderError } from "../ai/providers/ai-client";
+import { AiProviderError } from "../ai/ai-errors";
 import { ConverterClient, ConverterRejectedError, ConverterUnavailableError } from "./converter-client";
-import { buildEnhancePrompt } from "./markdown-enhance";
 import { type EnhanceResult, MarkdownEnhancerService } from "./markdown-enhancer.service";
 import {
   type ConverterMode,
@@ -59,7 +58,7 @@ export class ConverterService {
   async convert(
     userId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
-    options: { mode?: ConverterMode; pdfMode?: ConverterPdfMode; enhance?: boolean; compareTokens?: boolean },
+    options: { mode?: ConverterMode; pdfMode?: ConverterPdfMode; enhance?: boolean },
   ) {
     if (!this.client.configured) {
       throw new UnprocessableEntityException(
@@ -85,10 +84,7 @@ export class ConverterService {
           enhanceError = error instanceof AiProviderError ? error.providerMessage : errorText(error);
         }
       }
-      const tokens = options.compareTokens
-        ? await this.compareTokens(userId, file, name, result.markdown, result.engine, enhanced)
-        : null;
-      return { ...result, fileName: name, size: file.size, enhanced, enhanceError, tokenComparison: tokens };
+      return { ...result, fileName: name, size: file.size, enhanced, enhanceError };
     } catch (error) {
       if (error instanceof ConverterUnavailableError) {
         throw new UnprocessableEntityException(
@@ -97,51 +93,6 @@ export class ConverterService {
       }
       if (error instanceof ConverterRejectedError) throw new UnprocessableEntityException(error.message);
       throw error;
-    }
-  }
-
-  /**
-   * Token menurut tokenizer Gemini (`countTokens`, tanpa biaya): berkas mentah (PDF/gambar seperti dikirim ke AI; format lain
-   * tidak bisa dibaca AI langsung), Markdown converter, hasil rapikan, dan biaya rapikan (masukan + keluaran).
-   */
-  private async compareTokens(
-    userId: string,
-    file: { buffer: Buffer; mimetype: string },
-    name: string,
-    markdown: string,
-    engine: string,
-    enhanced: { markdown: string; parts: number } | null,
-  ) {
-    try {
-      const mime =
-        file.mimetype === "application/octet-stream" && /\.pdf$/i.test(name) ? "application/pdf" : file.mimetype;
-      const aiReadable = mime === "application/pdf" || /^image\/(png|jpeg|webp)$/.test(mime);
-      const count = (text: string, raw?: boolean) =>
-        this.ai.countTokens(userId, text, raw ? { data: file.buffer, mimeType: mime, name } : undefined);
-      const markdownCount = await count(markdown);
-      if (!markdownCount) return { available: false as const, reason: "Butuh API key Gemini langsung (bukan router)." };
-      const rawFile = aiReadable && file.buffer.length <= 20 * 1024 * 1024 ? await count("", true) : null;
-      let enhanceTokens: { input: number; output: number; result: number } | null = null;
-      if (enhanced) {
-        const overhead = (await count(
-          buildEnhancePrompt("", { fileName: name, engine, part: 1, parts: enhanced.parts }),
-        ))!;
-        const result = (await count(enhanced.markdown))!.tokens;
-        enhanceTokens = { input: overhead.tokens * enhanced.parts + markdownCount.tokens, output: result, result };
-      }
-      return {
-        available: true as const,
-        model: markdownCount.model,
-        rawFile: rawFile?.tokens ?? null,
-        rawFileNote: aiReadable ? null : "Format ini tidak bisa dibaca AI langsung (harus diekstrak dulu).",
-        markdown: markdownCount.tokens,
-        enhance: enhanceTokens,
-      };
-    } catch (error) {
-      return {
-        available: false as const,
-        reason: `Gagal menghitung token: ${error instanceof AiProviderError ? error.providerMessage : errorText(error)}`,
-      };
     }
   }
 

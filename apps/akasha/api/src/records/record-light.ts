@@ -11,7 +11,8 @@ const LIGHT_FIELDS: Partial<Record<RecordType, readonly string[]>> = {
   // doc = JSON editor, ink = goresan tulis tangan (bisa beberapa MB)
   free_note: ["doc", "ink"],
   // Teks dokumen terlampir (bisa ratusan rb karakter) — transkrip & ringkasan tetap dikirim (dipakai pencarian)
-  ai_note: ["fileContext", "documentTexts"],
+  // audioItems = transkrip per berkas audio (gabungannya tetap di audioTranscript untuk pencarian)
+  ai_note: ["fileContext", "documentTexts", "audioItems"],
 };
 
 /** Tinggi pratinjau tulis tangan di kartu (koordinat logis, sama dengan frontend). */

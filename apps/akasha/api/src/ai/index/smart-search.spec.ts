@@ -8,10 +8,21 @@ import {
   prefixTsQuery,
   queryTerms,
   readableRecordText,
+  relevantByMeaning,
   searchSnippet,
 } from "./smart-search";
 
 describe("smart search", () => {
+  it("keeps only vector hits close to the best match (relative window)", () => {
+    const rows = [
+      { id: "a", distance: 0.32 },
+      { id: "b", distance: 0.36 },
+      { id: "c", distance: 0.39 },
+    ];
+    expect(relevantByMeaning(rows, 0.05).map((r) => r.id)).toEqual(["a", "b"]);
+    expect(relevantByMeaning([], 0.05)).toEqual([]);
+  });
+
   it("maps sources to modules, archived resources to File Control", () => {
     expect(moduleOf("schedule")).toBe("planner");
     expect(moduleOf("ai_note")).toBe("notes");

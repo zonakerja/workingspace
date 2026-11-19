@@ -18,6 +18,7 @@ const REFRESH_KEYS = [
   ["requests"],
   ["notebooks"],
   ["knowledge"],
+  ["agent", "conversations"],
   ["agent-actions"],
 ];
 

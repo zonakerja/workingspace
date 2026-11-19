@@ -115,9 +115,6 @@ import type {
   TrashItemInfo,
   AgentActionInfo,
   SmartSearchResponse,
-  AiProviderId,
-  AiProviderInput,
-  AiRouting,
   AiSettings,
   AiTranscribeJob,
   ApiRecord,
@@ -140,6 +137,9 @@ import type {
   KnowledgeSplitResult,
   KnowledgeMergeInput,
   KnowledgePeriod,
+  ColdFile,
+  DriveBackupSettings,
+  DriveBackupStatus,
 } from "@/types/api";
 
 /** Data tambahan Akasha (nama & email dikelola akun Workingspace). */
@@ -166,6 +166,8 @@ export const securityApi = {
     request<PinStatus>("/security/pin", { method: "PUT", body: { pin, ...(currentPin ? { currentPin } : {}) } }),
   unlock: (pin: string) => request<PinStatus>("/security/pin/unlock", { method: "POST", body: { pin } }),
   lock: () => request<PinStatus>("/security/pin/lock", { method: "POST" }),
+  setAutoLock: (minutes: number | null) =>
+    request<{ autoLockMinutes: number | null }>("/security/pin/auto-lock", { method: "PATCH", body: { minutes } }),
   removePin: (pin: string) => request<PinStatus>("/security/pin", { method: "DELETE", body: { pin } }),
 };
 
@@ -176,7 +178,6 @@ export const settingsApi = {
 
 export const usersApi = {
   list: () => request<PublicUser[]>("/users"),
-  remove: (id: string) => request<{ success: boolean }>(`/users/${id}`, { method: "DELETE" }),
   /** Statistik pemakaian per user (admin) — tanpa isi data */
   stats: () => request<UserStats[]>("/users/stats"),
   /** Cari akun penerima berbagi (min. 3 huruf) */
@@ -286,12 +287,11 @@ export const converterApi = {
   documents: () => request<ConvertedDocumentSummary[]>("/converter/documents"),
   document: (id: string) => request<ConvertedDocument>(`/converter/documents/${id}`),
   /** Unggah ke pustaka: dikonversi di latar belakang, hasil disimpan (berkas asal tidak). */
-  createDocument: (file: File, options: { mode?: ConverterMode; enhance?: boolean; compareTokens?: boolean } = {}) => {
+  createDocument: (file: File, options: { mode?: ConverterMode; enhance?: boolean } = {}) => {
     const form = new FormData();
     form.append("file", file);
     if (options.mode) form.append("mode", options.mode);
     if (options.enhance) form.append("enhance", "true");
-    if (options.compareTokens) form.append("compareTokens", "true");
     return request<ConvertedDocumentSummary>("/converter/documents", { method: "POST", body: form });
   },
   renameDocument: (id: string, title: string) =>
@@ -397,22 +397,12 @@ export const trashApi = {
 
 export const aiApi = {
   settings: () => request<AiSettings>("/ai/settings"),
-  update: (input: {
-    activeProvider?: AiProviderId | null;
-    fallbackEnabled?: boolean;
-    indexEnabled?: boolean;
-    routing?: AiRouting;
-  }) => request<AiSettings>("/ai/settings", { method: "PATCH", body: input }),
-  /** `apiKey` kosong = pertahankan key tersimpan; `model` null = model default provider. */
-  saveProvider: (provider: AiProviderId, input: AiProviderInput) =>
-    request<AiSettings>(`/ai/settings/${provider}`, { method: "PUT", body: input }),
-  removeProvider: (provider: AiProviderId) => request<AiSettings>(`/ai/settings/${provider}`, { method: "DELETE" }),
+  update: (input: { indexEnabled?: boolean }) => request<AiSettings>("/ai/settings", { method: "PATCH", body: input }),
   indexStatus: () => request<AiIndexStatus>("/ai/index"),
   rebuildIndex: () => request<{ queued: boolean }>("/ai/index/rebuild", { method: "POST" }),
   searchIndex: (q: string, limit = 8) => request<AiSearchHit[]>("/ai/index/search", { query: { q, limit } }),
   /** Pencarian Pintar (Ctrl+K): `text` tanpa AI, `meaning` = satu embedding pertanyaan */
   smartSearch: (q: string, mode: SmartSearchMode) => request<SmartSearchResponse>("/ai/search", { query: { q, mode } }),
-  test: (provider: AiProviderId) => request<AiGenerateResult>(`/ai/settings/${provider}/test`, { method: "POST" }),
   /** Mulai transkrip berkas audio tersimpan (pekerjaan latar belakang; berkas yang sama tidak dikerjakan dua kali). */
   startTranscribe: (uploadId: string) =>
     request<AiTranscribeJob>("/ai/transcribe", { method: "POST", body: { uploadId } }),
@@ -546,10 +536,13 @@ export const knowledgeApi = {
   assignField: (field: string) =>
     request<{ notes: number; failed: string[] }>("/knowledge/fields/assign", { method: "POST", body: { field } }),
   renameTag: (input: { from: string; to: string }) =>
-    request<{ notes: number; occurrences: number; failed?: string[] }>("/knowledge/tags/rename", {
-      method: "POST",
-      body: input,
-    }),
+    request<{ notes: number; bases?: number; canvases?: number; occurrences: number; failed?: string[] }>(
+      "/knowledge/tags/rename",
+      {
+        method: "POST",
+        body: input,
+      },
+    ),
   /** Note composer: gabung catatan ke catatan lain / baru */
   mergeNote: (id: string, input: KnowledgeMergeInput) =>
     request<{ id: string | null; path: string; updatedLinks: number; updatedCanvases: number; trash: string }>(
@@ -730,7 +723,7 @@ interface AgentSetupState {
   keyValid: boolean;
   token: { id: string; scopes: ApiScope[]; lastUsedAt: string | null; createdAt: string } | null;
   /** `akai` = tugas Agen diatur di Akai (model = ID model utama di Akai) */
-  model: { provider: AiProviderId | "akai"; model: string } | null;
+  model: { provider: string; model: string } | null;
   lastModelCall: {
     at: string;
     ok: boolean;
@@ -741,6 +734,33 @@ interface AgentSetupState {
     /** Provider tugas Agen yang gagal sebelum cadangan ini dipakai */
     fallbackFrom?: { provider: string; error: string };
   } | null;
+}
+
+export interface AgentConversationSummary {
+  id: string;
+  title: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  /** Ada jawaban agen yang masih dikerjakan */
+  running: boolean;
+  messages: number;
+}
+
+export interface AgentChatMessage {
+  id: string;
+  role: "user" | "agent";
+  text: string;
+  at: string;
+  status?: "running" | "done" | "error";
+  runId?: string;
+}
+
+export interface AgentConversation {
+  id: string;
+  title: string;
+  pinned: boolean;
+  messages: AgentChatMessage[];
 }
 
 export interface AgentStatus {
@@ -831,7 +851,23 @@ export const agentApi = {
   stop: (runId: string) =>
     request<{ stopping: boolean }>(`/agent/runs/${encodeURIComponent(runId)}/stop`, { method: "POST" }),
   chat: (message: string, conversation?: string) =>
-    request<{ runId: string; status: string }>("/agent/chat", { method: "POST", body: { message, conversation } }),
+    request<{ runId: string; status: string; conversationId: string }>("/agent/chat", {
+      method: "POST",
+      body: { message, conversation },
+    }),
+  conversations: () => request<AgentConversationSummary[]>("/agent/conversations"),
+  conversation: (id: string) => request<AgentConversation>(`/agent/conversations/${encodeURIComponent(id)}`),
+  updateConversation: (id: string, patch: { title?: string; pinned?: boolean }) =>
+    request<{ id: string; title: string; pinned: boolean }>(`/agent/conversations/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+  removeConversation: (id: string) =>
+    withTrashToast(
+      request<{ ok: boolean; batchId?: string }>(`/agent/conversations/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+    ),
   runSkill: (requestId: string, skill: string) =>
     request<{ runId: string; status: string }>(`/agent/requests/${requestId}/run`, { method: "POST", body: { skill } }),
   menus: () => request<AgentMenu[]>("/agent/menus"),
@@ -1082,4 +1118,11 @@ export const driveApi = {
     request<ColdStorageStatus>("/drive/cold", { method: "PUT", body: input }),
   runCold: () => request<ColdStorageStatus>("/drive/cold/run", { method: "POST" }),
   restoreCold: () => request<ColdStorageStatus>("/drive/cold/restore", { method: "POST" }),
+  coldFiles: () => request<ColdFile[]>("/drive/cold/files"),
+  restoreColdFile: (id: string) =>
+    request<{ restored: boolean }>(`/drive/cold/files/${encodeURIComponent(id)}/restore`, { method: "POST" }),
+  backup: () => request<DriveBackupStatus>("/drive/backup"),
+  updateBackup: (input: Partial<DriveBackupSettings>) =>
+    request<DriveBackupStatus>("/drive/backup", { method: "PUT", body: input }),
+  runBackup: () => request<DriveBackupStatus>("/drive/backup/run", { method: "POST" }),
 };

@@ -1,9 +1,6 @@
 import { isPeriod, RENAKSI_SKILL, renaksiRunInput } from "../robot/ekinerja-agent-logic";
-import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { Readable } from "node:stream";
-import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import {
   ForbiddenException,
   Injectable,
@@ -15,40 +12,20 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Response as ExpressResponse } from "express";
-import Anthropic from "@anthropic-ai/sdk";
 import { type MenuField, menuRunInput, normalizeMenuValues } from "../agent-menus/agent-menu-logic";
-import OpenAI from "openai";
-import { type AiEndpoint, anthropicBaseUrl } from "../ai/ai-endpoint";
-import { isUnsupportedFeatureError } from "../ai/providers/anthropic.client";
-import { AiService } from "../ai/ai.service";
 import { type AkaiUser, AkaiService } from "../akai/akai.service";
 import type { AuthUser } from "../common/types/auth-user";
 import { type ApiScope, hashToken, looksLikeToken, normalizeScopes } from "../integrations/api-token-logic";
 import type { TokenPrincipal } from "../integrations/api-tokens.service";
-import type { AgentRun, AiProvider } from "../generated/prisma/client";
+import type { AgentRun } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { RequestsService } from "../requests/requests.service";
-import {
-  basicClaudeRequest,
-  chatCompletion,
-  chunkFactory,
-  claudeRequest,
-  ClaudeTurnMemory,
-  replayableBlocks,
-  runClaude,
-} from "./agent-claude";
-import {
-  AGENT_TOKEN_NAME,
-  AGENT_TOKEN_PREFIX,
-  DEFAULT_AGENT_SCOPES,
-  modelsResponse,
-  OPENAI_COMPAT_BASE,
-  isFallbackStatus,
-  prepareChatBody,
-  upstreamErrorSummary,
-} from "./agent-llm";
+import { TrashService } from "../trash/trash.service";
+import { AGENT_TOKEN_NAME, AGENT_TOKEN_PREFIX, DEFAULT_AGENT_SCOPES, modelsResponse } from "./agent-llm";
 import {
   type AgentSkill,
+  conversationTitle,
+  runsToMessages,
   isAgentOwner,
   parseRun,
   parseSkillFile,
@@ -57,7 +34,6 @@ import {
   SKILL_NAME,
   skillRunInput,
 } from "./agent-logic";
-import { responsesChunks, responsesCompletion, responsesRequest } from "./agent-openai";
 import { AgentPolicyService } from "./agent-policy.service";
 
 /** Pemantau tugas agen: tugas dari aturan dimulai & dipantau server walau tidak ada yang membuka aplikasi. */
@@ -68,9 +44,6 @@ const SETTLE_MS = 90_000;
 const QUEUE_LIMIT_MS = 15 * 60_000;
 /** Tugas berjalan yang tidak selesai dalam batas ini dianggap gagal. */
 const RUN_LIMIT_MS = 45 * 60_000;
-
-/** Batas satu panggilan model agen (langkah agen bisa panjang: banyak alat + berkas). */
-const MODEL_TIMEOUT_MS = 10 * 60_000;
 
 /** Panggilan model agen terakhir (untuk kartu Siapkan agen; di memori, hilang saat backend restart). */
 export interface ModelCall {
@@ -98,7 +71,6 @@ const llmError = (res: ExpressResponse, status: number, message: string) =>
 export class AgentService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AgentService.name);
   private lastModelCall: ModelCall | null = null;
-  private readonly claudeTurns = new ClaudeTurnMemory();
   private poller?: NodeJS.Timeout;
   private polling = false;
 
@@ -106,10 +78,22 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly requests: RequestsService,
     private readonly prisma: PrismaService,
-    private readonly ai: AiService,
     private readonly policies: AgentPolicyService,
     private readonly akai: AkaiService,
-  ) {}
+    private readonly trash: TrashService,
+  ) {
+    this.trash.registerHandler("agent_conversation", {
+      restore: async (item) => {
+        await this.prisma.agentConversation.updateMany({
+          where: { id: item.itemId, userId: item.userId },
+          data: { deletedAt: null },
+        });
+      },
+      purge: async (item) => {
+        await this.prisma.agentConversation.deleteMany({ where: { id: item.itemId, userId: item.userId } });
+      },
+    });
+  }
 
   /** Akun untuk Akai (sub SSO) — tugas Agen yang diatur di Akai dijawab gateway Akai. */
   private async akaiUser(userId: string): Promise<AkaiUser | null> {
@@ -308,26 +292,18 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   /** Keadaan penyiapan: izin agen (token), model yang akan dipakai, dan panggilan model terakhir. */
   private async setupState(user: AuthUser) {
     const hash = this.agentKeyHash();
-    const [token, credential] = await Promise.all([
-      hash
-        ? this.prisma.apiToken.findFirst({
-            where: { tokenHash: hash, userId: user.id },
-            select: { id: true, scopes: true, lastUsedAt: true, createdAt: true },
-          })
-        : null,
-      this.ai.agentCredential(user.id),
-    ]);
+    const token = hash
+      ? await this.prisma.apiToken.findFirst({
+          where: { tokenHash: hash, userId: user.id },
+          select: { id: true, scopes: true, lastUsedAt: true, createdAt: true },
+        })
+      : null;
     const akaiUser = await this.akaiUser(user.id);
     const akaiModel = akaiUser ? await this.akai.primaryModel(akaiUser, "agent") : null;
     return {
       keyValid: !!hash,
       token: token ? { ...token, scopes: normalizeScopes(token.scopes) } : null,
-      // Tugas Agen di Akai mengalahkan pengaturan lama (provider "akai", model = model utama di Akai)
-      model: akaiModel
-        ? { provider: "akai", model: akaiModel }
-        : credential
-          ? { provider: credential.provider, model: credential.model }
-          : null,
+      model: akaiModel ? { provider: "akai", model: akaiModel } : null,
       lastModelCall: this.lastModelCall,
     };
   }
@@ -371,332 +347,33 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
     const akaiUser = await this.akaiUser(principal.user.id);
     const akaiModel = akaiUser ? await this.akai.primaryModel(akaiUser, "agent") : null;
     // Lewat Akai: panjang konteks konservatif (Hermes meringkas riwayat lebih awal, tidak pernah ditolak model)
-    if (akaiModel) return modelsResponse(null, akaiModel);
-    const credential = await this.ai.agentCredential(principal.user.id);
-    return modelsResponse(credential?.provider ?? null, credential?.model ?? null);
+    return modelsResponse(akaiModel);
   }
 
   /**
-   * `POST /agent/llm/v1/chat/completions`: teruskan ke endpoint OpenAI-compatible provider user dengan key tersimpan
-   * (streaming diteruskan apa adanya). Hanya token dengan izin `ai:model`.
+   * `POST /agent/llm/v1/chat/completions`: diteruskan ke gateway Akai (tugas Agen di Akai: model, cadangan, prompt caching &
+   * pemikiran Claude dipilih Akai). Hanya token dengan izin `ai:model`. docs/KAJIAN-AI-TERPUSAT.md.
    */
   async proxyChat(principal: TokenPrincipal, body: unknown, res: ExpressResponse) {
     if (!principal.scopes.includes("ai:model")) {
       return llmError(res, 403, "Token agen tidak punya izin Model AI (ai:model). Siapkan ulang agen di Akasha.");
     }
-    const candidates = await this.ai.agentCredentials(principal.user.id);
-    // Tugas Agen diatur di Akai → gateway Akai (model, cadangan, cache & pemikiran Claude dipilih Akai). Akai tidak dapat
-    // dihubungi sebelum menjawab → jalur lama bila ada key.
     const akaiUser = await this.akaiUser(principal.user.id);
-    if (akaiUser && (await this.akai.handles(akaiUser, "agent"))) {
-      const at = new Date().toISOString();
-      const result = await this.akai.proxyAgent(akaiUser, body, res);
-      this.lastModelCall = {
-        at,
-        ok: result.ok,
-        provider: "akai",
-        model: result.model ?? "akai",
-        ...(result.error ? { error: result.error } : {}),
-        ...(result.usage ? { usage: result.usage } : {}),
-        ...(result.fallbackFrom
-          ? { fallbackFrom: { provider: result.fallbackFrom, error: "dialihkan oleh Akai" } }
-          : {}),
-      };
-      if (!result.unreachable) return;
-      if (!candidates.length) return llmError(res, 422, "Akai tidak dapat dihubungi. Coba lagi sebentar.");
-      this.logger.warn("Akai tidak dapat dihubungi, model agen memakai pengaturan lama.");
+    if (!akaiUser || !(await this.akai.handles(akaiUser, "agent"))) {
+      return llmError(res, 400, "Model agen belum diatur: atur tugas Agen di Akai → Model.");
     }
-    if (!candidates.length) {
-      return llmError(res, 400, "Model AI agen belum diatur: simpan API key di Akasha → Pengaturan → Model AI.");
-    }
-    // Provider tugas Agen dulu; gagal karena kuota / sibuk / tak terjangkau sebelum menjawab → cadangan berikutnya
-    let fallbackFrom: { provider: string; error: string } | null = null;
-    for (const [index, credential] of candidates.entries()) {
-      const canFallback = index < candidates.length - 1;
-      const endpoint = credential.endpoint;
-      // Messages API: Claude langsung, atau Claude lewat router berformat Anthropic
-      const outcome: string | null = (endpoint ? endpoint.format === "anthropic" : credential.provider === "anthropic")
-        ? await this.proxyClaude(principal.user.id, { ...credential, endpoint }, body, res, canFallback, fallbackFrom)
-        : !endpoint && credential.provider === "openai"
-          ? await this.proxyOpenAiResponses(credential, body, res, canFallback, fallbackFrom)
-          : await this.proxyOpenAiCompatible(credential, body, res, canFallback, fallbackFrom);
-      if (!outcome) return;
-      this.logger.warn(`Model agen ${credential.provider} gagal (${outcome}), dialihkan ke cadangan.`);
-      fallbackFrom ??= { provider: credential.provider, error: outcome };
-    }
-  }
-
-  /**
-   * Endpoint OpenAI-compatible (Gemini/OpenAI resmi atau router). Mengembalikan ringkasan error bila gagal sebelum menjawab
-   * dengan error yang boleh dialihkan dan masih ada cadangan (`canFallback`); selain itu menulis respons & mengembalikan null.
-   */
-  /** OpenAI langsung lewat Responses API: satu-satunya jalur yang menerima alat untuk model bernalar. */
-  private async proxyOpenAiResponses(
-    credential: { apiKey: string; model: string },
-    body: unknown,
-    res: ExpressResponse,
-    canFallback: boolean,
-    fallbackFrom: { provider: string; error: string } | null,
-  ): Promise<string | null> {
-    const { apiKey, model } = credential;
-    const params = responsesRequest(body, model);
-    if (!params) {
-      llmError(res, 400, "Permintaan chat tidak valid (messages kosong).");
-      return null;
-    }
-    const streaming = (body as { stream?: unknown }).stream === true;
-    const client = new OpenAI({ apiKey, timeout: MODEL_TIMEOUT_MS, maxRetries: 1 });
-    const controller = new AbortController();
-    res.on("close", () => controller.abort());
-    const call: ModelCall = {
-      at: new Date().toISOString(),
-      ok: true,
-      provider: "openai",
-      model,
-      ...(fallbackFrom ? { fallbackFrom } : {}),
+    const at = new Date().toISOString();
+    const result = await this.akai.proxyAgent(akaiUser, body, res);
+    this.lastModelCall = {
+      at,
+      ok: result.ok,
+      provider: "akai",
+      model: result.model ?? "akai",
+      ...(result.error ? { error: result.error } : {}),
+      ...(result.usage ? { usage: result.usage } : {}),
+      ...(result.fallbackFrom ? { fallbackFrom: { provider: result.fallbackFrom, error: "dialihkan oleh Akai" } } : {}),
     };
-    const created = Math.floor(Date.now() / 1000);
-    const chunks = responsesChunks(`chatcmpl-${randomUUID()}`, model, created);
-    const send = (data: unknown) => res.write(`data: ${JSON.stringify(data)}\n\n`);
-    const open = () => {
-      if (res.headersSent) return;
-      res.status(200);
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      send(chunks.start());
-    };
-    const remember = (response: { usage?: OpenAI.Responses.ResponseUsage | null }) => {
-      this.lastModelCall = {
-        ...call,
-        usage: {
-          input: response.usage?.input_tokens ?? 0,
-          output: response.usage?.output_tokens ?? 0,
-          cacheRead: response.usage?.input_tokens_details?.cached_tokens ?? 0,
-          cacheWrite: 0,
-        },
-      };
-    };
-    try {
-      if (!streaming) {
-        const response = await client.responses.create({ ...params, stream: false }, { signal: controller.signal });
-        remember(response);
-        res.json(responsesCompletion(response, created));
-        return null;
-      }
-      const stream = await client.responses.create({ ...params, stream: true }, { signal: controller.signal });
-      for await (const event of stream) {
-        if (event.type === "response.output_text.delta") {
-          open();
-          send(chunks.text(event.delta));
-        } else if (event.type === "response.failed" || event.type === "error") {
-          const message = event.type === "error" ? event.message : event.response.error?.message;
-          throw new Error(message ?? "OpenAI gagal menjawab.");
-        } else if (event.type === "response.completed" || event.type === "response.incomplete") {
-          open();
-          remember(event.response);
-          chunks.finish(event.response).forEach(send);
-        }
-      }
-      open();
-      res.write("data: [DONE]\n\n");
-      res.end();
-      return null;
-    } catch (error) {
-      const aborted = controller.signal.aborted;
-      const status = error instanceof OpenAI.APIError && error.status ? error.status : aborted ? 504 : 502;
-      const detail = error instanceof OpenAI.APIError ? JSON.stringify(error.error ?? error.message) : String(error);
-      const summary = upstreamErrorSummary(status, detail);
-      this.lastModelCall = { ...call, ok: false, error: summary };
-      this.logger.warn(`Model agen openai/${model} gagal ${summary}`);
-      if (res.writableEnded || res.destroyed) return null;
-      if (!res.headersSent) {
-        if (canFallback && isFallbackStatus(status)) return summary;
-        llmError(res, status, `openai: ${summary}`);
-        return null;
-      }
-      send({ error: { message: `openai: ${summary}`, code: status } });
-      res.end();
-      return null;
-    }
-  }
-
-  private async proxyOpenAiCompatible(
-    credential: { provider: AiProvider; apiKey: string; model: string; endpoint: AiEndpoint | null },
-    body: unknown,
-    res: ExpressResponse,
-    canFallback: boolean,
-    fallbackFrom: { provider: string; error: string } | null,
-  ): Promise<string | null> {
-    const endpoint = credential.endpoint;
-    // Lewat router: kunci khusus OpenAI dibuang (router pihak ketiga belum tentu mengenalnya)
-    const payload = prepareChatBody(
-      body,
-      endpoint ? "router" : (credential.provider as "gemini" | "openai"),
-      credential.model,
-    );
-    if (!payload) {
-      llmError(res, 400, "Permintaan chat tidak valid (messages kosong).");
-      return null;
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
-    res.on("close", () => controller.abort());
-    const call: ModelCall = {
-      at: new Date().toISOString(),
-      ok: true,
-      provider: credential.provider,
-      model: credential.model,
-      ...(fallbackFrom ? { fallbackFrom } : {}),
-    };
-    try {
-      const base = endpoint?.baseUrl ?? OPENAI_COMPAT_BASE[credential.provider as "gemini" | "openai"];
-      const upstream = await fetch(`${base}/chat/completions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${credential.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      if (!upstream.ok || !upstream.body) {
-        const summary = upstreamErrorSummary(upstream.status, await upstream.text().catch(() => ""));
-        this.lastModelCall = { ...call, ok: false, error: summary };
-        this.logger.warn(`Model agen ${credential.provider}/${credential.model} ditolak ${summary}`);
-        if (canFallback && isFallbackStatus(upstream.status)) return summary;
-        llmError(res, upstream.status || 502, `${credential.provider}: ${summary}`);
-        return null;
-      }
-      this.lastModelCall = call;
-      res.status(upstream.status);
-      res.setHeader("Content-Type", upstream.headers.get("content-type") ?? "application/json");
-      res.setHeader("Cache-Control", "no-cache");
-      await new Promise<void>((done) => {
-        const stream = Readable.fromWeb(upstream.body as WebReadableStream);
-        stream.on("error", () => {
-          res.destroy();
-          done();
-        });
-        stream.on("end", done);
-        stream.pipe(res);
-      });
-    } catch (error) {
-      const aborted = controller.signal.aborted;
-      const message = aborted ? "waktu habis / dibatalkan" : error instanceof Error ? error.message : String(error);
-      this.lastModelCall = { ...call, ok: false, error: message };
-      if (!res.headersSent) {
-        // Dibatalkan Hermes (koneksi ditutup) = jangan coba cadangan; waktu habis / jaringan = boleh
-        if (canFallback && !res.destroyed && !res.writableEnded) return `tidak dapat dihubungi: ${message}`;
-        llmError(res, aborted ? 504 : 502, `Provider tidak dapat dihubungi: ${message}`);
-        return null;
-      }
-      res.end();
-    } finally {
-      clearTimeout(timer);
-    }
-    return null;
-  }
-
-  /** Proxy untuk Claude: Messages API native (prompt caching, blok pemikiran) dengan keluaran format OpenAI. */
-  private async proxyClaude(
-    userId: string,
-    credential: { apiKey: string; model: string; endpoint: AiEndpoint | null },
-    body: unknown,
-    res: ExpressResponse,
-    canFallback = false,
-    fallbackFrom: { provider: string; error: string } | null = null,
-  ): Promise<string | null> {
-    const { apiKey, model, endpoint } = credential;
-    const request = claudeRequest(body, model, (toolIds) => this.claudeTurns.recall(userId, toolIds));
-    if (!request) {
-      llmError(res, 400, "Permintaan chat tidak valid (messages kosong).");
-      return null;
-    }
-
-    const streaming = (body as { stream?: unknown }).stream === true;
-    const client = new Anthropic({
-      apiKey,
-      timeout: MODEL_TIMEOUT_MS,
-      maxRetries: 1,
-      ...(endpoint ? { baseURL: anthropicBaseUrl(endpoint.baseUrl) } : {}),
-    });
-    const controller = new AbortController();
-    res.on("close", () => controller.abort());
-    const call: ModelCall = {
-      at: new Date().toISOString(),
-      ok: true,
-      provider: "anthropic",
-      model,
-      ...(fallbackFrom ? { fallbackFrom } : {}),
-    };
-    const created = Math.floor(Date.now() / 1000);
-    const id = `chatcmpl-${randomUUID()}`;
-    const chunks = chunkFactory(id, model, created);
-    const send = (data: unknown) => res.write(`data: ${JSON.stringify(data)}\n\n`);
-
-    const attempt = (req: typeof request) =>
-      runClaude(
-        client,
-        req,
-        controller.signal,
-        () => {
-          if (!streaming || res.headersSent) return;
-          res.status(200);
-          res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          send(chunks.start());
-        },
-        (text) => {
-          if (streaming) send(chunks.text(text));
-        },
-      );
-    try {
-      let message: Awaited<ReturnType<typeof attempt>>;
-      try {
-        message = await attempt(request);
-      } catch (error) {
-        // Router menolak fitur beta Anthropic sebelum menjawab → ulangi sekali dengan permintaan dasar
-        if (!endpoint || res.headersSent || !isUnsupportedFeatureError(error)) throw error;
-        this.logger.warn(`Router menolak fitur beta Claude, diulang tanpa fitur itu: ${(error as Error).message}`);
-        message = await attempt(basicClaudeRequest(request));
-      }
-      this.claudeTurns.remember(userId, replayableBlocks(message.content));
-      const { input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens } = message.usage;
-      this.lastModelCall = {
-        ...call,
-        usage: {
-          input: input_tokens,
-          output: output_tokens,
-          cacheRead: cache_read_input_tokens ?? 0,
-          cacheWrite: cache_creation_input_tokens ?? 0,
-        },
-      };
-      if (!streaming) {
-        res.json(chatCompletion(message, created));
-        return null;
-      }
-      chunks.finish(message).forEach(send);
-      res.write("data: [DONE]\n\n");
-      res.end();
-      return null;
-    } catch (error) {
-      const aborted = controller.signal.aborted;
-      const status = error instanceof Anthropic.APIError && error.status ? error.status : aborted ? 504 : 502;
-      const detail = error instanceof Anthropic.APIError ? JSON.stringify(error.error ?? error.message) : String(error);
-      const raw = error instanceof Error ? error.message : detail;
-      const summary = upstreamErrorSummary(status, detail);
-      this.lastModelCall = { ...call, ok: false, error: summary };
-      this.logger.warn(`Model agen anthropic/${model} gagal ${summary}`);
-      if (res.writableEnded || res.destroyed) return null;
-      if (!res.headersSent) {
-        // Saldo kredit habis dikembalikan Anthropic sebagai 400 → 402 agar Hermes tidak mengira permintaannya salah
-        const finalStatus = /credit balance/i.test(raw) ? 402 : status;
-        if (canFallback && isFallbackStatus(finalStatus)) return summary;
-        llmError(res, finalStatus, `anthropic: ${summary}`);
-        return null;
-      }
-      send({ error: { message: `anthropic: ${summary}`, code: status } });
-      res.end();
-      return null;
-    }
+    if (result.unreachable) llmError(res, 422, "Akai tidak dapat dihubungi. Coba lagi sebentar.");
   }
 
   /**
@@ -729,9 +406,120 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Pesan chat → run di sesi Hermes milik user (percakapan berlanjut lewat `session_id`). */
+  /**
+   * Kirim pesan chat. `conversation` = ID percakapan tersimpan; kosong / tidak dikenal = percakapan baru (judul dari
+   * pesan pertama). Konteks percakapan dipegang sesi Hermes `akasha-<userId>-<id>`, riwayat tampilan = `agent_runs`.
+   */
   async chat(user: AuthUser, message: string, conversation: string) {
     this.requireOwner(user);
-    return this.start(user, { kind: "chat", input: message, sessionId: sessionIdFor(user.id, conversation) });
+    const existing = conversation
+      ? await this.prisma.agentConversation.findFirst({
+          where: { id: conversation, userId: user.id, deletedAt: null },
+          select: { id: true },
+        })
+      : null;
+    const conv =
+      existing ??
+      (await this.prisma.agentConversation.create({
+        data: { userId: user.id, title: conversationTitle(message) },
+        select: { id: true },
+      }));
+    const started = await this.start(user, {
+      kind: "chat",
+      input: message,
+      sessionId: sessionIdFor(user.id, conv.id),
+      conversationId: conv.id,
+    });
+    await this.prisma.agentConversation.update({ where: { id: conv.id }, data: { updatedAt: new Date() } });
+    return { ...started, conversationId: conv.id };
+  }
+
+  /** Daftar percakapan (disematkan dulu, lalu terakhir dipakai), maks. 200. */
+  async conversations(user: AuthUser) {
+    this.requireOwner(user);
+    const rows = await this.prisma.agentConversation.findMany({
+      where: { userId: user.id, deletedAt: null },
+      orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
+      take: 200,
+      select: {
+        id: true,
+        title: true,
+        pinned: true,
+        createdAt: true,
+        updatedAt: true,
+        runs: { where: { status: { in: ["running", "queued"] } }, select: { id: true }, take: 1 },
+        _count: { select: { runs: true } },
+      },
+    });
+    return rows.map(({ runs, _count, ...row }) => ({ ...row, running: runs.length > 0, messages: _count.runs * 2 }));
+  }
+
+  /** Isi satu percakapan: pesan user + jawaban agen, urut waktu. */
+  async conversation(user: AuthUser, id: string) {
+    this.requireOwner(user);
+    const conv = await this.ownConversation(user, id);
+    const runs = await this.prisma.agentRun.findMany({
+      where: { conversationId: conv.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        hermesRunId: true,
+        input: true,
+        status: true,
+        output: true,
+        error: true,
+        createdAt: true,
+        finishedAt: true,
+      },
+    });
+    return { id: conv.id, title: conv.title, pinned: conv.pinned, messages: runsToMessages(runs) };
+  }
+
+  async updateConversation(user: AuthUser, id: string, patch: { title?: string; pinned?: boolean }) {
+    this.requireOwner(user);
+    const conv = await this.ownConversation(user, id);
+    const title = patch.title?.replace(/\s+/g, " ").trim();
+    return this.prisma.agentConversation.update({
+      where: { id: conv.id },
+      data: {
+        ...(title ? { title: title.slice(0, 120) } : {}),
+        ...(patch.pinned === undefined ? {} : { pinned: patch.pinned }),
+        // Sematkan / ganti judul tidak mengubah urutan "terakhir dipakai"
+        updatedAt: conv.updatedAt,
+      },
+      select: { id: true, title: true, pinned: true, updatedAt: true },
+    });
+  }
+
+  /** Hapus = ke Sampah (bisa dipulihkan 30 hari). Jawaban yang masih berjalan dihentikan dulu. */
+  async removeConversation(user: AuthUser, id: string) {
+    this.requireOwner(user);
+    const conv = await this.ownConversation(user, id);
+    const running = await this.prisma.agentRun.findMany({
+      where: { conversationId: conv.id, status: "running", hermesRunId: { not: null } },
+      select: { hermesRunId: true },
+    });
+    for (const run of running)
+      await this.call(`/v1/runs/${encodeURIComponent(run.hermesRunId!)}/stop`, { method: "POST" }).catch(
+        () => undefined,
+      );
+    const batchId = await this.prisma.$transaction(async (tx) => {
+      await tx.agentConversation.update({
+        where: { id: conv.id },
+        data: { deletedAt: new Date(), updatedAt: conv.updatedAt },
+      });
+      return this.trash.add(
+        { userId: user.id, kind: "agent_conversation", itemId: conv.id, title: conv.title, actorId: user.id },
+        tx,
+      );
+    });
+    return { ok: true, batchId };
+  }
+
+  private async ownConversation(user: AuthUser, id: string) {
+    const conv = await this.prisma.agentConversation.findFirst({ where: { id, userId: user.id, deletedAt: null } });
+    if (!conv) throw new NotFoundException("Percakapan tidak ditemukan.");
+    return conv;
   }
 
   /** Jalankan skill atas satu pengajuan milik user (hasil disimpan agen ke pengajuan lewat MCP → Approval). */
@@ -829,6 +617,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
       requestId?: string;
       skill?: string;
       menuId?: string;
+      conversationId?: string;
     },
   ) {
     const body = await this.call<{ run_id?: string; status?: string }>("/v1/runs", {
@@ -845,6 +634,7 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
         skill: run.skill ?? null,
         requestId: run.requestId ?? null,
         menuId: run.menuId ?? null,
+        conversationId: run.conversationId ?? null,
         input: run.input,
         status: "running",
         startedAt: new Date(),

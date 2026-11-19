@@ -60,9 +60,8 @@ const formatTime = (iso: string | null) =>
 const LINK_CLASS = "flex w-fit items-center gap-1 text-xs font-medium text-info underline-offset-2 hover:underline";
 
 /**
- * Tools → Indeks Pengetahuan (RAG): data & isi berkas user di-embed (Gemini/OpenAI) agar AI bisa menjawab dari seluruh
- * data, bukan hanya potongan daftar. Bisa dimatikan (indeks dihapus, tidak ada data dikirim untuk embedding). API key &
- * provider embedding tetap diatur di Pengaturan → Model AI.
+ * Tools → Indeks Pengetahuan (RAG): data & isi berkas user di-embed (model Embedding di Akai) agar AI bisa menjawab dari
+ * seluruh data, bukan hanya potongan daftar. Bisa dimatikan (indeks dihapus, tidak ada data dikirim untuk embedding).
  */
 export function KnowledgeIndexSettings() {
   const { data, isLoading, error } = useAiSettings();
@@ -112,10 +111,7 @@ function AiIndexCard({ settings }: { settings: AiSettings }) {
     if (query.trim()) search.mutate(query.trim());
   };
 
-  const viaAkai = status?.embeddingProvider === "akai";
-  const embeddingLabel = viaAkai
-    ? "Akai"
-    : (settings.providers.find((p) => p.id === status?.embeddingProvider)?.label ?? "Gemini / OpenAI (belum ada key)");
+  const embeddingLabel = status?.embeddingProvider === "akai" ? "Akai" : "Akai (model Embedding belum diatur)";
   const busy = !!status?.pendingJobs;
 
   return (
@@ -137,27 +133,27 @@ function AiIndexCard({ settings }: { settings: AiSettings }) {
         <p className="text-xs text-muted-foreground">
           Catatan, agenda, task, project, resource, arsip, isi berkas (PDF, DOCX, XLSX; gambar & PDF scan dibaca lewat
           OCR) <b>dan</b> isi Basis Pengetahuan (vault Obsidian) dipotong lalu di-embed dengan <b>{embeddingLabel}</b>
-          {status?.model ? ` (${status.model})` : ""} memakai {viaAkai ? "model Embedding di Akai" : "API key Anda"},
-          agar AI bisa mencari berdasarkan makna. Mengganti model embedding berarti perlu Indeks ulang. Matikan bila
-          data tidak boleh dikirim ke penyedia AI — indeks langsung dihapus.
+          {status?.model ? ` (${status.model})` : ""} memakai model Embedding di Akai, agar AI bisa mencari berdasarkan
+          makna. Mengganti model embedding berarti perlu Indeks ulang. Matikan bila data tidak boleh dikirim ke penyedia
+          AI — indeks langsung dihapus.
         </p>
         <Link to="/tools/knowledge" className={LINK_CLASS}>
           <Library className="size-3.5" /> Isi pengetahuan yang Anda kurasi diatur di Tools → Basis Pengetahuan
         </Link>
         <Link to="/settings/api" className={LINK_CLASS}>
-          <Settings2 className="size-3.5" /> API key & provider embedding diatur di Pengaturan → Model AI
+          <Settings2 className="size-3.5" /> Model embedding diatur di Akai (Pengaturan → Model AI)
         </Link>
       </div>
 
       {settings.indexEnabled && status && (
         <>
-          {status.embeddingProvider === "gemini" && (
+          {status.embeddingAvailable && (
             <div className="flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-xs text-warning">
               <ShieldAlert className="mt-0.5 size-4 shrink-0" />
               <p>
-                Untuk data kantor, pakai API key Gemini <b>berbayar</b> (billing Google Cloud aktif di project key ini).
-                Pada kuota <b>gratis</b>, Google boleh memakai isi yang dikirim untuk meningkatkan produknya dan
-                reviewer manusia dapat membacanya.
+                Untuk data kantor, pastikan sumber model Embedding di Akai memakai API key <b>berbayar</b>. Pada kuota
+                <b> gratis</b> (mis. Gemini tanpa billing), penyedia boleh memakai isi yang dikirim untuk meningkatkan
+                produknya dan reviewer manusia dapat membacanya.
               </p>
             </div>
           )}
@@ -165,9 +161,9 @@ function AiIndexCard({ settings }: { settings: AiSettings }) {
             <div className="flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-xs text-warning">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <p>
-                Tanpa API key <b>Google Gemini</b> atau <b>OpenAI</b>, indeks hanya mendukung pencarian kata persis
-                (data tidak dikirim ke mana pun). Simpan salah satu key di Pengaturan → Model AI agar AI juga bisa
-                mencari berdasarkan makna — embedding dilengkapi otomatis.
+                Tugas <b>Embedding</b> belum diatur di Akai, jadi indeks hanya mendukung pencarian kata persis (data
+                tidak dikirim ke mana pun). Atur model Embedding di Akai → Model agar AI juga bisa mencari berdasarkan
+                makna — embedding dilengkapi otomatis.
               </p>
             </div>
           )}

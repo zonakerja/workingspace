@@ -6,7 +6,7 @@ import { rowToPayload } from "../records/record-mapper";
 import { RECORD_TABLES, type RecordType } from "../records/record-schema";
 import { ShareAccessService } from "../sharing/share-access.service";
 import { type ShareRoot, accessKey, collectUploadIds, expandDescendants } from "../sharing/share-graph";
-import { LOCKABLE_TYPES, archiveOriginKeys } from "./lock-logic";
+import { LOCKABLE_TYPES, PIN_ACTIVITY_TOUCH_MS, archiveOriginKeys, pinStillUnlocked } from "./lock-logic";
 
 /** Item terkunci milik satu pemilik (dihitung dari item induk bertanda `locked`). */
 export interface LockSet {
@@ -56,26 +56,53 @@ export class LockService {
 
   // ------------------------------------------------------------ Sesi
 
-  /** Sesi login user sudah memasukkan PIN (berlaku sampai logout / Kunci sekarang). */
-  isUnlocked(user: Pick<AuthUser, "id" | "sid"> | null | undefined): Promise<boolean> {
+  /**
+   * Sesi login user sudah memasukkan PIN (berlaku sampai logout / Kunci sekarang, atau sampai kunci otomatis bila
+   * diatur). `touch` = permintaan ini aktivitas atas item terkunci (memperpanjang kunci otomatis); pemeriksaan status
+   * berkala memakai `touch: false` agar tidak membuat sesi terbuka selamanya.
+   */
+  isUnlocked(
+    user: Pick<AuthUser, "id" | "sid"> | null | undefined,
+    options: { touch?: boolean } = {},
+  ): Promise<boolean> {
     const sid = user?.sid;
     if (!sid) return Promise.resolve(false);
+    const touch = options.touch ?? true;
     const cached = this.unlocks.get(sid);
     if (cached && Date.now() - cached.at < UNLOCK_TTL_MS) return cached.value;
-    const value = this.prisma.refreshToken
-      .count({
-        where: { sessionId: sid, userId: user.id, pinUnlocked: true, revokedAt: null, expiresAt: { gt: new Date() } },
-      })
-      .then((n) => n > 0);
+    const value = this.checkSession(user.id, sid, touch);
     this.unlocks.set(sid, { at: Date.now(), value });
     return value;
+  }
+
+  private async checkSession(userId: string, sid: string, touch: boolean) {
+    const token = await this.prisma.refreshToken.findFirst({
+      where: { sessionId: sid, userId, pinUnlocked: true, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+      select: { pinActiveAt: true, user: { select: { pinAutoLockMinutes: true } } },
+    });
+    if (!token) return false;
+    const now = Date.now();
+    const minutes = token.user.pinAutoLockMinutes;
+    if (!pinStillUnlocked(token.pinActiveAt, minutes, now)) {
+      // Kunci otomatis: tidak ada aktivitas atas item terkunci selama `minutes`
+      await this.prisma.refreshToken.updateMany({ where: { sessionId: sid, userId }, data: { pinUnlocked: false } });
+      return false;
+    }
+    if (touch && minutes && (!token.pinActiveAt || now - token.pinActiveAt.getTime() > PIN_ACTIVITY_TOUCH_MS)) {
+      await this.prisma.refreshToken.updateMany({
+        where: { sessionId: sid, userId },
+        data: { pinActiveAt: new Date(now) },
+      });
+    }
+    return true;
   }
 
   async setSessionUnlocked(user: AuthUser, unlocked: boolean) {
     if (!user.sid) return;
     await this.prisma.refreshToken.updateMany({
       where: { sessionId: user.sid, userId: user.id },
-      data: { pinUnlocked: unlocked },
+      data: { pinUnlocked: unlocked, pinActiveAt: unlocked ? new Date() : null },
     });
     this.unlocks.delete(user.sid);
   }

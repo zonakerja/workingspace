@@ -6,7 +6,6 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AuthUser } from "../../common/types/auth-user";
 import { UploadsModule } from "../../uploads/uploads.module";
-import { AiModule } from "../ai.module";
 import { TranscribeService } from "./transcribe.service";
 
 class TranscribeDto {
@@ -40,9 +39,9 @@ class TranscribeController {
   }
 }
 
-/** Modul terpisah: AI & Uploads sudah saling bergantung lewat ekstraksi, jadi keduanya diimpor dari sini. */
+/** Modul terpisah: Uploads bergantung pada AI lewat ekstraksi; transkrip sendiri memakai Akai (modul global). */
 @Module({
-  imports: [AiModule, UploadsModule],
+  imports: [UploadsModule],
   controllers: [TranscribeController],
   providers: [TranscribeService],
 })

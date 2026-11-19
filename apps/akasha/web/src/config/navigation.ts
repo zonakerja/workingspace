@@ -313,7 +313,7 @@ export const MODULES: ModuleDef[] = [
     key: "settings",
     label: "Pengaturan",
     description:
-      "Branding aplikasi, pengguna, berbagi, model & API key AI, dan integrasi agen AI, serta kalender & email tersambung.",
+      "Branding aplikasi, pengguna, berbagi, model AI (lewat Akai), dan integrasi agen AI, serta kalender & email tersambung.",
     path: "/settings",
     icon: Settings,
     sidebarSubmenu: true,

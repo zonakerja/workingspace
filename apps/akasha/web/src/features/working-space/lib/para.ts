@@ -1,5 +1,15 @@
 import { parseLocalYMD } from "@/lib/dates";
-import type { Activity, Area, AttachedResource, Project, ProjectTask, Resource, Schedule } from "@/types/entities";
+import { matchesWords, queryWords } from "@/features/planner/lib/planner-search";
+import type {
+  Activity,
+  Area,
+  AttachedResource,
+  ParaArchive,
+  Project,
+  ProjectTask,
+  Resource,
+  Schedule,
+} from "@/types/entities";
 
 /** Palet warna proyek (token desain) — dipilih stabil berdasarkan hash ID. */
 const PROJECT_COLORS = [
@@ -286,4 +296,94 @@ export function activityFields(
   return areaLevelHasSchedule(level)
     ? { ...base, deadline: values.deadline, resources: values.resources }
     : { ...base, deadline: undefined, resources: undefined };
+}
+
+// ---------------------------------------------------------------------------- pencarian ikut isi
+
+export interface SearchHit {
+  match: boolean;
+  /** Nama isi yang memuat kata kueri (maks. 3) — ditampilkan "Cocok: …" bila judul item sendiri tidak cocok */
+  via: string[];
+}
+
+/**
+ * Pencarian per kata (tanpa huruf besar/kecil & aksen) atas teks item sendiri, lalu atas gabungan teks item + isinya.
+ * `children` = [nama yang ditampilkan, ...teks lain yang ikut dicari] per isi.
+ */
+export function searchWithChildren(
+  query: string,
+  own: (string | undefined | null)[],
+  children: (string | undefined | null)[][],
+): SearchHit {
+  const words = queryWords(query);
+  if (words.length === 0) return { match: true, via: [] };
+  if (matchesWords(words, ...own)) return { match: true, via: [] };
+  const all = children.flat();
+  if (!matchesWords(words, ...own, ...all)) return { match: false, via: [] };
+  const via = children
+    .filter((texts) => words.some((w) => matchesWords([w], ...texts)))
+    .map((texts) => texts.find(Boolean) ?? "")
+    .filter(Boolean);
+  return { match: true, via: [...new Set(via)].slice(0, 3) };
+}
+
+const attachmentTexts = (resources?: AttachedResource[]) =>
+  (resources ?? []).map((r) => [r.name || r.title, r.description, ...(r.tags ?? [])]);
+
+/** Tab Areas: judul + deskripsi area, nama Sub Area / Kegiatan / Sub Kegiatan, dan project di dalamnya. */
+export const areaSearchMatch = (area: Area, activities: Activity[], projects: Project[], query: string) =>
+  searchWithChildren(
+    query,
+    [area.title, area.description],
+    [
+      ...activities.filter((a) => a.areaId === area.id).map((a) => [a.title, a.description]),
+      ...projects.filter((p) => p.areaId === area.id).map((p) => [p.title, p.description]),
+    ],
+  );
+
+/** Tab Projects: judul + deskripsi project, Action, Agenda, dan lampiran (Dasar Pelaksanaan & lampiran action). */
+export const projectSearchMatch = (
+  project: Project,
+  tasks: ProjectTask[],
+  schedules: Schedule[],
+  query: string,
+): SearchHit => {
+  const own = tasks.filter((t) => t.projectId === project.id);
+  return searchWithChildren(
+    query,
+    [project.title, project.description],
+    [
+      ...own.map((t) => [t.title, t.description]),
+      ...schedules.filter((s) => s.projectId === project.id).map((s) => [s.title, s.description, s.location]),
+      ...attachmentTexts(project.resources),
+      ...own.flatMap((t) => attachmentTexts(t.resources)),
+    ],
+  );
+};
+
+/** Teks bermakna dari snapshot arsip (judul, nama, deskripsi, tag) — rekursif atas `data` & `related`. */
+function snapshotTexts(value: unknown, out: (string | undefined)[][], depth = 0) {
+  if (depth > 6 || !value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((v) => snapshotTexts(v, out, depth + 1));
+    return;
+  }
+  const rec = value as Record<string, unknown>;
+  const name = [rec.title, rec.name].find((v) => typeof v === "string") as string | undefined;
+  const extra = [rec.description, rec.outcome, rec.location].filter((v): v is string => typeof v === "string");
+  const tags = Array.isArray(rec.tags) ? rec.tags.filter((t): t is string => typeof t === "string") : [];
+  if (name || extra.length) out.push([name, ...extra, ...tags]);
+  for (const [key, v] of Object.entries(rec))
+    if (v && typeof v === "object" && key !== "share") snapshotTexts(v, out, depth + 1);
+}
+
+/** Tab Archives: judul arsip, lalu isi snapshot (turunan, lampiran) yang ikut diarsipkan. */
+export function archiveSearchMatch(item: ParaArchive, query: string): SearchHit {
+  const title = String(item.data.title ?? item.data.name ?? "");
+  const texts: (string | undefined)[][] = [];
+  snapshotTexts(item.data, texts);
+  snapshotTexts(item.related, texts);
+  // Teks milik item arsip itu sendiri (baris pertama snapshot data) dihitung sebagai judul, bukan "isi"
+  const [first, ...rest] = texts;
+  return searchWithChildren(query, first ?? [title], rest);
 }

@@ -546,7 +546,7 @@ function PropertyRow({
   );
 }
 
-/** Tanya AI dengan isi catatan ini sebagai konteks (provider Pengaturan → Model AI); jawaban bisa disimpan ke Inbox. */
+/** Tanya AI dengan isi catatan ini sebagai konteks (model Akai); jawaban bisa disimpan ke Inbox. */
 function AskNote({ title, path, content }: { title: string; path: string; content: string }) {
   const ai = useAi();
   const inbox = useAddToKnowledgeInbox();

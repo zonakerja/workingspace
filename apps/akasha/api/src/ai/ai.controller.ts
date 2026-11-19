@@ -1,14 +1,10 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpCode,
-  Param,
-  ParseEnumPipe,
   Patch,
   Post,
-  Put,
   Query,
   UploadedFiles,
   UseGuards,
@@ -18,21 +14,18 @@ import { FilesInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { memoryStorage } from "multer";
-import { AiProvider } from "../generated/prisma/client";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
 import { AI_MAX_ATTACHMENT_BYTES, AI_MAX_ATTACHMENTS, AiService } from "./ai.service";
-import { GenerateAiDto, SaveAiProviderDto, SearchAiIndexDto, SmartSearchDto, UpdateAiSettingsDto } from "./dto/ai.dto";
+import { GenerateAiDto, SearchAiIndexDto, SmartSearchDto, UpdateAiSettingsDto } from "./dto/ai.dto";
 import { AiIndexQueueService } from "./index/ai-index-queue.service";
 import { LockService } from "../security/lock.service";
 import { AiIndexService } from "./index/ai-index.service";
 
-const providerPipe = new ParseEnumPipe(AiProvider);
-
 /**
- * AI multi-provider. API key milik user disimpan terenkripsi dan hanya dipakai di server — browser tidak pernah
- * menerima key maupun memanggil provider secara langsung.
+ * Fitur AI Akasha. Semua panggilan model lewat gateway Akai (key & pembagian tugas diatur di Akai → Model); Akasha menyusun
+ * prompt, potongan pengetahuan, dan penyaring (PIN, berbagi). docs/KAJIAN-AI-TERPUSAT.md.
  */
 @ApiTags("ai")
 @ApiBearerAuth()
@@ -54,27 +47,6 @@ export class AiController {
   @Patch("settings")
   updateSettings(@CurrentUser() user: AuthUser, @Body() dto: UpdateAiSettingsDto) {
     return this.ai.updateSettings(user.id, dto);
-  }
-
-  @Put("settings/:provider")
-  saveProvider(
-    @CurrentUser() user: AuthUser,
-    @Param("provider", providerPipe) provider: AiProvider,
-    @Body() dto: SaveAiProviderDto,
-  ) {
-    return this.ai.saveProvider(user.id, provider, dto);
-  }
-
-  @Delete("settings/:provider")
-  removeProvider(@CurrentUser() user: AuthUser, @Param("provider", providerPipe) provider: AiProvider) {
-    return this.ai.removeProvider(user.id, provider);
-  }
-
-  @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  @HttpCode(200)
-  @Post("settings/:provider/test")
-  testProvider(@CurrentUser() user: AuthUser, @Param("provider", providerPipe) provider: AiProvider) {
-    return this.ai.testProvider(user.id, provider);
   }
 
   @ApiConsumes("multipart/form-data")

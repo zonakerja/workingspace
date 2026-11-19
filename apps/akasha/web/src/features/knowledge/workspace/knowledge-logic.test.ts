@@ -21,6 +21,7 @@ import {
   slugify,
   tagCounts,
   toReaderMarkdown,
+  withInlineFootnotes,
 } from "./knowledge-logic";
 
 const note = (path: string, over: Partial<KnowledgeNoteListItem> = {}): KnowledgeNoteListItem => ({
@@ -214,5 +215,19 @@ describe("kueri graf & tabel", () => {
     });
     expect(sameField(" bmn ", "BMN")).toBe(true);
     expect(noteFieldNames({ bidang: [" A ", 1, ""] })).toEqual(["A"]);
+  });
+});
+
+describe("catatan kaki sebaris", () => {
+  it("^[teks] → rujukan GFM + definisi di akhir, kode tidak tersentuh", () => {
+    const out = withInlineFootnotes("Aset tetap^[PMK 181/2016] dan `x^[y]`.\nLagi^[catatan [[Aturan]]].");
+    expect(out).toContain("Aset tetap[^akasha-inline-1] dan `x^[y]`.");
+    expect(out).toContain("Lagi[^akasha-inline-2].");
+    expect(out.trim().endsWith("[^akasha-inline-2]: catatan [[Aturan]]")).toBe(true);
+    expect(out).toContain("[^akasha-inline-1]: PMK 181/2016");
+  });
+  it("tanpa catatan kaki sebaris = teks sama; pembaca mengubah wikilink di definisi", () => {
+    expect(withInlineFootnotes("biasa [^1]\n\n[^1]: x")).toBe("biasa [^1]\n\n[^1]: x");
+    expect(toReaderMarkdown("a^[lihat [[B]]]")).toContain("[^akasha-inline-1]: lihat [B](");
   });
 });

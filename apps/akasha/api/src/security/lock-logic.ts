@@ -8,7 +8,16 @@
  */
 
 /** Jenis record yang bisa dikunci langsung (item induk). */
-export const LOCKABLE_TYPES = ["para_area", "para_project", "para_resource", "free_note", "ai_note", "list"] as const;
+export const LOCKABLE_TYPES = [
+  "para_area",
+  "para_project",
+  // Sub Area / Kegiatan / Sub Kegiatan bisa dikunci sendiri (turunan & task-nya ikut)
+  "para_activity",
+  "para_resource",
+  "free_note",
+  "ai_note",
+  "list",
+] as const;
 export type LockableType = (typeof LOCKABLE_TYPES)[number];
 export const isLockableType = (type: string): type is LockableType =>
   (LOCKABLE_TYPES as readonly string[]).includes(type);
@@ -161,4 +170,20 @@ export function pinBlockMs(failed: number) {
   if (failed < PIN_MAX_ATTEMPTS) return 0;
   const rounds = Math.floor(failed / PIN_MAX_ATTEMPTS) - 1;
   return Math.min(15 * 60_000 * 2 ** rounds, 24 * 60 * 60_000);
+}
+
+/** Pilihan kunci otomatis (menit tanpa aktivitas atas item terkunci); null = terbuka sampai logout / Kunci sekarang. */
+export const PIN_AUTO_LOCK_OPTIONS = [5, 15, 30, 60, 240] as const;
+
+/** Aktivitas terakhir dicatat paling sering sekali per menit (hemat tulis database). */
+export const PIN_ACTIVITY_TOUCH_MS = 60_000;
+
+/**
+ * Sesi yang PIN-nya terbuka tetap terbuka? Tanpa kunci otomatis = ya. Dengan kunci otomatis = selama aktivitas terakhir
+ * (atau waktu buka bila belum ada aktivitas tercatat) belum lewat `minutes`.
+ */
+export function pinStillUnlocked(activeAt: Date | null, minutes: number | null, now: number) {
+  if (!minutes) return true;
+  if (!activeAt) return false;
+  return now - activeAt.getTime() < minutes * 60_000;
 }

@@ -588,6 +588,29 @@ try {
   const statusEmbed = r.d?.tasks?.find((t) => t.task === "embedding");
   ok("status names primary embedding model", statusEmbed?.primary === "embed-a", statusEmbed);
 
+  // Transkrip audio asinkron: isi audio mentah + kunci pekerjaan; tanpa model tugas Transkrip ditolak sebelum menerima isi
+  {
+    const raw = (contentType, key = "smoke-audio") =>
+      fetch(`${BASE}/gateway/v1/audio/transcriptions`, {
+        method: "POST",
+        headers: {
+          Authorization: BASIC,
+          "X-Akai-Subject": `smoke-akai-${stamp}`,
+          "Content-Type": contentType,
+          "X-Akai-Key": key,
+        },
+        body: Buffer.from("bukan-audio-sungguhan"),
+      }).then(async (res) => ({ s: res.status, d: await res.json().catch(() => null) }));
+    r = await raw("application/pdf");
+    ok("transcribe rejects non-audio 400", r.s === 400, r.d);
+    r = await raw("audio/webm", "../x");
+    ok("transcribe rejects bad key 400", r.s === 400, r.d);
+    r = await raw("audio/webm");
+    ok("transcribe without Transkrip model 422", r.s === 422 && /Transkrip/.test(r.d?.message), r.d);
+    r = await call("GET", "/gateway/v1/audio/transcriptions/smoke-audio");
+    ok("transcribe status unknown key 404", r.s === 404, r.d);
+  }
+
   {
     const db = new pg.Client({ connectionString: env.DATABASE_URL.replace(/\?schema=public$/, "") });
     await db.connect();

@@ -70,17 +70,11 @@ export function useConvertedDocument(id: string | null) {
 export function useCreateConvertedDocument() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      file,
-      ...options
-    }: {
-      file: File;
-      mode?: ConverterMode;
-      enhance?: boolean;
-      compareTokens?: boolean;
-    }) => converterApi.createDocument(file, options),
+    mutationFn: ({ file, ...options }: { file: File; mode?: ConverterMode; enhance?: boolean }) =>
+      converterApi.createDocument(file, options),
     onSuccess: (doc) => {
-      client.setQueryData<ConvertedDocumentSummary[]>(queryKeys.convertedDocuments, (prev) => [doc, ...(prev ?? [])]);
+      if (!doc.reused)
+        client.setQueryData<ConvertedDocumentSummary[]>(queryKeys.convertedDocuments, (prev) => [doc, ...(prev ?? [])]);
       void client.invalidateQueries({ queryKey: queryKeys.convertedDocuments });
     },
   });

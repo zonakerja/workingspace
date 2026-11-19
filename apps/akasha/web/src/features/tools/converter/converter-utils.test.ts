@@ -8,7 +8,6 @@ import {
   inboxTitle,
   markdownFileName,
   methodRows,
-  tokenRows,
 } from "./converter-utils";
 
 describe("converter-utils", () => {
@@ -34,32 +33,6 @@ describe("converter-utils", () => {
     expect(formatDuration(1850)).toBe("1,9 dtk");
     expect(formatDuration(65_000)).toBe("1 mnt 5 dtk");
     expect(formatDuration(120_000)).toBe("2 mnt");
-  });
-
-  it("builds token comparison rows with savings against the raw file", () => {
-    const rows = tokenRows({
-      available: true,
-      model: "gemini",
-      rawFile: 1000,
-      rawFileNote: null,
-      markdown: 250,
-      enhance: { input: 400, output: 240, result: 240 },
-    });
-    expect(rows.map((r) => [r.tokens, r.saving])).toEqual([
-      [1000, null],
-      [250, 75],
-      [240, 76],
-      [640, null],
-    ]);
-    const docx = tokenRows({
-      available: true,
-      model: "g",
-      rawFile: null,
-      rawFileNote: "x",
-      markdown: 10,
-      enhance: null,
-    });
-    expect(docx[1].saving).toBeNull();
   });
 
   it("sorts method rows and marks AI OCR as paid", () => {
@@ -96,7 +69,6 @@ describe("converter-utils", () => {
       fileName: "sk.docx",
       size: 10,
       enhanceError: null,
-      tokenComparison: null,
       enhanced: {
         parts: 1,
         rejected: 0,

@@ -512,13 +512,19 @@ function TagsPanel({ notes, onPick }: { notes: KnowledgeNoteListItem[]; onPick: 
       }
       const result = await renameTag.mutateAsync({ from: renaming, to: name });
       await control?.reload();
-      toast.success(`Tag diganti di ${result.notes} catatan (${result.occurrences} tempat).`, {
-        description: result.failed?.length
-          ? `${result.failed.length} catatan dilewati karena properti rusak: ${result.failed.slice(0, 3).join(", ")}`
-          : result.notes === 0
-            ? "Tag ini hanya ada di cermin 80-Akasha (dikelola Akasha) — ubah di menu asalnya."
-            : undefined,
-      });
+      const extra = [result.bases ? `${result.bases} base` : "", result.canvases ? `${result.canvases} canvas` : ""]
+        .filter(Boolean)
+        .join(", ");
+      toast.success(
+        `Tag diganti di ${result.notes} catatan${extra ? `, ${extra}` : ""} (${result.occurrences} tempat).`,
+        {
+          description: result.failed?.length
+            ? `${result.failed.length} catatan dilewati karena properti rusak: ${result.failed.slice(0, 3).join(", ")}`
+            : result.notes === 0 && !extra
+              ? "Tag ini hanya ada di cermin 80-Akasha (dikelola Akasha) — ubah di menu asalnya."
+              : undefined,
+        },
+      );
     } catch (error) {
       toast.error("Gagal mengganti nama tag", { description: errorMessage(error) });
     }

@@ -168,12 +168,30 @@ const linkLabel = (target: string, alias?: string) =>
     .replace(/[[\]]/g, "")
     .trim() || target.trim().replace(/^#/, "");
 
+/** Catatan kaki sebaris Obsidian `^[teks]` → catatan kaki GFM bernomor; definisinya ditambahkan di akhir dokumen. */
+export function withInlineFootnotes(content: string) {
+  const inlineNotes: string[] = [];
+  const body = content
+    .split(/(```[\s\S]*?```|`[^`\n]*`)/g)
+    .map((part, i) =>
+      i % 2
+        ? part
+        : part.replace(/\^\[((?:[^[\]\n]|\[(?:[^[\]\n]|\[[^[\]\n]*\])*\])+)\]/g, (_, text: string) => {
+            inlineNotes.push(text.trim());
+            return `[^akasha-inline-${inlineNotes.length}]`;
+          }),
+    )
+    .join("");
+  if (!inlineNotes.length) return content;
+  return `${body}\n\n${inlineNotes.map((text, i) => `[^akasha-inline-${i + 1}]: ${text}`).join("\n\n")}\n`;
+}
+
 /**
- * Markdown Obsidian → Markdown aplikasi: `[[a#b|c]]` → `[c](kn:a%23b)`, `![[a]]` → `![a](kn-embed:a)`, ganti baris
- * tunggal dipertahankan (bawaan Obsidian), kecuali di blok kode.
+ * Markdown Obsidian → Markdown aplikasi: `[[a#b|c]]` → `[c](kn:a%23b)`, `![[a]]` → `![a](kn-embed:a)`, catatan kaki
+ * sebaris `^[teks]`, ganti baris tunggal dipertahankan (bawaan Obsidian), kecuali di blok kode.
  */
 export function toReaderMarkdown(content: string) {
-  return content
+  return withInlineFootnotes(content)
     .split(/(```[\s\S]*?```|`[^`\n]*`)/g)
     .map((part, i) => {
       if (i % 2) return part;

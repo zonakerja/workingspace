@@ -35,6 +35,15 @@ interface SearchResult {
   path: string;
 }
 
+/** Data yang hanya berisi item yang dibagikan orang lain (bertanda `share`) — dicari di tab Pintar. */
+const sharedOnly = (data: AkashaData): AkashaData =>
+  Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [
+      key,
+      Array.isArray(value) ? value.filter((item) => !!(item as { share?: unknown } | null)?.share) : value,
+    ]),
+  ) as unknown as AkashaData;
+
 /** Pencarian cepat lintas modul (maks. 15 hasil). */
 const searchAll = (data: AkashaData, query: string): SearchResult[] => {
   const q = query.trim().toLowerCase();
@@ -196,6 +205,12 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
   const [submitted, setSubmitted] = useState("");
 
   const results = mode === "standard" ? searchAll(data, query) : [];
+  // Indeks pengetahuan hanya berisi data milik sendiri → item yang dibagikan orang lain dicari di browser
+  const sharedResults = mode === "smart" && query.trim().length >= 2 ? searchAll(sharedOnly(data), query) : [];
+  const openResult = (r: SearchResult) => {
+    onClose();
+    void navigate(r.path);
+  };
 
   return (
     <Command shouldFilter={false} className="rounded-none" data-module="overview">
@@ -213,7 +228,13 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
                   : "Cari item & isi berkas di semua modul..."
             }
             onKeyDown={(e) => {
-              if (e.key === "Enter" && mode === "smart") {
+              // Mode Makna: Enter pertama mengirim kueri; Enter berikutnya (kueri sama) membuka hasil terpilih
+              if (
+                e.key === "Enter" &&
+                mode === "smart" &&
+                smartMode === "meaning" &&
+                query.trim() !== submitted.trim()
+              ) {
                 e.preventDefault();
                 setSubmitted(query);
               }
@@ -252,22 +273,10 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
                   <CommandItem
                     key={r.key}
                     value={r.key}
-                    onSelect={() => {
-                      onClose();
-                      void navigate(r.path);
-                    }}
+                    onSelect={() => openResult(r)}
                     className="gap-3 rounded-xl py-3"
                   >
-                    <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted ${r.color}`}>
-                      <r.icon className="size-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{r.title}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{r.desc}</span>
-                    </span>
-                    <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground uppercase">
-                      {r.type}
-                    </span>
+                    <QuickResultContent result={r} />
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -286,7 +295,38 @@ function GlobalSearchPanel({ onClose }: { onClose: () => void }) {
             onClose={onClose}
           />
         )}
+        {mode === "smart" && sharedResults.length > 0 && (
+          <CommandGroup heading="Dibagikan kepada Anda">
+            {sharedResults.map((r) => (
+              <CommandItem
+                key={`shared-${r.key}`}
+                value={`shared-${r.key}`}
+                onSelect={() => openResult(r)}
+                className="gap-3 rounded-xl py-2"
+              >
+                <QuickResultContent result={r} />
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
       </CommandList>
     </Command>
+  );
+}
+
+function QuickResultContent({ result: r }: { result: SearchResult }) {
+  return (
+    <>
+      <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted ${r.color}`}>
+        <r.icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-semibold">{r.title}</span>
+        <span className="block truncate text-xs text-muted-foreground">{r.desc}</span>
+      </span>
+      <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground uppercase">
+        {r.type}
+      </span>
+    </>
   );
 }

@@ -5,7 +5,6 @@ import type {
   ConverterEnhanceScope,
   ConverterMode,
   ConverterReconvertScope,
-  ConverterTokenComparison,
 } from "@/types/api";
 
 /** Cara berkas dibaca (`asset_extractions.metadata.method`) → label. */
@@ -68,52 +67,6 @@ export const ENHANCE_SCOPE_OPTIONS: { value: ConverterEnhanceScope; label: strin
     hint: "Termasuk Word/Excel/PDF berlapisan teks. Biasanya sudah rapi, jadi token rapikan lebih sering tidak sepadan.",
   },
 ];
-
-export interface TokenRow {
-  label: string;
-  hint?: string;
-  tokens: number | null;
-  /** Persen hemat dibanding berkas dibaca langsung (negatif = lebih banyak); null = tidak dibandingkan. */
-  saving: number | null;
-}
-
-const savingOf = (tokens: number, base: number | null) =>
-  base && base > 0 ? Math.round((1 - tokens / base) * 100) : null;
-
-/** Baris tabel Bandingkan token: berkas langsung → Markdown → dirapikan (dibaca AI) → biaya sekali rapikan. */
-export function tokenRows(data: Extract<ConverterTokenComparison, { available: true }>): TokenRow[] {
-  const rows: TokenRow[] = [
-    {
-      label: "Berkas dibaca AI langsung",
-      hint: data.rawFileNote ?? "PDF/gambar dikirim apa adanya ke model",
-      tokens: data.rawFile,
-      saving: null,
-    },
-    {
-      label: "Markdown converter",
-      hint: "yang dibaca fitur AI setiap kali berkas dipakai",
-      tokens: data.markdown,
-      saving: savingOf(data.markdown, data.rawFile),
-    },
-  ];
-  if (data.enhance) {
-    rows.push(
-      {
-        label: "Markdown dirapikan AI",
-        hint: "yang dibaca fitur AI bila Rapikan dinyalakan",
-        tokens: data.enhance.result,
-        saving: savingOf(data.enhance.result, data.rawFile),
-      },
-      {
-        label: "Biaya sekali rapikan",
-        hint: `masukan ${formatCount(data.enhance.input)} + keluaran ${formatCount(data.enhance.output)} token (sekali per berkas)`,
-        tokens: data.enhance.input + data.enhance.output,
-        saving: null,
-      },
-    );
-  }
-  return rows;
-}
 
 /** Nama provider AI untuk keterangan "Dirapikan oleh …". */
 export function providerLabel(provider: string | null) {

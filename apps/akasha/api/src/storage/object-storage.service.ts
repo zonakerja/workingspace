@@ -6,6 +6,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -150,6 +151,20 @@ export class ObjectStorageService implements OnModuleInit {
             `Salinan arsip dingin ${key} gagal dihapus: ${error instanceof Error ? error.message : error}`,
           ),
         );
+  }
+
+  /** Semua key berawalan `prefix` (mis. `<userId>/`). Dipakai membersihkan berkas akun yang dihapus. */
+  async listKeys(prefix: string) {
+    const keys: string[] = [];
+    let token: string | undefined;
+    do {
+      const page = await this.client.send(
+        new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: token }),
+      );
+      for (const item of page.Contents ?? []) if (item.Key) keys.push(item.Key);
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+    return keys;
   }
 
   /** Dipakai health check: pastikan bucket ada (dibuat bila storage baru siap), lalu cek aksesnya. */

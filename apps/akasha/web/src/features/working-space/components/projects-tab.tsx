@@ -14,13 +14,13 @@ import { SearchInput } from "@/components/common/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
-import { useAreas, useProjects, useProjectTasks } from "@/data/collections";
+import { useAreas, useProjects, useProjectTasks, useSchedules } from "@/data/collections";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useToday } from "@/hooks/use-today";
 import { DEFAULT_DATE_FILTER, dateFilterRange } from "@/lib/date-filter";
 import { formatNumericDate } from "@/lib/dates";
 import type { Project } from "@/types/entities";
-import { deleteDescription, isProjectActiveIn, PARA_INFO } from "../lib/para";
+import { deleteDescription, isProjectActiveIn, PARA_INFO, projectSearchMatch } from "../lib/para";
 import { projectTaskProgress, projectTimeProgress } from "../lib/progress";
 import { useParaActions } from "../use-para-actions";
 import { CARD_ACTION_CLASS, MiniProgress } from "./overview-tab";
@@ -39,6 +39,7 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
   const { items: projects, setItems: setProjects } = useProjects();
   const { items: areas } = useAreas();
   const { items: tasks } = useProjectTasks();
+  const { items: schedules } = useSchedules();
   const { canEdit } = usePermissions();
   const actions = useParaActions();
   const cleanup = useAttachmentCleanup();
@@ -53,8 +54,9 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
   const [archiving, setArchiving] = useState<Project | null>(null);
 
   const range = dateFilterRange(dateFilter, today);
+  const hits = new Map(projects.map((p) => [p.id, projectSearchMatch(p, tasks, schedules, search)]));
   const filtered = projects
-    .filter((p) => !search || p.title.toLowerCase().includes(search.toLowerCase()))
+    .filter((p) => hits.get(p.id)?.match)
     .filter((p) => !range || isProjectActiveIn(p, range[0], range[1], today));
 
   return (
@@ -63,7 +65,15 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
         <h3 className="text-base font-bold">Active Projects</h3>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          <SearchInput value={search} onChange={setSearch} placeholder="Cari Project..." />
+          <SearchInput
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
+            placeholder="Cari project, action, agenda..."
+            className="md:w-72"
+          />
           <DateRangeFilter
             value={dateFilter}
             onChange={(v) => {
@@ -166,6 +176,11 @@ export function ProjectsTab({ onOpenProject }: { onOpenProject: (id: string) => 
                 <h4 className="line-clamp-2 text-base leading-snug font-bold" title={p.title}>
                   {p.title}
                 </h4>
+                {!!hits.get(p.id)?.via.length && (
+                  <p className="-mt-1 truncate text-xs text-module" title={hits.get(p.id)?.via.join(", ")}>
+                    Cocok: {hits.get(p.id)?.via.join(", ")}
+                  </p>
+                )}
                 {area && (
                   <p
                     className="-mt-1.5 flex items-center gap-1 text-xs font-semibold text-primary"

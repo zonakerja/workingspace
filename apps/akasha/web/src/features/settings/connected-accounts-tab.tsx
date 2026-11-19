@@ -40,6 +40,7 @@ import {
 } from "@/data/use-connected-accounts";
 import { useInboxMutations } from "@/data/use-mail-inbox";
 import { ColdStorageCard } from "@/features/drive/cold-storage-card";
+import { DriveBackupCard } from "@/features/drive/drive-backup-card";
 import { OAuthAccountsCard } from "./oauth-accounts-card";
 import { useOpenSession } from "@/hooks/use-retained";
 import { errorMessage } from "@/lib/api/client";
@@ -74,6 +75,7 @@ export function ConnectedAccountsTab() {
   return (
     <div className="flex flex-col gap-4">
       <OAuthAccountsCard />
+      <DriveBackupCard />
       <ColdStorageCard />
       <CalendarFeedCard />
       <MailAccountsCard />

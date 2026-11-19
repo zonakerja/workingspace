@@ -7,6 +7,7 @@ import {
   OnModuleInit,
   UnprocessableEntityException,
 } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConverterClient } from "./converter-client";
@@ -16,13 +17,14 @@ import {
   LIBRARY_MAX_DOCUMENTS,
   LIBRARY_MAX_PENDING,
   libraryAccepts,
+  libraryOptionsKey,
   libraryTitle,
   librarySummary,
 } from "./converter-logic";
 import { ConverterService } from "./converter.service";
 
 type UploadFile = { buffer: Buffer; originalname: string; mimetype: string; size: number };
-type LibraryOptions = { mode?: ConverterMode; pdfMode?: ConverterPdfMode; enhance?: boolean; compareTokens?: boolean };
+type LibraryOptions = { mode?: ConverterMode; pdfMode?: ConverterPdfMode; enhance?: boolean };
 type Job = { id: string; userId: string; file: UploadFile; options: LibraryOptions };
 
 /** Konversi paralel di satu proses (Docling di service converter tetap satu per satu). */
@@ -105,6 +107,21 @@ export class ConverterLibraryService implements OnModuleInit {
     if (!libraryAccepts(file.mimetype, name)) {
       throw new BadRequestException("Format berkas ini tidak bisa dikonversi ke Markdown.");
     }
+    // Berkas yang sama dengan pilihan yang sama sudah ada di pustaka → dibuka, tidak dikonversi lagi
+    const checksum = createHash("sha256").update(file.buffer).digest("hex");
+    const previous = await this.prisma.convertedDocument.findMany({
+      where: { userId, checksum, status: "done" },
+      select: LIST_SELECT,
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+    const same = previous.find(
+      (doc) => libraryOptionsKey(doc.options as LibraryOptions) === libraryOptionsKey(options),
+    );
+    if (same) {
+      const { result, ...rest } = same;
+      return { ...rest, summary: librarySummary(result), reused: true };
+    }
     const [pending, total] = await Promise.all([
       this.prisma.convertedDocument.count({ where: { userId, status: { in: ["queued", "processing"] } } }),
       this.prisma.convertedDocument.count({ where: { userId } }),
@@ -123,6 +140,7 @@ export class ConverterLibraryService implements OnModuleInit {
         mimeType: file.mimetype || "application/octet-stream",
         size: file.size,
         options: { ...options },
+        checksum,
         status: "queued",
       },
       select: LIST_SELECT,

@@ -1,6 +1,6 @@
 /** Logika murni Sampah (diuji di `trash-logic.spec.ts`). */
 
-export type TrashKind = "record" | "asset" | "request" | "notebook" | "vault_note";
+export type TrashKind = "record" | "asset" | "request" | "notebook" | "vault_note" | "agent_conversation";
 
 export type TrashSource = "user" | "agent";
 

@@ -27,6 +27,7 @@ import { SkillsService } from "./skills/skills.service";
 import { ProjectsController } from "./projects/projects.controller";
 import { ProjectsService } from "./projects/projects.service";
 import { GatewayService } from "./gateway/gateway.service";
+import { TranscribeService } from "./transcribe/transcribe.service";
 import { HealthController } from "./health/health.controller";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SourcesController } from "./sources/sources.controller";
@@ -61,6 +62,7 @@ import { UsageController } from "./usage/usage.controller";
     CallerService,
     SourcesService,
     GatewayService,
+    TranscribeService,
     AgentModelService,
     ChatService,
     ProjectsService,

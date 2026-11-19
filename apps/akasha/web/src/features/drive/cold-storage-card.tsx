@@ -1,4 +1,4 @@
-import { ArchiveRestore, Play, Snowflake, TriangleAlert } from "lucide-react";
+import { ArchiveRestore, List, Play, Snowflake, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -12,6 +12,7 @@ import { useColdStorage, useColdStorageMutations } from "@/data/use-drive";
 import { errorMessage } from "@/lib/api/client";
 import { formatDateTime } from "@/lib/dates";
 import type { ColdStorageSettings } from "@/types/api";
+import { ColdFilesDialog } from "./cold-files-dialog";
 import { COLD_DAY_OPTIONS, COLD_SIZE_OPTIONS, dayLabel, formatSize, PROVIDER_DRIVE_LABEL } from "./drive-utils";
 
 /**
@@ -22,6 +23,7 @@ export function ColdStorageCard() {
   const { data, isLoading } = useColdStorage();
   const m = useColdStorageMutations();
   const [confirm, setConfirm] = useState<"enable" | "restore" | null>(null);
+  const [filesOpen, setFilesOpen] = useState(false);
   const fail = (error: unknown) => toast.error(errorMessage(error));
   const save = (input: Partial<ColdStorageSettings>) => m.update.mutate(input, { onError: fail });
 
@@ -129,6 +131,9 @@ export function ColdStorageCard() {
             >
               {data.running === "restore" ? <Spinner /> : <ArchiveRestore />} Kembalikan semua
             </Button>
+            <Button size="sm" variant="ghost" disabled={!data.stored.count} onClick={() => setFilesOpen(true)}>
+              <List /> Lihat berkas ({data.stored.count})
+            </Button>
             {data.running && (
               <span className="text-xs text-muted-foreground">
                 {data.running === "move" ? "Memindahkan ke Drive…" : "Mengembalikan dari Drive…"}
@@ -152,6 +157,7 @@ export function ColdStorageCard() {
           </p>
         </div>
       )}
+      <ColdFilesDialog open={filesOpen} onOpenChange={setFilesOpen} />
       <ConfirmDialog
         open={confirm === "enable"}
         onOpenChange={(open) => !open && setConfirm(null)}

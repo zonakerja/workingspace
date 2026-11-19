@@ -2,6 +2,7 @@ import { Archive, Grid2x2, PencilLine, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { SearchInput } from "@/components/common/search-input";
 import { type PageSize, PaginationControl, paginate } from "@/components/common/pagination-control";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
@@ -12,7 +13,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { itemAccess } from "@/lib/sharing";
 import { cn } from "@/lib/utils";
 import type { Area } from "@/types/entities";
-import { PARA_INFO } from "../lib/para";
+import { PARA_INFO, areaSearchMatch } from "../lib/para";
 import { AreaFormDialog } from "./area-dialogs";
 import { CARD_ACTION_CLASS } from "./overview-tab";
 import { ParaInfo } from "./para-info";
@@ -35,10 +36,15 @@ export function AreasTab({
   const { items: projects } = useProjects();
   const { items: activities } = useActivities();
   const { canEdit } = usePermissions();
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(10);
   const [editing, setEditing] = useState<Area | "new" | null>(null);
   const [deleting, setDeleting] = useState<Area | null>(null);
+
+  const results = areas
+    .map((area) => ({ area, ...areaSearchMatch(area, activities, projects, search) }))
+    .filter((r) => r.match);
 
   const requestDelete = (area: Area) => {
     const p = projects.filter((x) => x.areaId === area.id).length;
@@ -55,13 +61,24 @@ export function AreasTab({
   return (
     <div className="flex flex-col gap-4">
       <ParaInfo icon={Grid2x2} {...PARA_INFO.areas} />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
         <h3 className="text-base font-bold">Areas</h3>
-        {canEdit && (
-          <Button onClick={() => setEditing("new")}>
-            <Plus /> New Area
-          </Button>
-        )}
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <SearchInput
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
+            placeholder="Cari Area, kegiatan, project..."
+            className="md:w-72"
+          />
+          {canEdit && (
+            <Button onClick={() => setEditing("new")}>
+              <Plus /> New Area
+            </Button>
+          )}
+        </div>
       </div>
 
       {areas.length === 0 ? (
@@ -72,9 +89,18 @@ export function AreasTab({
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      ) : results.length === 0 ? (
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyDescription>Tidak ada Area yang cocok dengan "{search.trim()}".</EmptyDescription>
+          </EmptyHeader>
+          <Button variant="outline" size="sm" onClick={() => setSearch("")}>
+            Hapus pencarian
+          </Button>
+        </Empty>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {paginate(areas, page, pageSize).map((area) => {
+          {paginate(results, page, pageSize).map(({ area, via }) => {
             const projectCount = projects.filter((p) => p.areaId === area.id).length;
             const subAreaCount = activities.filter((a) => a.areaId === area.id && !a.parentId).length;
             return (
@@ -151,6 +177,11 @@ export function AreasTab({
                 <p className="relative line-clamp-2 text-xs text-muted-foreground">
                   {area.description || "Area tanggung jawab utama."}
                 </p>
+                {via.length > 0 && (
+                  <p className="relative truncate text-xs text-module" title={via.join(", ")}>
+                    Cocok: {via.join(", ")}
+                  </p>
+                )}
                 <div className="relative mt-auto flex flex-wrap items-center gap-1.5 pt-1 text-[11px] font-semibold">
                   <span className="rounded-md bg-module-soft px-2 py-0.5 text-module">{subAreaCount} sub area</span>
                   <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">{projectCount} project</span>
@@ -162,7 +193,7 @@ export function AreasTab({
       )}
 
       <PaginationControl
-        totalItems={areas.length}
+        totalItems={results.length}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

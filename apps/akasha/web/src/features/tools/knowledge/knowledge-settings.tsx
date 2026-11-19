@@ -471,9 +471,9 @@ function GuideCard() {
       </ol>
       <p className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
         <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-        Isi pengetahuan & data kerja dikirim ke penyedia AI (embedding Gemini/OpenAI & provider chat). Untuk data kantor
-        bila memakai Gemini, pakai API key berbayar (billing Google Cloud aktif): pada kuota gratis Gemini, Google boleh
-        memakai data untuk meningkatkan produk dan reviewer manusia dapat membacanya.
+        Isi pengetahuan & data kerja dikirim ke penyedia AI (model embedding & chat di Akai). Untuk data kantor bila
+        sumber di Akai memakai Gemini, pakai API key berbayar (billing Google Cloud aktif): pada kuota gratis Gemini,
+        Google boleh memakai data untuk meningkatkan produk dan reviewer manusia dapat membacanya.
       </p>
       <Link
         to="/tools/index"
@@ -486,7 +486,7 @@ function GuideCard() {
         to="/settings/api"
         className="mt-1 flex w-fit items-center gap-1 text-xs font-medium text-info underline-offset-2 hover:underline"
       >
-        <Settings2 className="size-3.5" /> API key, provider embedding & pembagian tugas AI: Pengaturan → Model AI
+        <Settings2 className="size-3.5" /> Model AI, embedding & pembagian tugas: Akai (Pengaturan → Model AI)
       </Link>
     </SectionCard>
   );

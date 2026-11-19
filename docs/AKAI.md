@@ -98,7 +98,7 @@ Cara kerja gateway (6a.2, `src/gateway/`):
 - `AiService.generate` & `ocr` bertanya ke Akai lebih dulu (`AkaiService.handles`: status `GET /gateway/v1/status`, cache 30 dtk):
   tugas **chat, general, document, ocr** yang punya model di Akai dijawab gateway Akai (hasil `provider: "akai"`, model = label
   model di Akai, `fallback` bila Akai memakai cadangan). Tugas yang belum diatur di Akai, akun tanpa SSO (`users.sso_subject`
-  kosong), dan lampiran audio memakai jalur lama (key di Pengaturan → Model AI). Transkrip belum lewat Akai.
+  kosong) = AI belum diatur. **Sejak 2026-11-19 semua AI Akasha lewat Akai** (docs/KAJIAN-AI-TERPUSAT.md): tidak ada jalur lama.
 - **Agen (Hermes)** (6a.4 tahap 2 langkah 2): `AgentService.proxyChat` → bila tugas `agent` punya model di Akai,
   `AkaiService.proxyAgent` meneruskan body Hermes ke `POST /gateway/v1/chat/completions` (`task: "agent"`, `model` Hermes dibuang —
   `agentGatewayBody`) dan menulis jawaban apa adanya (stream / JSON); galat Akai 429/422/400 diteruskan sebagai galat OpenAI. Akai tak
@@ -169,7 +169,9 @@ memindahkan semua key ke Akai (TODO-USER A44). Urutan yang disarankan:
 3. ✅ **Pengaturan → Model AI Akasha** (2026-11-16) — bila akun punya Akai, kartu Akai menjadi utama dan kartu provider lama dilipat sebagai
    "Pengaturan lama (cadangan)"; frontend `apps/akasha/web/src/features/settings/ai-settings-tab.tsx`. Modul key lama baru dilepas setelah
    pemilik memastikan semua tugas (termasuk agen, embedding) sudah di Akai — **tanyakan pemilik sebelum menghapus**.
-4. **Transkrip audio** tetap Gemini langsung (Files API, berkas besar) — tidak dipindah di tahap 2.
+4. ✅ **Transkrip audio** (2026-11-19): `POST /gateway/v1/audio/transcriptions` (audio mentah + `X-Akai-Key`, 202) + `GET …/:key`, tugas
+   `transcribe` (Gemini langsung), `apps/akai/api/src/transcribe/` (pemotong WebM, Files API, cadangan). (Impor key sekali jalan dari Akasha dipakai
+   2026-11-19 lalu dihapus.)
 5. ✅ **Produksi Akai** (2026-11-16, DEPLOYMENT §17): service `akai-api` & `akai-web` di `docker-compose.prod.yml`, host Caddy
    `AKAI_DOMAIN` (`akai.workingspace.id`), database `akai` di `infra/postgres/init` + `EXTRA_DATABASES` backup, rahasia
    `AKAI_ENCRYPTION_KEY` & `AKAI_CLIENTS` (+ klien OIDC `akai` di `OIDC_CLIENTS` SSO, `generate-prod-secrets.mjs`), env `AKAI_*` backend
@@ -196,6 +198,19 @@ Dibangun bertahap; tiap tahap berdiri sendiri dan memakai gateway yang sama (pem
 | 6b.8 | **Tugas terjadwal**: perintah yang dijalankan Akai menurut jadwal (tiap N jam / harian / mingguan / bulanan, WIB/WITA/WIT) → percakapan baru bertanda belum dibuka + email opsional | ✅ 2026-11-17 |
 | 6b.9 | **Dokumen di panel samping & ekspor**: artifact lembar kerja (CSV + rumus), presentasi (slide Markdown), papan tulis (JSON Canvas), poster/desain (SVG) di samping dokumen, kode, HTML, diagram; ekspor Word, Excel, PowerPoint, PDF, PNG/JPG/SVG di peramban | ✅ 2026-11-17 |
 | 6b.10 | **Konektor aplikasi siap pakai**: katalog 44 aplikasi dengan server MCP resmi (Canva, Notion, GitHub, Google Workspace, Jira & Confluence, Slack, Figma, Dropbox, …) + masuk lewat OAuth (pendaftaran otomatis atau OAuth client milik pemilik) | ✅ 2026-11-17 |
+| 6b.11 | **My Notebook (baru, dipindah dari Akasha)**: pustaka catatan Markdown hasil AI (Akai & AI lain), tampil ter-render **dan** sebagai Markdown asli, lengkap (tabel, KaTeX, Mermaid & diagram lain, callout, kode), impor/ekspor, simpan dari chat Akai + tempel dari AI lain | ⏳ pending (permintaan pemilik 2026-11-18) |
+
+**6b.11 — My Notebook baru (pending, permintaan pemilik 2026-11-18)**. My Notebook Akasha sekarang (Notes Space → tab My
+Notebook: sumber + chat RAG + Studio) **dipindah ke Akai** dan didefinisikan ulang sebagai tempat menyimpan **dokumen Markdown hasil AI**:
+
+- Isi = catatan Markdown; setiap catatan bisa dilihat **ter-render** dan **Markdown asli** (sunting di keduanya), *full feature*: tabel GFM,
+  catatan kaki, KaTeX, **Mermaid** (dan diagram lain yang dipakai artifact Akai), callout, blok kode + salin, gambar.
+- Masuk dari: tombol **Simpan ke My Notebook** pada jawaban/artifact chat Akai, **tempel** keluaran AI lain (ChatGPT, Claude, Gemini, …) apa
+  adanya, dan **impor** berkas `.md` (satu/banyak, zip). **Ekspor** per catatan / semua (`.md`, zip; opsional DOCX/PDF lewat ekspor artifact 6b.9).
+- Organisasi: folder/tag, cari, sematkan; dipakai sebagai konteks chat Akai (pilih catatan sebagai sumber, pengganti chat RAG notebook lama).
+- Migrasi: notebook Akasha yang ada (sumber, catatan Studio, riwayat chat) diekspor ke format baru; setelah itu tab My Notebook di Akasha
+  menjadi tautan ke Akai (pola Aplikasi MCP → Konektor Akai). Putuskan bersama pemilik: apakah sumber berkas/RAG lama ikut dipertahankan.
+- Dikerjakan di **chat Akai** (lintas platform: tab Notes Space Akasha ikut berubah → catat juga di CLAUDE.md §8b).
 
 **6b.1 — rincian teknis** (`apps/akai/api/src/chat/`, `apps/akai/web/src/pages/chat-page.tsx`):
 
@@ -537,3 +552,5 @@ OpenAI lewat fitur baru **salin sumber dengan format lain** (`POST /api/sources/
 lewat sumber OpenAI. Harga diisi dalam `jt kredit` per 1 jt token (kredit Classai ± Rp150–240 per 1 jt kredit). Uji nyata tiap model
 (teks; gambar & alat bila ditandai): semua lulus, kecuali **Claude Sonnet 5.5 + alat lewat format Anthropic di Classai → 502 "gangguan"**
 (konsisten 3×) — ternyata hanya di jalur terjemahan lama; di jalur native (agen & chat beralat) Sonnet + alat berfungsi, jadi Sonnet kini cadangan pertama Agen. Grok 4.7 gambar sempat 502 sekali.
+
+> Kajian pemusatan seluruh AI Akasha di Akai (melepas modul API key lama Akasha): `docs/KAJIAN-AI-TERPUSAT.md` (menunggu keputusan pemilik).

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseNote } from "./vault-parser";
-import { cleanTag, renameTagInNote, renameTagInQuery } from "./vault-tags";
+import { cleanTag, renameTagInBase, renameTagInCanvasNodes, renameTagInNote, renameTagInQuery } from "./vault-tags";
 
 describe("vault-tags", () => {
   it("nama tag sah", () => {
@@ -56,5 +56,38 @@ describe("vault-tags", () => {
     expect(renameTagInQuery("tag:bmn path:x tag:bmn/a tag:lain", "bmn", "aset")).toBe(
       "tag:aset path:x tag:aset/a tag:lain",
     );
+  });
+});
+
+describe("ganti nama tag di .base & canvas", () => {
+  it("argumen hasTag & tags.contains* berubah, komentar & ekspresi lain tetap", () => {
+    const raw = [
+      "# filter aset",
+      "filters:",
+      "  and:",
+      '    - file.hasTag("bmn", "lain")',
+      "    - tags.containsAny('bmn/tanah', \"#bmn\")",
+      '    - status == "bmn"',
+      "",
+    ].join("\n");
+    const { text, count } = renameTagInBase(raw, "bmn", "aset");
+    expect(count).toBe(3);
+    expect(text).toContain('file.hasTag("aset", "lain")');
+    expect(text).toContain("tags.containsAny('aset/tanah', \"#aset\")");
+    expect(text).toContain('status == "bmn"');
+    expect(text.startsWith("# filter aset")).toBe(true);
+  });
+  it("kartu teks canvas", () => {
+    const { nodes, count } = renameTagInCanvasNodes(
+      [
+        { id: "a", type: "text", text: "Lihat #bmn dan `#bmn`" },
+        { id: "b", type: "file", file: "bmn.md" },
+      ],
+      "bmn",
+      "aset",
+    );
+    expect(count).toBe(1);
+    expect(nodes[0].text).toBe("Lihat #aset dan `#bmn`");
+    expect(nodes[1]).toEqual({ id: "b", type: "file", file: "bmn.md" });
   });
 });

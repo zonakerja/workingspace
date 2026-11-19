@@ -206,3 +206,16 @@ export function librarySummary(result: unknown) {
     enhanceError: typeof r.enhanceError === "string" ? r.enhanceError : null,
   };
 }
+
+/**
+ * Tanda pengaturan yang memengaruhi hasil Markdown sebuah berkas. Berkas identik (checksum sama, pemilik sama) memakai
+ * ulang hasil sebelumnya hanya bila tandanya sama — mengganti cara baca PDF / Rapikan AI = dikonversi ulang.
+ */
+export function extractionCacheSignature(prefs: ConverterPrefs) {
+  return `pdf:${prefs.pdfMode}|enhance:${prefs.aiEnhance ? prefs.aiEnhanceScope : "off"}`;
+}
+
+/** Pilihan pustaka Dokumen yang memengaruhi hasil (berkas sama + pilihan sama = dipakai ulang). */
+export function libraryOptionsKey(options: { mode?: string; pdfMode?: string; enhance?: boolean }) {
+  return [options.mode ?? "auto", options.pdfMode ?? "auto", options.enhance ? "enhance" : "plain"].join("|");
+}

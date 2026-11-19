@@ -12,7 +12,7 @@ import nodemailer from "nodemailer";
 import { AiCrypto } from "../ai/ai-crypto";
 import { OAuthService } from "../connections/oauth.service";
 import { assertPublicMailHost, mailCryptoKey } from "./mail-net";
-import { isPrivateHost } from "../ai/ai-endpoint";
+import { isPrivateHost } from "../common/private-host";
 import { addDays, looseDate } from "../calendar-feed/ics-logic";
 import type { MailAccount } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";

@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useAiIndexStatus, useAiSettings } from "@/data/use-ai-settings";
+import { useAiIndexStatus } from "@/data/use-ai-settings";
 import { useIntegrationScopes } from "@/data/use-integrations";
 import { useKnowledgeStatus } from "@/data/use-knowledge";
 import { queryKeys } from "@/data/query-keys";
@@ -27,12 +27,11 @@ import type { ApiScope } from "@/types/api";
 const UP_COMMAND = "wsl -e sh /mnt/d/Development/Application/workingspace/infra/hermes/up.sh";
 
 /**
- * Siapkan agen tanpa terminal (docs/AI-AGENT.md §23): Hermes memakai model lewat Akasha (provider & API key dari
- * Pengaturan → Model AI, tidak disimpan di Hermes) dan izin agen = token akses "Agen Hermes" yang dibuat tombol di sini.
+ * Siapkan agen tanpa terminal (docs/AI-AGENT.md §23): Hermes memakai model lewat Akasha → Akai (tugas Agen di Akai, key
+ * tidak disimpan di Hermes) dan izin agen = token akses "Agen Hermes" yang dibuat tombol di sini.
  */
 export function AgentSetupCard({ status }: { status: AgentStatus }) {
   const setup = status.setup;
-  const { data: ai } = useAiSettings();
   const { data: vault } = useKnowledgeStatus();
   const { data: index } = useAiIndexStatus();
   // Error indeks berawalan jenis kesalahan provider; isi mentahnya ada di Tools → Indeks Pengetahuan
@@ -44,15 +43,14 @@ export function AgentSetupCard({ status }: { status: AgentStatus }) {
         ? "kuota embedding habis"
         : "provider embedding sedang bermasalah";
   const [open, setOpen] = useState(false);
-  const providerLabel = (id: string) =>
-    id === "akai" ? "Akai" : (ai?.providers.find((p) => p.id === id)?.label ?? id);
+  const providerLabel = (id: string) => (id === "akai" ? "Akai" : id);
   const ready = status.reachable && !!setup?.token?.scopes.includes("ai:model") && !!setup.model;
 
   return (
     <SectionCard
       icon={Wrench}
       title="Siapkan agen"
-      description="Empat langkah, tanpa terminal: Hermes menyala, model AI dari Pengaturan → Model AI, izinkan agen, lalu sambungkan vault Obsidian."
+      description="Empat langkah, tanpa terminal: Hermes menyala, model AI dari Akai (tugas Agen), izinkan agen, lalu sambungkan vault Obsidian."
       className="lg:col-span-2"
       action={
         <Button size="sm" variant={setup?.token ? "outline" : "default"} onClick={() => setOpen(true)}>
@@ -74,18 +72,16 @@ export function AgentSetupCard({ status }: { status: AgentStatus }) {
       <Step ok={!!setup?.model} title="2. Model AI">
         {setup?.model ? (
           <>
-            {providerLabel(setup.model.provider)} · <code>{setup.model.model}</code> —{" "}
-            {setup.model.provider === "akai"
-              ? "model, cadangan, dan API key diatur di Akai (tugas Agen); tidak disimpan di Hermes."
-              : "API key dipakai lewat Akasha dan tidak disimpan di Hermes."}{" "}
+            {providerLabel(setup.model.provider)} · <code>{setup.model.model}</code> — model, cadangan, dan API key
+            diatur di Akai (tugas Agen); tidak disimpan di Hermes.{" "}
           </>
         ) : (
-          "Belum ada API key. Simpan key provider (mis. Google Gemini) dulu. "
+          "Tugas Agen belum diatur di Akai. "
         )}
         <Link className="font-medium text-module hover:underline" to="/settings/api">
           Pengaturan → Model AI
         </Link>{" "}
-        (baris <b>Agen (Hermes)</b> di Pembagian tugas AI untuk memilih provider khusus agen).
+        (tombol <b>Atur di Akai</b> → Pembagian tugas → Agen).
       </Step>
 
       <Step ok={!!setup?.token} title="3. Izin agen">
@@ -162,7 +158,7 @@ export function AgentSetupCard({ status }: { status: AgentStatus }) {
           {!setup.lastModelCall.ok && (
             <span className="mt-1 block text-muted-foreground">
               401 = API key ditolak, buat key baru; 429 = kuota/batas API key habis (key gratis cepat habis karena agen
-              boros token); 503 = provider sedang sibuk, coba lagi nanti. Ganti key/model di Pengaturan → Model AI.
+              boros token); 503 = provider sedang sibuk, coba lagi nanti. Ganti key/model di Akai → Model.
             </span>
           )}
         </p>

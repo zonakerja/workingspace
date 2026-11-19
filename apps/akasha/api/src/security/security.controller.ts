@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, HttpCode, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Patch, Post, Put, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { IsOptional, IsString, MaxLength } from "class-validator";
+import { IsIn, IsOptional, IsString, MaxLength, ValidateIf } from "class-validator";
+import { PIN_AUTO_LOCK_OPTIONS } from "./lock-logic";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
@@ -25,6 +26,17 @@ class UnlockDto {
   @IsString()
   @MaxLength(6)
   pin: string;
+}
+
+class AutoLockDto {
+  @ApiProperty({
+    nullable: true,
+    enum: PIN_AUTO_LOCK_OPTIONS,
+    description: "Menit tanpa aktivitas; null = sampai logout",
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsIn([...PIN_AUTO_LOCK_OPTIONS])
+  minutes: number | null;
 }
 
 /** PIN keamanan: membuka item terkunci (Area, Project, Resource, Catatan, List, Notebook) selama sesi login. */
@@ -51,6 +63,11 @@ export class SecurityController {
   @Post("unlock")
   unlock(@CurrentUser() user: AuthUser, @Body() dto: UnlockDto) {
     return this.pins.unlock(user, dto.pin);
+  }
+
+  @Patch("auto-lock")
+  autoLock(@CurrentUser() user: AuthUser, @Body() dto: AutoLockDto) {
+    return this.pins.setAutoLock(user, dto.minutes ?? null);
   }
 
   @HttpCode(200)

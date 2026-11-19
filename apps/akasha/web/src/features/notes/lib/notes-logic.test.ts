@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { AiNote, FreeList, FreeNote } from "@/types/entities";
 import {
+  audioFields,
+  audiosOf,
+  combinedTranscript,
+  withAudioList,
   buildSummaryPrompt,
   clampContext,
   documentSources,
@@ -263,5 +267,34 @@ describe("list", () => {
 
   it("menghapus item yang sudah dicentang", () => {
     expect(removeCheckedItems(items).map((i) => i.id)).toEqual([2]);
+  });
+});
+
+describe("audio Notes AI (banyak berkas)", () => {
+  const base = { id: "n1", title: "Rapat" } as AiNote;
+  it("catatan lama satu audio dibaca sebagai daftar", () => {
+    const legacy = { ...base, audioUploadId: "u1", audioTranscript: "halo" };
+    expect(audiosOf(legacy)).toEqual([{ id: "u1", name: "Audio", uploadId: "u1", transcript: "halo" }]);
+    expect(withAudioList(legacy).audioItems).toHaveLength(1);
+    expect(audiosOf(base)).toEqual([]);
+  });
+  it("gabungan transkrip: satu audio apa adanya, banyak audio berjudul", () => {
+    expect(combinedTranscript([{ id: "a", name: "a.webm", transcript: " pagi " }])).toBe("pagi");
+    expect(
+      combinedTranscript([
+        { id: "a", name: "pagi.m4a", transcript: "sesi 1" },
+        { id: "b", name: "siang.m4a" },
+        { id: "c", name: "sore.m4a", transcript: "sesi 3" },
+      ]),
+    ).toBe("### Audio 1: pagi.m4a\nsesi 1\n\n### Audio 3: sore.m4a\nsesi 3");
+  });
+  it("field lama ikut terisi & semua berkas audio dirujuk", () => {
+    const fields = audioFields([
+      { id: "a", name: "a", uploadId: "u1", transcript: "x" },
+      { id: "b", name: "b", uploadId: "u2" },
+    ]);
+    expect(fields.hasAudio).toBe(true);
+    expect(fields.audioUploadId).toBe("u1");
+    expect(uploadIdsOf({ ...base, ...fields })).toEqual(["u1", "u2"]);
   });
 });

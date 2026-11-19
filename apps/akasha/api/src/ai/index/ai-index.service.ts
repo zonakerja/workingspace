@@ -9,17 +9,19 @@ import { DomainRow, rowToPayload } from "../../records/record-mapper";
 import { RECORD_TABLES, type RecordType, type TableSpec } from "../../records/record-schema";
 import { REDIS_CLIENT } from "../../redis/redis.module";
 import { AiService, type EmbeddingCredential } from "../ai.service";
-import { AiProviderError } from "../providers/ai-client";
+import { AiProviderError } from "../ai-errors";
 import { parsePrefs } from "../../knowledge/vault-editor";
 import { AiIndexQueueService } from "./ai-index-queue.service";
 import {
   displayTitle,
   groupBySource,
   likePattern,
+  MEANING_WINDOW,
   moduleOf,
   prefixTsQuery,
   queryTerms,
   readableRecordText,
+  relevantByMeaning,
   searchSnippet,
   type SmartModule,
   type SmartSearchMode,
@@ -115,6 +117,11 @@ export interface SearchOptions {
    * memasukkan PIN (chatbot / Notebook meneruskan status sesi); agen, MCP, bot WhatsApp tidak pernah.
    */
   includeLocked?: boolean;
+  /**
+   * Pencarian Pintar mode Makna: hasil yang hanya ditemukan lewat vektor dipakai bila kemiripannya paling jauh sebesar ini di bawah
+   * hasil vektor terbaik (`relevantByMeaning`). Tanpa itu = semua kandidat terdekat (chatbot/RAG perlu konteks, bukan daftar).
+   */
+  semanticWindow?: number;
 }
 
 export interface SmartSearchResult {
@@ -480,7 +487,7 @@ export class AiIndexService {
     return {
       enabled: user.aiIndexEnabled,
       embeddingAvailable: !!embedding,
-      embeddingProvider: embedding?.provider ?? null,
+      embeddingProvider: embedding ? "akai" : null,
       model: embedding?.model ?? null,
       sources: Number(counts[0]?.sources ?? 0),
       chunks: Number(counts[0]?.chunks ?? 0),
@@ -574,17 +581,17 @@ export class AiIndexService {
      * `perSource`: maks. N potongan per sumber sebelum diberi peringkat, agar satu dokumen besar (ratusan potongan) tidak
      * memenuhi semua kandidat. Tanpa itu = urutan biasa (memakai indeks HNSW).
      */
-    const ranked = (where: Prisma.Sql, order: Prisma.Sql) =>
+    const ranked = (where: Prisma.Sql, order: Prisma.Sql, extra: Prisma.Sql = Prisma.empty) =>
       options.perSource
         ? Prisma.sql`
-          SELECT ${columns} FROM (
+          SELECT ${columns} ${extra} FROM (
             SELECT *, row_number() OVER (PARTITION BY source_type, source_id ORDER BY ${order}) AS per_source_rank
             FROM ai_chunks WHERE ${where}
           ) ranked
           WHERE per_source_rank <= ${options.perSource}
           ORDER BY ${order}
           LIMIT ${candidates}`
-        : Prisma.sql`SELECT ${columns} FROM ai_chunks WHERE ${where} ORDER BY ${order} LIMIT ${candidates}`;
+        : Prisma.sql`SELECT ${columns} ${extra} FROM ai_chunks WHERE ${where} ORDER BY ${order} LIMIT ${candidates}`;
     const keyword = await this.prisma.$queryRaw<Row[]>(
       ranked(
         Prisma.sql`user_id = ${userId} ${scope}
@@ -599,12 +606,14 @@ export class AiIndexService {
     if (queried?.vector) {
       const literal = toVectorLiteral(queried.vector);
       // `embedding IS NOT NULL` wajib agar indeks HNSW parsial terpakai; hanya vektor dari model yang sama yang sebanding
-      semantic = await this.prisma.$queryRaw<Row[]>(
+      const rows = await this.prisma.$queryRaw<(Row & { distance: number })[]>(
         ranked(
           Prisma.sql`user_id = ${userId} AND embedding IS NOT NULL AND model = ${queried.model} ${scope}`,
           Prisma.sql`embedding <=> ${literal}::vector`,
+          Prisma.sql`, embedding <=> ${literal}::vector AS distance`,
         ),
       );
+      semantic = options.semanticWindow === undefined ? rows : relevantByMeaning(rows, options.semanticWindow);
     }
     // Berkas yang sama bisa diunggah berkali-kali (asset berbeda, isi identik) → tampilkan satu kali saja
     const seen = new Set<string>();
@@ -630,7 +639,13 @@ export class AiIndexService {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { aiIndexEnabled: true } });
     if (!user?.aiIndexEnabled) return { indexEnabled: false, semantic: false, results: [] as SmartSearchResult[] };
     const semantic = mode === "meaning" && !!(await this.ai.embeddingCredential(userId));
-    const options = { semantic: mode === "meaning", prefix: true, perSource: 2, includeLocked: true } as const;
+    const options = {
+      semantic: mode === "meaning",
+      prefix: true,
+      perSource: 2,
+      includeLocked: true,
+      semanticWindow: MEANING_WINDOW,
+    } as const;
     const lockedKeys = unlocked
       ? new Set<string>()
       : new Set((await this.locks.lockedSources(userId)).map((ref) => `${ref.sourceType}:${ref.sourceId}`));

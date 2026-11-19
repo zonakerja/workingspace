@@ -6,6 +6,7 @@ import {
   isValidPin,
   isWeakPin,
   pinBlockMs,
+  pinStillUnlocked,
   redactPayload,
 } from "./lock-logic";
 
@@ -82,5 +83,20 @@ describe("lock-logic", () => {
     expect(isFileControlResource({ type: "file", archivalStatus: "none" })).toBe(false);
     expect(isFileControlResource({ type: "file", archivalStatus: "" })).toBe(false);
     expect(isFileControlResource({ type: "link", archivalStatus: "pending" })).toBe(false);
+  });
+});
+
+describe("kunci otomatis PIN", () => {
+  const now = new Date("2026-11-18T10:00:00Z").getTime();
+  it("tanpa kunci otomatis selalu terbuka", () => {
+    expect(pinStillUnlocked(null, null, now)).toBe(true);
+  });
+  it("terkunci setelah n menit tanpa aktivitas", () => {
+    expect(pinStillUnlocked(new Date(now - 4 * 60_000), 5, now)).toBe(true);
+    expect(pinStillUnlocked(new Date(now - 5 * 60_000), 5, now)).toBe(false);
+    expect(pinStillUnlocked(null, 15, now)).toBe(false);
+  });
+  it("Sub Area / Kegiatan bisa dikunci", () => {
+    expect(isLockableType("para_activity")).toBe(true);
   });
 });

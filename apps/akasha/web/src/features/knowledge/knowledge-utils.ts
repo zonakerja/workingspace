@@ -89,7 +89,7 @@ export function filterKnowledgeNotes(
 /** Judul catatan Inbox dari pertanyaan pengguna (Obsidian: nama berkas, jadi dibuat pendek). */
 export function inboxTitle(question?: string) {
   const line = (question ?? "").replace(/\s+/g, " ").trim();
-  if (!line) return "Jawaban Akasha AI";
+  if (!line) return "Jawaban Akai";
   return line.length > 70 ? `${line.slice(0, 67).trimEnd()}…` : line;
 }
 

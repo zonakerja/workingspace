@@ -65,64 +65,52 @@ enum SharePermission {
   @@map("share_permission")
 }
 
-enum AiProvider {
-  gemini
-  anthropic
-  openai
-
-  @@map("ai_provider")
-}
-
 // ---------------------------------------------------------------- Identitas
 
 model User {
-  id              String      @id @default(cuid())
-  name            String
-  email           String      @unique
+  id                 String    @id @default(cuid())
+  name               String
+  email              String    @unique
   /// `sub` akun SSO workingspace.id (docs/SSO.md); null = akun uji tanpa SSO (smoke test)
-  ssoSubject      String?     @unique @map("sso_subject")
+  ssoSubject         String?   @unique @map("sso_subject")
   /// Cermin "PIN sudah diatur" untuk akun SSO (PIN-nya sendiri disimpan & diperiksa SSO)
-  ssoPin          Boolean     @default(false) @map("sso_pin")
+  ssoPin             Boolean   @default(false) @map("sso_pin")
   /// Masa akses dari SSO: setelah `accessExpiresAt` baca saja sampai `accessDeleteAt`, lalu data dihapus (null = tanpa batas)
-  accessExpiresAt DateTime?   @map("access_expires_at") @db.Timestamptz(3)
-  accessDeleteAt  DateTime?   @map("access_delete_at") @db.Timestamptz(3)
-  role            UserRole    @default(member)
-  phone           String?
-  address         String?
-  // Provider AI yang dipakai user (kredensialnya di ai_credentials)
-  aiProvider      AiProvider? @map("ai_provider")
-  // Cadangan otomatis: provider lain (yang punya key) dipakai bila provider aktif kehabisan kuota, tidak terjangkau,
-  // atau tidak mendukung lampiran
-  aiFallback      Boolean     @default(true) @map("ai_fallback")
-  // Indeks pengetahuan (RAG): data user di-embed dengan Gemini; dimatikan = indeks dihapus & tidak ada data dikirim
-  aiIndexEnabled  Boolean     @default(true) @map("ai_index_enabled")
+  accessExpiresAt    DateTime? @map("access_expires_at") @db.Timestamptz(3)
+  accessDeleteAt     DateTime? @map("access_delete_at") @db.Timestamptz(3)
+  role               UserRole  @default(member)
+  phone              String?
+  address            String?
+  // Indeks pengetahuan (RAG): data user di-embed lewat Akai; dimatikan = indeks dihapus & tidak ada data dikirim
+  aiIndexEnabled     Boolean   @default(true) @map("ai_index_enabled")
   // AI di editor ONLYOFFICE (tab AI memakai provider & key Akasha); default mati agar isi dokumen tidak terkirim tanpa disadari
-  officeAi        Boolean     @default(false) @map("office_ai")
-  // Pembagian tugas AI: { chat, general, ocr: provider; embedding: gemini|openai } — kosong = ikuti provider aktif
-  aiRouting       Json?       @map("ai_routing")
+  officeAi           Boolean   @default(false) @map("office_ai")
   // Profil kerja & instruksi tetap yang selalu ikut di chat AI (jabatan, unit, istilah, gaya, aturan menjawab)
-  aiProfile       String?     @map("ai_profile")
+  aiProfile          String?   @map("ai_profile")
   // Nama folder vault Obsidian milik user di dalam KNOWLEDGE_VAULTS_DIR (basis pengetahuan)
-  knowledgeVault  String?     @map("knowledge_vault")
+  knowledgeVault     String?   @map("knowledge_vault")
   /// Preferensi menu Pengetahuan: penanda (path) & grup warna graf
-  knowledgePrefs  Json?       @map("knowledge_prefs")
+  knowledgePrefs     Json?     @map("knowledge_prefs")
   /// Preferensi e-Kinerja: { renaksiExcluded: ["area:<id>" | "project:<id>" | "loose"] } = cakupan kegiatan yang tidak ditarik
-  ekinerjaPrefs   Json?       @map("ekinerja_prefs")
+  ekinerjaPrefs      Json?     @map("ekinerja_prefs")
   /// Preferensi Markdown Converter: { enabled, pdfMode: auto|markitdown|docling, aiOcrFallback } (Tools → Markdown Converter)
-  converterPrefs  Json?       @map("converter_prefs")
+  converterPrefs     Json?     @map("converter_prefs")
   /// Arsip dingin ke Drive (docs/AKUN-TERSAMBUNG.md tahap 4): { enabled, accountId, afterDays, minSizeMb, folderId }
-  coldStorage     Json?       @map("cold_storage")
+  coldStorage        Json?     @map("cold_storage")
+  /// Backup ke Google Drive / OneDrive: akun, jadwal, jumlah disimpan (drive/backup-logic.ts)
+  driveBackup        Json?     @map("drive_backup")
   /// PIN keamanan (6 angka, hash argon2) untuk membuka item terkunci; null = belum diatur
-  pinHash         String?     @map("pin_hash")
+  pinHash            String?   @map("pin_hash")
   /// Salah PIN berturut-turut (direset saat benar) & waktu blokir sementara
-  pinFailed       Int         @default(0) @map("pin_failed")
-  pinBlockedUntil DateTime?   @map("pin_blocked_until") @db.Timestamptz(3)
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  pinFailed          Int       @default(0) @map("pin_failed")
+  pinBlockedUntil    DateTime? @map("pin_blocked_until") @db.Timestamptz(3)
+  /// Kunci PIN otomatis setelah n menit tanpa aktivitas atas item terkunci; null = sampai logout
+  pinAutoLockMinutes Int?      @map("pin_auto_lock_minutes")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   refreshTokens             RefreshToken[]
   assets                    Asset[]
-  aiCredentials             AiCredential[]
   aiChunks                  AiChunk[]
   // <generated:user-relations>
   agendaTypes               AgendaType[]
@@ -189,8 +177,11 @@ model User {
   oauthAccounts         OAuthAccount[]
   calendarConnections   CalendarConnection[]
   coldObjects           ColdObject[]
+  driveBackups          DriveBackup[]
+  driveBackupFiles      DriveBackupFile[]
   convertedDocuments    ConvertedDocument[]
   agentRuns             AgentRun[]
+  agentConversations    AgentConversation[]
   /// Sakelar darurat Kebijakan Otomatis: true = tidak ada tugas/keputusan/kiriman otomatis baru
   agentAutoPaused       Boolean                @default(false) @map("agent_auto_paused")
 
@@ -208,6 +199,8 @@ model RefreshToken {
   // Sesi login (tetap sama saat token dirotasi) — dipakai status "PIN terbuka" sampai logout
   sessionId   String?   @map("session_id")
   pinUnlocked Boolean   @default(false) @map("pin_unlocked")
+  /// Aktivitas terakhir atas item terkunci selama PIN terbuka (kunci otomatis)
+  pinActiveAt DateTime? @map("pin_active_at") @db.Timestamptz(3)
   // Sesi SSO asal (OIDC sid) — logout token dari SSO mengakhiri sesi ini (docs/SSO.md §2.4)
   ssoSid      String?   @map("sso_sid")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -218,30 +211,6 @@ model RefreshToken {
   @@index([sessionId])
   @@index([ssoSid])
   @@map("refresh_tokens")
-}
-
-// API key AI per user per provider, terenkripsi AES-256-GCM (AI_ENCRYPTION_KEY); tidak pernah dikirim ke browser.
-model AiCredential {
-  id             String     @id @default(cuid())
-  userId         String     @map("user_id")
-  provider       AiProvider
-  encryptedKey   String     @map("encrypted_key")
-  // 4 karakter terakhir key, untuk ditampilkan di Pengaturan
-  keyHint        String     @map("key_hint")
-  // Kosong = model default provider (src/ai/ai-providers.ts)
-  model          String?
-  // Jalur lewat router (layanan perantara): alamat API; kosong = langsung ke API resmi provider (src/ai/ai-endpoint.ts)
-  baseUrl        String?    @map("base_url")
-  // Format API router: openai (Chat Completions) | anthropic (Messages, khusus Claude)
-  apiFormat      String?    @map("api_format")
-  // ID model embedding di router (kosong = model embedding bawaan provider)
-  embeddingModel String?    @map("embedding_model")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, provider])
-  @@map("ai_credentials")
 }
 
 model AppSettings {
@@ -1783,33 +1752,54 @@ model AgentMenu {
 
 /// Tugas agen Hermes (chat, tombol skill, atau Kebijakan Otomatis) — tetap terlacak setelah backend restart.
 model AgentRun {
-  id          String    @id @default(cuid())
-  userId      String    @map("user_id")
+  id             String             @id @default(cuid())
+  userId         String             @map("user_id")
   /// ID run di Hermes
-  hermesRunId String?   @unique @map("hermes_run_id")
+  hermesRunId    String?            @unique @map("hermes_run_id")
   /// chat | skill
-  kind        String
+  kind           String
   /// button | policy | chat | menu
-  trigger     String
-  skill       String?
-  requestId   String?   @map("request_id")
-  policyId    String?   @map("policy_id")
+  trigger        String
+  skill          String?
+  requestId      String?            @map("request_id")
+  policyId       String?            @map("policy_id")
   /// Menu buatan agen yang memicu tugas ini
-  menuId      String?   @map("menu_id")
-  input       String
+  menuId         String?            @map("menu_id")
+  /// Percakapan chat AI Agent (riwayat tersimpan)
+  conversationId String?            @map("conversation_id")
+  input          String
   /// queued | running | completed | failed | cancelled | skipped
-  status      String
-  output      String?
-  error       String?
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  startedAt   DateTime? @map("started_at") @db.Timestamptz(3)
-  finishedAt  DateTime? @map("finished_at") @db.Timestamptz(3)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         String
+  output         String?
+  error          String?
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  startedAt      DateTime?          @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime?          @map("finished_at") @db.Timestamptz(3)
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   AgentConversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([conversationId, createdAt])
   @@index([menuId])
   @@index([status])
   @@map("agent_runs")
+}
+
+/// Percakapan chat AI Agent (seperti riwayat Claude). Pesan = `agent_runs` ber-conversation_id (input = pesan user,
+/// output/error = jawaban agen). Sesi Hermes = `akasha-<userId>-<id>`. Hapus = `deleted_at` + Sampah.
+model AgentConversation {
+  id        String     @id @default(cuid())
+  userId    String     @map("user_id")
+  title     String
+  pinned    Boolean    @default(false)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs      AgentRun[]
+
+  @@index([userId, updatedAt])
+  @@map("agent_conversations")
 }
 
 /// Sampah: item yang dihapus (oleh user atau agen) dan masih bisa dipulihkan sampai `expiresAt`, lalu dihapus permanen.
@@ -1882,6 +1872,8 @@ model ConvertedDocument {
   size             Int
   /// mode, enhance, compareTokens
   options          Json
+  /// SHA-256 berkas asal (cache: berkas sama + pilihan sama = dipakai ulang, tidak dikonversi lagi)
+  checksum         String?
   /// queued | processing | done | failed
   status           String
   error            String?
@@ -1896,6 +1888,7 @@ model ConvertedDocument {
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, checksum])
   @@map("converted_documents")
 }
 
@@ -2086,6 +2079,48 @@ model CalendarEventLink {
 
 /// Berkas yang dipindah dari object storage ke Drive/OneDrive pemilik (arsip dingin, docs/AKUN-TERSAMBUNG.md tahap 4). Dikunci
 /// per key objek (bukan per asset) agar ObjectStorageService bisa mengambilnya kembali dari mana pun objek itu dibaca.
+/// Satu kali backup data Akasha ke Drive (folder "Backup <tanggal>" berisi akasha-backup.json + README).
+model DriveBackup {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  oauthAccountId String    @map("oauth_account_id")
+  /// google | microsoft
+  provider       String
+  /// button | schedule | expiry
+  trigger        String
+  /// running | done | failed
+  status         String
+  /// Folder backup ini di Drive (dihapus saat dipangkas)
+  folderId       String?   @map("folder_id")
+  /// Jumlah data & berkas (records, files, uploaded, reused, cold, bytes)
+  stats          Json?
+  error          String?
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz(3)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@map("drive_backups")
+}
+
+/// Berkas yang sudah tersalin di folder "berkas" backup (satu per akun Drive + checksum) — backup berikutnya tidak mengunggah ulang.
+model DriveBackupFile {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  oauthAccountId String   @map("oauth_account_id")
+  checksum       String
+  fileId         String   @map("file_id")
+  name           String
+  size           Int
+  /// Terakhir dipakai backup yang berhasil (dipangkas bila lebih tua dari backup tertua yang disimpan)
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([oauthAccountId, checksum])
+  @@index([userId])
+  @@map("drive_backup_files")
+}
+
 model ColdObject {
   id             String       @id @default(cuid())
   objectKey      String       @unique @map("object_key")

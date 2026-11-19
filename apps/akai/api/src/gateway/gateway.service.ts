@@ -25,7 +25,7 @@ type Json = Record<string, unknown>;
 type Candidate = AiModel & { source: AiSource };
 
 /** Batas waktu satu panggilan model (jawaban panjang / model bernalar). */
-const CHAT_TIMEOUT_MS = 5 * 60_000;
+const CHAT_TIMEOUT_MS = 10 * 60_000;
 const EMBED_TIMEOUT_MS = 60_000;
 export const EMBEDDING_DIMENSIONS = 768;
 
@@ -54,7 +54,7 @@ export class GatewayService {
   }
 
   /** Model untuk permintaan: `model` (id model Akai / id di sumber) = satu model tanpa cadangan; selain itu tugas. */
-  private async candidates(accountId: string, body: Json): Promise<{ task: AiTask | null; list: Candidate[] }> {
+  async candidates(accountId: string, body: Json): Promise<{ task: AiTask | null; list: Candidate[] }> {
     if (typeof body.model === "string" && body.model.trim()) {
       const wanted = body.model.trim();
       const model = await this.prisma.aiModel.findFirst({
@@ -78,12 +78,7 @@ export class GatewayService {
     return { task, list };
   }
 
-  private async log(
-    caller: Caller,
-    task: AiTask | null,
-    model: Candidate | null,
-    data: Partial<Json> & { ok: boolean },
-  ) {
+  async log(caller: Caller, task: AiTask | null, model: Candidate | null, data: Partial<Json> & { ok: boolean }) {
     const usage = (data.usage as TokenUsage | undefined) ?? { input: null, output: null, cached: null };
     const { cost, currency } = model ? estimateCost(usage, model) : { cost: null, currency: null };
     await this.prisma.aiUsage

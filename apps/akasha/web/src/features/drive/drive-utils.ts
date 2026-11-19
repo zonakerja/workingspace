@@ -53,3 +53,42 @@ export const COLD_SIZE_OPTIONS = [
 
 /** Label hari untuk nilai yang tidak ada di pilihan (mis. diatur lewat API). */
 export const dayLabel = (days: number) => COLD_DAY_OPTIONS.find((o) => o.value === days)?.label ?? `${days} hari`;
+
+/** Pemicu backup → label. */
+export const BACKUP_TRIGGER_LABEL = { button: "Tombol", schedule: "Terjadwal", expiry: "Masa akses" } as const;
+
+export const BACKUP_SCHEDULE_OPTIONS = [
+  { value: "off", label: "Hanya lewat tombol" },
+  { value: "weekly", label: "Tiap minggu" },
+  { value: "monthly", label: "Tiap bulan" },
+] as const;
+
+/** Ringkasan satu backup: "128 data · 34 berkas (12 baru, 20 sudah ada, 2 arsip dingin) · 45 MB diunggah". */
+export function backupSummary(
+  stats: {
+    records: number;
+    notebooks: number;
+    requests: number;
+    files: number;
+    uploaded: number;
+    reused: number;
+    cold: number;
+    skipped: number;
+    bytes: number;
+  } | null,
+) {
+  if (!stats) return "";
+  const data = stats.records + stats.notebooks + stats.requests;
+  const parts = [`${data} data`];
+  if (stats.files) {
+    const detail = [
+      stats.uploaded ? `${stats.uploaded} baru` : "",
+      stats.reused ? `${stats.reused} sudah ada` : "",
+      stats.cold ? `${stats.cold} arsip dingin` : "",
+      stats.skipped ? `${stats.skipped} gagal` : "",
+    ].filter(Boolean);
+    parts.push(`${stats.files} berkas${detail.length ? ` (${detail.join(", ")})` : ""}`);
+  }
+  if (stats.bytes) parts.push(`${formatSize(stats.bytes)} diunggah`);
+  return parts.join(" · ");
+}

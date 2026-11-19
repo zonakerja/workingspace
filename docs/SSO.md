@@ -207,7 +207,8 @@ dibangun di tahap berikutnya (sekarang arahan saja).
   (`ReadOnlyInterceptor`, 403 `ACCESS_READ_ONLY`; yang tetap boleh: keluar/refresh/SSO, buka/kunci PIN, tautan unduh, editor ONLYOFFICE
   dipaksa mode lihat, MCP dengan alat tulis ditolak), pekerjaan latar belakang (sinkron email & kalender, otomasi robot, arsip dingin,
   cermin Obsidian) melewati akun beku, pita di atas konten (hampir habis ≤ 14 hari / dibekukan + tombol Ajukan perpanjangan & Backup ke
-  Google Drive "segera"). `AccessCleanupService` (tiap 6 jam) menghapus akun yang `access_delete_at`-nya lewat **setelah** memastikan ulang ke
+  Drive yang menjalankan backup bila akun Drive sudah diatur, selain itu membuka Pengaturan → Akun Tersambung `#backup`; backup otomatis
+  saat masa akses tinggal ≤ 7 hari / sudah habis — docs/AKUN-TERSAMBUNG.md §11a). `AccessCleanupService` (tiap 6 jam) menghapus akun yang `access_delete_at`-nya lewat **setelah** memastikan ulang ke
   SSO bahwa aksesnya `ended` (diperpanjang = tanggal diperbarui, SSO tak terjangkau = dilewati).
 - Aplikasi lain (Akai) belum menerapkan baca saja — pola yang sama dipasang saat dibutuhkan.
 

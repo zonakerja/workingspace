@@ -46,7 +46,7 @@ describe("citationTarget", () => {
 describe("Inbox", () => {
   it("judul dari pertanyaan, dipotong", () => {
     expect(inboxTitle("  Berapa  lama sewa? ")).toBe("Berapa lama sewa?");
-    expect(inboxTitle("")).toBe("Jawaban Akasha AI");
+    expect(inboxTitle("")).toBe("Jawaban Akai");
     expect(inboxTitle("a".repeat(100))).toHaveLength(68);
   });
 

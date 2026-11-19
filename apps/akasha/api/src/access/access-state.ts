@@ -15,13 +15,15 @@ const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 /**
  * Permintaan tulis yang tetap boleh saat baca saja: sesi (keluar/refresh), buka/kunci PIN, tautan unduh berkas, membuka
- * editor ONLYOFFICE (dipaksa mode lihat), dan MCP (alat tulis ditolak di dalam MCP sendiri). Path tanpa prefix `/api/v1`.
+ * editor ONLYOFFICE (dipaksa mode lihat), backup ke Drive, dan MCP (alat tulis ditolak di dalam MCP sendiri). Path tanpa prefix `/api/v1`.
  */
 const ALLOWED = [
   /^\/auth\/(logout|refresh|sso\/)/,
   /^\/security\/pin\/(unlock|lock)$/,
   /^\/uploads\/[^/]+\/link$/,
   /^\/office\/config$/,
+  // Backup ke Drive: menyelamatkan data sebelum dihapus (pengaturan backup juga boleh diubah)
+  /^\/drive\/backup(\/run)?$/,
   /^\/mcp$/,
   /^\/public\//,
   /^\/whatsapp\/webhook$/,

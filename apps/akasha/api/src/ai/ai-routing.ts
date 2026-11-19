@@ -1,132 +1,14 @@
-import { AiProvider } from "../generated/prisma/client";
-import { AI_PROVIDER_IDS, AI_PROVIDERS, type AttachmentKind } from "./ai-providers";
-import type { AiErrorKind } from "./providers/ai-client";
-
-/** Jenis lampiran yang didukung sebuah provider (bergantung jalurnya: langsung / lewat router). */
-export type SupportsOf = (provider: AiProvider) => Record<AttachmentKind, boolean>;
-const catalogSupports: SupportsOf = (provider) => AI_PROVIDERS[provider].supports;
+import type { AiErrorKind } from "./ai-errors";
 
 /**
- * Urutan provider yang dicoba untuk satu permintaan: provider aktif lebih dulu, lalu (bila cadangan otomatis menyala)
- * cadangan pilihan user untuk tugas itu, lalu provider lain yang punya key sesuai urutan katalog. Provider yang tidak
- * mendukung semua jenis lampiran dilewati.
- */
-export function providerCandidates(
-  active: AiProvider,
-  configured: readonly AiProvider[],
-  kinds: readonly AttachmentKind[],
-  fallbackEnabled: boolean,
-  supports: SupportsOf = catalogSupports,
-  backup: AiProvider | null = null,
-): AiProvider[] {
-  const preferred = backup && backup !== active && configured.includes(backup) ? [backup] : [];
-  const order = fallbackEnabled
-    ? [active, ...preferred, ...AI_PROVIDER_IDS.filter((id) => id !== active && configured.includes(id))]
-    : [active];
-  return [...new Set(order)].filter((id) => kinds.every((kind) => supports(id)[kind]));
-}
-
-/**
- * Pembagian tugas AI per user (`users.ai_routing`): provider untuk chat (asisten Akasha & My Notebook), fitur AI umum
- * (ringkasan, Notes AI, ikon, AI di editor dokumen), model agen Hermes (lewat proxy `agent/llm`), OCR (gambar & PDF hasil
- * scan), rapikan Markdown hasil konversi berkas (Markdown Converter), dan embedding indeks pengetahuan.
- * Kosong = ikuti provider aktif (chat/umum) atau urutan bawaan (OCR, embedding).
+ * Tugas AI Akasha yang dijawab gateway Akai (pembagian tugas di Akai → Model): chat (asisten & My Notebook), fitur AI umum
+ * (ringkasan, Notes AI, ikon, AI di editor dokumen), model agen Hermes, rapikan Markdown (Markdown Converter), dan OCR.
  */
 export type AiTask = "chat" | "general" | "agent" | "document" | "ocr";
-const AI_TASKS: readonly AiTask[] = ["chat", "general", "agent", "document", "ocr"];
-
-/** Provider embedding yang didukung (keduanya menghasilkan vektor 768 dimensi, kolom `ai_chunks.embedding`). */
-export type EmbeddingProvider = "gemini" | "openai";
-const EMBEDDING_PROVIDERS: readonly EmbeddingProvider[] = ["gemini", "openai"];
-
-/** Tugas yang punya provider cadangan pilihan user (`<tugas>Backup`). */
-export type BackupTask = "chat" | "general" | "agent" | "document";
-const BACKUP_TASKS: readonly BackupTask[] = ["chat", "general", "agent", "document"];
-export const backupKey = (task: BackupTask) => `${task}Backup` as const;
-
-export interface AiRouting {
-  chat?: AiProvider | null;
-  general?: AiProvider | null;
-  agent?: AiProvider | null;
-  /** Rapikan Markdown hasil Markdown Converter; kosong = ikuti tugas Umum */
-  document?: AiProvider | null;
-  ocr?: AiProvider | null;
-  embedding?: EmbeddingProvider | null;
-  /** Cadangan pertama bila provider tugas gagal (kuota, sibuk, tak terjangkau); kosong = urutan bawaan */
-  chatBackup?: AiProvider | null;
-  generalBackup?: AiProvider | null;
-  agentBackup?: AiProvider | null;
-  documentBackup?: AiProvider | null;
-}
-
-/** Baca kolom jsonb `ai_routing` dengan aman (nilai asing dibuang). */
-export function parseRouting(value: unknown): AiRouting {
-  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const routing: AiRouting = {};
-  for (const task of [...AI_TASKS, ...BACKUP_TASKS.map(backupKey)] as const) {
-    const v = raw[task];
-    if (typeof v === "string" && (AI_PROVIDER_IDS as readonly string[]).includes(v)) routing[task] = v as AiProvider;
-  }
-  if (typeof raw.embedding === "string" && (EMBEDDING_PROVIDERS as readonly string[]).includes(raw.embedding)) {
-    routing.embedding = raw.embedding as EmbeddingProvider;
-  }
-  return routing;
-}
 
 /**
- * Provider utama untuk tugas chat/umum/agen/dokumen: pilihan tugas bila key-nya ada, selain itu provider aktif.
- * `document` tanpa pilihan mengikuti tugas Umum (rapikan Markdown = pekerjaan ringan seperti ringkasan).
- */
-export function taskProvider(
-  routing: AiRouting,
-  task: Exclude<AiTask, "ocr">,
-  active: AiProvider | null,
-  configured: readonly AiProvider[],
-): AiProvider | null {
-  const chosen = routing[task];
-  if (chosen && configured.includes(chosen)) return chosen;
-  return task === "document" ? taskProvider(routing, "general", active, configured) : active;
-}
-
-/** Cadangan yang benar-benar dipakai untuk tugas (tanpa lampiran): kandidat kedua; null = tidak ada cadangan. */
-export function taskBackup(
-  routing: AiRouting,
-  task: BackupTask,
-  active: AiProvider | null,
-  configured: readonly AiProvider[],
-  fallbackEnabled: boolean,
-  supports: SupportsOf = catalogSupports,
-): AiProvider | null {
-  const primary = taskProvider(routing, task, active, configured);
-  if (!primary) return null;
-  return (
-    providerCandidates(primary, configured, [], fallbackEnabled, supports, routing[backupKey(task)] ?? null)[1] ?? null
-  );
-}
-
-/** Urutan provider OCR: pilihan user, lalu Gemini → OpenAI → Claude; hanya yang punya key & mendukung jenis berkas. */
-export function ocrCandidates(
-  routing: AiRouting,
-  configured: readonly AiProvider[],
-  kind: AttachmentKind,
-  supports: SupportsOf = catalogSupports,
-) {
-  const order = [routing.ocr, AiProvider.gemini, AiProvider.openai, AiProvider.anthropic].filter(
-    (p): p is AiProvider => !!p,
-  );
-  return [...new Set(order)].filter((p) => configured.includes(p) && supports(p)[kind]);
-}
-
-/** Provider embedding: pilihan user bila key-nya ada, selain itu Gemini lalu OpenAI; null = pencarian kata saja. */
-export function embeddingProvider(routing: AiRouting, configured: readonly AiProvider[]): EmbeddingProvider | null {
-  const order = [routing.embedding, "gemini", "openai"] as (EmbeddingProvider | null | undefined)[];
-  return order.find((p): p is EmbeddingProvider => !!p && configured.includes(p as AiProvider)) ?? null;
-}
-
-/**
- * Error yang boleh dialihkan ke provider cadangan: kuota/limit habis, provider tidak terjangkau, atau key tersimpan
- * tidak bisa dibaca. Key ditolak, model tidak tersedia, permintaan tidak valid, dan penolakan filter keamanan tidak
- * dialihkan — itu masalah konfigurasi/isi yang harus terlihat oleh user.
+ * Error sementara yang boleh dicoba lagi nanti (antrian indeks / ekstraksi): kuota/limit habis atau layanan tidak
+ * terjangkau. Penolakan & permintaan tidak valid tidak diulang.
  */
 export const isFallbackError = (kind: AiErrorKind) =>
   kind === "quota" || kind === "unavailable" || kind === "credential";

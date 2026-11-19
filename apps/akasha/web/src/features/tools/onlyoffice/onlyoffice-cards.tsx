@@ -30,7 +30,7 @@ import { TemplateBrowser } from "./template-browser";
 
 /**
  * AI di editor (keputusan user): tab **AI** bawaan ONLYOFFICE (Chatbot, Summarization, Translation, Grammar & Spelling,
- * asisten kustom, OCR) dengan provider & API key yang sama dengan Pengaturan → Model AI — satu pintu, tanpa pengaturan key di
+ * asisten kustom, OCR) dengan model Akai yang sama dengan fitur AI lain (tugas Umum) — satu pintu, tanpa pengaturan key di
  * editor. Sakelar pribadi; berlaku saat dokumen dibuka berikutnya.
  */
 export function OfficeAiCard() {
@@ -51,7 +51,7 @@ export function OfficeAiCard() {
     <SectionCard
       icon={Sparkles}
       title="AI di editor"
-      description="Tab AI ONLYOFFICE memakai AI Akasha (Pengaturan → Model AI)."
+      description="Tab AI ONLYOFFICE memakai AI Akasha lewat Akai (tugas Umum)."
     >
       {isLoading ? (
         <Skeleton className="h-24 w-full" />
@@ -84,14 +84,14 @@ export function OfficeAiCard() {
                     (<b>{data.provider.label}</b> · {data.provider.model})
                   </>
                 ) : null}
-                . API key tetap di server Akasha; tidak ada pengaturan key di editor. Mati = tidak ada isi dokumen yang
-                dikirim ke AI.
+                . Model diatur di Akai; tidak ada pengaturan key di editor. Mati = tidak ada isi dokumen yang dikirim ke
+                AI.
               </span>
             </span>
           </Label>
           {checked && data && !data.aiReady && (
             <Notice>
-              AI belum bisa menjawab: pilih provider dan simpan API key di{" "}
+              AI belum bisa menjawab: atur tugas Umum di Akai lewat{" "}
               <Link to="/settings/api" className="font-medium underline">
                 Pengaturan → Model AI
               </Link>

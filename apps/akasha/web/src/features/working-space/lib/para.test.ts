@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Activity, Area, Project, ProjectTask, Schedule } from "@/types/entities";
+import type { Activity, Area, ParaArchive, Project, ProjectTask, Schedule } from "@/types/entities";
 import {
   activityAncestors,
   activityFields,
   areaLevelHasSchedule,
+  archiveSearchMatch,
+  areaSearchMatch,
+  projectSearchMatch,
   activityTreeAttachments,
   activityLevel,
   activityTreeIds,
@@ -275,5 +278,56 @@ describe("isian item area per tingkat", () => {
       deadline: "2026-11-01",
       resources: values.resources,
     });
+  });
+});
+
+describe("areaSearchMatch", () => {
+  const area = { id: "a1", title: "Umum & Kepegawaian", description: "Tata usaha kantor" } as Area;
+  const projects = [{ id: "p1", title: "Renovasi Gedung", areaId: "a1" }] as Project[];
+
+  it("kueri kosong cocok semua", () => {
+    expect(areaSearchMatch(area, activities, projects, "  ")).toEqual({ match: true, via: [] });
+  });
+  it("cocok dari judul/deskripsi tanpa membedakan huruf", () => {
+    expect(areaSearchMatch(area, activities, projects, "TATA kepegawaian")).toEqual({ match: true, via: [] });
+  });
+  it("cocok dari nama kegiatan & project di dalamnya", () => {
+    expect(areaSearchMatch(area, activities, projects, "wawancara")).toEqual({ match: true, via: ["Wawancara"] });
+    expect(areaSearchMatch(area, activities, projects, "gedung")).toEqual({ match: true, via: ["Renovasi Gedung"] });
+  });
+  it("tidak cocok bila kata tidak ada / milik area lain", () => {
+    expect(areaSearchMatch(area, activities, projects, "anggaran").match).toBe(false);
+    expect(areaSearchMatch(area, activities, projects, "lain").match).toBe(false);
+  });
+});
+
+describe("projectSearchMatch & archiveSearchMatch", () => {
+  const project = {
+    id: "p9",
+    title: "Renovasi Gedung",
+    resources: [{ id: "r1", type: "file", name: "RAB Renovasi.xlsx" }],
+  } as Project;
+  const tasks = [{ id: "t1", projectId: "p9", title: "Survei lokasi", description: "cek atap bocor" }] as ProjectTask[];
+  const schedules = [{ id: "s1", projectId: "p9", title: "Rapat kontraktor" }] as Schedule[];
+
+  it("cocok dari action, deskripsi action, agenda, dan lampiran", () => {
+    expect(projectSearchMatch(project, tasks, schedules, "atap").via).toEqual(["Survei lokasi"]);
+    expect(projectSearchMatch(project, tasks, schedules, "kontraktor").via).toEqual(["Rapat kontraktor"]);
+    expect(projectSearchMatch(project, tasks, schedules, "rab").via).toEqual(["RAB Renovasi.xlsx"]);
+    expect(projectSearchMatch(project, tasks, schedules, "gedung")).toEqual({ match: true, via: [] });
+    expect(projectSearchMatch(project, tasks, schedules, "anggaran").match).toBe(false);
+  });
+
+  it("arsip dicari dari snapshot & turunannya", () => {
+    const archive = {
+      id: "ar1",
+      originalType: "project",
+      data: { title: "Proyek Lama", description: "selesai 2025" },
+      related: { tasks: [{ id: "t2", projectId: "x", title: "Serah terima aset" }] },
+      archivedAt: "2026-01-01",
+    } as ParaArchive;
+    expect(archiveSearchMatch(archive, "lama 2025")).toEqual({ match: true, via: [] });
+    expect(archiveSearchMatch(archive, "serah terima")).toEqual({ match: true, via: ["Serah terima aset"] });
+    expect(archiveSearchMatch(archive, "kontrak").match).toBe(false);
   });
 });

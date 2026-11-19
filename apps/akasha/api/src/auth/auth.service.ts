@@ -24,9 +24,16 @@ const REUSE_GRACE_MS = 30_000;
 export type Session = Awaited<ReturnType<AuthService["sessionFor"]>>;
 
 /** Sesi token lama (baris sebelum migrasi: id token = id sesi). */
-const sessionOf = (record: { id: string; sessionId: string | null; pinUnlocked: boolean; ssoSid: string | null }) => ({
+const sessionOf = (record: {
+  id: string;
+  sessionId: string | null;
+  pinUnlocked: boolean;
+  pinActiveAt?: Date | null;
+  ssoSid: string | null;
+}) => ({
   sid: record.sessionId ?? record.id,
   pinUnlocked: record.pinUnlocked,
+  pinActiveAt: record.pinActiveAt ?? null,
   ssoSid: record.ssoSid,
 });
 
@@ -173,7 +180,10 @@ export class AuthService {
   }
 
   /** Login = sesi baru (PIN tertutup); rotasi = sesi yang sama, status PIN terbuka ikut terbawa. */
-  private async createSession(user: User, session?: { sid: string; pinUnlocked: boolean; ssoSid?: string | null }) {
+  private async createSession(
+    user: User,
+    session?: { sid: string; pinUnlocked: boolean; pinActiveAt?: Date | null; ssoSid?: string | null },
+  ) {
     const sid = session?.sid ?? randomUUID();
     const accessPayload: AccessTokenPayload = {
       sub: user.id,
@@ -198,6 +208,7 @@ export class AuthService {
         expiresAt: new Date(Date.now() + this.refreshTtlSeconds * 1000),
         sessionId: sid,
         pinUnlocked: session?.pinUnlocked ?? false,
+        pinActiveAt: session?.pinActiveAt ?? null,
         ssoSid: session?.ssoSid ?? null,
       },
     });

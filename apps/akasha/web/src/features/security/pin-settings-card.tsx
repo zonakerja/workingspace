@@ -3,20 +3,33 @@ import { SectionCard } from "@/components/common/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useLockPin, usePinStatus } from "@/data/use-pin";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLockPin, usePinStatus, useSetPinAutoLock } from "@/data/use-pin";
+import { errorMessage } from "@/lib/api/client";
+import { toast } from "sonner";
 import { requestUnlock } from "./pin-prompt";
+
+const AUTO_LOCK_OPTIONS = [
+  { value: "never", label: "Sampai logout" },
+  { value: "5", label: "Setelah 5 menit" },
+  { value: "15", label: "Setelah 15 menit" },
+  { value: "30", label: "Setelah 30 menit" },
+  { value: "60", label: "Setelah 1 jam" },
+  { value: "240", label: "Setelah 4 jam" },
+];
 
 /** Profil Saya → PIN Keamanan: status, kunci sekarang / buka; PIN sendiri diatur di akun Workingspace (SSO). */
 export function PinSettingsCard() {
   const { data: status, isLoading } = usePinStatus();
   const lock = useLockPin();
+  const autoLock = useSetPinAutoLock();
 
   return (
     <div id="pin" className="scroll-mt-16">
       <SectionCard
         icon={ShieldCheck}
         title="PIN Keamanan"
-        description="Kunci Area, Project, Resource, Catatan, List, dan Notebook yang bersifat pribadi."
+        description="Kunci Area, Sub Area/Kegiatan, Project, Resource, Catatan, List, dan Notebook yang bersifat pribadi."
         action={
           status?.hasPin ? (
             <Badge className={status.unlocked ? "bg-warning/15 text-warning" : "bg-success/15 text-success"}>
@@ -38,8 +51,9 @@ export function PinSettingsCard() {
                   Agenda).
                 </li>
                 <li>
-                  Satu kali PIN membuka semua item terkunci <b>sampai logout</b>, atau sampai Anda menekan{" "}
-                  <b>Kunci sekarang</b> (ikon gembok di header).
+                  Satu kali PIN membuka semua item terkunci <b>sampai logout</b>, sampai Anda menekan{" "}
+                  <b>Kunci sekarang</b> (ikon gembok di header), atau sampai <b>kunci otomatis</b> bila diatur di bawah.
+                  Sub Area, Kegiatan, dan Sub Kegiatan juga bisa dikunci sendiri lewat ikon gembok di dialog Area.
                 </li>
                 <li>
                   Item terkunci tetap masuk indeks pencarian. Pencarian menemukan judulnya; chatbot dan My Notebook
@@ -69,6 +83,39 @@ export function PinSettingsCard() {
                     </Button>
                   )}
                 </span>
+              </div>
+            )}
+
+            {status?.hasPin && (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border p-3 text-sm">
+                <span className="min-w-0 flex-1">
+                  <b>Kunci otomatis</b>
+                  <span className="block text-xs text-muted-foreground">
+                    PIN dikunci lagi bila tidak ada aktivitas atas item terkunci selama waktu ini (berlaku di semua
+                    perangkat).
+                  </span>
+                </span>
+                <Select
+                  value={String(status.autoLockMinutes ?? "never")}
+                  disabled={autoLock.isPending}
+                  onValueChange={(value) =>
+                    autoLock.mutate(value === "never" ? null : Number(value), {
+                      onSuccess: () => toast.success("Kunci otomatis disimpan."),
+                      onError: (e) => toast.error(errorMessage(e)),
+                    })
+                  }
+                >
+                  <SelectTrigger size="sm" className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AUTO_LOCK_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 

@@ -3,7 +3,7 @@
  * Akasha memakai Akai untuk sebuah tugas hanya bila akun (sub SSO) sudah mengatur model untuk tugas itu di Akai; bila belum,
  * pengaturan lama Pengaturan → Model AI tetap dipakai.
  */
-import type { AiAttachment } from "../ai/providers/ai-client";
+import type { AiAttachment } from "../ai/ai-errors";
 import type { AiTask } from "../ai/ai-routing";
 
 /** Tugas yang bisa dijawab lewat Akai: tugas teks Akasha + `embedding` (indeks pengetahuan). Nama tugas sama di Akai. */

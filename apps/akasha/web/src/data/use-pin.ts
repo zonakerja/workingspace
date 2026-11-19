@@ -34,3 +34,13 @@ export function useLockPin() {
   const apply = useApplyPinStatus();
   return useMutation({ mutationFn: () => securityApi.lock(), onSuccess: apply });
 }
+
+/** Kunci otomatis PIN (menit tanpa aktivitas; null = sampai logout). */
+export function useSetPinAutoLock() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (minutes: number | null) => securityApi.setAutoLock(minutes),
+    onSuccess: ({ autoLockMinutes }) =>
+      client.setQueryData<PinStatus>(queryKeys.pinStatus, (prev) => (prev ? { ...prev, autoLockMinutes } : prev)),
+  });
+}

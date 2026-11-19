@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { BadRequestException } from "@nestjs/common";
-import { isPrivateHost } from "../ai/ai-endpoint";
+import { isPrivateHost } from "../common/private-host";
 
 /** Kunci enkripsi sandi akun email (turunan AI_ENCRYPTION_KEY, dipakai SMTP & IMAP). */
 export const mailCryptoKey = (aiKeyHex: string) =>

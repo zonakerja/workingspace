@@ -1,5 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { UserRole } from "../generated/prisma/client";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { AuthUser } from "../common/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { domainDelegate } from "../records/record-delegate";
@@ -33,14 +32,10 @@ export class UsersService {
     return toPublicUser(user);
   }
 
-  async remove(id: string, actor: AuthUser) {
-    if (id === actor.id) throw new BadRequestException("Tidak dapat menghapus akun Anda sendiri.");
-    const target = await this.findById(id);
-    this.ensureCanManage(actor, target.role);
-    return this.purge(id);
-  }
-
-  /** Hapus akun beserta seluruh datanya (cascade) dan berkasnya di object storage. Tanpa pemeriksaan hak — pemanggil yang menjaga. */
+  /**
+   * Hapus akun beserta seluruh datanya (cascade) dan berkasnya di object storage. Hanya dipanggil pembersih masa akses
+   * (`AccessCleanupService`, setelah SSO memastikan akses berakhir) — akun dikelola di SSO, Akasha tidak punya tombol hapus akun.
+   */
   async purge(id: string) {
     const assets = [
       ...(await this.prisma.asset.findMany({ where: { userId: id }, select: { objectKey: true } })),
@@ -48,8 +43,18 @@ export class UsersService {
       ...(await this.prisma.assetVersion.findMany({ where: { asset: { userId: id } }, select: { objectKey: true } })),
     ];
     await this.prisma.user.delete({ where: { id } });
-    // Data di database ikut terhapus (cascade); berkasnya dihapus dari object storage
-    for (const { objectKey } of assets) {
+    // Data di database ikut terhapus (cascade); berkasnya dihapus dari object storage. Selain berkas yang tercatat,
+    // semua objek di ruang milik akun ikut dihapus: berkas yang sedang di Sampah (barisnya sudah tidak ada, hanya
+    // salinan di trash_items yang ikut terhapus cascade) dan tangkapan layar robot (bukan Asset).
+    const keys = new Set(assets.map((a) => a.objectKey));
+    for (const prefix of [`${id}/`, `robot/${id}/`]) {
+      const found = await this.storage.listKeys(prefix).catch((error: unknown) => {
+        this.logger.warn(`Daftar objek ${prefix} gagal dibaca: ${error instanceof Error ? error.message : error}`);
+        return [] as string[];
+      });
+      found.forEach((key) => keys.add(key));
+    }
+    for (const objectKey of keys) {
       await this.storage
         .deleteObject(objectKey)
         .catch((error) =>
@@ -107,12 +112,5 @@ export class UsersService {
       orderBy: { name: "asc" },
       take: 8,
     });
-  }
-
-  /** Admin (bukan super admin) tidak boleh mengelola akun super admin. */
-  private ensureCanManage(actor: AuthUser, targetRole: UserRole) {
-    if (actor.role !== UserRole.super_admin && targetRole === UserRole.super_admin) {
-      throw new ForbiddenException("Hanya Super Admin yang dapat mengelola akun Super Admin.");
-    }
   }
 }

@@ -9,6 +9,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { Prisma, type Request, type WaContact } from "../generated/prisma/client";
 import { EXCLUDED_STATUSES, numberSources } from "../ai/chat/ai-chat-context";
+import { AkaiService } from "../akai/akai.service";
 import { AiService } from "../ai/ai.service";
 import { AiIndexService } from "../ai/index/ai-index.service";
 import { KNOWLEDGE_COLLECTION } from "../ai/index/index-text";
@@ -90,6 +91,7 @@ export class WhatsappService implements OnModuleInit {
     private readonly uploads: UploadsService,
     private readonly requests: RequestsService,
     private readonly vault: KnowledgeVaultService,
+    private readonly akai: AkaiService,
   ) {}
 
   onModuleInit() {
@@ -531,9 +533,10 @@ export class WhatsappService implements OnModuleInit {
       this.prisma.waMessage.update({ where: { id: messageId }, data });
     const owner = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { name: true, aiProvider: true },
+      select: { name: true, ssoSubject: true, email: true },
     });
-    const hits = owner.aiProvider
+    // Tanpa model Umum di Akai bot tidak bisa menjawab → langsung diteruskan ke petugas
+    const hits = (await this.akai.handles(owner, "general"))
       ? await this.index.search(userId, question.slice(0, 1_000), 6, {
           collections: [KNOWLEDGE_COLLECTION],
           excludeStatuses: PUBLIC_EXCLUDED,

@@ -63,8 +63,6 @@ function UploadCard({ status, prefs }: { status?: ConverterStatus; prefs?: Conve
   const inputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<ConverterMode>("auto");
   const [enhance, setEnhance] = useState(() => prefs?.aiEnhance ?? false);
-  // Bawaan mati: penghitungan token mengirim isi berkas ke Google (countTokens Gemini)
-  const [compareTokens, setCompareTokens] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(0);
   const disabled = !status?.reachable;
@@ -79,7 +77,11 @@ function UploadCard({ status, prefs }: { status?: ConverterStatus; prefs?: Conve
       }
       setUploading((count) => count + 1);
       try {
-        await create.mutateAsync({ file, mode, enhance, compareTokens });
+        const doc = await create.mutateAsync({ file, mode, enhance });
+        if (doc.reused)
+          toast.info(`${file.name} sudah ada di pustaka`, {
+            description: `Berkas sama dengan pilihan sama: "${doc.title}" dipakai ulang tanpa dikonversi lagi.`,
+          });
       } catch (error) {
         toast.error(`${file.name} gagal diunggah`, { description: errorMessage(error) });
       } finally {
@@ -125,21 +127,11 @@ function UploadCard({ status, prefs }: { status?: ConverterStatus; prefs?: Conve
           <Checkbox checked={enhance} onCheckedChange={(checked) => setEnhance(checked === true)} />
           Rapikan dengan AI
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={compareTokens} onCheckedChange={(checked) => setCompareTokens(checked === true)} />
-          Bandingkan token
-        </label>
         <Button onClick={() => inputRef.current?.click()} disabled={disabled}>
           {uploading ? <Spinner /> : <FileUp />}
           {uploading ? "Mengunggah…" : "Pilih berkas"}
         </Button>
         <input ref={inputRef} type="file" multiple accept={CONVERTER_ACCEPT} className="hidden" onChange={onPick} />
-        {compareTokens && (
-          <p className="basis-full text-[11px] text-muted-foreground">
-            Token dihitung dengan penghitung token Google Gemini; isi berkas ikut dikirim ke Google untuk dihitung —
-            matikan untuk berkas rahasia.
-          </p>
-        )}
       </div>
       <div
         onDragOver={(event) => {

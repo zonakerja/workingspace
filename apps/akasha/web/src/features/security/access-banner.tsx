@@ -1,5 +1,9 @@
-import { CloudUpload, ExternalLink, Snowflake, TimerReset } from "lucide-react";
+import { CloudUpload, ExternalLink, Loader2, Snowflake, TimerReset } from "lucide-react";
+import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useDriveBackup, useDriveBackupMutations } from "@/data/use-drive";
+import { errorMessage } from "@/lib/api/client";
 import { useSsoConfig } from "@/data/use-auth";
 import { useToday } from "@/hooks/use-today";
 import { useAuthStore } from "@/stores/auth-store";
@@ -7,7 +11,8 @@ import { accessBannerInfo } from "./access-logic";
 
 /**
  * Pita masa akses di atas konten: akses hampir habis (≤ 14 hari) atau sudah habis (baca saja, dibekukan 180 hari lalu data
- * dihapus). Perpanjangan diajukan di akun Workingspace (SSO); backup ke Google Drive menyusul.
+ * dihapus). Perpanjangan diajukan di akun Workingspace (SSO); Backup ke Drive = backup sekarang bila akun Drive sudah dipilih,
+ * selain itu membuka kartu Backup di Pengaturan → Akun Tersambung.
  */
 export function AccessBanner() {
   const user = useAuthStore((s) => s.user);
@@ -16,6 +21,7 @@ export function AccessBanner() {
   const info = accessBannerInfo(user, today);
   if (!info) return null;
   const renewUrl = sso?.accountUrl ? `${sso.accountUrl}#akses` : null;
+  const backupButton = <BackupButton />;
 
   if (info.kind === "expiring")
     return (
@@ -25,6 +31,7 @@ export function AccessBanner() {
           Masa akses Akasha berakhir <b>{info.expiresLabel}</b> ({info.daysLeft} hari lagi). Setelah itu data hanya bisa
           dibaca.
         </span>
+        {backupButton}
         {renewUrl && (
           <Button asChild size="sm" variant="outline">
             <a href={renewUrl} target="_blank" rel="noreferrer">
@@ -42,9 +49,7 @@ export function AccessBanner() {
         <b>Data Anda dibekukan (baca saja).</b> Masa akses berakhir {info.expiresLabel}. Data akan dihapus permanen pada{" "}
         <b>{info.deleteLabel}</b> ({info.daysLeft} hari lagi) — cadangkan data Anda sebelum itu.
       </span>
-      <Button size="sm" variant="outline" disabled title="Backup seluruh data ke Google Drive segera tersedia">
-        <CloudUpload /> Backup ke Google Drive (segera)
-      </Button>
+      {backupButton}
       {renewUrl && (
         <Button asChild size="sm">
           <a href={renewUrl} target="_blank" rel="noreferrer">
@@ -53,5 +58,28 @@ export function AccessBanner() {
         </Button>
       )}
     </div>
+  );
+}
+
+function BackupButton() {
+  const navigate = useNavigate();
+  const { data } = useDriveBackup();
+  const { run } = useDriveBackupMutations();
+  const running = !!data?.running;
+  const click = () => {
+    if (!data?.settings.accountId) {
+      void navigate("/settings/accounts#backup");
+      return;
+    }
+    run.mutate(undefined, {
+      onSuccess: () => toast.success("Backup ke Drive dimulai. Lihat hasilnya di Pengaturan → Akun Tersambung."),
+      onError: (e) => toast.error(errorMessage(e)),
+    });
+  };
+  return (
+    <Button size="sm" variant="outline" disabled={running || run.isPending} onClick={click}>
+      {running ? <Loader2 className="animate-spin" /> : <CloudUpload />}{" "}
+      {running ? "Backup berjalan…" : "Backup ke Drive"}
+    </Button>
   );
 }

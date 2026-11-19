@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, formatSize, isPickerMessage, PICKER_MESSAGE } from "./drive-utils";
+import { backupSummary, dayLabel, formatSize, isPickerMessage, PICKER_MESSAGE } from "./drive-utils";
 
 describe("drive-utils", () => {
   it("pesan Picker hanya diterima untuk permintaan yang sama", () => {
@@ -18,5 +18,37 @@ describe("drive-utils", () => {
     expect(formatSize(250 * 1024 * 1024)).toBe("250 MB");
     expect(dayLabel(180)).toBe("6 bulan");
     expect(dayLabel(45)).toBe("45 hari");
+  });
+});
+
+describe("backupSummary", () => {
+  it("meringkas data & berkas", () => {
+    expect(backupSummary(null)).toBe("");
+    expect(
+      backupSummary({
+        records: 120,
+        notebooks: 2,
+        requests: 6,
+        files: 34,
+        uploaded: 12,
+        reused: 20,
+        cold: 2,
+        skipped: 0,
+        bytes: 2048,
+      }),
+    ).toBe("128 data · 34 berkas (12 baru, 20 sudah ada, 2 arsip dingin) · 2,0 KB diunggah");
+    expect(
+      backupSummary({
+        records: 5,
+        notebooks: 0,
+        requests: 0,
+        files: 0,
+        uploaded: 0,
+        reused: 0,
+        cold: 0,
+        skipped: 0,
+        bytes: 0,
+      }),
+    ).toBe("5 data");
   });
 });

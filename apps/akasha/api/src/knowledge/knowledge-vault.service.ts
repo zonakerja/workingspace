@@ -24,7 +24,7 @@ import { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { KNOWLEDGE_VAULT_CONTEXT } from "./knowledge-constants";
-import { cleanTag, renameTagInNote, renameTagInQuery } from "./vault-tags";
+import { cleanTag, renameTagInBase, renameTagInCanvasNodes, renameTagInNote, renameTagInQuery } from "./vault-tags";
 import {
   type AfterExtract,
   applyComposerTemplate,
@@ -1616,12 +1616,40 @@ export class KnowledgeVaultService implements OnModuleInit, OnModuleDestroy {
         failed.push(path);
       }
     }
+    // Filter berkas .base & kartu teks canvas ikut berubah (bukan cermin 80-Akasha; berkas rusak dilewati)
+    let bases = 0;
+    for (const { path } of await this.listVaultFiles(userId, BASE_EXT).catch(() => [])) {
+      if (isExportPath(path)) continue;
+      const absolute = this.inVault(base, path);
+      const raw = await readFile(absolute, "utf8").catch(() => null);
+      if (raw === null) continue;
+      const result = renameTagInBase(raw, from, to);
+      if (!result.count) continue;
+      await this.writeAtomic(absolute, result.text);
+      bases++;
+      occurrences += result.count;
+    }
+    let canvases = 0;
+    for (const { path } of await this.listVaultFiles(userId, CANVAS_EXT).catch(() => [])) {
+      if (isExportPath(path)) continue;
+      const absolute = this.inVault(base, path);
+      const raw = await readFile(absolute, "utf8").catch(() => null);
+      if (raw === null) continue;
+      const { data, error } = parseCanvas(raw);
+      if (error) continue;
+      const result = renameTagInCanvasNodes(data.nodes, from, to);
+      if (!result.count) continue;
+      await this.writeAtomic(absolute, serializeCanvas({ ...data, nodes: result.nodes }));
+      await this.indexQueue.enqueueSource(userId, CANVAS_SOURCE, path);
+      canvases++;
+      occurrences += result.count;
+    }
     await this.updatePrefs(userId, (prefs) => ({
       ...prefs,
       graphGroups: prefs.graphGroups.map((g) => ({ ...g, query: renameTagInQuery(g.query, from, to) })),
     }));
     await this.afterWrite(userId, null);
-    return { notes, occurrences, failed };
+    return { notes, bases, canvases, occurrences, failed };
   }
 
   /** Pindahkan ke `.trash` vault (bisa dipulihkan dari Obsidian / disk), bukan hapus permanen. */

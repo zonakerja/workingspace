@@ -35,11 +35,23 @@ class AgentChatDto {
   @MaxLength(8_000)
   message!: string;
 
-  /** Nama percakapan (sesi Hermes per user); kosong = percakapan utama */
+  /** ID percakapan tersimpan; kosong / tidak dikenal = percakapan baru */
   @IsOptional()
   @IsString()
   @MaxLength(40)
   conversation?: string;
+}
+
+class AgentConversationPatchDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  title?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  pinned?: boolean;
 }
 
 class AgentSetupDto {
@@ -250,6 +262,26 @@ export class AgentController {
   @Post("chat")
   chat(@CurrentUser() user: AuthUser, @Body() dto: AgentChatDto) {
     return this.agent.chat(user, dto.message, dto.conversation ?? "");
+  }
+
+  @Get("conversations")
+  conversations(@CurrentUser() user: AuthUser) {
+    return this.agent.conversations(user);
+  }
+
+  @Get("conversations/:id")
+  conversation(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.agent.conversation(user, id);
+  }
+
+  @Patch("conversations/:id")
+  updateConversation(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: AgentConversationPatchDto) {
+    return this.agent.updateConversation(user, id, dto);
+  }
+
+  @Delete("conversations/:id")
+  removeConversation(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.agent.removeConversation(user, id);
   }
 
   @Throttle({ default: { ttl: 60_000, limit: 10 } })

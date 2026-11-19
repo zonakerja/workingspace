@@ -17,9 +17,8 @@ import {
   segmentPrompt,
   stripMetaPreamble,
   TRANSCRIBE_PROMPT,
-} from "../transcribe/transcript-logic";
-import { splitWebm } from "../transcribe/webm-split";
-import { AiProviderError, kindFromStatus } from "./ai-client";
+} from "./transcript-logic";
+import { splitWebm } from "./webm-split";
 
 const logger = new Logger("Transkrip");
 
@@ -43,15 +42,36 @@ const UNSPLIT_WARNING_BYTES = 30 * 1024 * 1024;
  */
 const REJECTED_FALLBACK_MODELS = ["gemini-3.1-pro-preview"];
 
-const toProviderError = (error: unknown) => {
-  if (error instanceof AiProviderError) return error;
-  if (error instanceof ApiError) return new AiProviderError(kindFromStatus(error.status, error.message), error.message);
-  return new AiProviderError("unavailable", error instanceof Error ? error.message : String(error));
+export type TranscribeErrorKind = "auth" | "quota" | "model" | "refusal" | "invalid" | "unavailable";
+
+/** Galat transkrip yang sudah diklasifikasikan (diterjemahkan ke HTTP 429 / 422 oleh layanan). */
+export class TranscribeError extends Error {
+  constructor(
+    readonly kind: TranscribeErrorKind,
+    message: string,
+  ) {
+    super(message);
+    this.name = "TranscribeError";
+  }
+}
+
+function kindFromStatus(status: number | undefined, message = ""): TranscribeErrorKind {
+  if (status === 401 || status === 403) return "auth";
+  if (status === 404) return "model";
+  if (status === 429 || status === 402) return "quota";
+  if (status !== undefined && status >= 400 && status < 500) return /api[ _-]?key/i.test(message) ? "auth" : "invalid";
+  return "unavailable";
+}
+
+export const toTranscribeError = (error: unknown) => {
+  if (error instanceof TranscribeError) return error;
+  if (error instanceof ApiError) return new TranscribeError(kindFromStatus(error.status, error.message), error.message);
+  return new TranscribeError("unavailable", error instanceof Error ? error.message : String(error));
 };
 
-const isRetryable = (error: unknown) => ["unavailable", "quota"].includes(toProviderError(error).kind);
+const isRetryable = (error: unknown) => ["unavailable", "quota"].includes(toTranscribeError(error).kind);
 /** Key/model salah akan gagal di semua potongan: hentikan segera daripada mencoba semuanya. */
-const isFatal = (error: unknown) => ["auth", "credential", "model"].includes(toProviderError(error).kind);
+const isFatal = (error: unknown) => ["auth", "model"].includes(toTranscribeError(error).kind);
 
 /** Transkrip satu audio, jawaban yang terpotong batas token disambung otomatis. */
 function transcribeAudio(client: GoogleGenAI, model: string, audio: Part, prompt: string, label: string) {
@@ -83,17 +103,14 @@ function transcribeAudio(client: GoogleGenAI, model: string, audio: Part, prompt
       logger.log(
         `${label} [${model}]: selesai=${finish ?? "-"}, ditolak=${blockReason ?? "-"}, ${text.length} karakter, token masukan ${promptTokens ?? "?"}`,
       );
-      if (blockReason) {
-        throw new AiProviderError("refusal", `Model ${model} menolak memproses audio ini (${blockReason}).`);
-      }
+      if (blockReason)
+        throw new TranscribeError("refusal", `Model ${model} menolak memproses audio ini (${blockReason}).`);
       // Aliran yang berakhir tanpa alasan selesai belum tentu lengkap: jangan pernah dianggap sukses
-      if (!finish) throw new AiProviderError("unavailable", "Sambungan ke Gemini terputus sebelum transkrip selesai.");
-      if (finish !== FinishReason.STOP && finish !== FinishReason.MAX_TOKENS) {
-        throw new AiProviderError("refusal", `Gemini menghentikan transkrip (${finish}).`);
-      }
-      if (finish === FinishReason.STOP && !text.trim()) {
-        throw new AiProviderError("invalid", "Gemini tidak memberikan transkrip.");
-      }
+      if (!finish) throw new TranscribeError("unavailable", "Sambungan ke Gemini terputus sebelum transkrip selesai.");
+      if (finish !== FinishReason.STOP && finish !== FinishReason.MAX_TOKENS)
+        throw new TranscribeError("refusal", `Gemini menghentikan transkrip (${finish}).`);
+      if (finish === FinishReason.STOP && !text.trim())
+        throw new TranscribeError("invalid", "Gemini tidak memberikan transkrip.");
       return { text, truncated: finish === FinishReason.MAX_TOKENS };
     },
     { isRetryable },
@@ -103,13 +120,13 @@ function transcribeAudio(client: GoogleGenAI, model: string, audio: Part, prompt
 /** Audio yang ditolak model utama dicoba dengan model cadangan; kegagalan lain diteruskan apa adanya. */
 async function transcribeWithFallback(client: GoogleGenAI, model: string, audio: Part, prompt: string, label: string) {
   const models = [model, ...REJECTED_FALLBACK_MODELS.filter((m) => m !== model)];
-  let rejected: AiProviderError | undefined;
+  let rejected: TranscribeError | undefined;
   for (const candidate of models) {
     try {
       const result = await transcribeAudio(client, candidate, audio, prompt, label);
       return { ...result, text: stripMetaPreamble(result.text) };
     } catch (error) {
-      const failure = toProviderError(error);
+      const failure = toTranscribeError(error);
       // Model cadangan tidak tersedia di akun ini: yang perlu dilihat user tetap penolakan model utama
       if (rejected && failure.kind === "model") throw rejected;
       if (failure.kind !== "refusal") throw failure;
@@ -127,15 +144,13 @@ async function transcribeWholeFile(client: GoogleGenAI, model: string, filePath:
     fileName = file.name;
     const deadline = Date.now() + FILE_READY_TIMEOUT_MS;
     while (file.state === FileState.PROCESSING) {
-      if (Date.now() > deadline) {
-        throw new AiProviderError("unavailable", "Gemini terlalu lama memproses berkas audio.");
-      }
+      if (Date.now() > deadline)
+        throw new TranscribeError("unavailable", "Gemini terlalu lama memproses berkas audio.");
       await new Promise((resolve) => setTimeout(resolve, FILE_POLL_MS));
       file = await client.files.get({ name: fileName! });
     }
-    if (file.state === FileState.FAILED || !file.uri) {
-      throw new AiProviderError("invalid", file.error?.message || "Gemini tidak dapat membaca berkas audio ini.");
-    }
+    if (file.state === FileState.FAILED || !file.uri)
+      throw new TranscribeError("invalid", file.error?.message || "Gemini tidak dapat membaca berkas audio ini.");
     const audio = createPartFromUri(file.uri, file.mimeType || mimeType);
     return await transcribeWithFallback(client, model, audio, TRANSCRIBE_PROMPT, "berkas utuh");
   } finally {
@@ -143,9 +158,16 @@ async function transcribeWholeFile(client: GoogleGenAI, model: string, filePath:
   }
 }
 
+export interface TranscribeOutput {
+  text: string;
+  truncated: boolean;
+  passes: number;
+  warning: string | null;
+}
+
 /**
  * Transkrip berkas audio di disk. Rekaman WebM (MediaRecorder) dipotong per ± 10 menit tanpa encode ulang, tiap potongan
- * ditranskrip sendiri lalu digabung berurutan; format lain dikirim utuh.
+ * ditranskrip sendiri lalu digabung berurutan; format lain dikirim utuh lewat Files API.
  */
 export async function transcribeWithGemini(input: {
   apiKey: string;
@@ -155,7 +177,7 @@ export async function transcribeWithGemini(input: {
   sizeBytes: number;
   /** Hasil potongan yang sudah berhasil, dipakai ulang saat transkrip diulang. */
   segments?: Map<number, SegmentResult>;
-}) {
+}): Promise<TranscribeOutput> {
   const client = new GoogleGenAI({ apiKey: input.apiKey, httpOptions: { timeout: TRANSCRIBE_TIMEOUT_MS } });
   try {
     const pieces =
@@ -167,6 +189,7 @@ export async function transcribeWithGemini(input: {
       const result = await transcribeWholeFile(client, input.model, input.filePath, input.mimeType);
       return {
         ...result,
+        passes: result.passes ?? 1,
         warning:
           input.sizeBytes > UNSPLIT_WARNING_BYTES
             ? "Audio besar ini ditranskrip sekaligus dan mungkin tidak sampai akhir. Periksa kelengkapannya."
@@ -188,10 +211,10 @@ export async function transcribeWithGemini(input: {
         isFatal,
         done: input.segments,
         onError: (index, error) =>
-          logger.warn(`potongan ${index + 1}/${pieces.length} gagal: ${toProviderError(error).providerMessage}`),
+          logger.warn(`potongan ${index + 1}/${pieces.length} gagal: ${toTranscribeError(error).message}`),
       },
     );
   } catch (error) {
-    throw toProviderError(error);
+    throw toTranscribeError(error);
   }
 }
