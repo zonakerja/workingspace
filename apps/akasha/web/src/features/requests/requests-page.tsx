@@ -6,23 +6,22 @@ import { ModulePage } from "@/components/layout/module-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRequests } from "@/data/use-requests";
+import { useRequestCategories, useRequests } from "@/data/use-requests";
 import { usePagination } from "@/hooks/use-pagination";
 import { useSearchParam } from "@/hooks/use-search-param";
 import { formatDateTime, formatShortDate, parseLocalYMD } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-import type { RequestKind, RequestSummary } from "@/types/api";
+import type { RequestSummary } from "@/types/api";
 import { CreateRequestDialog } from "./create-request-dialog";
+import { RequestCategoriesButton } from "./request-categories-dialog";
+import { RequestCategorySelect } from "./request-category-select";
 import { RequestDetailDialog } from "./request-detail-dialog";
 import {
   AUTO_STATE_LABELS,
   AUTO_STATE_TONE,
   autoDecisionState,
   filterRequests,
-  KIND_LABELS,
-  KIND_OPTIONS,
   STATUS_LABELS,
   STATUS_TONE,
   TAB_STATUSES,
@@ -98,8 +97,9 @@ export function Component() {
 function RequestList({ tab, onOpen }: { tab: "queue" | "done"; onOpen: (id: string) => void }) {
   const { data, isLoading } = useRequests();
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<RequestKind | "all">("all");
-  const items = filterRequests(data ?? [], { tab, kind, query });
+  const [kind, setKind] = useState<string>("all");
+  const { labels } = useRequestCategories();
+  const items = filterRequests(data ?? [], { tab, kind, query, labels });
   const { pageItems, setPage, controlProps } = usePagination(items, 10);
 
   return (
@@ -114,25 +114,16 @@ function RequestList({ tab, onOpen }: { tab: "queue" | "done"; onOpen: (id: stri
           placeholder="Cari judul, pemohon, nomor surat…"
           className="md:w-80"
         />
-        <Select
+        <RequestCategorySelect
           value={kind}
-          onValueChange={(v) => {
-            setKind(v as RequestKind | "all");
+          onChange={(v) => {
+            setKind(v);
             setPage(1);
           }}
-        >
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua jenis</SelectItem>
-            {KIND_OPTIONS.map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          allLabel="Semua kategori"
+          className="sm:w-56"
+        />
+        <RequestCategoriesButton />
       </div>
 
       {isLoading ? (
@@ -163,6 +154,7 @@ function RequestList({ tab, onOpen }: { tab: "queue" | "done"; onOpen: (id: stri
 }
 
 function RequestRow({ request: r, onOpen }: { request: RequestSummary; onOpen: () => void }) {
+  const { labelOf } = useRequestCategories();
   return (
     <button
       type="button"
@@ -178,7 +170,7 @@ function RequestRow({ request: r, onOpen }: { request: RequestSummary; onOpen: (
           <Badge className={cn("shrink-0", STATUS_TONE[r.status])}>{STATUS_LABELS[r.status]}</Badge>
           {r.source !== "manual" && (
             <Badge variant="outline" className="shrink-0 gap-1">
-              <Bot className="size-3" /> {r.source === "mcp" ? "Agen" : "WhatsApp"}
+              <Bot className="size-3" /> {r.source === "mcp" ? "AI agent" : "WhatsApp"}
             </Badge>
           )}
           {r.autoDecision && (
@@ -189,7 +181,7 @@ function RequestRow({ request: r, onOpen }: { request: RequestSummary; onOpen: (
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           {[
-            KIND_LABELS[r.kind],
+            labelOf(r.kind),
             r.applicant,
             r.letterNumber,
             r.letterDate && formatShortDate(parseLocalYMD(r.letterDate)),

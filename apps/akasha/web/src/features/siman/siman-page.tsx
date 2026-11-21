@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ModulePage } from "@/components/layout/module-page";
 import { Card } from "@/components/ui/card";
 import { RobotSettings } from "@/features/tools/robot/robot-settings";
+import { RequestsBoard } from "./requests-board";
 import { SimanWorkflowTab } from "./siman-workflow-tab";
 
 const STEPS: {
@@ -16,12 +17,14 @@ const STEPS: {
   {
     icon: Inbox,
     title: "1. Cek tiket dari satker",
-    text: "Koneksi ini mengecek tiket pengajuan yang masuk di SIMAN beserta lampirannya.",
+    text: "Tab Permohonan memuat daftar Permohonan SIMAN; tiket yang didisposisikan ke Anda ditandai dan tampil lebih dulu.",
+    to: "/siman/requests",
+    link: "Buka Permohonan",
   },
   {
     icon: Workflow,
-    title: "2. Diproses agen",
-    text: "Proses yang diajarkan pemilik dijalankan agen sebagai workflow SIMAN; hasilnya diperiksa di Approval.",
+    title: "2. Diproses AI agent",
+    text: "Proses yang diajarkan pemilik dijalankan AI agent sebagai workflow SIMAN; hasilnya masuk antrian Approval untuk Anda periksa.",
     to: "/siman/workflow",
     link: "Buka Workflow",
   },
@@ -40,15 +43,17 @@ export function Component() {
   return (
     <ModulePage module="siman">
       {(tab) =>
-        tab === "connector" ? (
+        tab === "requests" ? (
+          <RequestsBoard />
+        ) : tab === "connector" ? (
           <RobotSettings systems={["siman"]} />
         ) : tab === "workflow" ? (
           <SimanWorkflowTab />
         ) : (
           <div className="grid grid-cols-1 gap-3">
             <p className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-sm text-warning">
-              Pengecekan tiket dan unggah surat keputusan belum dibangun, menunggu prosesnya diajarkan kepada agen. Saat
-              ini robot SIMAN hanya menjaga sesi login dan, atas permintaan agen, membaca halaman tanpa mengklik.
+              Robot SIMAN hanya membaca: daftar Permohonan, isi tiket (aset, kelengkapan + berkas), dan menjaga sesi
+              login. Unggah surat keputusan ke SIMAN belum dibangun.
             </p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               {STEPS.map(({ icon: Icon, title, text, to, link }) => (

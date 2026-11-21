@@ -1,4 +1,5 @@
 import {
+  Wand2,
   Bot,
   Check,
   CheckCheck,
@@ -44,7 +45,9 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import type { RequestDetail, RequestStatus, RequestUpdate } from "@/types/api";
 import { AutoDecisionPanel } from "./auto-decision-panel";
-import { CHECK_LABELS, CHECK_TONE, HISTORY_ACTOR, KIND_LABELS, STATUS_LABELS, STATUS_TONE } from "./request-utils";
+import { RequestCategorySelect } from "./request-category-select";
+import { ChecklistItemRow, needsManualCheck } from "./checklist-item";
+import { HISTORY_ACTOR, STATUS_LABELS, STATUS_TONE } from "./request-utils";
 import { TemplateFillDialog } from "./template-fill-dialog";
 import { useOfficeLinkBadges } from "@/data/use-office";
 import { DocumentLinkBadge } from "@/features/tools/onlyoffice/document-links";
@@ -114,10 +117,29 @@ function RequestDetailBody({ request: r, onDeleted }: { request: RequestDetail; 
       <DialogHeader>
         <div className="flex flex-wrap items-center gap-1.5 pr-8">
           <Badge className={STATUS_TONE[r.status]}>{STATUS_LABELS[r.status]}</Badge>
-          <Badge variant="outline">{KIND_LABELS[r.kind]}</Badge>
+          <RequestCategorySelect
+            value={r.kind}
+            onChange={(kind) => kind !== r.kind && update({ kind }, "Kategori diubah.")}
+            size="sm"
+            className="w-auto max-w-64"
+          />
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            title="Tentukan kategori otomatis dari kata kunci"
+            disabled={m.reclassify.isPending}
+            onClick={() =>
+              m.reclassify.mutate(r.id, {
+                onSuccess: () => toast.success("Kategori ditentukan ulang dari kata kunci."),
+                onError: (e) => toast.error(errorMessage(e)),
+              })
+            }
+          >
+            <Wand2 />
+          </Button>
           {r.source !== "manual" && (
             <Badge variant="outline" className="gap-1">
-              <Bot className="size-3" /> Dicatat {r.source === "mcp" ? "agen" : "lewat WhatsApp"}
+              <Bot className="size-3" /> Dicatat {r.source === "mcp" ? "AI agent" : "lewat WhatsApp"}
             </Badge>
           )}
         </div>
@@ -221,7 +243,7 @@ function RequestDetailBody({ request: r, onDeleted }: { request: RequestDetail; 
       >
         {filesPending && <p className="text-xs text-muted-foreground">Menunggu berkas selesai dibaca server…</p>}
         {r.analysis ? (
-          <AnalysisView analysis={r.analysis} />
+          <AnalysisView analysis={r.analysis} requestId={r.id} />
         ) : (
           <p className="text-sm text-muted-foreground">
             AI meringkas surat, mengambil data penting, dan mencocokkan kelengkapan dengan persyaratan di Basis
@@ -299,7 +321,11 @@ function RequestDetailBody({ request: r, onDeleted }: { request: RequestDetail; 
                 >
                   <Pencil /> Buka
                 </Button>
-                <RegisterDocButton requestId={r.id} uploadId={d.uploadId} />
+                <RegisterDocButton
+                  requestId={r.id}
+                  uploadId={d.uploadId}
+                  approved={r.status === "disetujui" || r.status === "dikirim"}
+                />
                 <Button
                   size="icon-xs"
                   variant="ghost"
@@ -506,22 +532,28 @@ function LetterForm({
   );
 }
 
-function AnalysisView({ analysis: a }: { analysis: NonNullable<RequestDetail["analysis"]> }) {
+function AnalysisView({
+  analysis: a,
+  requestId,
+}: {
+  analysis: NonNullable<RequestDetail["analysis"]>;
+  requestId: string;
+}) {
+  const open = a.checklist.filter((c) => needsManualCheck(c) && c.check?.result !== "lolos").length;
   return (
     <div className="grid grid-cols-1 gap-2 text-sm">
       {a.summary && <p>{a.summary}</p>}
       {a.checklist.length > 0 && (
-        <ul className="grid grid-cols-1 gap-1">
+        <ul className="grid grid-cols-1 gap-1.5">
           {a.checklist.map((c, i) => (
-            <li key={`${c.dokumen}-${i}`} className="flex flex-wrap items-start gap-2">
-              <Badge className={cn("shrink-0", CHECK_TONE[c.status])}>{CHECK_LABELS[c.status]}</Badge>
-              <span className="min-w-0 flex-1">
-                {c.dokumen}
-                {c.catatan && <span className="text-xs text-muted-foreground"> — {c.catatan}</span>}
-              </span>
-            </li>
+            <ChecklistItemRow key={c.id ?? `${c.dokumen}-${i}`} requestId={requestId} item={c} />
           ))}
         </ul>
+      )}
+      {open > 0 && (
+        <p className="text-xs text-warning">
+          {open} butir perlu Anda cek manual — tandai Lolos / Bermasalah agar AI agent tahu saat menelaah ulang.
+        </p>
       )}
       {a.missing.length > 0 && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs">
@@ -634,7 +666,16 @@ function FinalMark({ uploadId }: { uploadId: string }) {
 }
 
 /** Dokumen pengajuan → Register Naskah Keluar SRIKANDI (entri baru terisi, atau buka entri yang sudah memakainya). */
-function RegisterDocButton({ requestId, uploadId }: { requestId: string; uploadId: string }) {
+function RegisterDocButton({
+  requestId,
+  uploadId,
+  approved,
+}: {
+  requestId: string;
+  uploadId: string;
+  /** Pengajuan sudah disetujui (pemilik / Kebijakan Otomatis) — sebelum itu dokumen belum boleh ke SRIKANDI */
+  approved: boolean;
+}) {
   const navigate = useNavigate();
   const { items } = useSrikandiOutgoings();
   const existing = items.find((e) => e.file?.uploadId === uploadId);
@@ -642,10 +683,13 @@ function RegisterDocButton({ requestId, uploadId }: { requestId: string; uploadI
     <Button
       size="xs"
       variant="outline"
+      disabled={!existing && !approved}
       title={
         existing
           ? "Buka entri Register Naskah Keluar dokumen ini"
-          : "Daftarkan dokumen ini ke SRIKANDI lewat Register Naskah Keluar"
+          : approved
+            ? "Daftarkan dokumen ini ke SRIKANDI lewat Register Naskah Keluar"
+            : "Setujui pengajuan ini dulu sebelum didaftarkan ke SRIKANDI"
       }
       onClick={() =>
         navigate(

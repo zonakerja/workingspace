@@ -7,7 +7,6 @@ import {
   DEFAULT_BOT_PROFILE,
   detectIntent,
   formatPhone,
-  guessKind,
   intakeTitle,
   normalizePhone,
   parsePublicAnswer,
@@ -30,16 +29,12 @@ describe("nomor & maksud pesan", () => {
     expect(formatPhone("6281234567890")).toBe("+62 812-3456-7890");
   });
 
-  it("detectIntent & guessKind", () => {
+  it("detectIntent", () => {
     expect(detectIntent("Bagaimana prosedur PSP?", false)).toBe("question");
     expect(detectIntent("#status", false)).toBe("status");
     expect(detectIntent("cek status", false)).toBe("status");
     expect(detectIntent("#ajukan PSP laptop", false)).toBe("request");
     expect(detectIntent("", true)).toBe("request");
-    expect(guessKind("Permohonan PSP laptop")).toBe("psp");
-    expect(guessKind("usul penghapusan kendaraan")).toBe("penghapusan");
-    expect(guessKind("sewa tanah dermaga")).toBe("pemanfaatan");
-    expect(guessKind("mohon arahan")).toBe("surat");
   });
 
   it("intakeTitle membuang #ajukan & menambah nama pemohon/grup", () => {

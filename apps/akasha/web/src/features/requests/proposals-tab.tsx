@@ -14,6 +14,7 @@ import { getAppIcon } from "@/lib/icons/icon-registry";
 import { EkinerjaFillRequestsCard } from "@/features/kinerja/fill-requests-card";
 import { SrikandiRegisterRequestsCard } from "@/features/srikandi/register-requests-card";
 import { SendEmailRequestsCard } from "@/features/email/send-email-requests-card";
+import { SkillChangeRequestsCard } from "@/features/agent/skill-change-requests-card";
 import { DeleteRequestsCard } from "./delete-requests-card";
 
 const PLACEMENT_LABELS: Record<AgentMenu["placement"], string> = {
@@ -64,6 +65,7 @@ export function ProposalsTab() {
       <EkinerjaFillRequestsCard />
       <SrikandiRegisterRequestsCard />
       <SendEmailRequestsCard />
+      <SkillChangeRequestsCard />
       <Card className="flex items-start gap-3 p-4">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-module-soft text-module">
           <ShieldCheck className="size-5" />

@@ -3,7 +3,7 @@ import { RECORD_TABLES, type RecordType, type TableSpec } from "../records/recor
 /** Logika murni aksi agen atas record (diuji di `agent-action-logic.spec.ts`). */
 
 /** Permintaan agen yang menunggu keputusan pemilik (Setujui / Tolak). */
-export const APPROVAL_KINDS = ["delete", "ekinerja_fill", "srikandi_register", "send_email"] as const;
+export const APPROVAL_KINDS = ["delete", "ekinerja_fill", "srikandi_register", "send_email", "skill_change"] as const;
 
 export const AGENT_ACTION_STATUSES = ["applied", "undone", "pending", "approved", "rejected", "failed"] as const;
 
@@ -18,6 +18,7 @@ const AGENT_READONLY_TYPES = new Set<string>([
   "srikandi_letter",
   "srikandi_inbox",
   "srikandi_reference",
+  "siman_request",
   "skp",
   "skp_target",
 ]);

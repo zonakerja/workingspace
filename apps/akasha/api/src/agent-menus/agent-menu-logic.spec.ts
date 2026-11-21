@@ -62,6 +62,14 @@ describe("agent-menu-logic", () => {
 
   it("SIMAN fitur terbuka: workflow boleh ditempatkan di dalamnya, namanya tetap dikunci", () => {
     expect(normalizeMenuProposal({ ...proposal, placement: "siman" })).toMatchObject({ placement: "siman" });
+    const ticketForm = normalizeForm([{ name: "ticket", label: "Nomor tiket", type: "siman_ticket", required: true }]);
+    expect(ticketForm).toEqual([{ name: "ticket", label: "Nomor tiket", type: "siman_ticket", required: true }]);
+    if (Array.isArray(ticketForm)) {
+      expect(normalizeMenuValues(ticketForm, { ticket: "ppl26110408030558728" })).toEqual({
+        ticket: "PPL26110408030558728",
+      });
+      expect(normalizeMenuValues(ticketForm, { ticket: "12345" })).toHaveProperty("error");
+    }
     expect(EXTENSIBLE_FEATURES.SIMAN).toBe("siman");
     expect(normalizeMenuProposal({ ...proposal, label: "siman" })).toHaveProperty("error");
   });

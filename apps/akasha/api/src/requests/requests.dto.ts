@@ -11,14 +11,18 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
-import { REQUEST_KINDS, REQUEST_STATUSES } from "./request-logic";
+import { REQUEST_STATUSES } from "./request-logic";
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 export class CreateRequestDto {
-  @ApiProperty({ enum: REQUEST_KINDS })
-  @IsIn(REQUEST_KINDS, { message: "Jenis pengajuan tidak dikenal." })
-  kind: string;
+  @ApiPropertyOptional({
+    description: 'Kunci kategori pengajuan; kosong / "auto" = ditentukan otomatis dari kata kunci',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  kind?: string;
 
   @ApiProperty()
   @IsString()
@@ -69,10 +73,25 @@ export class CreateRequestDto {
   uploadIds?: string[];
 }
 
-export class UpdateRequestDto {
-  @ApiPropertyOptional({ enum: REQUEST_KINDS })
+export class ChecklistCheckDto {
+  @ApiPropertyOptional({ enum: ["lolos", "bermasalah"], nullable: true, description: "null = batalkan tanda" })
   @IsOptional()
-  @IsIn(REQUEST_KINDS, { message: "Jenis pengajuan tidak dikenal." })
+  @ValidateIf((_, v) => v !== null)
+  @IsIn(["lolos", "bermasalah"])
+  result?: "lolos" | "bermasalah" | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
+export class UpdateRequestDto {
+  @ApiPropertyOptional({ description: "Kunci kategori pengajuan" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
   kind?: string;
 
   @ApiPropertyOptional()
@@ -178,9 +197,12 @@ export class TemplateRefDto {
 }
 
 export class CreateRequestDocumentDto extends TemplateRefDto {
-  @ApiProperty({ description: "Nilai penanda & paragraf petunjuk { nama: teks }" })
+  @ApiProperty({
+    description:
+      "Nilai penanda & paragraf petunjuk { nama: teks }; tabel berulang ${#nama}…${/nama} = { nama: [{ penanda: teks }] }",
+  })
   @IsObject()
-  values: Record<string, string>;
+  values: Record<string, string | Record<string, string>[]>;
 
   @ApiPropertyOptional({ description: "Nama berkas (tanpa .docx)" })
   @IsOptional()

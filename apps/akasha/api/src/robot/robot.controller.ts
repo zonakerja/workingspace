@@ -21,6 +21,7 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
 import {
   AnswerDto,
+  SimanTicketDto,
   CaptureDto,
   CredentialsDto,
   FillRenaksiDto,
@@ -34,6 +35,7 @@ import {
 } from "./robot.dto";
 import { RenaksiProposalsService } from "./renaksi-proposals.service";
 import { RobotService } from "./robot.service";
+import { SimanDocumentsService } from "./siman-documents.service";
 
 /** Konektor robot SRIKANDI & e-Kinerja (tab Connector di Laporan Kinerja & SRIKANDI). Data & sesi milik user sendiri. */
 @ApiTags("robot")
@@ -44,6 +46,7 @@ export class RobotController {
   constructor(
     private readonly robot: RobotService,
     private readonly renaksi: RenaksiProposalsService,
+    private readonly simanDocuments: SimanDocumentsService,
   ) {}
 
   /** e-Kinerja: cakupan kegiatan Working Space yang dikecualikan dari renaksi (Area / Project / Lepas); berlaku juga untuk agen. */
@@ -211,6 +214,28 @@ export class RobotController {
   @Post("srikandi/inbox/sync")
   syncInbox(@CurrentUser() user: AuthUser) {
     return this.robot.syncSrikandiInbox(user);
+  }
+
+  /** SIMAN: baca satu tiket (info, aset, kelengkapan + unduh berkas, analisis, surat, riwayat). Tidak mengubah tiket. */
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
+  @HttpCode(200)
+  @Post("siman/ticket")
+  readSimanTicket(@CurrentUser() user: AuthUser, @Body() dto: SimanTicketDto) {
+    return this.robot.readSimanTicket(user, dto.ticket.toUpperCase(), { source: dto.source, documents: dto.documents });
+  }
+
+  /** SIMAN: dokumen hasil satu tiket (versi ONLYOFFICE, tersunting pemilik atau belum). */
+  @Get("siman/requests/:ticket/documents")
+  listSimanDocuments(@CurrentUser() user: AuthUser, @Param("ticket") ticket: string) {
+    return this.simanDocuments.list(user, ticket, {}).catch(() => ({ tiket: [] }));
+  }
+
+  /** SIMAN: ambil daftar Permohonan Pengelolaan + tanda disposisi (tiket di Penetapan Pengelolaan). Hanya membaca. */
+  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  @HttpCode(200)
+  @Post("siman/requests/sync")
+  syncSimanRequests(@CurrentUser() user: AuthUser) {
+    return this.robot.syncSimanRequests(user);
   }
 
   /** SRIKANDI: ambil klasifikasi arsip (Instrumen Kearsipan, ±1.000 baris — terpisah karena lama). Hanya membaca. */

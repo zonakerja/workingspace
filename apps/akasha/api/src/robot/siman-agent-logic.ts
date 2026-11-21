@@ -10,12 +10,23 @@ import { normalizeSystemUrl } from "./robot-logic";
  * bersama pemilik. Menulis ke SIMAN (unggah SK) kelak hanya lewat permintaan yang disetujui pemilik.
  */
 
-export type SimanAgentTask = "session" | "page";
+export type SimanAgentTask = "session" | "page" | "ticket" | "requests";
 
 export const SIMAN_TASK_LABELS: Record<SimanAgentTask, string> = {
   session: "Jaga sesi login",
   page: "Baca halaman SIMAN (tanpa klik)",
+  ticket: "Baca tiket SIMAN (aset, kelengkapan + berkas, analisis, riwayat)",
+  requests: "Ambil daftar Permohonan SIMAN & tanda disposisi",
 };
+
+/** Nomor tiket SIMAN: "PPL" + angka (mis. PPL26110408030558728). */
+export function simanTicketNumber(raw: string | undefined): string | null {
+  const ticket = (raw ?? "").trim().toUpperCase();
+  return /^PPL\d{14,20}$/.test(ticket) ? ticket : null;
+}
+
+/** Batas isi berkas kelengkapan yang dikirim ke agen per panggilan. */
+export const SIMAN_FILE_CHARS = 60_000;
 
 /** Batas teks struktur halaman yang dikembalikan ke agen (snapshot aksesibilitas bisa sangat panjang). */
 export const SIMAN_PAGE_CHARS = 15_000;
@@ -62,6 +73,19 @@ export function summarizePage(run: {
 /** Ringkasan tugas yang selesai, satu baris Bahasa Indonesia. */
 export function summarizeSimanTask(task: SimanAgentTask, result: unknown): string {
   const r = (result && typeof result === "object" ? result : {}) as { status?: string; title?: string; note?: string };
+  if (task === "ticket") {
+    const t = r as {
+      tiket?: string;
+      ringkasanAset?: { jumlah?: number } | null;
+      berkas?: { uploadId: string | null }[];
+    };
+    const files = t.berkas ?? [];
+    return `Tiket ${t.tiket ?? ""} dibaca: ${t.ringkasanAset?.jumlah ?? 0} aset, ${files.filter((f) => f.uploadId).length}/${files.length} berkas kelengkapan tersimpan`;
+  }
+  if (task === "requests")
+    return typeof (r as { summary?: unknown }).summary === "string"
+      ? (r as { summary: string }).summary
+      : "Daftar Permohonan diperbarui";
   if (task === "session")
     return r.status === "active" ? "Sesi SIMAN masih aktif" : "Sesi SIMAN kedaluwarsa — perlu login ulang";
   return r.note ? `${r.note}${r.title ? `: ${r.title}` : ""}` : "Halaman dibaca";

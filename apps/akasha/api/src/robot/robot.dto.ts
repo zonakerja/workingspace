@@ -175,3 +175,20 @@ export class RenaksiScopeDto {
   @MaxLength(130, { each: true })
   excluded!: string[];
 }
+
+export class SimanTicketDto {
+  /** Nomor tiket SIMAN, mis. PPL26110408030558728 */
+  @IsString()
+  @Matches(/^PPL\d{14,20}$/i, { message: "Nomor tiket tidak valid (PPL…)." })
+  ticket!: string;
+
+  /** Halaman asal tiket: Penetapan Pengelolaan (bawaan) atau Permohonan Pengelolaan */
+  @IsOptional()
+  @IsIn(["penetapan", "permohonan"])
+  source?: "penetapan" | "permohonan";
+
+  /** false = tanpa mengunduh berkas kelengkapan */
+  @IsOptional()
+  @IsBoolean()
+  documents?: boolean;
+}

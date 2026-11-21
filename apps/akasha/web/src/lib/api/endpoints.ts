@@ -33,6 +33,8 @@ import type {
   AgentPolicyInput,
   AgentPolicyList,
   AddNotebookSourceInput,
+  RequestCategory,
+  RequestCategoryInput,
   RequestDetail,
   PublicLinkInfo,
   PublicVaultView,
@@ -688,6 +690,21 @@ export const requestsApi = {
     }),
   removeDocument: (id: string, uploadId: string) =>
     request<RequestDetail>(`/requests/${id}/documents/${uploadId}`, { method: "DELETE" }),
+  reclassify: (id: string) => request<RequestDetail>(`/requests/${id}/classify`, { method: "POST" }),
+  checkItem: (id: string, itemId: string, input: { result: "lolos" | "bermasalah" | null; note?: string }) =>
+    request<RequestDetail>(`/requests/${id}/checklist/${encodeURIComponent(itemId)}/check`, {
+      method: "POST",
+      body: input,
+    }),
+};
+
+export const requestCategoriesApi = {
+  list: () => request<RequestCategory[]>("/request-categories"),
+  create: (input: RequestCategoryInput) =>
+    request<RequestCategory[]>("/request-categories", { method: "POST", body: input }),
+  update: (id: string, input: RequestCategoryInput) =>
+    request<RequestCategory[]>(`/request-categories/${id}`, { method: "PATCH", body: input }),
+  remove: (id: string) => request<RequestCategory[]>(`/request-categories/${id}`, { method: "DELETE" }),
 };
 
 export const whatsappApi = {
@@ -792,7 +809,7 @@ export interface AgentRun {
 export interface AgentMenuField {
   name: string;
   label: string;
-  type: "text" | "textarea" | "number" | "date" | "select";
+  type: "text" | "textarea" | "number" | "date" | "select" | "siman_ticket";
   required?: boolean;
   options?: string[];
   help?: string;
@@ -948,6 +965,37 @@ export const robotApi = {
     }>("/robot/srikandi/letters/sync", {
       method: "POST",
     }),
+  /** SIMAN: dokumen hasil satu tiket + status suntingan pemilik (versi ONLYOFFICE). */
+  simanDocuments: (ticket: string) =>
+    request<{
+      tiket: {
+        tiket: string;
+        dokumen: (
+          | { jenis: string; uploadId: string; nama: string; ada: false }
+          | {
+              jenis: string;
+              uploadId: string;
+              nama: string;
+              ada: true;
+              versi: number;
+              disuntingPemilik: boolean;
+              sudahDipelajari: boolean;
+            }
+        )[];
+      }[];
+    }>(`/robot/siman/requests/${encodeURIComponent(ticket)}/documents`),
+  /** SIMAN: daftar Permohonan + tanda disposisi (tiket di Penetapan Pengelolaan). Hanya membaca. */
+  syncSimanRequests: () =>
+    request<{
+      total: number;
+      permohonan: number;
+      disposed: number | null;
+      added: number;
+      updated: number;
+      inactive: number;
+      newlyDisposed: number;
+      summary: string;
+    }>("/robot/siman/requests/sync", { method: "POST" }),
   /** Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya daftar; detail tidak dibuka agar status baca tetap). */
   syncInbox: () =>
     request<{

@@ -111,6 +111,8 @@ export class AutomationWorkerService implements OnModuleInit, OnModuleDestroy {
         return this.robot.syncSrikandiLetters(user, trigger);
       case "srikandi_inbox":
         return this.robot.syncSrikandiInbox(user, trigger);
+      case "siman_requests":
+        return this.robot.syncSimanRequests(user, trigger);
       case "srikandi_references":
         return this.robot.syncSrikandiReferences(user, undefined, trigger);
       case "srikandi_classifications":

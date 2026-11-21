@@ -25,7 +25,6 @@ import { WhatsappQueueService } from "./whatsapp-queue.service";
 import {
   buildPublicAnswerPrompt,
   detectIntent,
-  guessKind,
   type InboundMessage,
   intakeAck,
   INTAKE_WINDOW_MS,
@@ -633,7 +632,7 @@ export class WhatsappService implements OnModuleInit {
     const created = await this.requests.create(
       owner,
       {
-        kind: guessKind(text),
+        kind: "auto",
         title: intakeTitle(text, contact.group?.name ?? contact.name, attachments[0]?.name),
         applicant: contact.group ? `${contact.group.name} — ${contact.name}` : contact.name,
         groupCode: contact.group?.code,

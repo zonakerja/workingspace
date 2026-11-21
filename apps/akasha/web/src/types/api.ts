@@ -161,7 +161,7 @@ export interface AgentActionInfo {
    * `ekinerja_fill` = permintaan agen mengisi Rencana Aksi satu bulan ke e-Kinerja; `srikandi_register` = permintaan agen
    * mendaftarkan satu entri Register Naskah Keluar ke SRIKANDI (keduanya menunggu persetujuan)
    */
-  kind: "create" | "update" | "delete" | "ekinerja_fill" | "srikandi_register" | "send_email";
+  kind: "create" | "update" | "delete" | "ekinerja_fill" | "srikandi_register" | "send_email" | "skill_change";
   recordType: string;
   clientId: string;
   title: string;
@@ -412,6 +412,7 @@ const RECORD_TYPES = [
   "srikandi_inbox",
   "srikandi_reference",
   "srikandi_outgoing",
+  "siman_request",
   "archive_classification",
   "archive_jra",
   "archive_physical_reference",
@@ -832,7 +833,29 @@ export interface NotebookUsage {
 
 // ---------------------------------------------------------------- Pengajuan & Antrian Verifikasi
 
-export type RequestKind = "psp" | "penghapusan" | "pemanfaatan" | "surat" | "lainnya";
+/** Kunci kategori pengajuan milik pemilik (`/request-categories`), bukan daftar tetap. */
+export type RequestKind = string;
+
+export interface RequestCategory {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  keywords: string[];
+  archived: boolean;
+  isDefault: boolean;
+  position: number;
+  requestCount: number;
+}
+
+export interface RequestCategoryInput {
+  label?: string;
+  description?: string | null;
+  keywords?: string[];
+  archived?: boolean;
+  isDefault?: boolean;
+  position?: number;
+}
 export type RequestStatus = "baru" | "diproses" | "menunggu_verifikasi" | "disetujui" | "dikirim" | "ditolak";
 
 interface RequestAttachment {
@@ -849,9 +872,14 @@ export interface RequestDocument {
 }
 
 export interface RequestChecklistItem {
+  id: string;
   dokumen: string;
   status: "ada" | "tidak_ada" | "perlu_dicek";
   catatan: string;
+  /** Diusulkan AI agent untuk dicek manual oleh pemilik */
+  manual?: boolean;
+  /** Tanda cek manual pemilik (dibaca AI agent saat menelaah ulang) */
+  check?: { result: "lolos" | "bermasalah"; note: string | null; at: string; by: "user" };
 }
 
 interface RequestAnalysis {
@@ -925,6 +953,8 @@ export interface AgentPolicyInput {
   mode: AgentPolicyMode;
   /** Cocokkan daftar aset ke data master; tanpa ini hasil agen selalu diserahkan ke pemilik */
   verifyAssets: boolean;
+  /** request = pengajuan baru dikerjakan agen; siman = hasil workflow Penetapan SIMAN diperiksa server */
+  trigger: "request" | "siman";
   threshold: number;
   criticalFields: AssetField[];
   valueTolerance: number;
@@ -978,7 +1008,8 @@ export interface RequestDetail extends RequestSummary {
 }
 
 export interface RequestInput {
-  kind: RequestKind;
+  /** Kosong / "auto" = ditentukan otomatis dari kata kunci kategori */
+  kind?: RequestKind;
   title: string;
   applicant?: string;
   groupCode?: string;
@@ -1152,7 +1183,8 @@ export type AutomationKind =
   | "srikandi_inbox"
   | "srikandi_references"
   | "srikandi_classifications"
-  | "siman_session";
+  | "siman_session"
+  | "siman_requests";
 export type AutomationTimezone = "Asia/Jakarta" | "Asia/Makassar" | "Asia/Jayapura";
 
 export type AutomationSchedule =

@@ -94,6 +94,17 @@ import {
   mergeInboxRecord,
   summarizeInboxSync,
 } from "./srikandi-inbox";
+import {
+  inactivePayload,
+  mergeRequestRecord,
+  parseRequestRow,
+  requestPayload,
+  simanAccountKey,
+  simanPaceDelay,
+  simanRequestsCooldown,
+  type SimanRequestRow,
+  summarizeRequestSync,
+} from "./siman-requests";
 
 /** Tag konteks Resource Global untuk dokumen final bertanda tangan (sama dengan frontend `FINAL_CONTEXT_TAG`). */
 const FINAL_CONTEXT_TAG = "Dokumen Final";
@@ -156,6 +167,54 @@ export class RobotService {
     this.vault = credentialKey ? new CredentialVault(credentialKey) : null;
   }
 
+  /**
+   * Verifikasi tanda tangan elektronik satu PDF milik sendiri (berkas pengajuan / kelengkapan SIMAN / dokumen hasil) di halaman
+   * resmi Komdigi lewat robot. Hasil disimpan di metadata ekstraksi berkas (`tteVerification`, terikat checksum berkas) agar
+   * bisa dibaca ulang tanpa mengirim berkas lagi. Berkas dikirim ke situs pemerintah (verifikator) — hanya atas permintaan agen/pemilik.
+   */
+  async verifyTte(userId: string, uploadId: string, refresh = false) {
+    const asset = await this.prisma.asset.findFirst({
+      where: { id: uploadId, userId, context: { in: ["request", "siman", "request-document"] } },
+      select: { id: true, objectKey: true, originalName: true, mimeType: true, size: true, checksum: true },
+    });
+    if (!asset)
+      throw new BadRequestException("Berkas tidak ditemukan (hanya berkas pengajuan / kelengkapan SIMAN milik Anda).");
+    if (asset.mimeType !== "application/pdf") throw new BadRequestException("Verifikasi TTE hanya untuk PDF.");
+    if (asset.size > 20 * 1024 * 1024) throw new BadRequestException("Berkas lebih dari 20 MB.");
+    // Hasil tersimpan untuk berkas yang sama (checksum sama) dipakai ulang — PDF tidak dikirim ulang ke verifikator
+    const stored = await this.prisma.assetExtraction.findUnique({
+      where: { assetId: asset.id },
+      select: { metadata: true },
+    });
+    const previous = (stored?.metadata as { tteVerification?: { checksum?: string } } | null)?.tteVerification;
+    if (!refresh && previous && previous.checksum === asset.checksum)
+      return { berkas: asset.originalName, cached: true, ...previous };
+    const health = await this.robot.health();
+    if (!health.reachable) throw new BadRequestException("Service robot belum menyala — verifikasi TTE butuh robot.");
+    const buffer = await this.storage.getObjectBuffer(asset.objectKey);
+    const response = await this.robot.tteVerify(asset.originalName, buffer.toString("base64"));
+    const verification = {
+      checkedAt: new Date().toISOString(),
+      checksum: asset.checksum,
+      verifier: response.verifier,
+      ...response.result,
+    };
+    const extraction = await this.prisma.assetExtraction.findUnique({
+      where: { assetId: asset.id },
+      select: { metadata: true },
+    });
+    if (extraction) {
+      const metadata = (
+        extraction.metadata && typeof extraction.metadata === "object" ? extraction.metadata : {}
+      ) as Record<string, unknown>;
+      await this.prisma.assetExtraction.update({
+        where: { assetId: asset.id },
+        data: { metadata: { ...metadata, tteVerification: verification } as Prisma.InputJsonValue },
+      });
+    }
+    return { berkas: asset.originalName, cached: false, ...verification };
+  }
+
   async status() {
     return { ...(await this.robot.health()), vault: !!this.vault };
   }
@@ -171,6 +230,21 @@ export class RobotService {
     await this.pins.confirmOwner(userId, dto.accountPin);
     const connector = await this.connector(userId, system);
     const username = dto.username.trim();
+    // Akun berganti = sesi lama milik akun sebelumnya (termasuk cookie "Ingat browser ini" KemenkeuID) tidak boleh dipakai lagi:
+    // tanpa ini login otomatis membuka sistem dengan sesi akun lama, langsung dianggap "masuk", dan OTP akun baru tidak pernah diminta.
+    let previous: string | null = null;
+    if (connector.usernameEnc) {
+      try {
+        previous = vault.decrypt(connector.usernameEnc, CredentialVault.aad(userId, connector.system, "username"));
+      } catch {
+        previous = null;
+      }
+    }
+    const accountChanged = previous === null || previous.toLowerCase() !== username.toLowerCase();
+    // Daftar Permohonan SIMAN milik akun sebelumnya tidak boleh tercampur dengan akun baru
+    if (accountChanged && connector.system === "siman") {
+      await this.prisma.simanRequest.deleteMany({ where: { userId } });
+    }
     const row = await this.prisma.robotConnector.update({
       where: { id: connector.id },
       data: {
@@ -178,6 +252,7 @@ export class RobotService {
         passwordEnc: vault.encrypt(dto.password, CredentialVault.aad(userId, connector.system, "password")),
         credentialHint: maskUsername(username),
         credentialsUpdatedAt: new Date(),
+        ...(accountChanged && connector.sessionEnc ? { sessionEnc: null, status: "none", lastError: null } : {}),
       },
     });
     await this.prisma.robotRun.create({
@@ -186,7 +261,10 @@ export class RobotService {
         connectorId: connector.id,
         kind: "credentials",
         status: "ok",
-        note: "Kredensial disimpan / diganti",
+        note:
+          accountChanged && connector.sessionEnc
+            ? "Kredensial akun lain disimpan; sesi akun sebelumnya dilupakan"
+            : "Kredensial disimpan / diganti",
       },
     });
     return this.view(row);
@@ -266,6 +344,19 @@ export class RobotService {
       };
     } catch {
       throw new BadRequestException("Kredensial tersimpan tidak dapat dibuka (kunci brankas berubah?). Simpan ulang.");
+    }
+  }
+
+  /** Nama pengguna kredensial tersimpan konektor (null = belum disimpan / tidak terbaca). */
+  private connectorUsername(connector: { userId: string; system: string; usernameEnc: string | null }) {
+    if (!connector.usernameEnc) return null;
+    try {
+      return this.requireVault().decrypt(
+        connector.usernameEnc,
+        CredentialVault.aad(connector.userId, connector.system, "username"),
+      );
+    } catch {
+      return null;
     }
   }
 
@@ -466,6 +557,212 @@ export class RobotService {
   }
 
   /**
+   * SIMAN: baca satu tiket lengkap (Penetapan Pengelolaan bawaan). Berkas kelengkapan disimpan sebagai berkas Akasha
+   * konteks `siman` (berkas yang sama — checksum — dipakai ulang, tidak digandakan) agar bisa dibaca isinya (ekstraksi /
+   * Markdown Converter) oleh pemilik & agen. SIMAN tidak diubah: robot tidak mengunggah, menyetujui, atau memproses tiket.
+   */
+  /**
+   * SIMAN → daftar Permohonan: robot membaca Permohonan Pengelolaan (semua halaman) dan Penetapan Pengelolaan → record
+   * `siman_request` per nomor tiket; tiket yang tampil di Penetapan ditandai `disposed` (didisposisikan ke pemilik).
+   * Baca saja; tiket yang hilang dari daftar ditandai tidak aktif (tidak dihapus).
+   */
+  /** Waktu mulai sinkron daftar Permohonan SIMAN terakhir per user (jeda minimum, pengaman firewall). */
+  private readonly lastRequestsSync = new Map<string, number>();
+
+  syncSimanRequests(user: AuthUser, trigger: RobotJobTrigger = "button") {
+    return this.job(user.id, "siman_requests", trigger, () => this.readSimanRequests(user));
+  }
+
+  private async readSimanRequests(user: AuthUser) {
+    const connector = await this.connector(user.id, "siman");
+    this.requireSession(connector);
+    const wait = simanRequestsCooldown(this.lastRequestsSync.get(user.id), Date.now());
+    if (wait) {
+      throw new BadRequestException(
+        `Daftar Permohonan SIMAN baru saja diambil. Coba lagi ${Math.ceil(wait / 60_000)} menit lagi (pengaman firewall SIMAN).`,
+      );
+    }
+    this.lastRequestsSync.set(user.id, Date.now());
+    let result: Awaited<ReturnType<RobotClient["simanRequests"]>>;
+    try {
+      result = await this.robot.simanRequests({ ...this.target(connector) });
+    } catch (error) {
+      await this.fail(user.id, connector, "sync", error);
+      throw error;
+    }
+    await this.saveState(connector.id, result, false);
+    if (!result.loggedIn || result.status === "logged_out") {
+      await this.log(user.id, connector.id, "sync", result, { note: "Sesi kedaluwarsa — login ulang lalu coba lagi" });
+      throw new BadRequestException("Sesi SIMAN kedaluwarsa. Login ulang di SIMAN → Connector.");
+    }
+    if (result.status === "role_inactive")
+      throw new BadRequestException(
+        `Peran Analis Eselon 1 di SIMAN tidak bisa diaktifkan otomatis (${result.message || "tanpa keterangan"}). Aktifkan di Profil SIMAN.`,
+      );
+    if (result.status !== "ok" || !result.permohonan)
+      throw new BadRequestException("Daftar Permohonan Pengelolaan SIMAN tidak terbaca. Coba lagi nanti.");
+
+    const index = (rows: unknown[] | null | undefined) => {
+      const map = new Map<string, SimanRequestRow>();
+      for (const raw of rows ?? []) {
+        const row = parseRequestRow(raw);
+        if (row && !map.has(row.ticket)) map.set(row.ticket, row);
+      }
+      return map;
+    };
+    const permohonan = index(result.permohonan);
+    const dispositionKnown = Array.isArray(result.penetapan);
+    const username = this.connectorUsername(connector);
+    const account = simanAccountKey(username);
+    const accountHint = username ? maskUsername(username) : "login manual";
+    const penetapan = index(result.penetapan);
+    const all = (await this.records.findMany("siman_request", {}, user)).filter((r) => !r.share);
+    // Tiket akun SIMAN lain (sebelum akun diganti) dihapus: daftar selalu milik akun yang tersambung
+    let removed = 0;
+    for (const r of all) {
+      const payloadAccount = (r.payload as Record<string, unknown>).account;
+      if (payloadAccount && payloadAccount !== account) {
+        await this.records.remove("siman_request", r.clientId, {}, user, { trash: false });
+        removed += 1;
+      }
+    }
+    const existing = new Map(
+      all
+        .filter((r) => {
+          const a = (r.payload as Record<string, unknown>).account;
+          return !a || a === account;
+        })
+        .map((r) => [r.clientId, r.payload as Record<string, unknown>]),
+    );
+    const now = new Date().toISOString();
+    let added = 0;
+    let updated = 0;
+    let newlyDisposed = 0;
+    const seen = new Set<string>();
+    for (const ticket of new Set([...permohonan.keys(), ...penetapan.keys()])) {
+      seen.add(ticket);
+      const next = {
+        ...requestPayload(permohonan.get(ticket) ?? null, penetapan.get(ticket) ?? null, dispositionKnown),
+        account,
+        accountHint,
+      };
+      const merged = mergeRequestRecord(next, existing.get(ticket) ?? null, now);
+      if (merged.newlyDisposed) newlyDisposed += 1;
+      if (!merged.changed) continue;
+      await this.records.upsert("siman_request", ticket, { payload: merged.payload }, user);
+      if (merged.isNew) added += 1;
+      else updated += 1;
+    }
+    let inactive = 0;
+    for (const [ticket, payload] of existing) {
+      if (seen.has(ticket)) continue;
+      const next = inactivePayload(payload, now);
+      if (!next) continue;
+      await this.records.upsert("siman_request", ticket, { payload: next }, user);
+      inactive += 1;
+    }
+    const summary = summarizeRequestSync({
+      total: seen.size,
+      disposed: dispositionKnown ? penetapan.size : null,
+      added,
+      newlyDisposed,
+    });
+    await this.log(user.id, connector.id, "sync", result, { note: `Permohonan SIMAN: ${summary}` });
+    return {
+      total: seen.size,
+      permohonan: permohonan.size,
+      disposed: dispositionKnown ? penetapan.size : null,
+      added,
+      updated,
+      inactive,
+      removedOtherAccount: removed,
+      newlyDisposed,
+      accountHint,
+      roleActivated: !!result.roleActivated,
+      summary,
+    };
+  }
+
+  readSimanTicket(
+    user: AuthUser,
+    ticket: string,
+    options: { source?: "penetapan" | "permohonan"; documents?: boolean } = {},
+  ) {
+    return this.exclusive(user.id, "siman", "Baca tiket", async () => {
+      const connector = await this.connector(user.id, "siman");
+      this.requireSession(connector);
+      let result: Awaited<ReturnType<RobotClient["simanTicket"]>>;
+      try {
+        result = await this.robot.simanTicket({
+          ...this.target(connector),
+          ticket,
+          source: options.source ?? "penetapan",
+          documents: options.documents !== false,
+        });
+      } catch (error) {
+        await this.fail(user.id, connector, "sync", error);
+        throw error;
+      }
+      await this.saveState(connector.id, result, false);
+      if (!result.loggedIn) {
+        await this.log(user.id, connector.id, "sync", result, {
+          note: "Sesi kedaluwarsa — login ulang lalu coba lagi",
+        });
+        throw new BadRequestException("Sesi SIMAN kedaluwarsa. Login ulang di SIMAN → Connector.");
+      }
+      if (result.status === "role_inactive")
+        throw new BadRequestException(
+          `Peran Analis Eselon 1 di SIMAN tidak bisa diaktifkan otomatis (${result.message || "tanpa keterangan"}). Aktifkan di Profil SIMAN.`,
+        );
+      if (result.status === "not_found")
+        throw new BadRequestException(
+          `Tiket ${ticket} tidak ditemukan di ${options.source === "permohonan" ? "Permohonan" : "Penetapan"} Pengelolaan.`,
+        );
+      const files: { nama: string; jenis: string; nomor: string; uploadId: string | null; catatan: string }[] = [];
+      for (const file of result.files ?? []) {
+        if (!file.data) {
+          files.push({ nama: file.name, jenis: file.jenis, nomor: file.nomor, uploadId: null, catatan: file.note });
+          continue;
+        }
+        const data = Buffer.from(file.data, "base64");
+        const checksum = createHash("sha256").update(data).digest("hex");
+        const existing = await this.prisma.asset.findFirst({
+          where: { userId: user.id, context: "siman", checksum },
+          select: { id: true },
+        });
+        const asset = existing ?? (await this.uploads.createFromBuffer(data, file.name, file.mimeType, user, "siman"));
+        files.push({ nama: file.name, jenis: file.jenis, nomor: file.nomor, uploadId: asset.id, catatan: file.note });
+      }
+      const assets = result.assets ?? [];
+      await this.log(user.id, connector.id, "sync", result, {
+        note: `Tiket ${ticket} dibaca: ${assets.length} aset, ${files.filter((f) => f.uploadId).length}/${files.length} berkas${result.roleActivated ? " (peran diaktifkan)" : ""}`,
+      });
+      return {
+        tiket: ticket,
+        sumber: options.source ?? "penetapan",
+        peranDiaktifkan: result.roleActivated,
+        info: result.info ?? {},
+        ringkasanAset: result.summary ?? null,
+        aset: assets,
+        jumlahBaris: result.totals ?? {},
+        disposisi: result.tables?.["Disposisi Analis"] ?? [],
+        kelengkapan: (result.tables?.["Kelengkapan Dokumen"] ?? []).map((row) => ({
+          ...row,
+          uploadId:
+            files.find((f) => f.nama === (row["Nama File"] ?? "").trim() || (f.nomor && f.nomor === row["No Dokumen"]))
+              ?.uploadId ?? null,
+        })),
+        berkas: files,
+        dokumenAnalisis: result.tables?.["Dokumen Analisis"] ?? [],
+        suratKeputusan: result.tables?.["Surat/Keputusan"] ?? [],
+        riwayat: result.tables?.["Riwayat Tiket"]?.length
+          ? result.tables["Riwayat Tiket"]
+          : (result.texts?.["Riwayat Tiket"] ?? ""),
+      };
+    });
+  }
+
+  /**
    * Rekam halaman yang sedang tampil di browser jarak jauh (setelah pengguna membuka menu / formulir sendiri). Sesi
    * login tetap terbuka; sesi tersimpan tidak diubah (baru disimpan saat "Selesai").
    */
@@ -508,6 +805,9 @@ export class RobotService {
    * Jalankan `fn` dengan kunci per user + sistem: tugas kedua pada sistem yang sama ditolak 409 (sesi browser yang sama
    * tidak dipakai dua tugas sekaligus, mis. jadwal yang bertepatan dengan tombol).
    */
+  /** Waktu tugas robot terakhir selesai per user+sistem (jeda SIMAN). */
+  private readonly lastFinished = new Map<string, number>();
+
   private async exclusive<T>(userId: string, system: RobotSystem, label: string, fn: () => Promise<T>): Promise<T> {
     const key = `${userId}:${system}`;
     const running = this.busy.get(key);
@@ -523,9 +823,13 @@ export class RobotService {
     }
     this.busy.set(key, { label, since: new Date() });
     try {
+      // SIMAN (Kemenkeu) dijaga firewall: tugas robot berurutan diberi jeda agar lalu lintas tidak beruntun (pemilik 2026-11-20)
+      const gap = system === "siman" ? simanPaceDelay(this.lastFinished.get(key), Date.now()) : 0;
+      if (gap) await new Promise((resolve) => setTimeout(resolve, gap));
       return await fn();
     } finally {
       this.busy.delete(key);
+      this.lastFinished.set(key, Date.now());
     }
   }
 
@@ -1292,6 +1596,10 @@ export class RobotService {
     }
     const blockers = registerBlockers(entry);
     if (blockers.length) throw new BadRequestException(`Isian belum lengkap: ${blockers.join(", ")}.`);
+    if (!dryRun) {
+      const unapproved = await this.approvalBlocker(user.id, entry);
+      if (unapproved) throw new BadRequestException(unapproved);
+    }
 
     const form = await this.outgoingForm(user, entry, true);
 
@@ -1303,6 +1611,37 @@ export class RobotService {
       throw error;
     }
     return this.finishRegister(user, connector, entryId, entry, result, dryRun);
+  }
+
+  /**
+   * Naskah dari pengajuan Approval baru boleh didaftarkan ke SRIKANDI setelah pengajuannya **disetujui** (oleh pemilik atau
+   * Kebijakan Otomatis yang menyetujuinya). Pengajuan dikenali dari `sourceType: "request"` + `sourceId`, atau dari berkas naskah
+   * yang menjadi dokumen hasil sebuah pengajuan. Mengembalikan pesan penolakan, atau null bila boleh.
+   */
+  async approvalBlocker(
+    userId: string,
+    entry: { sourceType?: unknown; sourceId?: unknown; file?: unknown; uploadId?: unknown },
+  ) {
+    const fileId =
+      (entry.file && typeof entry.file === "object" ? (entry.file as { uploadId?: string }).uploadId : undefined) ??
+      (typeof entry.uploadId === "string" ? entry.uploadId : undefined);
+    const byId =
+      entry.sourceType === "request" && typeof entry.sourceId === "string"
+        ? await this.prisma.request.findFirst({
+            where: { id: entry.sourceId, userId },
+            select: { title: true, status: true },
+          })
+        : null;
+    const request =
+      byId ??
+      (fileId
+        ? await this.prisma.request.findFirst({
+            where: { userId, documents: { array_contains: [{ uploadId: fileId }] } },
+            select: { title: true, status: true },
+          })
+        : null);
+    if (!request || ["disetujui", "dikirim"].includes(request.status)) return null;
+    return `Pengajuan "${request.title}" belum disetujui di Approval. Setujui dulu (atau lewat Kebijakan Otomatis) sebelum didaftarkan ke SRIKANDI.`;
   }
 
   /**
@@ -1771,8 +2110,9 @@ export class RobotService {
     return this.prisma.robotConnector.update({
       where: { id: connectorId },
       data: {
-        // Login gagal tidak menimpa sesi lama yang mungkin masih berguna
-        ...(result.loggedIn || !login ? { sessionEnc: this.crypto.encrypt(JSON.stringify(result.storageState)) } : {}),
+        // Hanya sesi yang masih masuk yang disimpan: login/cek yang gagal tidak menimpa sesi lama (satu cek yang salah alamat
+        // tidak boleh merusak sesi yang masih sah; sesi yang benar-benar habis tetap berstatus expired)
+        ...(result.loggedIn ? { sessionEnc: this.crypto.encrypt(JSON.stringify(result.storageState)) } : {}),
         status: result.loggedIn ? "active" : login ? "none" : "expired",
         lastCheckAt: now,
         ...(login && result.loggedIn ? { lastLoginAt: now } : {}),

@@ -54,7 +54,11 @@ const MAX_FIELDS = 20;
 const MENU_SKILL = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const FIELD_NAME = /^[a-z][a-z0-9_]{0,39}$/;
 
-export const FIELD_TYPES = ["text", "textarea", "number", "date", "select"] as const;
+/**
+ * Jenis isian modal. `siman_ticket` = pilih tiket dari daftar Permohonan SIMAN (record `siman_request`, dropdown dengan
+ * pencarian; bawaan tiket yang didisposisikan ke pemilik) — nomor tiket tidak diketik manual (keputusan pemilik 2026-11-20).
+ */
+export const FIELD_TYPES = ["text", "textarea", "number", "date", "select", "siman_ticket"] as const;
 type FieldType = (typeof FIELD_TYPES)[number];
 
 /** Satu isian modal buatan agen. Modal berupa data, bukan kode, sehingga agen tidak bisa menyisipkan skrip ke aplikasi. */
@@ -198,6 +202,12 @@ export function normalizeMenuValues(
       return { error: `${field.label} harus berupa tanggal.` };
     if (field.type === "select" && !field.options?.includes(value))
       return { error: `Pilihan ${field.label} tidak dikenal.` };
+    if (field.type === "siman_ticket") {
+      const ticket = value.toUpperCase();
+      if (!/^PPL\d{14,20}$/.test(ticket)) return { error: `${field.label} harus nomor tiket SIMAN (PPL…).` };
+      clean[field.name] = ticket;
+      continue;
+    }
     clean[field.name] = value;
   }
   return clean;

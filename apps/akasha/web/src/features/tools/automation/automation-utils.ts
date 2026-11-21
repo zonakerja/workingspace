@@ -63,6 +63,12 @@ export const KIND_INFO: Record<AutomationKind, { description: string; where: str
     where: "SIMAN → Connector → Cek sesi",
     path: "/siman/connector",
   },
+  siman_requests: {
+    description:
+      "Membaca daftar Permohonan Pengelolaan dan Penetapan Pengelolaan SIMAN; tiket di Penetapan ditandai didisposisikan ke Anda. Tidak mengubah tiket.",
+    where: "SIMAN → Permohonan → Ambil dari SIMAN",
+    path: "/siman/requests",
+  },
   ekinerja_skp: {
     description: "Membaca daftar SKP & RHK tahun berjalan dari e-Kinerja.",
     where: "e-Kinerja → Ambil dari e-Kinerja",
@@ -101,6 +107,7 @@ export const KIND_RECORDS: Record<AutomationKind, RecordType[]> = {
   ekinerja_session: [],
   srikandi_session: [],
   siman_session: [],
+  siman_requests: ["siman_request"],
   ekinerja_skp: ["skp", "skp_target"],
   ekinerja_renaksi: ["action_plan_month", "action_plan_entry"],
   srikandi_letters: ["srikandi_letter", "para_resource"],

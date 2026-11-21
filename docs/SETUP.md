@@ -231,7 +231,24 @@ Setelah ini, cukup ikuti §4 setiap mulai bekerja.
 
 ## 4. Menyalakan (setiap mulai bekerja)
 
-**Ringkas** (lima tab PowerShell di folder proyek; langkah lengkap di bawah):
+**Paling mudah — satu perintah, tanpa Claude** (hemat token; jalankan dari folder proyek di PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
+```
+
+- Tanpa pilihan = inti: penjaga WSL + Docker (PostgreSQL, Redis, SeaweedFS) + SSO API & halaman SSO + backend & frontend Akasha.
+- `-All` = inti + Akai API & web + halaman depan + ONLYOFFICE + robot + Markdown Converter + Hermes (± 6 GB RAM lebih).
+- Pilih sendiri: `-Akai`, `-Landing`, `-Office`, `-Robot`, `-Converter`, `-Agent` (Hermes; menunggu backend siap lalu
+  menjalankan `apps/akai/agent/hermes/up.sh`). Contoh: `scripts/dev-up.ps1 -Akai -Robot`.
+- Komponen yang port-nya sudah aktif dilewati (aman diulang). Tiap dev server terbuka di jendela PowerShell sendiri berjudul
+  nama komponen; menutup jendela = menghentikan komponen itu.
+- Cek status: `scripts/dev-status.ps1` · Matikan semua: `scripts/dev-down.ps1` (tambah `-Shutdown` untuk `wsl --shutdown`).
+- Setelah mengubah kode robot (`services/robot`), image harus dibangun ulang:
+  `wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile robot up -d --build --wait robot"`.
+  (Sementara, bila build macet, dist robot ditambal ke container — lihat CLAUDE.md §15; tambalan hilang bila container dibuat ulang.)
+
+**Manual** (bila ingin per tab; langkah lengkap di bawah): (lima tab PowerShell di folder proyek; langkah lengkap di bawah):
 
 | Tab                | Perintah                                                                                       | Biarkan terbuka                                                                                      |
 | ------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -345,7 +362,9 @@ dibuka sebelum backend selesai kompilasi, adalah normal.
 
 Data tetap aman — semua langkah di bawah hanya menghentikan proses, tidak menghapus data.
 
-**Ringkas**: `Ctrl+C` di tab F, E, D, C, B → jalankan perintah di bawah → `q` di lazydocker (tab A) → opsional `wsl --shutdown`.
+**Satu perintah**: `powershell -ExecutionPolicy Bypass -File scripts/dev-down.ps1` (dev server + container, data aman; `-Shutdown` = juga `wsl --shutdown`).
+
+**Manual**: `Ctrl+C` di tab F, E, D, C, B → jalankan perintah di bawah → `q` di lazydocker (tab A) → opsional `wsl --shutdown`.
 
 ```powershell
 wsl -e sh -c "cd /mnt/d/Development/Application/workingspace && docker compose --profile office --profile robot --profile agent --profile converter stop"
@@ -383,10 +402,12 @@ Akun SSO & akun Akasha dibuat ulang dengan email yang sama; akun Akasha tertaut 
 
 ## 6. Cek status (apa yang sedang menyala?)
 
+Satu perintah: `powershell -ExecutionPolicy Bypass -File scripts/dev-status.ps1` (semua port + container). Manual:
+
 ```powershell
 # Port Akasha yang sedang dipakai + prosesnya (wslrelay = container Docker, node = dev server)
 Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-  Where-Object { $_.LocalPort -in 80,443,4000,4100,4200,4300,5173,5175,5432,6379,8080,8333,8642,8888 } |
+  Where-Object { $_.LocalPort -in 80,443,4000,4100,4200,4300,4400,5173,5175,5176,5177,5432,6379,8080,8333,8642,8888 } |
   Sort-Object LocalPort -Unique |
   ForEach-Object { "{0}  pid={1}  {2}" -f $_.LocalPort, $_.OwningProcess, (Get-Process -Id $_.OwningProcess).ProcessName }
 

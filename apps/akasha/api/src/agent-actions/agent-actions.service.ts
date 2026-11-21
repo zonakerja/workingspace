@@ -1,4 +1,8 @@
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { ConfigService } from "@nestjs/config";
 import { checkAgentEmail, SEND_EMAIL_KIND, sendEmailTitle } from "../mail/agent-mail-logic";
+import { checkSkillChange, lineChangeCount, SKILL_CHANGE_KIND } from "./skill-change";
 import { MailService } from "../mail/mail.service";
 import { BadRequestException, ConflictException, GoneException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
@@ -55,7 +59,78 @@ export class AgentActionsService {
     private readonly uploads: UploadsService,
     private readonly robot: RobotService,
     private readonly mail: MailService,
+    private readonly config: ConfigService,
   ) {}
+
+  /** Folder skill Hermes (sama dengan daftar skill Akasha: `HERMES_SKILLS_DIR`, bawaan folder repo). */
+  private skillsDir() {
+    return resolve(
+      this.config.get<string>("HERMES_SKILLS_DIR") || join(process.cwd(), "..", "..", "akai", "agent", "skills"),
+    );
+  }
+
+  private skillPath(skill: string) {
+    return join(this.skillsDir(), skill, "SKILL.md");
+  }
+
+  /**
+   * Agen mengusulkan isi SKILL.md (perbaikan skill yang ada atau skill baru). Folder skill baca saja bagi agen, jadi usulan
+   * menunggu persetujuan pemilik; usulan lama yang masih menunggu untuk skill yang sama digantikan.
+   */
+  async requestSkillChange(user: AuthUser, input: { skill: string; content: string; summary: string }) {
+    const checked = checkSkillChange(input);
+    if ("error" in checked) throw new BadRequestException(checked.error);
+    const before = await readFile(this.skillPath(checked.skill), "utf8").catch(() => null);
+    if (before !== null && before.replace(/\r\n/g, "\n").trimEnd() === checked.content.trimEnd())
+      throw new BadRequestException("Isi usulan sama dengan skill sekarang.");
+    await this.prisma.agentAction.updateMany({
+      where: { userId: user.id, kind: SKILL_CHANGE_KIND, clientId: checked.skill, status: "pending" },
+      data: { status: "rejected", message: "Digantikan usulan yang lebih baru.", decidedAt: new Date() },
+    });
+    const diff = before === null ? null : lineChangeCount(before.replace(/\r\n/g, "\n"), checked.content);
+    const action = await this.prisma.agentAction.create({
+      data: {
+        userId: user.id,
+        kind: SKILL_CHANGE_KIND,
+        recordType: "skill",
+        clientId: checked.skill,
+        title:
+          before === null
+            ? `Skill baru: ${checked.skill}`
+            : `Ubah skill ${checked.skill} (+${diff!.added} / −${diff!.removed} baris)`,
+        before: before === null ? Prisma.DbNull : json({ content: before }),
+        after: json({ content: checked.content, description: checked.description }),
+        reason: checked.summary,
+        status: "pending",
+      },
+    });
+    return { actionId: action.id, pending: true, isNew: before === null };
+  }
+
+  /** Tulis SKILL.md yang disetujui (atomik). Berkas berubah sejak diusulkan → tetap menunggu (409), tidak menimpa. */
+  private async approveSkillChange(action: { id: string; clientId: string; before: unknown; after: unknown }) {
+    const content = ((action.after ?? {}) as { content?: string }).content ?? "";
+    const expected = ((action.before ?? null) as { content?: string } | null)?.content ?? null;
+    const path = this.skillPath(action.clientId);
+    const current = await readFile(path, "utf8").catch(() => null);
+    if ((current ?? null) !== expected)
+      throw new ConflictException(
+        "Skill sudah berubah sejak diusulkan. Minta AI agent mengusulkan ulang dari isi terbaru.",
+      );
+    try {
+      await mkdir(dirname(path), { recursive: true });
+      const temp = `${path}.tmp-${Date.now()}`;
+      await writeFile(temp, content, "utf8");
+      await rename(temp, path);
+    } catch (error) {
+      const message = `Gagal menulis skill: ${(error instanceof Error ? error.message : String(error)).slice(0, 300)}`;
+      await this.decide(action.id, "failed", message);
+      return { status: "failed" as const, removed: 0, message };
+    }
+    const message = `Skill ${action.clientId} ${expected === null ? "dibuat" : "diperbarui"}. AI agent memakainya mulai tugas berikutnya.`;
+    await this.decide(action.id, "approved", message);
+    return { status: "approved" as const, removed: 0, message };
+  }
 
   private writableType(type: string): RecordType {
     if (!Object.hasOwn(RECORD_TABLES, type)) throw new BadRequestException(`Jenis data '${type}' tidak dikenal.`);
@@ -183,6 +258,8 @@ export class AgentActionsService {
     const entry = { ...(record.payload as Payload), id: entryId } as unknown as OutgoingEntry;
     const checked = registerRequestMode(entry);
     if ("error" in checked) throw new BadRequestException(checked.error);
+    const unapproved = await this.robot.approvalBlocker(user.id, entry as unknown as Record<string, unknown>);
+    if (unapproved) throw new BadRequestException(unapproved);
     const action = await this.prisma.agentAction.create({
       data: {
         userId: user.id,
@@ -273,6 +350,7 @@ export class AgentActionsService {
     if (action.kind === SRIKANDI_REGISTER_KIND && action.status === "pending")
       return this.approveSrikandiRegister(user, action);
     if (action.kind === SEND_EMAIL_KIND && action.status === "pending") return this.approveSendEmail(user, action);
+    if (action.kind === SKILL_CHANGE_KIND && action.status === "pending") return this.approveSkillChange(action);
     if (action.kind !== "delete" || action.status !== "pending") {
       throw new ConflictException("Permintaan ini sudah diputuskan.");
     }

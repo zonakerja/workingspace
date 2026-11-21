@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NumberedSource } from "../ai/chat/ai-chat-context";
-import { parseJsonObject, type RequestKind, STATUS_LABELS, type RequestStatus } from "../requests/request-logic";
+import { parseJsonObject, STATUS_LABELS, type RequestStatus } from "../requests/request-logic";
 
 /**
  * Logika murni bot WhatsApp (tahap 5 docs/AI-AGENT.md): nomor, maksud pesan, prompt jawaban publik, format
@@ -44,15 +44,6 @@ export function detectIntent(text: string, hasMedia: boolean): WaIntent {
   if (/^#?\s*(cek\s+)?status\b/.test(t)) return "status";
   if (/^#\s*(ajukan|pengajuan)\b/.test(t)) return "request";
   return "question";
-}
-
-/** Tebak jenis pengajuan dari keterangan berkas (diperbaiki user di Antrian bila keliru). */
-export function guessKind(text: string): RequestKind {
-  const t = text.toLowerCase();
-  if (/\bpsp\b|penetapan status penggunaan/.test(t)) return "psp";
-  if (/penghapusan|\bhapus\b|pemusnahan|lelang/.test(t)) return "penghapusan";
-  if (/pemanfaatan|\bsewa\b|\bksp\b|kerja ?sama pemanfaatan|pinjam pakai|\bbgs\b|\bbsg\b/.test(t)) return "pemanfaatan";
-  return "surat";
 }
 
 /** Judul pengajuan dari keterangan (`#ajukan …` dibuang) atau nama berkas; ditambah nama pemohon/grup. */

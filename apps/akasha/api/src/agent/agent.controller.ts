@@ -100,6 +100,11 @@ class AgentPolicyDto {
   @IsBoolean()
   verifyAssets!: boolean;
 
+  /** request = pengajuan baru dijalankan agen; siman = hasil workflow Penetapan SIMAN diperiksa server */
+  @IsOptional()
+  @IsIn(["request", "siman"])
+  trigger?: string;
+
   @IsInt()
   @Min(50)
   @Max(100)

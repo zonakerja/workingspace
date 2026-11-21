@@ -6,16 +6,8 @@ import { isSrikandiTag, type TemplateAnalysis } from "./template-engine";
  * dan pembaca jawaban JSON AI. Tanpa database/AI → diuji di `request-logic.spec.ts`.
  */
 
-export const REQUEST_KINDS = ["psp", "penghapusan", "pemanfaatan", "surat", "lainnya"] as const;
-export type RequestKind = (typeof REQUEST_KINDS)[number];
-
-export const KIND_LABELS: Record<RequestKind, string> = {
-  psp: "Penetapan Status Penggunaan (PSP) BMN",
-  penghapusan: "Penghapusan BMN (termasuk SK Panitia Penghapusan)",
-  pemanfaatan: "Pemanfaatan BMN (sewa, KSP, pinjam pakai, KSPI, BGS/BSG)",
-  surat: "Surat permintaan arahan / tanggapan",
-  lainnya: "Lainnya",
-};
+/** Kategori pengajuan = kunci kategori milik pemilik (`request_categories`, `request-categories.ts`), bukan daftar tetap. */
+export type RequestKind = string;
 
 export const REQUEST_STATUSES = ["baru", "diproses", "menunggu_verifikasi", "disetujui", "dikirim", "ditolak"] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
@@ -72,6 +64,8 @@ export function clampAttachments(files: { name: string; text: string }[], budget
 
 export interface RequestContext {
   kind: RequestKind;
+  /** Nama kategori (tampil di prompt); kosong = kunci kategori */
+  kindLabel?: string;
   title: string;
   applicant?: string | null;
   letterNumber?: string | null;
@@ -83,7 +77,7 @@ export interface RequestContext {
 
 const describeRequest = (r: RequestContext) =>
   [
-    `Jenis: ${KIND_LABELS[r.kind]}`,
+    `Kategori: ${r.kindLabel || r.kind}`,
     `Judul: ${r.title}`,
     r.applicant ? `Pemohon: ${r.applicant}` : "",
     r.letterNumber ? `Nomor surat: ${r.letterNumber}` : "",

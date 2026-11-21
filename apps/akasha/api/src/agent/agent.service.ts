@@ -644,7 +644,10 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async tracked(user: AuthUser, runId: string) {
-    const run = await this.prisma.agentRun.findFirst({ where: { hermesRunId: runId, userId: user.id } });
+    // Run yang masih antre belum punya ID Hermes: daftar run memakai ID baris, jadi keduanya diterima
+    const run = await this.prisma.agentRun.findFirst({
+      where: { userId: user.id, OR: [{ hermesRunId: runId }, { id: runId }] },
+    });
     if (!run) throw new NotFoundException("Tugas agen tidak ditemukan.");
     return run;
   }
@@ -672,8 +675,8 @@ export class AgentService implements OnModuleInit, OnModuleDestroy {
   async stop(user: AuthUser, runId: string) {
     this.requireOwner(user);
     const run = await this.tracked(user, runId);
-    if (run.status !== "running") return { stopping: false };
-    await this.call(`/v1/runs/${encodeURIComponent(runId)}/stop`, { method: "POST", body: {} });
+    if (run.status !== "running" || !run.hermesRunId) return { stopping: false };
+    await this.call(`/v1/runs/${encodeURIComponent(run.hermesRunId)}/stop`, { method: "POST", body: {} });
     return { stopping: true };
   }
 

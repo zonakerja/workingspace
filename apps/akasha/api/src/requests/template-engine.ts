@@ -28,9 +28,39 @@ export interface TemplateSlot {
 }
 
 export interface TemplateAnalysis {
-  /** Penanda `${…}` unik sesuai urutan kemunculan */
+  /** Penanda `${…}` unik sesuai urutan kemunculan (di luar tabel berulang) */
   tags: string[];
   slots: TemplateSlot[];
+  /** Tabel/daftar berulang `${#nama}…${/nama}` → penanda di dalamnya (diisi per baris) */
+  loops?: { name: string; tags: string[] }[];
+}
+
+/** Satu baris tabel berulang: { penanda: teks }. */
+export type TemplateRow = Record<string, string>;
+/** Nilai isian: teks untuk penanda & paragraf petunjuk, daftar baris untuk tabel berulang `${#nama}…${/nama}`. */
+export type TemplateValues = Record<string, string | TemplateRow[]>;
+
+/** Batas baris tabel berulang (mis. lampiran daftar aset). */
+export const MAX_LOOP_ROWS = 3_000;
+
+/** Bersihkan nilai isian dari luar (API/agen): teks, atau daftar baris berisi teks (maks. MAX_LOOP_ROWS). */
+export function templateValues(raw: unknown): TemplateValues {
+  const out: TemplateValues = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "string") out[key] = value;
+    else if (Array.isArray(value)) {
+      out[key] = value
+        .slice(0, MAX_LOOP_ROWS)
+        .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
+        .map((row) =>
+          Object.fromEntries(
+            Object.entries(row).map(([k, v]) => [k, typeof v === "string" ? v : v == null ? "" : String(v)]),
+          ),
+        );
+    }
+  }
+  return out;
 }
 
 const DOC_PATH = "word/document.xml";
@@ -89,7 +119,7 @@ function loadZip(buffer: Buffer) {
   return zip;
 }
 
-const createDoc = (zip: PizZip, values: Record<string, string>) =>
+const createDoc = (zip: PizZip, values: TemplateValues) =>
   new Docxtemplater(zip, {
     delimiters: { start: "${", end: "}" },
     paragraphLoop: true,
@@ -101,6 +131,8 @@ const createDoc = (zip: PizZip, values: Record<string, string>) =>
         const key = tag.trim();
         if (isSrikandiTag(key)) return undefined;
         const value = scope[key];
+        // Tabel berulang: daftar baris (kosong = baris contoh di templat dihapus)
+        if (Array.isArray(value)) return value;
         return typeof value === "string" && value.trim() ? value : undefined;
       },
     }),
@@ -111,10 +143,17 @@ export function analyzeTemplate(buffer: Buffer): TemplateAnalysis {
   const zip = loadZip(buffer);
   const { xml, slots } = markSlots(zip.file(DOC_PATH)!.asText());
   const text = paragraphText(xml.replace(/<\/w:p>/g, "</w:p>\n"));
-  const tags = [...new Set([...text.matchAll(/\$\{\s*([A-Za-z0-9_.-]+)\s*\}/g)].map((m) => m[1]))].filter(
-    (t) => !isSlotName(t),
+  const tagsIn = (s: string) =>
+    [...new Set([...s.matchAll(/\$\{\s*([A-Za-z0-9_.-]+)\s*\}/g)].map((m) => m[1]))].filter((t) => !isSlotName(t));
+  const loops: TemplateAnalysis["loops"] = [];
+  const outside = text.replace(
+    /\$\{\s*#([A-Za-z0-9_]+)\s*\}([\s\S]*?)\$\{\s*\/\1\s*\}/g,
+    (_m, name: string, inner: string) => {
+      loops.push({ name, tags: tagsIn(inner) });
+      return "";
+    },
   );
-  return { tags, slots };
+  return { tags: tagsIn(outside), slots, loops };
 }
 
 /**
@@ -130,13 +169,17 @@ export function unfilledFields(buffer: Buffer) {
  * Isi templat: nilai penanda + teks paragraf petunjuk (`__petunjuk_n`). Paragraf petunjuk tanpa teks dibiarkan berisi
  * petunjuk aslinya (dalam kurung siku) agar user tahu bagian mana yang masih harus ditulis.
  */
-export function fillTemplate(buffer: Buffer, values: Record<string, string>): Buffer {
+export function fillTemplate(buffer: Buffer, values: TemplateValues): Buffer {
   const zip = loadZip(buffer);
-  const { xml, slots } = markSlots(zip.file(DOC_PATH)!.asText(), values);
+  const texts = Object.fromEntries(Object.entries(values).filter(([, v]) => typeof v === "string")) as Record<
+    string,
+    string
+  >;
+  const { xml, slots } = markSlots(zip.file(DOC_PATH)!.asText(), texts);
   zip.file(DOC_PATH, xml);
-  const scope: Record<string, string> = { ...values };
+  const scope: TemplateValues = { ...values };
   for (const slot of slots) {
-    const lines = slotLines(values[slot.name]);
+    const lines = slotLines(texts[slot.name]);
     if (!lines.length) scope[slot.name] = `[${slot.instruction}]`;
     else if (lines.length > 1) lines.forEach((line, i) => (scope[`${slot.name}__${i + 1}`] = line));
   }

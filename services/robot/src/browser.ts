@@ -10,6 +10,7 @@ import {
   urlAllowed,
   VIEWPORT,
 } from "./logic.js";
+import { parseTteResult, TTE_HOSTS, TTE_VERIFY_URL } from "./tte-verify.js";
 import { groupRhk, overlapsYear, parseSkpBlock, type Rhk, type RhkRow, type SkpSummary } from "./ekinerja.js";
 import {
   BUTTON_LABELS,
@@ -110,6 +111,18 @@ import {
   recipientMenu,
   type UpdateForm,
 } from "./srikandi-register-edit.js";
+import {
+  assetSummary,
+  DETAIL_TABS,
+  LIST_PATH,
+  parseInfo,
+  parseTotalRows,
+  rowsToObjects,
+  safeFileName,
+  type TableData,
+  type TicketSource,
+  toAsset,
+} from "./siman-ticket.js";
 
 /** Alamat yang tampak seperti berkas lampiran. */
 const FILE_URL = /\.(pdf|docx?|xlsx?|pptx?|odt|ods|jpe?g|png|zip)$/i;
@@ -342,10 +355,448 @@ export class BrowserPool {
     });
   }
 
+  // ---------------------------------------------------------------- SIMAN: baca satu tiket (tanpa mengubah tiket)
+
+  /**
+   * SIMAN: buka satu tiket di Penetapan Pengelolaan (bawaan) atau Permohonan Pengelolaan → baca Informasi Umum, semua aset
+   * (Show 100 + halaman berikutnya), Kelengkapan Dokumen + unduh berkasnya (bila `documents`), Dokumen Analisis,
+   * Surat/Keputusan, Disposisi, Riwayat. Klik yang dilakukan: tab, filter & Terapkan, ikon mata baris tiket, Show, halaman
+   * berikutnya, ikon unduh kelengkapan. Bila peran belum aktif (SIMAN mengalihkan ke /profile), peran `role` diaktifkan.
+   */
+  async simanTicket(target: Target & { ticket: string; source: TicketSource; documents: boolean; role: string }) {
+    return this.withPage(
+      target,
+      async (page, hosts, markers) => {
+        const origin = new URL(target.baseUrl).origin;
+        const opened0 = await this.simanOpenList(page, origin + LIST_PATH[target.source], hosts, markers, target.role);
+        if (opened0.status !== "ok") return opened0;
+        const { status: _ok, roleActivated, ...info } = opened0;
+
+        // Saring tiket lewat kotak cari kolom Nomor Tiket + Terapkan, lalu ikon mata baris tiket itu
+        await page.getByText("Total Rows").first().waitFor({ timeout: 30_000 });
+        // Tabel SIMAN = ngx-datatable: kotak cari ada di sel judul kolom (datatable-header-cell)
+        const filter = page
+          .locator("datatable-header-cell", {
+            has: page.locator(".datatable-header-cell-title", { hasText: /^\s*Nomor Tiket\s*$/ }),
+          })
+          .locator("input")
+          .first();
+        if (await filter.count()) await filter.fill(target.ticket);
+        await page.getByRole("button", { name: "Terapkan", exact: true }).first().click({ timeout: 10_000 });
+        const ticketButton = page.getByRole("button", { name: target.ticket, exact: true }).first();
+        const found = await ticketButton
+          .waitFor({ timeout: 30_000 })
+          .then(() => true)
+          .catch(() => false);
+        if (!found) return { ...info, status: "not_found" as const, roleActivated, screenshot: await this.jpeg(page) };
+        // Tabel dimuat ulang setelah Terapkan → tunggu tenang dulu, lalu klik ikon mata baris tiket (pindah ke halaman detail)
+        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+        await page.waitForTimeout(2_000);
+        const eye = page.locator("datatable-body-row", { has: ticketButton }).locator("button").first();
+        let opened = false;
+        // Ikon mata membuka detail di tab baru → alamatnya dibuka di tab ini, tab baru ditutup
+        for (let attempt = 0; attempt < 3 && !opened; attempt++) {
+          const popup = page
+            .context()
+            .waitForEvent("page", { timeout: 15_000 })
+            .catch(() => null);
+          await eye.click({ timeout: 10_000 }).catch(() => undefined);
+          const tab = await popup;
+          if (tab) {
+            await tab.waitForURL(/details/, { timeout: 15_000 }).catch(() => undefined);
+            const url = tab.url();
+            await tab.close().catch(() => undefined);
+            if (/details/.test(url)) {
+              await this.open(page, url, hosts);
+              opened = true;
+            }
+          } else opened = /details/.test(page.url());
+        }
+        if (!opened) {
+          return { ...info, status: "not_found" as const, roleActivated, screenshot: await this.jpeg(page) };
+        }
+        await page.getByRole("tab").first().waitFor({ timeout: 30_000 });
+        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+
+        const sequence = await page.evaluate(() => {
+          const out: { kind: "label" | "value"; text: string }[] = [];
+          const skip = (el: Element) => !!el.closest("table, [role=tabpanel], nav, [role=alert]");
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const el = node as HTMLElement;
+            if (skip(el)) continue;
+            if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+              out.push({ kind: "value", text: el.value });
+            } else if (el.tagName === "BUTTON") {
+              out.push({ kind: "value", text: el.innerText.trim() });
+            } else if (el.children.length === 0 && el.innerText?.trim() && !el.closest("button")) {
+              out.push({ kind: "label", text: el.innerText.replace(/\s+/g, " ").trim() });
+            }
+          }
+          return out;
+        });
+        const ticketInfo = parseInfo(sequence);
+
+        const tabs: Record<string, TableData> = {};
+        const files: {
+          name: string;
+          jenis: string;
+          nomor: string;
+          data: string | null;
+          mimeType: string;
+          note: string;
+        }[] = [];
+        for (const tab of DETAIL_TABS) {
+          const handle = page.getByRole("tab", { name: tab, exact: true }).first();
+          if (!(await handle.count())) continue;
+          await handle.click({ timeout: 10_000 });
+          await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+          await page.waitForTimeout(1_500);
+          tabs[tab] = await this.simanReadTable(page, tab === "Daftar Aset" ? 50 : 5);
+          if (tab === "Kelengkapan Dokumen" && target.documents) {
+            files.push(...(await this.simanDownloadDocuments(page, origin, tabs[tab])));
+          }
+        }
+        const tables = Object.fromEntries(Object.entries(tabs).map(([k, t]) => [k, rowsToObjects(t)]));
+        const totals = Object.fromEntries(Object.entries(tabs).map(([k, t]) => [k, t.total]));
+        const texts = Object.fromEntries(
+          Object.entries(tabs)
+            .filter(([, t]) => t.text)
+            .map(([k, t]) => [k, t.text]),
+        );
+        const assets = (tables["Daftar Aset"] ?? []).map(toAsset);
+        return {
+          ...info,
+          status: "ok" as const,
+          roleActivated,
+          info: ticketInfo,
+          tables,
+          totals,
+          texts,
+          assets,
+          summary: assetSummary(assets, ticketInfo),
+          files,
+        };
+      },
+      { downloads: true },
+    );
+  }
+
+  /**
+   * Buka halaman daftar pengelolaan SIMAN. Bila SIMAN mengalihkan ke /profile (peran belum aktif), peran `role` diaktifkan
+   * lalu daftar dibuka lagi. Mengembalikan status logged_out / role_inactive bila tidak bisa dibuka.
+   */
+  private async simanOpenList(page: Page, listUrl: string, hosts: string[], markers: string[], role: string) {
+    await this.open(page, listUrl, hosts);
+    let info = await this.describe(page, markers);
+    if (!info.loggedIn) return { ...info, status: "logged_out" as const, roleActivated: false };
+    let roleActivated = false;
+    if (/\/profile/.test(new URL(page.url()).pathname)) {
+      const activation = await this.simanActivateRole(page, role);
+      roleActivated = activation.ok;
+      if (!roleActivated)
+        return {
+          ...info,
+          status: "role_inactive" as const,
+          roleActivated,
+          message: activation.reason,
+          screenshot: await this.jpeg(page),
+        };
+      await this.open(page, listUrl, hosts);
+      info = await this.describe(page, markers);
+    }
+    return { ...info, status: "ok" as const, roleActivated };
+  }
+
+  /**
+   * SIMAN: baca daftar Permohonan Pengelolaan (semua halaman) lalu daftar Penetapan Pengelolaan. Tiket yang ada di daftar
+   * Penetapan = tiket yang didisposisikan ke akun ini. Hanya membaca: klik yang dilakukan = Show 100 & halaman berikutnya
+   * (plus aktifkan peran bila belum aktif).
+   */
+  async simanRequests(target: Target & { role: string; maxPages: number }) {
+    return this.withPage(target, async (page, hosts, markers) => {
+      const origin = new URL(target.baseUrl).origin;
+      const opened = await this.simanOpenList(page, origin + LIST_PATH.permohonan, hosts, markers, target.role);
+      if (opened.status !== "ok") return opened;
+      const lists: Partial<Record<TicketSource, TableData>> = {};
+      for (const source of ["permohonan", "penetapan"] as const) {
+        if (source !== "permohonan") await this.open(page, origin + LIST_PATH[source], hosts);
+        if (/\/profile/.test(new URL(page.url()).pathname)) break;
+        const ready = await page
+          .getByText("Total Rows")
+          .first()
+          .waitFor({ timeout: 45_000 })
+          .then(() => true)
+          .catch(() => false);
+        if (!ready) continue;
+        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+        await page.waitForTimeout(1_500);
+        lists[source] = await this.simanReadTable(page, target.maxPages, page.locator("body"));
+      }
+      if (!lists.permohonan) {
+        return { ...opened, status: "not_found" as const, screenshot: await this.jpeg(page) };
+      }
+      return {
+        ...opened,
+        status: "ok" as const,
+        permohonan: rowsToObjects(lists.permohonan),
+        penetapan: lists.penetapan ? rowsToObjects(lists.penetapan) : null,
+        totals: { permohonan: lists.permohonan.total, penetapan: lists.penetapan?.total ?? null },
+      };
+    });
+  }
+
+  /** Aktifkan peran di /profile: sakelar Aktif pada baris peran → dialog "mengganti role" → Ya. */
+  private async simanActivateRole(page: Page, role: string): Promise<{ ok: boolean; reason: string }> {
+    // Tabel Role User (baris berbasis div) dimuat setelah halaman profil tampil; nama peran = tombol hijau di baris
+    const badge = page.getByRole("button", { name: role, exact: true }).first();
+    const loaded = await badge
+      .waitFor({ timeout: 30_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!loaded) return { ok: false, reason: `baris peran "${role}" tidak ada di Role User` };
+    // Sakelar Aktif = ikon <em>/<i> (atau input/switch) pertama di baris yang sama, di luar tombol Aksi
+    const marked = await badge.evaluate((button) => {
+      for (let row = button.parentElement; row && row !== document.body; row = row.parentElement) {
+        const target = Array.from(
+          row.querySelectorAll("input[type=checkbox], [role=switch], em, i, .switch, .toggle"),
+        ).find((el) => !el.closest("button") && el !== button);
+        if (target) {
+          target.setAttribute("data-akasha-role", "1");
+          return "";
+        }
+        if (row.querySelectorAll("button").length > 3) break;
+      }
+      return (button.parentElement?.parentElement?.outerHTML ?? "").slice(0, 400);
+    });
+    if (marked) return { ok: false, reason: `sakelar Aktif tidak dikenali: ${marked}` };
+    await page.locator("[data-akasha-role]").click({ timeout: 10_000, force: true });
+    const dialog = page
+      .locator("[role=dialog]:visible, .modal.show, .modal:visible, .swal2-popup:visible")
+      .filter({ hasText: /mengganti role/i })
+      .first();
+    const shown = await dialog
+      .waitFor({ timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!shown) return { ok: false, reason: "dialog konfirmasi ganti peran tidak muncul" };
+    await dialog.getByRole("button", { name: "Ya", exact: true }).click({ timeout: 10_000 });
+    await page.waitForURL((url) => !/\/profile/.test(url.pathname), { timeout: 30_000 }).catch(() => undefined);
+    return { ok: true, reason: "" };
+  }
+
+  /** Tabel di tab aktif: judul kolom + semua baris (Show 100 lalu "go to next page" sampai habis / `maxPages`). */
+  private async simanReadTable(page: Page, maxPages: number, root?: Locator): Promise<TableData> {
+    const panel = root ?? page.locator("[role=tabpanel]:visible").first();
+    const sizer = panel
+      .locator("select")
+      .filter({ has: page.locator("option[value='100'], option:text-is('100')") })
+      .first();
+    if (await sizer.count()) {
+      await sizer.selectOption({ label: "100" }).catch(() => undefined);
+      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+      await page.waitForTimeout(1_500);
+    }
+    // ngx-datatable: judul = datatable-header-cell (urutan kiri → tengah → kanan sama dengan sel baris), baris = datatable-body-row
+    const readPage = () =>
+      panel.evaluate((root) => {
+        const text = (el: Element | null) => (el?.textContent ?? "").replace(/\s+/g, " ").trim();
+        // Panel bisa memuat beberapa tabel (tabel di dalam modal tersembunyi) → pakai tabel pertama yang punya baris
+        const tables = Array.from(root.querySelectorAll("ngx-datatable"));
+        const table = tables.find((t) => t.querySelector("datatable-body-row")) ?? tables[0] ?? root;
+        const headers = Array.from(table.querySelectorAll("datatable-header-cell")).map((cell) =>
+          text(cell.querySelector(".datatable-header-cell-title") ?? cell),
+        );
+        const rows = Array.from(table.querySelectorAll("datatable-body-row"))
+          .map((row) => Array.from(row.querySelectorAll("datatable-body-cell")).map((cell) => text(cell)))
+          .filter((cells) => cells.some((c) => c));
+        return { headers, rows, text: (root as HTMLElement).innerText };
+      });
+    const first = await readPage();
+    const total = parseTotalRows(first.text);
+    const rows = [...first.rows];
+    for (let i = 1; i < maxPages && total !== null && rows.length < total; i++) {
+      const next = panel.getByRole("button", { name: "go to next page" }).first();
+      if (!(await next.count()) || !(await next.isEnabled().catch(() => false))) break;
+      const before = JSON.stringify(rows.at(-1));
+      await next.click({ timeout: 10_000 });
+      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+      await page.waitForTimeout(1_500);
+      const more = await readPage();
+      if (!more.rows.length || JSON.stringify(more.rows.at(-1)) === before) break;
+      rows.push(...more.rows);
+    }
+    return {
+      headers: first.headers,
+      rows,
+      total,
+      ...(first.headers.length
+        ? {}
+        : {
+            text: first.text
+              .replace(/[ \t]+/g, " ")
+              .trim()
+              .slice(0, 20_000),
+          }),
+    };
+  }
+
+  /**
+   * Kelengkapan Dokumen: klik ikon unduh (tombol kedua kolom Aksi) tiap baris, tangkap berkas dari tab baru / unduhan /
+   * respons jaringan (hanya domain SIMAN/Kemenkeu). Tidak ada tombol lain yang diklik.
+   */
+  private async simanDownloadDocuments(page: Page, origin: string, table: TableData) {
+    const context = page.context();
+    const objects = rowsToObjects(table);
+    const files: { name: string; jenis: string; nomor: string; data: string | null; mimeType: string; note: string }[] =
+      [];
+    const panel = page.locator("[role=tabpanel]:visible").first();
+    const rowLocators = panel.locator("datatable-body-row");
+    let total = 0;
+    for (let i = 0; i < objects.length && i < 30; i++) {
+      // Jeda antar-unduhan: situs Kemenkeu dijaga firewall, jangan mengunduh beruntun tanpa jeda
+      if (i) await page.waitForTimeout(1_500);
+      const meta = objects[i];
+      const name = safeFileName(meta["Nama File"] ?? "", `dokumen-${i + 1}.pdf`);
+      const row = rowLocators.filter({ hasText: meta["Nama File"] || meta["No Dokumen"] || "" }).first();
+      const buttons = row.locator("datatable-body-cell").nth(1).locator("button");
+      const download = (await buttons.count()) > 1 ? buttons.nth(1) : buttons.first();
+      const captured: Buffer[] = [];
+      const onResponse = (response: import("playwright").Response) => {
+        const type = response.headers()["content-type"] ?? "";
+        if (!isFileResponse(type) || !sameSite(response.url(), origin)) return;
+        void response
+          .body()
+          .then((b) => void (b.length > 4 && b.length <= MAX_PDF_BYTES && captured.push(b)))
+          .catch(() => undefined);
+      };
+      context.on("response", onResponse);
+      const popup = context.waitForEvent("page", { timeout: 8_000 }).catch(() => null);
+      const dl = page.waitForEvent("download", { timeout: 8_000 }).catch(() => null);
+      let note = "";
+      let body: Buffer | null = null;
+      try {
+        await download.click({ timeout: 10_000 });
+        const [opened, fileDownload] = await Promise.all([popup, dl]);
+        if (fileDownload) {
+          const path = await fileDownload.path().catch(() => null);
+          if (path) body = await readFile(path).catch(() => null);
+          await fileDownload.delete().catch(() => undefined);
+          note = "unduhan";
+        }
+        if (!body && opened) {
+          await opened.waitForLoadState("domcontentloaded", { timeout: 30_000 }).catch(() => undefined);
+          const url = opened.url();
+          if (url && sameSite(url, origin)) {
+            const res = await context.request.get(url, { timeout: 60_000, maxRedirects: 3 }).catch(() => null);
+            const data = res?.ok() ? await res.body().catch(() => null) : null;
+            if (data && data.length <= MAX_PDF_BYTES) body = data;
+            note = `tab baru ${res?.status() ?? "galat"}`;
+          } else note = `tab baru di luar SIMAN: ${url.slice(0, 80)}`;
+          await opened.close().catch(() => undefined);
+        }
+        if (!body) {
+          await page.waitForTimeout(2_000);
+          body = captured.find((b) => validFileBody(b, name)) ?? null;
+          if (body) note = "respons jaringan";
+        }
+      } catch (error) {
+        note = `gagal: ${error instanceof Error ? error.message.slice(0, 120) : String(error)}`;
+      } finally {
+        context.off("response", onResponse);
+      }
+      if (body && !validFileBody(body, name)) {
+        note = `bukan berkas sah (${note})`;
+        body = null;
+      }
+      if (body && total + body.length > MAX_TOTAL_BYTES) {
+        note = "melewati batas ukuran total";
+        body = null;
+      }
+      if (body) total += body.length;
+      files.push({
+        name,
+        jenis: meta["Jenis Dokumen"] ?? "",
+        nomor: meta["No Dokumen"] ?? "",
+        data: body ? body.toString("base64") : null,
+        mimeType: mimeForName(name),
+        note,
+      });
+    }
+    return files;
+  }
+
   /**
    * Rekam halaman yang sedang tampil di browser jarak jauh (mis. setelah pengguna membuka Rencana Aksi atau formulir
    * tambah) — keadaan yang tidak bisa dicapai lewat alamat saja. Tidak mengklik apa pun.
    */
+  /**
+   * Verifikasi TTE satu PDF di halaman resmi Komdigi (tanpa login, tanpa sesi konektor): unggah lewat kotak berkas di bingkai
+   * verifikator, baca ringkasan, lalu buka "Lihat Detil" tiap tanda tangan. Tidak mengisi apa pun selain berkas.
+   */
+  async tteVerify(input: { fileName: string; data: Buffer }) {
+    const browser = await this.getBrowser();
+    const context = await browser.newContext({
+      viewport: VIEWPORT,
+      locale: "id-ID",
+      timezoneId: "Asia/Jakarta",
+      acceptDownloads: false,
+    });
+    context.setDefaultNavigationTimeout(NAV_TIMEOUT);
+    context.setDefaultTimeout(30_000);
+    try {
+      const page = await context.newPage();
+      await page.goto(TTE_VERIFY_URL, { waitUntil: "domcontentloaded" });
+      const frame = await (await page.waitForSelector("iframe", { timeout: 30_000 })).contentFrame();
+      if (!frame) throw new Error("Bingkai verifikator tidak termuat.");
+      const host = new URL(frame.url()).hostname;
+      if (!TTE_HOSTS.includes(host)) throw new Error(`Verifikator di luar alamat yang dikenal: ${host}`);
+      await frame.waitForSelector("input[type=file]", { state: "attached", timeout: 30_000 });
+      await frame.setInputFiles("input[type=file]", {
+        name: input.fileName.replace(/[^\w.\- ]+/g, "_").slice(0, 120) || "dokumen.pdf",
+        mimeType: "application/pdf",
+        buffer: input.data,
+      });
+      await frame.waitForFunction(
+        () =>
+          /Ringkasan Dokumen|tidak memiliki tanda tangan|Perhatian diperlukan|gagal|tidak dapat/i.test(
+            document.body.innerText,
+          ),
+        null,
+        { timeout: 120_000 },
+      );
+      await page.waitForTimeout(1_500);
+      const summary = await frame.evaluate(() => document.body.innerText);
+      const details: string[] = [];
+      const buttons = frame.getByText("Lihat Detil", { exact: true });
+      const count = Math.min(await buttons.count(), 10);
+      for (let i = 0; i < count; i++) {
+        await buttons.nth(i).click();
+        await frame
+          .waitForFunction(() => /RINGKASAN VERIFIKASI/i.test(document.body.innerText), null, { timeout: 20_000 })
+          .catch(() => undefined);
+        await page.waitForTimeout(800);
+        const text = await frame.evaluate(() => document.body.innerText);
+        const at = text.search(/RINGKASAN VERIFIKASI/i);
+        details.push(at >= 0 ? text.slice(at) : text);
+        await page.keyboard.press("Escape").catch(() => undefined);
+        await page.waitForTimeout(400);
+      }
+      const at = summary.search(/Dokumen ini|Perhatian diperlukan/i);
+      const summaryText = (at >= 0 ? summary.slice(at) : summary).slice(0, 8_000);
+      return {
+        status: "ok" as const,
+        verifier: `${TTE_VERIFY_URL} (${host})`,
+        result: parseTteResult(summaryText, details),
+        summary: summaryText,
+        details: details.map((d) => d.slice(0, 8_000)),
+        screenshot: await this.jpeg(page),
+      };
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  }
+
   async captureSession(id: string) {
     const { context, page, markers } = this.live(id);
     const result = await this.record(page, markers);

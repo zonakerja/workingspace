@@ -35,6 +35,8 @@ export const SYSTEM_INFO: Record<RobotSystem, RobotSystemInfo> = {
     defaultUrl: "https://srikandi.arsip.go.id",
     loginMarkers: ["/auth/login"],
     defaultHosts: [],
+    // Membuka /auth/login saat sudah masuk membuat SRIKANDI menghapus token (react-secure-storage) → cek sesi lewat beranda
+    homeUrl: "https://srikandi.arsip.go.id/beranda",
     flows: [
       {
         label: "Daftarkan naskah dari tab Register: isi formulir Registrasi Naskah Keluar lalu Simpan konsep",

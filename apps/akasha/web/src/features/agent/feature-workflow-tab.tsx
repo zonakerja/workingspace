@@ -1,5 +1,6 @@
 import { Workflow } from "lucide-react";
 import { Link } from "react-router";
+import { useSearchParam } from "@/hooks/use-search-param";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
@@ -21,6 +22,14 @@ export function FeatureWorkflowTab({
   hint: string;
 }) {
   const { data: menus, isLoading } = useAgentMenus();
+  // ?run=<id menu>&ticket=<nomor> → modal workflow itu langsung terbuka dengan tiket terpilih (dari SIMAN → Permohonan)
+  const [runMenu] = useSearchParam("run");
+  const [ticket] = useSearchParam("ticket");
+  const prefillFor = (menu: AgentMenu) => {
+    if (runMenu !== menu.id) return undefined;
+    const field = menu.form.find((f) => f.type === "siman_ticket");
+    return field && ticket ? { [field.name]: ticket } : {};
+  };
   if (isLoading) return <Spinner className="m-6" />;
   const active = (menus ?? []).filter((m) => m.status === "active" && m.placement === placement);
   const waiting = (menus ?? []).filter((m) => m.status === "draft" && m.placement === placement).length;
@@ -35,7 +44,7 @@ export function FeatureWorkflowTab({
         </p>
       )}
       {active.length ? (
-        active.map((menu) => <WorkflowPanel key={menu.id} menu={menu} />)
+        active.map((menu) => <WorkflowPanel key={menu.id} menu={menu} prefill={prefillFor(menu)} />)
       ) : (
         <Empty className="rounded-2xl border bg-card">
           <EmptyHeader>

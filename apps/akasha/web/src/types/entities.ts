@@ -454,6 +454,65 @@ export interface SrikandiInbox extends Owned {
   todoId?: string;
 }
 
+/**
+ * Permohonan SIMAN (record `siman_request`, ID = nomor tiket): baris daftar Permohonan Pengelolaan yang dibaca robot.
+ * `disposed` = tiket juga tampil di Penetapan Pengelolaan akun SIMAN pemilik (didisposisikan ke pemilik).
+ */
+export interface SimanRequest extends Owned {
+  id: string;
+  ticket: string;
+  status?: string;
+  tipe?: string;
+  /** Tanggal tiket (YYYY-MM-DD) */
+  date?: string;
+  satkerCode?: string;
+  satkerName?: string;
+  pemohon?: string;
+  termohon?: string;
+  value?: number | null;
+  letterNumber?: string;
+  jenisBmn?: string;
+  korwil?: string;
+  duration?: string;
+  /** Semua kolom daftar Permohonan SIMAN */
+  fields?: Record<string, string>;
+  disposed?: boolean;
+  dispositionStatus?: string;
+  /** Semua kolom daftar Penetapan Pengelolaan (bila didisposisikan) */
+  dispositionFields?: Record<string, string>;
+  /** false = tidak lagi tampil di daftar SIMAN */
+  active?: boolean;
+  /** Kunci akun SIMAN pemilik data (hash nama pengguna); data akun lain dihapus saat sinkron / ganti akun */
+  account?: string;
+  /** Nama pengguna SIMAN tersamar, mis. "19•••01" */
+  accountHint?: string;
+  /** Pengajuan Approval tempat hasil kerja AI agent tiket ini diperiksa */
+  requestId?: string;
+  /** Surat permohonan sebenarnya (dibaca AI agent dari isi berkas); kepala tiket SIMAN bisa memuat nomor surat lain, mis. surat koreksi */
+  permohonanLetter?: { number: string; date: string };
+  /** Dokumen hasil workflow Penetapan SIMAN (dibuat AI agent, diperiksa pemilik di ONLYOFFICE) */
+  documents?: SimanTicketDocument[];
+  firstSeenAt?: string;
+  disposedSeenAt?: string;
+  syncedAt?: string;
+}
+
+/** Dokumen hasil workflow Penetapan SIMAN pada record `siman_request`. */
+export interface SimanTicketDocument {
+  kind: "analysis" | "decree";
+  uploadId: string;
+  name: string;
+  createdAt: string;
+  createdBy: "agent";
+  /** Teks saat dibuat agen (pembanding suntingan pemilik) */
+  originalText?: string;
+  learnedVersion?: number;
+  /** Dokumen Analisis: konvensional (cetak & tanda tangan basah) / digital (lewat SRIKANDI) */
+  method?: "konvensional" | "digital";
+  /** Entri Register Naskah Keluar SRIKANDI */
+  registerId?: string;
+}
+
 /** Naskah keluar SRIKANDI (diambil robot; PDF ber-TTD = berkas Akasha `uploadId`). */
 export interface SrikandiLetter extends Owned {
   id: string;

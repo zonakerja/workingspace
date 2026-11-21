@@ -7,7 +7,7 @@ Dokumen ini menggantikan memori percakapan: keputusan, konteks user, status, dan
 Perbarui **§11 Status** dan **§12 Log Keputusan** setiap selesai satu langkah berarti.
 Dokumentasi untuk manusia ada di `docs/` (SETUP, DEPLOYMENT, ARCHITECTURE = fondasi + tech stack & versi, UPGRADE-PLAN, FILE-CONTROL,
 ONLYOFFICE = riset & rencana integrasi editor dokumen, AI-AGENT = riset & rencana AI Agent: Hermes, Obsidian, WhatsApp, SRIKANDI/SIMAN/e-Kinerja,
-AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, AKUN-TERSAMBUNG = kajian email, kalender & drive (Google, Microsoft, IMAP/CalDAV, ICS), KAJIAN-AI-TERPUSAT = kajian semua AI Akasha lewat Akai (menunggu keputusan), TODO-USER = **to-do pemilik** langkah demi langkah — perbarui setiap ada pekerjaan baru yang harus dikerjakan user).
+AKASHA-PLAN = rencana rebrand Akasha/Akai + router model + struktur repo, AKUN-TERSAMBUNG = kajian email, kalender & drive (Google, Microsoft, IMAP/CalDAV, ICS), KAJIAN-AI-TERPUSAT = kajian semua AI Akasha lewat Akai (menunggu keputusan), CLAUDE-CODE-CLASSAI = memakai paket/kredit router.classai di Claude Code (hapus bila pemilik memerintahkan), TODO-USER = **to-do pemilik** langkah demi langkah — perbarui setiap ada pekerjaan baru yang harus dikerjakan user).
 
 ## 0. Memulai Thread Baru (checklist wajib)
 
@@ -56,9 +56,9 @@ lalu selalu disebut **Akai** (nama tampilan di `packages/ui/src/ecosystem.ts` = 
 - **Commit hanya bila user memerintahkan** (perubahan dibiarkan di working tree sampai diminta).
   **Push ke GitHub juga hanya bila user meminta.**
 - Aplikasi ini berdiri sendiri: jangan menambahkan rujukan, kompatibilitas, atau impor dari aplikasi lain/versi lama.
-- **Setiap selesai mengerjakan pekerjaan/task, akhiri jawaban dengan "Status lingkungan" (§2a)**: port mana yang
-  aktif/tidak, siapa yang menjalankan, dan cara menghentikannya — agar user tidak menyalakan ulang yang sudah aktif dan
-  bisa meminta "matikan semua" sebelum menutup laptop.
+- **Laporan "Status lingkungan" (§2a) hanya di chat 0 Setup, atau bila pemilik meminta status / "matikan semua"**
+  (keputusan pemilik 2026-11-21, hemat token) — chat platform lain tidak menambahkannya di akhir jawaban. Pemilik bisa
+  menyalakan, mengecek, dan mematikan sendiri dengan `scripts/dev-up.ps1`, `dev-status.ps1`, `dev-down.ps1` (docs/SETUP.md §4).
 
 ## 2. Lingkungan Development (laptop user)
 
@@ -88,10 +88,10 @@ lalu selalu disebut **Akai** (nama tampilan di `packages/ui/src/ecosystem.ts` = 
   `strictPort: true` → gagal alih-alih pindah ke 5174. Panduan user: `docs/SETUP.md` §2–§6.
 - lazydocker terpasang di WSL (`wsl -e lazydocker`); jendela lazydocker yang terbuka juga menjaga WSL tetap hidup.
 
-## 2a. Status Lingkungan (wajib dilaporkan) & Mematikan Semua
+## 2a. Status Lingkungan & Mematikan Semua
 
-**Kapan**: di akhir setiap jawaban yang mengerjakan pekerjaan/task (bukan untuk jawaban tanya-jawab murni), dan setiap
-kali user bertanya status atau meminta "matikan semua". Selalu **cek ulang** sebelum melapor — jangan menebak dari
+**Kapan**: di chat 0 Setup setelah mengubah lingkungan, dan di chat mana pun **hanya** bila pemilik bertanya status atau
+meminta "matikan semua" (bukan di akhir setiap jawaban). Sebelum menyalakan sesuatu tetap cek dulu agar tidak ganda. Selalu **cek ulang** sebelum melapor — jangan menebak dari
 ingatan percakapan.
 
 **Format laporan** (tabel ringkas, Bahasa Indonesia):
@@ -428,7 +428,7 @@ SSH), volume `syncthing-data`. Obsidian sendiri **tidak** dipasang di server/Doc
   menyetujui), `create_request_document` — `docs/AI-AGENT.md` §22) + log `agent_activity_logs`. Logika murni + test
   `api-token-logic.ts`. Tool baru → `AkashaMcpService.createServer` (bungkus `run()` agar tercatat) + cakupan + smoke.
 - **Pengajuan & Antrian Verifikasi** (`src/requests/`, detail `docs/ARCHITECTURE.md` §3.8): tabel `requests` (milik user,
-  bukan record type; jenis psp/penghapusan/pemanfaatan/surat/lainnya, data surat, status `baru → diproses →
+  bukan record type; kategori = kunci `request_categories` milik pemilik (bawaan psp/penghapusan/pemanfaatan/surat/lainnya, bisa diubah/ditambah; otomatis kata kunci / manual / agen; `/request-categories`, `POST /requests/:id/classify`), data surat, status `baru → diproses →
   menunggu_verifikasi → disetujui → dikirim` / `ditolak`, `source` manual/mcp/whatsapp, berkas pemohon context `request`,
   dokumen hasil templat context `request-document` — keduanya ikut terhapus bersama pengajuan, `history`). Agen AI:
   `POST /requests/:id/analyze` (ringkasan, field, kelengkapan vs persyaratan basis pengetahuan) & `/review` (telaah
@@ -1698,12 +1698,30 @@ Pemeliharaan tech stack terjadwal (kajian & urutan: `docs/UPGRADE-PLAN.md` §1):
 | **Semua AI Akasha lewat Akai** (T1–T4 kajian AI terpusat: transkrip audio asinkron di gateway Akai, impor key server ke server, Akasha tanpa API key/klien provider/SDK model, proxy agen hanya ke Akai, Bandingkan token dihapus, Pengaturan → Model AI = status Akai + Pindahkan key) | ✅ 2026-11-19 — Akasha unit 475 & web 366, Akai unit 140, smoke Akasha 678 & Akai 164 (+9: impor, transkrip), lint, typecheck, build; halaman Model AI di browser (status 7 tugas, 3 key lama admin dev). Lanjutan hari yang sama: pemilik memindahkan key (Akai admin dev: Gemini & OpenAI langsung, Classai dipakai ulang, Embedding 2 & Transkrip 1 model), lalu tabel/kolom key lama, tombol & endpoint pindah key (Akasha & Akai), serta hapus akun lokal di Manajemen User dibersihkan — unit Akasha 472 & web 366, Akai 140, smoke Akasha & Akai lulus, migrasi tanpa drift. **Belum**: transkrip & embedding sungguhan lewat Akai |
 | Ringkasan Notes AI panjang gagal (Akasha memutus panggilan Akai setelah 3 menit, padahal Akai selesai 237 dtk) + mode Makna Pencarian Pintar menampilkan semua dokumen | ✅ 2026-11-19 — batas Akasha → Akai 12 mnt + dispatcher undici tanpa batas header (`LONG_CALLS`), batas per model Akai 10 mnt; mode Makna = hasil vektor ≤ 0,05 di bawah kemiripan terbaik (`relevantByMeaning`); uji API akun admin dev ("izin tidak masuk kerja" → Surat Cuti dst. 4 hasil, dulu 30), generate lewat Akai 200; unit Akasha 473 & Akai 140. Pemilik mengulang ringkasan transkrip panjang & mode Makna: berhasil. |
 | Token agen Hermes dibuat ulang (database baru) lewat Siapkan agen dengan izin robot e-Kinerja, SRIKANDI, SIMAN + izin dasar (tanpa email, A50); storage diperiksa: 30 objek, 0 yatim | ✅ 2026-11-19 — **Belum**: Hermes belum dinyalakan (`apps/akai/agent/hermes/up.sh`) sehingga alat robot baru belum dicoba agen |
+| SRIKANDI minta login ulang terus: Cek sesi membuka alamat konektor `/auth/login` sehingga SRIKANDI menghapus token, lalu sesi "keluar" menimpa sesi yang sah → `SYSTEM_INFO.srikandi.homeUrl` = `/beranda` + `saveState` hanya menyimpan sesi yang masih masuk | ✅ 2026-11-19 — typecheck, unit robot 63. **Belum**: login SRIKANDI ulang oleh pemilik lalu Cek sesi |
+| SIMAN: peta halaman tiket (aktifkan peran Analis Eselon 1 → daftar permohonan → detail → Daftar Aset), baca 13 tiket belum disetujui = 2.026 aset (docs/AI-AGENT.md §26.5a) | ✅ 2026-11-19 — lewat tayangan browser jarak jauh (baca saja; satu-satunya klik pengubah = ganti peran aktif atas permintaan pemilik). **Belum**: job robot / alat MCP khusus, workflow SIMAN (A25) |
+| Uji coba proses PSP tiket Padang: halaman Penetapan Pengelolaan (kosong, belum ada disposisi), Kelengkapan Dokumen, konsep Dokumen Analisis + Draft KM PSP berformat diperbaiki (docs/AI-AGENT.md §26.5b) diunggah ke ONLYOFFICE → Dokumen | ✅ 2026-11-19 — isi diperiksa lewat converter. **Belum**: isi PDF kelengkapan (butuh unduhan robot), tampilan diperiksa di editor, Register SRIKANDI (TTE pemilik belum siap), unggah SK ke SIMAN |
+| Ganti akun SIMAN tidak meminta OTP: simpan kredensial akun lain tidak melupakan sesi akun lama, login otomatis langsung "berhasil" dengan sesi lama → `setCredentials` melupakan sesi bila nama pengguna berganti; sesi SIMAN admin dev (akun lama) dihapus | ✅ 2026-11-19 — typecheck, unit robot 63. **Belum**: pemilik login ulang SIMAN dengan akun teman (OTP harus diminta) |
+| **Workflow Penetapan Pengelolaan SIMAN**: job robot Baca tiket (info, aset semua halaman, kelengkapan + unduh berkas, analisis, surat, riwayat; aktifkan peran bila perlu), `POST /robot/siman/ticket`, MCP `siman_read_ticket`/`siman_ticket_result`/`read_siman_file`, tabel berulang di mesin templat, skill `penetapan-siman`, kop Ditjen Hubud di Dokumen Analisis (docs/AI-AGENT.md §26.5c) | ✅ 2026-11-19 — typecheck robot & backend, unit robot (+4) & templat (+1). Diuji ke SIMAN sungguhan (baca saja): tiket Letung 36 aset + 3 berkas, Padang 9 aset + 1 berkas; MCP baru lewat token agen; smoke backend lulus. Workflow disetujui pemilik 2026-11-20 (aktif di SIMAN → Workflow); kop Dokumen Analisis = berkas templat Surat Dinas (jarak kop–judul dirapatkan, disetujui pemilik). Atas arahan pemilik dokumen analisis & draft PSP **tidak** diunggah ke mana pun (berkas di `_uji/`). **Belum**: image robot dibangun ulang (compose build macet; dist ditambal ke container) |
+| **Daftar Permohonan SIMAN** (tab SIMAN → Permohonan: 300 tiket dari Permohonan Pengelolaan, tanda "Didispo ke Anda" dari daftar Penetapan, bawaan hanya yang didispo; job robot + record `siman_request` + jadwal otomasi + MCP `siman_sync_requests`) + isian workflow **`siman_ticket`** (dropdown cari, bukan ketik) | ✅ 2026-11-20 — unit backend 479+ & frontend 369, lint, typecheck, migrasi `20261120120000_siman_requests` tanpa drift; ke SIMAN sungguhan (baca saja): 300 tiket / 23 didispo dalam ± 16 dtk; browser: tabel, dialog detail, tombol workflow → modal dengan tiket terpilih, dropdown cari; smoke penuh lulus. **Belum**: image robot dibangun ulang (dist ditambal ke container) |
+| SIMAN lanjutan: data Permohonan tertaut akun SIMAN (ganti akun = daftar lama dihapus), pengaman firewall (jeda 10 mnt sinkron daftar, 20 dtk antar-tugas, 1,5 dtk antar-unduhan, jadwal bawaan sekali sehari), workflow tanpa "Halaman tiket", **dokumen hasil** dibuat server (MCP `create_siman_documents`, identik dengan format yang disetujui) + suntingan pemilik dibaca agen untuk memori (`siman_ticket_documents`) + panel Dokumen hasil (ONLYOFFICE, Konvensional/Digital, Naikkan ke SRIKANDI lewat Register) | ✅ 2026-11-20 — unit backend 486, robot 76, frontend 369, lint, typecheck; generator diuji data Letung (0 perbedaan teks vs dokumen yang disetujui); browser (dokumen uji ditautkan lalu dihapus); setelah backend dinyalakan ulang: MCP agen membaca tiket Letung → create_siman_documents → 2 dokumen berkop terbuka di ONLYOFFICE, pengaman 10 mnt menolak sinkron kedua, smoke penuh lulus. Dokumen Letung dibiarkan untuk direview pemilik. Lanjutan: hasil kerja otomatis masuk **Approval** (satu pengajuan PSP per tiket, Menunggu verifikasi; dokumen Letung dipindah ke sana, diperiksa di browser), istilah "AI agent" di tampilan SIMAN/Workflow/Approval. **Belum**: AI agent Hermes sungguhan menjalankan workflow dari UI, image robot dibangun ulang |
+| Workflow SIMAN → Approval lengkap: berkas Kelengkapan + Daftar Aset CSV + checklist analisis ikut ke pengajuan, aturan kelengkapan PSP di skill (SPTJM untuk non tanah/bangunan, listing tidak wajib, cocokkan daftar barang surat), SRIKANDI terkunci sampai pengajuan disetujui, Kebijakan Otomatis sumber **Workflow SIMAN** (docs/AI-AGENT.md §26.5f) | ✅ 2026-11-20 — unit backend 489 & frontend 369, smoke penuh lulus, migrasi `20261120130000_policy_trigger` tanpa drift, lint, typecheck, format; browser: tombol SRIKANDI nonaktif di detail Approval & panel SIMAN Letung (menunggu verifikasi), form kebijakan sumber SIMAN tampil (tidak disimpan). **Belum**: kebijakan SIMAN diuji-coba (dilarang pemilik), pengajuan Letung belum berlampiran (perlu workflow dijalankan ulang), peningkatan skill telaah & jawaban (dibahas nanti) |
+| Uji coba bersama Hermes (Claude ↔ Hermes lewat AI Agent Chat) + **`inspect_file`** (periksa visual meterai/tanda tangan lewat Akai) + uploadId berkas di `get_request` + **kategori Approval buatan pemilik** (`request_categories`, otomatis kata kunci / manual / agen) + surat koreksi ≠ surat permohonan (`permohonanLetter`) + kebijakan SIMAN cek disposisi & tahap (docs/AI-AGENT.md §26.5g) | ✅ 2026-11-21 — unit backend 493 & frontend 369, smoke penuh, migrasi `20261121120000_request_categories` tanpa drift, lint, typecheck, format; Hermes sungguhan: `inspect_file` membaca meterai tempel + tanda tangan basah SPTJM Letung & TTE Permohonan; browser: pilihan kategori di detail, dialog Kategori (buat & hapus kategori uji). **Belum**: workflow SIMAN dijalankan ulang (sesi SIMAN kedaluwarsa, A67), pencocokan aset per baris, bukti visual tersimpan server, jalur usulan skill dari agen |
+| Skill pengajuan dipecah (telaah-pengajuan = analisis kelengkapan, konsep-jawaban, verifikasi-tte) + **cek manual Lolos/Bermasalah** di checklist Approval + **verifikasi TTE lewat halaman resmi Komdigi** (robot `/jobs/tte/verify`, MCP `verify_digital_signature`) + **usulan skill dari agen** (`propose_skill_change` → Approval → Usulan Agen → server menulis SKILL.md) (docs/AI-AGENT.md §26.5h) | ✅ 2026-11-21 — unit backend 499, robot +3, frontend, smoke penuh, lint, typecheck; Hermes sungguhan: verifikasi TTE Letung (Permohonan valid, SPTJM tanpa TTE), telaah dengan 1 butir cek manual, usulan skill verifikasi-tte; browser: tombol Lolos/Bermasalah, kartu usulan skill dengan beda baris. **Belum**: tanda Lolos/Bermasalah & persetujuan usulan skill oleh pemilik (A68), image robot dibangun ulang (dist ditambal ke container) |
 | Push ke GitHub (`origin/main`) | Hanya atas permintaan user; setelah push user mengecek CI |
 | VPS & domain | ⏳ **belum dibeli** — saat siap ikuti docs/DEPLOYMENT.md §0 (memilih VPS, DNS, isi .env, checklist) |
 
 Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
 
 **Lanjutan yang disepakati (per 2026-11-09, diperbarui 2026-11-16)** — mulai dari sini di chat baru:
+000. **Terakhir (2026-11-21, chat Akasha — pemilik pindah ke akun Claude baru)**: di-commit, **belum di-push**: workflow SIMAN →
+   Approval, kategori Approval buatan pemilik, `inspect_file`, skill pengajuan dipecah (`telaah-pengajuan`, `konsep-jawaban`, `verifikasi-tte`),
+   cek manual Lolos/Bermasalah, verifikasi TTE Komdigi, usulan skill dari agen, skrip `scripts/dev-*.ps1`, docs/CLAUDE-CODE-CLASSAI.md.
+   Lanjutan: (1) pemilik menandai SPTJM Letung & memutuskan usulan skill `verifikasi-tte` (TODO-USER A68); (2) login ulang SIMAN (A67) lalu
+   jalankan ulang workflow Penetapan Letung bersama Hermes agar pengajuan berlampiran; (3) **image robot dibangun ulang** di chat Setup (dist
+   robot saat ini ditambal ke container: `/jobs/tte/verify`, baca tiket SIMAN — hilang bila container dibuat ulang); (4) belum dibangun:
+   pencocokan aset per baris, bukti visual `inspect_file` disimpan server, peningkatan skill telaah & konsep jawaban; (5) kebijakan SIMAN
+   mode shadow (A66) dibuat pemilik — jangan diuji-coba Claude. Laporan status lingkungan hanya di chat Setup / bila diminta (§1).
 00. **MULAI DI SINI (diperbarui 2026-11-18)**: pekerjaan kini dibagi per platform — lihat **§0a** untuk cakupan & titik mulai tiap chat. Semua pekerjaan sudah di-commit **dan di-push** ke `origin/main` (terakhir:
    pendaftaran lengkap + pengajuan akses + masa akses SSO/Akasha). Akai 6a.1–6a.4 & 6b.1–6b.10 ✅ (status: `docs/AKAI.md` §6, selisih dengan
    Claude: §8); akun tersambung tahap 0–4 ✅ (`docs/AKUN-TERSAMBUNG.md`); Akasha hanya masuk lewat SSO. **Kandidat berikutnya** (tanyakan ke
@@ -2886,6 +2904,31 @@ Isu terbuka: belum ada (API key AI plaintext di browser ditutup 2026-10-11).
   digantikan. Aplikasi memanggil Akai server ke server (HTTP Basic klien + `X-Akai-Subject` sub SSO); sesi web Akai (cookie `akai_sid`, masuk SSO) sejak 6a.3. Akun Akai
   dibuat saat pertama dipakai (tanpa daftar terpisah).
 - 2026-11-16 — **Akai web (6a.3)**: sesi web Akai disimpan sebagai token acak di tabel (bukan JWT) agar bisa dicabut satu per satu dan oleh back-channel logout; CSRF dicegah header `X-Akai-Web` (browser tidak bisa mengirimnya lintas situs tanpa preflight) + SameSite Lax, bukan token CSRF terpisah. Satu akun Akai untuk web & aplikasi (kunci = sub SSO), jadi pengaturan di web langsung dipakai gateway untuk Akasha. Halaman Akai web memakai identitas visual `packages/ui` + tanda Akai sendiri (percikan). Produksi (compose/Caddy) dikerjakan saat deploy.
+- 2026-11-21 — **Status lingkungan & nyala sendiri** (permintaan pemilik sebelum pindah akun): laporan status hanya di chat Setup atau saat diminta; skrip `scripts/dev-up|dev-status|dev-down.ps1` agar pemilik menyalakan/mematikan sendiri tanpa Claude; panduan Classai Router untuk Claude Code di dokumen tersendiri `docs/CLAUDE-CODE-CLASSAI.md` (dihapus atas perintah pemilik bila tidak dipakai).
+- 2026-11-21 — **Skill pengajuan dipecah, cek manual, TTE Komdigi, usulan skill** (permintaan pemilik): analisis kelengkapan dipisah dari konsep jawaban karena PSP dokumennya dari skill lain, tetapi pemilik tetap butuh analisis untuk memutuskan. Tanda cek manual disimpan di butir checklist (bukan tabel baru) agar agen membacanya dari get_request yang sama. Verifikasi TTE memakai halaman web resmi lewat robot, bukan endpoint internal cekdokumen (API resminya butuh API key; memakai endpoint web dari server = mengakali). Usulan skill lewat agent_actions (pola persetujuan yang sudah ada) dan ditulis server, karena folder skill baca saja bagi Hermes; mount skill backend produksi dijadikan tulis-baca (perubahan lintas Setup).
+- 2026-11-21 — **Uji coba bersama Hermes & kategori Approval** (permintaan pemilik): Claude berbicara langsung dengan Hermes lewat AI Agent Chat untuk pekerjaan agen, lalu masukannya dijadikan perbaikan (uploadId berkas, cek disposisi di kebijakan, peringatan telaah usang). Meterai/tanda tangan diperiksa dengan model yang bisa melihat lewat Akai (pengamatan, bukan validasi keaslian), bukan OCR. Kategori Approval dipindah ke tabel milik pemilik karena tugas pemilik bisa berganti; kunci lama dipertahankan sebagai kategori bawaan agar data & kebijakan lama tetap berlaku; otomatis memakai kata kunci (dapat diperiksa, tanpa biaya AI), agen boleh menetapkan kategori dengan jejak riwayat.
+- 2026-11-20 — **Approval SIMAN lengkap + gerbang SRIKANDI + kebijakan SIMAN** (permintaan pemilik): berkas Kelengkapan dirujuk (bukan disalin) agar tidak ganda di storage; daftar aset sebagai CSV agar telaah bisa membacanya lewat ekstraksi. Gerbang SRIKANDI dipasang di server (pendaftaran langsung & permintaan agen), bukan hanya tombol. Kebijakan SIMAN = sumber baru di tabel kebijakan yang sama (`trigger`), dengan pemeriksaan fakta dari server (kelengkapan, jenis aset, kecocokan nilai, status analisis) karena tidak ada data master untuk dicocokkan; memakai jalur setuju → Register → robot yang sudah ada. Tidak diuji-coba atas arahan pemilik.
+- 2026-11-20 — **Hasil workflow SIMAN masuk Approval + istilah "AI agent"** (permintaan pemilik): Approval = tempat keputusan atas hasil kerja AI agent,
+  jadi dokumen hasil menjadi pengajuan PSP (satu per tiket, dipakai ulang selama belum diputuskan) dan panel SIMAN hanya menautkannya. Pengajuan dibuat
+  langsung, bukan lewat `RequestsService.create`, agar pemicu Kebijakan Otomatis tidak menjalankan agen lain atas hasil agen. Istilah tampilan "agen" → "AI agent"
+  di SIMAN, panel Workflow, dan penanda Approval (nilai data `agen` / `mcp` tetap).
+- 2026-11-20 — **SIMAN: akun, firewall, dokumen hasil, SRIKANDI** (permintaan pemilik): data Permohonan = milik akun SIMAN yang tersambung (record
+  akun lain dihapus, bukan disembunyikan). Pengaman firewall dipilih "jeda, bukan tolak" untuk tugas berurutan (20 dtk) dan "tolak" untuk sinkron
+  daftar yang terlalu sering (10 mnt). Dokumen hasil dibuat **server** dari data analisis agen (Hermes tidak bisa menjalankan skrip), disimpan
+  sebagai dokumen ONLYOFFICE agar bisa diubah pemilik; suntingan dibaca agen sebagai perbedaan teks dan disimpan di memori Hermes (bukan di Akasha).
+  SRIKANDI lewat Register yang sudah ada (formulir menanyakan isian yang belum diketahui); Dokumen Analisis boleh konvensional (tanpa SRIKANDI).
+- 2026-11-20 — **Daftar Permohonan SIMAN** (permintaan pemilik): "didispo ke kita" dibaca dari daftar Penetapan Pengelolaan akun SIMAN (halaman itu
+  hanya memuat tiket yang didisposisikan ke akun tersebut), bukan membuka detail tiap tiket — 300 tiket terbaca ± 16 dtk. Disimpan sebagai record
+  type (pola Naskah Masuk SRIKANDI) agar dipakai tabel, dropdown workflow, dan agen. Nomor tiket workflow dipilih lewat jenis isian baru
+  `siman_ticket`; menu `penetapan-siman` yang sudah aktif diubah langsung di database atas permintaan pemilik.
+- 2026-11-19 — **Workflow Penetapan SIMAN** (permintaan pemilik, akun SIMAN teman yang punya disposisi): proses tiket dibangun sebagai skill
+  `penetapan-siman` + kemampuan umum (job robot baca tiket yang mengunduh berkas kelengkapan, tabel berulang di templat), bukan fitur native.
+  Robot hanya membaca; satu-satunya klik pengubah = aktifkan peran Analis Eselon 1 (wajib agar SIMAN membuka halaman pengelolaan). Atas arahan
+  pemilik dokumen analisis & draft PSP tidak diunggah (tidak ke SIMAN, tidak ke Akasha). Kop Dokumen Analisis = kop gambar templat surat Ditjen Hubud.
+- 2026-11-19 — **SRIKANDI sesi & baca tiket SIMAN** (laporan & permintaan pemilik): sesi SRIKANDI bukan berubah dari SRIKANDI, melainkan alamat
+  konektor diisi halaman login; robot kini membuka beranda untuk cek sesi dan tidak pernah menimpa sesi sah dengan sesi yang gagal. SIMAN: pemilik
+  menjelaskan peran Analis Eselon 1 harus diaktifkan dulu; Claude mengaktifkannya lewat tayangan robot (dikonfirmasi pemilik di chat) lalu membaca
+  13 tiket 7.4.3 + seluruh aset (baca saja). Hasil disimpan di `_uji/` (data instansi, tidak ikut git).
 - 2026-11-19 — **Ringkasan panjang & mode Makna** (laporan pemilik): log Akai menunjukkan ringkasan berhasil (237 dtk, 32 rb token masukan)
   tetapi Akasha sudah memutus di 180 dtk → batas dinaikkan, bukan diubah menjadi pekerjaan latar belakang (cukup untuk transkrip rapat;
   pekerjaan asinkron bila nanti melewati 10 mnt). Mode Makna sebelumnya selalu menyertakan kandidat vektor terdekat apa pun kemiripannya
@@ -3178,8 +3221,10 @@ kecil + tanda hubung, `description` = kapan dipakai) → langkah kerja memakai a
 memutuskan) → `docker restart akasha-hermes` → muncul di Asisten Agen & panel Approval. Alat MCP baru yang dibutuhkan skill →
 resep "Menambah tool MCP".
 
-**Menambah jenis pengajuan / templat**: jenis baru → `REQUEST_KINDS` + `KIND_LABELS` (backend `request-logic.ts`) & frontend
-`request-utils.ts` (label sama). Templat baru cukup diunggah user (Tools → ONLYOFFICE → Dokumen → Templat dokumen) dengan penanda
+**Tabel berulang di templat DOCX**: baris tabel berisi `${#nama}` di sel pertama … `${/nama}` di sel terakhir (atau paragraf sendiri) → isi
+`values.nama = [{ penanda: teks }, …]` (`templateValues`, maks. 3.000 baris); penanda di dalamnya tidak dihitung "belum diisi".
+
+**Menambah jenis pengajuan / templat**: kategori pengajuan dikelola pemilik di Approval → Kategori (tabel `request_categories`); kategori bawaan untuk akun baru → `DEFAULT_CATEGORIES` (`requests/request-categories.ts`). Jangan menulis logika khusus satu kunci kategori kecuali yang memang dibuat sistem (SIMAN = `psp`). Templat baru cukup diunggah user (Tools → ONLYOFFICE → Dokumen → Templat dokumen) dengan penanda
 `${nama_isian}` (huruf/angka/garis bawah) dan paragraf petunjuk yang seluruhnya `[…]`; penanda khusus SRIKANDI baru →
 `isSrikandiTag` (`template-engine.ts`).
 
@@ -3558,6 +3603,22 @@ utama tetap < 500 kB (cek output `npm run build`).
   sendiri (pola `/drive-picker` + `postMessage`). Server tiruan yang menerima unggahan biner wajib membaca badan sebagai `Buffer`, bukan string.
 - Mengubah kode backend saat uji panjang berjalan (uji token, transkrip) me-restart `nest --watch` dan memutus uji (ECONNRESET) → tulis
   perubahan setelah uji selesai.
+- Tayangan robot (`/robot/sessions/:id/input`): tombol dikirim sebagai `{ type: "key", key: "Enter" }` (bukan `text`), daftar tombol yang boleh di
+  `services/robot/src/logic.ts` `KEYS`; select asli dipilih dengan klik → Escape → ArrowDown. Cek sesi / Jaga sesi membuka `homeUrl` sistem; sistem
+  yang alamat konektornya halaman login wajib punya `homeUrl` (membuka halaman login saat sudah masuk bisa menghapus token, contoh SRIKANDI).
+- Konektor robot menyimpan sesi (`sessionEnc`) terpisah dari kredensial: login otomatis memakai sesi tersimpan lebih dulu. Mengganti akun tanpa
+  melupakan sesi = robot tetap masuk sebagai akun lama (OTP tidak diminta); `setCredentials` kini melupakan sesi bila nama pengguna berganti.
+- `docker compose build robot` bisa macet tanpa galat di "transferring context" (konteks root dari `/mnt/d`, 2026-11-19). Tambalan sementara untuk
+  menguji: `npm run build -w @workingspace/robot` lalu `docker cp services/robot/dist/. akasha-robot:/app/services/robot/dist/` + `docker restart
+  akasha-robot` — hilang saat container dibuat ulang, jadi image tetap harus dibangun ulang (chat Setup).
+- Halaman verifikasi TTE Komdigi (bingkai cekdokumen.id) menampilkan jam tanda tangan menurut zona peramban walau berlabel "Asia/Jakarta": robot wajib `timezoneId: Asia/Jakarta` (konteks robot sudah), skrip uji tanpa zona menampilkan jam +7.
+- Halaman SIMAN = Angular + ngx-datatable (bukan `<table>`); ikon mata daftar tiket membuka **tab baru**; panel tab bisa berisi beberapa tabel
+  (modal tersembunyi) → judul kolom kembar menimpa nilai bila semua tabel dibaca sekaligus (docs/AI-AGENT.md §26.5c).
+- Backend preview milik sesi lain bisa berhenti memuat ulang (beberapa `nest --watch` tertinggal, `dist/main` lama tetap jalan walau `dist` sudah
+  dibangun ulang); menghentikan proses sesi lain ditolak pengaman otomatis → minta pemilik menyalakan ulang backend, uji logika baru lewat
+  `dist/<modul>.js` langsung.
+- Membandingkan objek dari kolom jsonb dengan `JSON.stringify`: PostgreSQL menyusun ulang urutan kunci → selalu "berubah". Urutkan kunci dulu
+  (pola `stable()` di `robot/siman-requests.ts`); kolom yang terus bertambah (Durasi SIMAN) dikecualikan.
 - Panggilan Akasha → Akai yang menunggu jawaban utuh (generate non-stream, Claude lewat format Anthropic) terputus diam-diam di 5 menit oleh
   `headersTimeout` undici bawaan `fetch` Node, walau `AbortSignal` lebih panjang → pakai dispatcher `LONG_CALLS` (`akai.service.ts`, paket
   `undici` 7.x = major yang dibundel Node) + `as RequestInit` (tipe `RequestInit` tidak mengenal `dispatcher`). Cek kegagalan AI di Akasha

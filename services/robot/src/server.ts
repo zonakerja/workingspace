@@ -9,6 +9,8 @@ import { parseSendRequest } from "./srikandi-send.js";
 import { parseSubmitRequest } from "./ekinerja-submit.js";
 import { inboxRequestedKinds } from "./srikandi-inbox.js";
 import { requestedCategories } from "./srikandi-reference.js";
+import { TICKET_PATTERN } from "./siman-ticket.js";
+import { TTE_MAX_BYTES } from "./tte-verify.js";
 
 /**
  * Service robot Akasha (tahap 6 docs/AI-AGENT.md §21): API internal yang hanya dipanggil backend (token
@@ -224,6 +226,35 @@ async function route(req: IncomingMessage, res: ServerResponse) {
       200,
       await pool.srikandiReferences({ ...target(body), categories: requestedCategories(body.categories) }),
     );
+  }
+  if (req.method === "POST" && url.pathname === "/jobs/siman/ticket") {
+    // Baca satu tiket SIMAN (info, aset, kelengkapan + unduh berkas, analisis, surat, riwayat) — tidak mengubah tiket
+    const body = await readJson(req);
+    const ticket = str(body.ticket)?.trim().toUpperCase();
+    if (!ticket || !TICKET_PATTERN.test(ticket)) throw new HttpError(400, "Nomor tiket tidak valid (PPL…).");
+    const source = body.source === "permohonan" ? "permohonan" : "penetapan";
+    const role = str(body.role)?.trim() || "Analis Eselon 1";
+    return json(
+      res,
+      200,
+      await pool.simanTicket({ ...target(body), ticket, source, documents: body.documents !== false, role }),
+    );
+  }
+  if (req.method === "POST" && url.pathname === "/jobs/siman/requests") {
+    // Baca daftar Permohonan + Penetapan Pengelolaan SIMAN (tiket di Penetapan = didisposisikan ke akun ini) — baca saja
+    const body = await readJson(req);
+    const role = str(body.role)?.trim() || "Analis Eselon 1";
+    const maxPages = Math.min(Math.max(Number(body.maxPages) || 20, 1), 40);
+    return json(res, 200, await pool.simanRequests({ ...target(body), role, maxPages }));
+  }
+  if (req.method === "POST" && url.pathname === "/jobs/tte/verify") {
+    // Verifikasi TTE PDF di halaman resmi Komdigi (tanpa login) — hanya mengunggah berkas & membaca hasil
+    const body = await readJson(req, MAX_REGISTER_BODY);
+    const data = typeof body.fileBase64 === "string" ? Buffer.from(body.fileBase64, "base64") : null;
+    if (!data?.length) throw new HttpError(400, "Berkas PDF wajib.");
+    if (data.length > TTE_MAX_BYTES) throw new HttpError(400, "Berkas lebih dari 20 MB.");
+    if (data.subarray(0, 5).toString() !== "%PDF-") throw new HttpError(400, "Berkas bukan PDF.");
+    return json(res, 200, await pool.tteVerify({ fileName: str(body.fileName) ?? "dokumen.pdf", data }));
   }
   throw new HttpError(404, "Tidak ditemukan.");
 }

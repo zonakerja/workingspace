@@ -12,14 +12,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useRequestMutations } from "@/data/use-requests";
 import { useOpenSession } from "@/hooks/use-retained";
 import { errorMessage } from "@/lib/api/client";
 import { uploadsApi } from "@/lib/api/endpoints";
-import type { RequestKind } from "@/types/api";
-import { KIND_OPTIONS } from "./request-utils";
+import { AUTO_CATEGORY, RequestCategorySelect } from "./request-category-select";
 
 /** Berkas pemohon dibuat sebagai context `request` → ikut terhapus bersama pengajuan. */
 const UPLOAD_CONTEXT = "request";
@@ -53,7 +51,7 @@ export function CreateRequestDialog({
 
 function CreateRequestForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: (id: string) => void }) {
   const { create } = useRequestMutations();
-  const [kind, setKind] = useState<RequestKind>("surat");
+  const [kind, setKind] = useState<string>(AUTO_CATEGORY);
   const [form, setForm] = useState({
     title: "",
     applicant: "",
@@ -99,19 +97,8 @@ function CreateRequestForm({ onCancel, onCreated }: { onCancel: () => void; onCr
     <>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-1.5">
-          <Label>Jenis</Label>
-          <Select value={kind} onValueChange={(v) => setKind(v as RequestKind)}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {KIND_OPTIONS.map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>Kategori</Label>
+          <RequestCategorySelect value={kind} onChange={setKind} allowAuto />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="req-applicant">Pemohon</Label>

@@ -9,7 +9,7 @@ export function SimanWorkflowTab() {
     <FeatureWorkflowTab
       placement="siman"
       feature="SIMAN"
-      hint={`Ajarkan proses SIMAN kepada agen di AI Agent → Chat (misalnya cara mengecek tiket pengajuan satker dan lampiran Excel-nya), lalu minta agen membuat workflow untuk SIMAN. Bila izin "SIMAN" diaktifkan, agen bisa menjaga sesi dan membaca halaman SIMAN tanpa mengklik apa pun; memasukkan surat keputusan ke SIMAN belum dibangun.`}
+      hint={`Ajarkan proses SIMAN kepada AI agent di AI Agent → Chat (misalnya cara mengecek tiket pengajuan satker dan lampiran Excel-nya), lalu minta AI agent membuat workflow untuk SIMAN. Bila izin "SIMAN" diaktifkan, AI agent bisa menjaga sesi dan membaca halaman SIMAN tanpa mengklik apa pun; memasukkan surat keputusan ke SIMAN belum dibangun.`}
     />
   );
 }

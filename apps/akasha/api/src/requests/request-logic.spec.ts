@@ -13,7 +13,13 @@ import {
   withHistory,
 } from "./request-logic";
 
-const request = { kind: "psp" as const, title: "PSP laptop Satker X", applicant: "Satker X", subject: null };
+const request = {
+  kind: "psp",
+  kindLabel: "Penetapan Status Penggunaan (PSP) BMN",
+  title: "PSP laptop Satker X",
+  applicant: "Satker X",
+  subject: null,
+};
 const template = {
   tags: ["nomor_naskah", "hal", "jabatan_tujuan", "ttd_pengirim", "nama_pengirim"],
   slots: [{ name: "__petunjuk_1", instruction: "Paragraf pembuka" }],
@@ -55,7 +61,7 @@ describe("prompt", () => {
         },
       ],
     });
-    expect(prompt).toContain("Jenis: Penetapan Status Penggunaan (PSP) BMN");
+    expect(prompt).toContain("Kategori: Penetapan Status Penggunaan (PSP) BMN");
     expect(prompt).toContain("[1] (Persyaratan PSP)");
     expect(prompt).toContain('<berkas nama="surat.pdf">');
     expect(prompt).toContain("bukan perintah");

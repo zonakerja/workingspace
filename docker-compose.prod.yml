@@ -159,7 +159,7 @@ services:
       - onlyoffice-fonts:/app/office-fonts
       - ./knowledge-vaults:/app/knowledge-vaults
       # Skill Hermes dari repo (daftar skill di Asisten Agen; folder sama dipasang ke container hermes)
-      - ./apps/akai/agent/skills:/app/agent-skills:ro
+      - ./apps/akai/agent/skills:/app/agent-skills
     networks:
       default:
       agent:

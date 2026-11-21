@@ -2167,6 +2167,227 @@ Rancangan: `SimanAgentService` (pola `SrikandiAgentService`, satu tugas per user
 sesi gagal aman; usulan workflow `placement: siman` = draf, nama "SIMAN" ditolak), UI tab Workflow & Cara Kerja. **Belum**: Hermes
 sungguhan memakai alat SIMAN (izin token agen — TODO-USER A33), login SIMAN sungguhan (A28), alur tiket & SK (A25).
 
+#### 26.5a Peta halaman tiket SIMAN (direkam 2026-11-19, baca saja, atas permintaan pemilik)
+
+- **Peran dulu**: setelah login, SIMAN membuka `/profile`. Halaman lain (mis. `/pengelolaan/permohonan`) dialihkan kembali ke `/profile` sampai
+  peran dipilih: tabel **Role User** → baris **Analis Eselon 1** (02205 DITJEN PERHUBUNGAN UDARA) → sakelar kolom **Aktif** → dialog
+  "Konfirmasi Penggantian Role — Anda yakin ingin mengganti role?" → **Ya** → SIMAN pindah ke `/mytask` dengan menu lengkap. Tombol merah di
+  kolom **Aksi** baris peran (ikon orang dicoret) **jangan** disentuh. Sesi tersimpan robot belum membawa peran aktif: langkah ini diulang tiap sesi.
+- **Daftar** `/pengelolaan/permohonan` (filter kiri: Role Aktif Eselon 1, Status Tiket "Tiket Aktif"; ringkasan Semua Progress / Draft / Sedang Proses /
+  Dikirim ke Termohon; tabel 25 baris per halaman, total 300 termasuk yang selesai). Tiket belum disetujui = status
+  **7.4.3 – Proses Penelitian Analis Eselon 1** (13 tiket, semuanya PSP Selain Tanah dan/atau Bangunan); selesai = 11.4.5 – Selesai Proses
+  Penerbitan Persetujuan Eselon 1. Kolom: Nomor Tiket, Status, Kode/Nama Asal Pembuat, Tipe Pengelolaan, Tanggal Tiket, Durasi, Jenis BMN,
+  Pengelola/Pengguna, Pemohon, Termohon, Nilai Permohonan, Korwil, Nomor Surat Pemohon. Menyaring satu tiket: ketik di kotak cari kolom Nomor
+  Tiket lalu tombol **Terapkan** di panel kiri (Enter saja tidak menyaring). Spanduk "Error Bad Request" di halaman ini berasal dari SIMAN, bukan robot.
+- **Detail**: ikon mata di kolom Aksi → `/pengelolaan/permohonan-detail?token=<acak per buka>`. Panel kiri Informasi Umum (Nomor Tiket, Tipe,
+  Status, Durasi, Posisi Tiket, Jenis Aset, Penetapan, Asal Permohonan, Kode Satker, Pemohon, Termohon, Nomor Surat Pemohon); kepala Nilai
+  Kewenangan/Permohonan/Perolehan/Buku; tab **Daftar Aset** | Kelengkapan Dokumen | Dokumen Analisis | Riwayat Tiket. Daftar Aset: Kode Barang,
+  NUP, Nama Barang, Kode Register (32 hex), Kode/Nama Satker, Kode Satker Tujuan, Merk, Tipe, Tanggal Perolehan, Nilai Perolehan, Nilai Buku,
+  Nilai Permohonan, Luas, Peruntukan, Alamat, Kondisi, Keterangan, Dokumen & Status KIB, Tanggal Dibuat, Catatan. Bawaan 25 baris; pilihan
+  **Show** maks. 100 (select asli: fokus → Escape → ArrowDown ×2), tombol halaman berikutnya di kaki tabel.
+- **Uji baca 2026-11-19**: 13 tiket, 2.026 aset (1 tiket Kantor Pusat Setditjen 1.501 aset, 16 halaman); total nilai per tiket sama dengan
+  Nilai Permohonan di daftar. 3 aset berkondisi Rusak Berat (tiket Bandar Udara Djalaluddin Gorontalo, perolehan 2004). Hasil (CSV) di `_uji/`
+  (tidak ikut git). Dikerjakan lewat tayangan browser jarak jauh, belum ada job robot khusus: bahan untuk workflow SIMAN (A25).
+
+#### 26.5b Uji coba proses PSP (2026-11-19, tiket Padang PPL26091509580231330)
+
+Alur dari pemilik: tiket didisposisi Koordinator Eselon I → muncul di **Penetapan Pengelolaan** `/pengelolaan/penetapan-permohonan` (tampilan mirip
+Permohonan + tombol aksi di atas tabel; ringkasan Disposisi / Penelitian / Proses Terbit / Selesai — saat diuji semuanya 0) → (1) ekstrak Daftar Aset
+sebagai lampiran SK, (2) periksa Kelengkapan Dokumen, (3) Dokumen Analisis (checklist kelengkapan 7 butir + status + verifikator, contoh
+`Analis-PSP-Juwata-Tarakan.pdf`), (4) Draft KM PSP (Arial 12, F4, lampiran F4 mendatar, penanda SRIKANDI) → TTE & kirim lewat SRIKANDI →
+(5) unggah SK ke tab **Surat Keputusan** SIMAN.
+
+- **Kelengkapan Dokumen** (tab detail): tabel Jenis Dokumen, No/Tanggal Dokumen; ikon mata = modal metadata (Jenis "Surat Permohonan - Mandatory",
+  Nama File, Jabatan Penandatangan, Perihal, Status Dokumen, Catatan, Lihat Aset), ikon unduh = berkas. Tiket Padang hanya punya **satu** berkas
+  (surat permohonan 28/09/2026, status Lengkap) → SPTJM, listing, laporan kondisi, foto kemungkinan digabung di PDF itu. **Isi PDF belum terbaca**:
+  tayangan robot tidak menerima unduhan → butuh job robot SIMAN baca-saja yang mengunduh berkas kelengkapan (pola lampiran SRIKANDI `acceptDownloads`).
+- **Dokumen Analisis** (tab): daftar dokumen analisis yang sudah diunggah (Padang: "Dokumen Lainnya" No. 06.DA-X.2026). **Riwayat Tiket**: jejak
+  Analis Satker ↔ Koordinator Satker beserta catatan.
+- **Hasil uji**: konsep `Draft-SK-PSP-…Padang.docx` & `Dokumen-Analisis-PSP-…Padang.docx` (generator `_uji/siman-tools/psp-docs.cjs` dari `data.json`
+  tiket) diunggah ke Tools → ONLYOFFICE → Dokumen akun admin dev. Perbaikan atas draft contoh: diktum KESATU…KEDELAPAN + "sebagaimana dimaksud
+  dalam Diktum" (Lampiran II UU 12/2011), nilai diktum KEDUA = total lampiran (contoh: Rp115.573.000 ≠ Rp115.573.200), terbilang otomatis, Mengingat
+  1–10 berurutan tanpa penanda sambungan halaman ("5.Peraturan…", "Ketiga…"), Menetapkan konsisten "DIREKTORAT JENDERAL PERHUBUNGAN UDARA", spasi
+  "Milik Negara", "Tahun" (bukan "tahun"), tanggal surat dari SIMAN (28 September, contoh 21 September), baris JUMLAH lampiran + tanda tangan.
+  Merk/Tipe & nama barang lampiran = data SIMAN ("PC", "Laptop"), berbeda dengan contoh ("HP", "Asus Vivo Book") — perlu keputusan pemilik.
+  Proses ini kelak menjadi skill + workflow agen (bukan fitur native).
+
+#### 26.5c Workflow Penetapan Pengelolaan SIMAN (2026-11-19, akun SIMAN teman pemilik)
+
+- **Halaman Penetapan Pengelolaan** (akun yang punya disposisi): 23 tiket — Penelitian 2 (`7.4.3`), Selesai 21 (`11.4.5`); semuanya
+  **PSP Selain Tanah dan/atau Bangunan** (filter Tipe Pengelolaan SIMAN memuat 24 jenis: PSP, Alih Status, Penggunaan Sementara, Sewa, Pinjam Pakai,
+  KSP, KETUPI, KSPI, BGS, BSG, Penjualan, Tukar Menukar, Hibah, PMPP, Pemusnahan, empat jenis Penghapusan, Penjualan Bongkaran, Sewa
+  Infrastruktur, Penggunaan Bersama). Detail `/pengelolaan/penetapan-permohonan/details?token=…` punya tab **Disposisi Analis** | Daftar Aset |
+  Kelengkapan Dokumen | Dokumen Analisis | **Surat/Keputusan** | Riwayat Tiket; kolom aset tambahan: Nilai Persetujuan, Jangka Waktu, No SK,
+  Catatan (Persetujuan). Ikon unduh di Kelengkapan membuka **tab baru berisi PDF** (tayangan robot macet karena tab PDF tidak bisa
+  ditangkap layar → pengunduhan lewat job, bukan tayangan).
+- **Job robot `POST /jobs/siman/ticket`** (`services/robot/src/siman-ticket.ts` + test, `BrowserPool.simanTicket`): sesi tersimpan → daftar
+  Penetapan/Permohonan → bila dialihkan ke `/profile`, aktifkan peran (bawaan Analis Eselon 1; dialog "mengganti role" → Ya) → saring
+  Nomor Tiket + Terapkan → ikon mata → baca Informasi Umum (`parseInfo`) dan setiap tab (Show 100 + "go to next page"), Kelengkapan:
+  klik ikon unduh tiap baris → berkas dari unduhan / tab baru (diambil ulang, domain sama) / respons jaringan. Tidak ada tombol lain yang
+  diklik; tidak mengunggah / menyetujui / memproses.
+- **Backend**: `RobotService.readSimanTicket` (kunci sistem `siman`, berkas → berkas Akasha konteks `siman`, dipakai ulang per checksum),
+  `POST /robot/siman/ticket { ticket, source?, documents? }`. **MCP** (cakupan `siman:robot`): `siman_read_ticket` (latar belakang),
+  `siman_ticket_result`, `read_siman_file { uploadId, offset? }` (teks ekstraksi berkas konteks `siman` milik pemilik).
+- **Templat**: mesin templat kini mendukung **tabel berulang** `${#nama}…${/nama}` (nilai = daftar baris; `analyzeTemplate().loops`), untuk
+  lampiran daftar aset di templat KM PSP. Templat Dokumen Analisis PSP & KM PSP belum diunggah (pemilik).
+- **Skill `penetapan-siman`** (`apps/akai/agent/skills/penetapan-siman/SKILL.md`): baca tiket → periksa aset & kelengkapan (isi berkas) →
+  Dokumen Analisis (kop Ditjen Hubud: dokumen dibangun di atas berkas templat **Surat Dinas** — paragraf gambar kop + sectPr A4 margin 1418/1304/851/1304 disalin apa adanya, badan diganti isi analisis; penandatangan penanda SRIKANDI) →
+  konsep KM PSP → dokumen dari templat bila ada → laporan. Jenis selain PSP: dibaca & diringkas, persyaratan menunggu diajarkan pemilik.
+- **Temuan tiket Letung PPL26110408030558728**: 36 aset Rp99.467.100 (cocok dengan kepala tiket); Nomor Surat Pemohon di kepala tiket
+  (PL.301/28/XI/UPBU-LTG/2026 = surat koreksi pencatatan) berbeda dengan Surat Permohonan di kelengkapan (PL.202/14/XI/UPBU-LTG/2026,
+  04/11/2026) → konsep SK memakai baris Surat Permohonan. Isi berkas (dibaca job + Markdown Converter): surat ber-TTE + Lampiran I (36 BMN +
+  kondisi) + Lampiran II (foto); SPTJM hasil scan (meterai tidak bisa dipastikan dari teks OCR); surat koreksi pencatatan + RAB proporsional
+  (total sama). Status analisis: LENGKAP. **Tiket Padang PPL26091509580231330**: surat bertanggal **21 September 2026** (kolom Tanggal Dokumen SIMAN
+  28/09/2026 = tanggal unggah) dan hanya berisi surat + lampiran daftar barang → SPTJM, laporan kondisi, foto **Tidak** → TIDAK LENGKAP.
+- **Struktur halaman SIMAN** (untuk robot): Angular + **ngx-datatable** — judul `datatable-header-cell` (`.datatable-header-cell-title` + kotak cari
+  `input` di sel yang sama), baris `datatable-body-row` → `datatable-body-cell` (sel dipecah grup kiri/tengah/kanan, urutannya tetap sama
+  dengan judul). Satu panel tab bisa memuat beberapa `ngx-datatable` (tabel di modal tersembunyi) → baca tabel pertama yang berbaris. Ikon mata
+  di daftar membuka detail di **tab baru**. Sakelar peran di Profil = ikon `<em>` di baris berbasis div. Riwayat Tiket = linimasa teks.
+  Tanggal Dokumen di Kelengkapan bisa berbeda dengan tanggal pada surat → selalu pakai tanggal pada isi surat.
+- **Workflow `penetapan-siman`** diusulkan lewat MCP (token agen) sebagai draf menu SIMAN → Workflow (isian: nomor tiket, halaman, catatan);
+  aktif setelah pemilik menyetujui di Approval → Usulan Agen (disetujui 2026-11-20).
+
+#### 26.5d Daftar Permohonan SIMAN & tanda disposisi (2026-11-20, permintaan pemilik)
+
+- **Arahan**: menu SIMAN memuat daftar Permohonan (asal, nomor tiket, informasi permohonan); tiket yang didisposisikan ke pemilik ditandai dan
+  tampil secara bawaan, seluruh tiket tetap bisa ditampilkan; nomor tiket di workflow dipilih dari dropdown cari, tidak diketik.
+- **Tanda disposisi** = tiket juga tampil di daftar **Penetapan Pengelolaan** akun SIMAN pemilik (halaman itu hanya memuat tiket yang
+  didisposisikan Koordinator Eselon I ke akun tersebut). Detail tiket tidak dibuka per tiket (300 tiket) sehingga sinkron ± 16 dtk.
+- **Robot** `POST /jobs/siman/requests` (`BrowserPool.simanRequests`): buka Permohonan Pengelolaan (aktifkan peran bila perlu, helper bersama
+  `simanOpenList`) → Show 100 + halaman berikutnya → buka Penetapan Pengelolaan → sama. Hanya membaca.
+- **Backend**: record type `siman_request` (ID = nomor tiket; kolom ticket, status, tipe, date, satkerCode/Name, value, disposed, active,
+  syncedAt; kolom asli di `fields`, kolom Penetapan di `dispositionFields`), logika murni + test `robot/siman-requests.ts` (judul kolom
+  dicocokkan fleksibel, tanggal & rupiah SIMAN, kolom **Durasi** dan urutan kunci jsonb tidak dihitung perubahan, tiket hilang = `active:
+  false`, daftar Penetapan gagal dibaca = tanda disposisi lama dipertahankan). `RobotService.syncSimanRequests` = job `siman_requests`
+  (bisa dijadwalkan di Connector → Otomasi terjadwal, bawaan nonaktif), `POST /robot/siman/requests/sync`, MCP `siman_sync_requests`
+  (latar belakang). Agen hanya membaca record ini (`AGENT_READONLY_TYPES`).
+- **Frontend**: tab **SIMAN → Permohonan** (tab pertama, `features/siman/requests-board.tsx`, logika + test `request-logic.ts`): tabel
+  Nomor Tiket (+ "Didispo ke Anda"), Asal Permohonan, Tipe, Tanggal, Nilai, Status; pilihan Didispo ke saya (bawaan) | Semua permohonan,
+  status (proses/selesai), cari, paginasi 25; `?request=<tiket>` = dialog detail + tombol workflow SIMAN yang berisian tiket
+  (`/siman/workflow?run=<menu>&ticket=<tiket>` → modal workflow terbuka dengan tiket terpilih).
+- **Jenis isian workflow `siman_ticket`** (`FIELD_TYPES`): dropdown cari dari `siman_request` (bawaan tiket didispo yang masih
+  diproses; centang "Tampilkan semua tiket"), server memeriksa format PPL…. Isian Nomor tiket workflow `penetapan-siman` yang sudah aktif
+  diubah ke jenis ini atas permintaan pemilik (langsung di database, data menu).
+- **Diuji ke SIMAN sungguhan** (akun teman pemilik, baca saja): 300 permohonan, 23 didispo (sama dengan isi Penetapan), 2 di antaranya masih
+  7.4.3 (Letung, Padang); sinkron ulang tanpa perubahan = 0 baris ditulis.
+
+#### 26.5e Akun SIMAN, pengaman firewall, dokumen hasil & SRIKANDI (2026-11-20, permintaan pemilik)
+
+- **Data tertaut akun SIMAN**: setiap record `siman_request` membawa `account` (hash nama pengguna kredensial, `simanAccountKey`; login manual =
+  "manual") + `accountHint` (tersamar). Sinkron menghapus record akun lain; menyimpan kredensial akun SIMAN lain (`setCredentials`) menghapus
+  seluruh daftar lama. Tab Permohonan menampilkan "Akun SIMAN <tersamar>".
+- **Ulasan firewall Kemenkeu** (pemilik: sejauh ini aman, IP tidak diblokir). Lalu lintas robot: sinkron daftar ± 8–10 muat halaman (Show 100,
+  jeda 1,5 dtk per halaman), baca tiket = detail + 6 tab + ≤ 30 unduhan, jaga sesi = satu halaman. Celah yang bisa membuat lalu lintas beruntun
+  dan kini ditutup: (1) agen/tombol bisa memanggil sinkron daftar berulang → **jeda minimum 10 menit** (`REQUESTS_COOLDOWN_MS`, juga jadwal);
+  (2) tugas SIMAN berturut-turut (baca tiket satu per satu) → **jeda 20 dtk** antar-tugas robot SIMAN per user (`SIMAN_PACE_MS`, di
+  `RobotService.exclusive`); (3) unduhan kelengkapan beruntun → **jeda 1,5 dtk** antar-unduhan; (4) jadwal bawaan "Ambil daftar Permohonan"
+  diubah dari tiap jam menjadi **sekali sehari kerja 07.45** (bawaan nonaktif). Tidak ada percobaan ulang otomatis selain klik ikon mata ≤ 3 kali;
+  login otomatis tidak diulang (CAPTCHA/OTP diketik pemilik). Hindari: menyalakan jaga sesi + sinkron tiap jam bersamaan tanpa perlu.
+- **Workflow Penetapan SIMAN**: isian "Halaman tiket" dihapus — pemrosesan selalu lewat halaman **Penetapan Pengelolaan**; dropdown tiket hanya
+  tiket yang didispo ke pemilik (bawaan yang masih diproses, centang "tiket yang sudah selesai"); tombol workflow di dialog tiket hanya untuk tiket
+  yang didispo. Menu yang sudah aktif diubah di database atas permintaan pemilik.
+- **Dokumen hasil** (`robot/siman-documents.ts` + `siman-documents.service.ts`, test): generator dari `_uji/siman-tools/psp-docs.cjs` dipindah ke
+  server (pustaka `docx` + `pizzip`), keluaran identik dengan dokumen yang disetujui pemilik (diuji: teks Analisis & KM PSP Letung = 0 perbedaan).
+  Kop Dokumen Analisis = templat dokumen ONLYOFFICE milik pemilik bernama "Surat Dinas" (tanpa templat = tanpa kop + catatan); lambang
+  Garuda KM PSP = `apps/akasha/api/templates/siman/garuda.png`. MCP `create_siman_documents { ticket, data, include? }` (aset dari hasil
+  `siman_read_ticket` terakhir di memori backend; KM PSP hanya bila LENGKAP; hanya tiket didispo) → DOCX konteks `office-workspace`
+  (juga tampil di Tools → ONLYOFFICE → Dokumen) + `siman_request.documents[]` (kind, uploadId, originalText = teks buatan agen).
+- **Belajar dari suntingan pemilik**: MCP `siman_ticket_documents { ticket?, unlearnedOnly?, markLearned? }` = versi ONLYOFFICE + baris yang
+  dihapus/ditambah (`textChanges`, teks dari ekstraksi yang dibaca ulang setiap simpan ONLYOFFICE). Skill: sebelum menyusun dokumen, ambil suntingan
+  yang belum dipelajari → simpan polanya ke memori Hermes (`memory`) → `markLearned` (`learnedVersion`). UI: `GET /robot/siman/requests/:ticket/documents`.
+- **SRIKANDI**: panel **Dokumen hasil** di dialog tiket (`features/siman/ticket-documents.tsx`): Periksa & ubah (ONLYOFFICE); Dokumen Analisis =
+  **Konvensional** (cetak & tanda tangan basah, `method: konvensional`, tidak ke SRIKANDI) atau **Digital (SRIKANDI)**; Konsep KM PSP = **Naikkan
+  ke SRIKANDI**. Keduanya menyimpan paksa ONLYOFFICE lalu membuka formulir Register (berkas & hal terisi; isian SRIKANDI yang belum diketahui
+  ditandai "Belum lengkap" untuk diisi pemilik) → `registerId` di dokumen. Agen: setelah pemilik menyatakan oke, menanyakan metode Analisis dan
+  isian SRIKANDI yang belum diketahui, menyiapkan `srikandi_outgoing` lalu `srikandi_request_register` (persetujuan pemilik; Kirim Konsep tetap
+  pemilik + PIN).
+- **Hasil kerja masuk Approval** (permintaan pemilik 2026-11-20): `create_siman_documents` membuat / memakai ulang **satu pengajuan PSP per tiket**
+  (`siman_request.requestId`, sumber AI agent, status Menunggu verifikasi, riwayat "oleh AI agent") berisi dokumen hasil (konteks `request-document`,
+  ikut terhapus bersama pengajuan). Pengajuan yang sudah diputuskan pemilik → pengajuan baru. Dibuat langsung lewat Prisma (tanpa pemicu Kebijakan
+  Otomatis). Dialog tiket SIMAN punya **Buka di Approval**; di Approval dokumen dibuka di ONLYOFFICE, tombol SRIKANDI, Setujui/Tolak. Dokumen Letung uji
+  dipindah ke pengajuan Approval. Istilah di tampilan SIMAN, panel Workflow, dan penanda sumber/riwayat Approval = **AI agent**.
+- **Diuji**: unit backend 486 & robot 76 & frontend 369, lint, typecheck; generator dengan data tiket Letung sungguhan; browser: akun tersamar,
+  workflow tanpa "Halaman tiket", panel Dokumen hasil + formulir Register terisi (dokumen uji ditautkan sementara lalu dihapus). Setelah backend
+  dinyalakan ulang: MCP baca tiket Letung → create_siman_documents → 2 dokumen berkop di ONLYOFFICE, smoke penuh lulus. **Belum**: Hermes
+  sungguhan menjalankan workflow dari UI.
+
+#### 26.5f Kelengkapan & aset ke Approval, gerbang SRIKANDI, Kebijakan Otomatis SIMAN (2026-11-20, permintaan pemilik)
+
+Masalah: telaah di Approval menjawab "perlu verifikasi dokumen" karena pengajuan hasil workflow hanya berisi dokumen buatan agen.
+Kini `create_siman_documents` juga mengisi pengajuan Approval (`SimanDocumentsService.toApproval`):
+
+- **Berkas pemohon** = berkas Kelengkapan SIMAN yang diunduh robot (context `siman`, hanya dirujuk — `RequestsService.removeUpload`
+  tidak menghapus berkas berkonteks selain `request`/`request-document`) + **Daftar Aset <tiket>.csv** dari daftar aset usulan
+  (context `request`, diganti saat dibuat ulang).
+- **Analisis** = ringkasan (jumlah, nilai, cocok dengan kepala tiket), isian, checklist dari `data.kelengkapan` agen
+  (Ada → ada, Tidak → tidak_ada, lainnya → perlu_dicek, "-" dilewati).
+
+**Aturan kelengkapan PSP** (pemilik): bukti kepemilikan hanya untuk tanah/bangunan; selain itu wajib SPTJM di Kelengkapan; Listing BMN
+tidak wajib (daftar aset usulan sudah memastikan aset tercatat); yang diperiksa = daftar barang di surat sama dengan daftar aset usulan.
+Ditulis di skill `penetapan-siman`.
+
+**Gerbang SRIKANDI**: naskah dari pengajuan Approval baru boleh didaftarkan setelah pengajuannya **disetujui/dikirim**
+(`RobotService.approvalBlocker`: pengajuan dari `sourceType: "request"` + `sourceId`, atau berkas naskah yang menjadi dokumen
+pengajuan). Dipakai pendaftaran langsung (bukan `dryRun`) dan permintaan agen `srikandi_request_register`; tombol SRIKANDI di detail
+Approval & panel Dokumen hasil SIMAN nonaktif sebelum disetujui.
+
+**Kebijakan Otomatis sumber "Workflow SIMAN"** (`agent_policies.trigger = "siman"`, logika murni + test `agent/siman-policy.ts`):
+dievaluasi server setelah dokumen dibuat (`AgentPolicyService.decideSiman`, hanya pemilik agen). Fakta dihitung server, bukan dari
+teks model: Surat Permohonan & SPTJM ada di Kelengkapan (berkas terambil), aset bukan tanah/bangunan, `cocokDenganKepala`, status
+analisis LENGKAP, Dokumen Analisis + Konsep KM PSP ada. Lolos + mode Otomatis + templat Register = pengajuan disetujui (`by:
+"kebijakan"`) lalu konsep **KM PSP** didaftarkan (Simpan konsep) setelah masa tunda lewat jalur kebijakan yang sudah ada; shadow /
+gagal / batas harian = dicatat, pengajuan tetap menunggu pemilik. Mode Otomatis boleh tanpa pencocokan data master untuk sumber ini.
+**Belum diuji-coba** atas arahan pemilik (hanya unit test logika).
+
+#### 26.5g Uji coba bersama Hermes, periksa visual berkas, kategori Approval (2026-11-21, permintaan pemilik)
+
+Mulai tahap ini Claude berkomunikasi langsung dengan Hermes (menu AI Agent → Chat, sebagai pemilik) untuk pekerjaan yang memang
+dikerjakan agen, lalu masukan Hermes dipakai mengembangkan alat & skill.
+
+- **`inspect_file { uploadId, question }`** (`requests:read`, `RequestsService.inspectFile`): berkas PDF/gambar milik sendiri (konteks
+  `request`, `siman`, `request-document`, ≤ 20 MB) dikirim ke Akai tugas Umum (model yang bisa melihat) dengan prompt pengamatan →
+  meterai elektronik/tempel, tanda tangan basah/TTE, cap, foto; jawaban diakhiri "Kesimpulan: ya | tidak | tidak terlihat jelas". Hasil uji
+  Letung: SPTJM = meterai tempel Rp10.000 + tanda tangan basah + cap (hal. 1); Permohonan PSP = TTE (QR BSrE). Pengamatan, **bukan**
+  validasi keaslian (TTE tetap divalidasi pada PDF asli).
+- `get_request` memuat `files: { name, uploadId, mimeType, role: "pemohon" }` dan `read_request_files` memuat uploadId (masukan Hermes:
+  tanpa itu `inspect_file` tidak bisa dipakai).
+- **Surat koreksi ≠ surat permohonan**: "Nomor Surat Pemohon" di kepala tiket SIMAN bisa menunjuk surat koreksi (Letung: PL.301/28 =
+  koreksi, permohonan sebenarnya PL.202/14). `create_siman_documents` menyimpan `siman_request.permohonanLetter` dari isi berkas; panel
+  Permohonan menampilkan "Surat Permohonan" + nomor kepala tiket bila berbeda. Skill `penetapan-siman` memakai isi berkas.
+- **Kategori Approval buatan pemilik** (tabel `request_categories`, logika + test `requests/request-categories.ts`): kategori BMN lama jadi
+  bawaan yang bisa diubah/diarsipkan/ditambah; `requests.kind` = kunci kategori. Otomatis = kata kunci (frasa utuh, terpanjang menang,
+  tanpa AI) untuk pengajuan baru tanpa kategori (WhatsApp, `create_request` agen, formulir "Otomatis") + tombol "Tentukan otomatis";
+  manual = pilihan di detail; agen = `list_request_categories` + `update_request { kind }` (tercatat di riwayat).
+- **Kebijakan Otomatis SIMAN** kini juga mewajibkan tiket didisposisikan ke pemilik dan masih tahap penelitian. Dokumen dibuat ulang saat
+  telaah/konsep lama ada → riwayat pengajuan memberi peringatan telaah ulang.
+- Masukan Hermes yang **belum** dikerjakan: pencocokan daftar barang surat ↔ aset usulan **per baris** (kode/NUP/nilai) sebagai fakta
+  kebijakan; bukti pemeriksaan visual terikat versi berkas (disimpan server, bukan teks model); jalur bagi agen untuk **mengusulkan
+  perubahan skill** (folder skill baca saja di container — usulan Hermes saat ini hilang).
+- Uji coba workflow SIMAN Letung berhenti karena sesi SIMAN kedaluwarsa (login ulang + OTP oleh pemilik).
+
+#### 26.5h Skill pengajuan dipecah, cek manual, verifikasi TTE Komdigi, usulan skill dari agen (2026-11-21, permintaan pemilik)
+
+- **Skill dipecah**: `telaah-pengajuan` = analisis kelengkapan + telaah (tanpa konsep jawaban; PSP dokumennya oleh `penetapan-siman`),
+  `konsep-jawaban` = surat balasan, `verifikasi-tte` = verifikasi TTE. Agen menulis analisis lewat `update_request { analysis: { summary,
+  checklist, missing, suggestion } }` (`RequestsService.agentUpdate`).
+- **Cek manual** (logika + test `requests/request-checklist.ts`): butir checklist punya `id`, `manual` (diusulkan agen untuk dicek pemilik), dan
+  `check { result: lolos | bermasalah, note, at }` dari pemilik (tombol Lolos / Bermasalah di Approval → detail → Analisis,
+  `POST /requests/:id/checklist/:itemId/check`, tercatat di riwayat). Tanda pemilik tetap menempel saat agen / Analisis / workflow SIMAN menulis
+  ulang checklist (`mergeChecklist`: lewat id, lalu teks dokumen; tanda dari agen diabaikan). Agen membaca tanda itu: lolos = aman, bermasalah =
+  kekurangan.
+- **Verifikasi TTE**: halaman resmi Komdigi https://tte.komdigi.go.id/verifyPDF memuat verifikator **cekdokumen.id** dalam bingkai. API resmi
+  cekdokumen butuh API key (tidak diakali) → robot memakai halaman seperti pengguna: unggah PDF di bingkai, baca ringkasan, buka "Lihat Detil"
+  tiap tanda tangan (job `/jobs/tte/verify`, `services/robot/src/tte-verify.ts` + test dari teks hasil nyata). Alat MCP
+  `verify_digital_signature { uploadId, refresh? }` (`RobotService.verifyTte`): verdict valid | bermasalah | tanpa_tte | tidak_terbaca, dimodifikasi,
+  penandatangan & waktu, PSrE, status sertifikat, issues/notes; hasil disimpan di `asset_extractions.metadata.tteVerification` (terikat checksum,
+  dipakai ulang tanpa mengirim ulang — saran Hermes). Robot memakai zona Asia/Jakarta: tanpa zona, halaman menampilkan jam bergeser 7 jam.
+  Uji Letung: Permohonan PSP = **valid** (DENNY ARMANTO 5 Nov 2026 09:07:23 WIB, BSSN, tidak dimodifikasi, LTV tidak didukung); SPTJM = tanpa_tte
+  (tanda tangan basah + meterai tempel lewat `inspect_file`).
+- **Usulan skill dari agen**: `propose_skill_change { skill, content, summary }` → `agent_actions` kind `skill_change` (pending, `before` = isi lama,
+  usulan baru menggantikan usulan menunggu untuk skill yang sama; logika + test `agent-actions/skill-change.ts`). Approval → Usulan Agen = kartu
+  beda baris; Setujui = server menulis `<HERMES_SKILLS_DIR>/<skill>/SKILL.md` atomik, ditolak 409 bila berkas berubah sejak diusulkan. Produksi:
+  mount skill backend kini tulis-baca (`docker-compose.prod.yml`; Hermes tetap baca saja).
+
 ### 26.6 Aplikasi MCP menjadi fitur terbuka untuk agen (2026-11-13)
 
 **Arahan user**: Aplikasi MCP seharusnya fitur custom yang boleh diubah Hermes. Pola sama dengan e-Kinerja/SRIKANDI/SIMAN (§26.1, §26.4,

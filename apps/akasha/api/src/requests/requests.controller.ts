@@ -5,6 +5,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { AuthUser } from "../common/types/auth-user";
 import {
+  ChecklistCheckDto,
   CreateRequestDocumentDto,
   CreateRequestDto,
   ListRequestsQueryDto,
@@ -53,6 +54,23 @@ export class RequestsController {
 
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @HttpCode(200)
+  @Post(":id/checklist/:itemId/check")
+  @HttpCode(200)
+  checkItem(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Param("itemId") itemId: string,
+    @Body() dto: ChecklistCheckDto,
+  ) {
+    return this.requests.checkItem(user, id, itemId, dto.result ?? null, dto.note);
+  }
+
+  @Post(":id/classify")
+  @HttpCode(200)
+  reclassify(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.requests.reclassify(user, id);
+  }
+
   @Post(":id/analyze")
   analyze(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.requests.analyze(user, id);

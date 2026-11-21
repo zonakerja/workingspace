@@ -3,6 +3,22 @@ import { ConfigService } from "@nestjs/config";
 import type { FilledRow, RenaksiRow } from "./ekinerja-renaksi";
 
 /** Sesi browser (format `storageState` Playwright): cookie + localStorage + IndexedDB. */
+/** Aset tiket SIMAN (tab Daftar Aset) — bentuk dari robot `siman-ticket.ts`. */
+export interface SimanTicketAsset {
+  kodeBarang: string;
+  nup: string;
+  namaBarang: string;
+  kodeRegister: string;
+  merk: string;
+  tipe: string;
+  tanggalPerolehan: string;
+  nilaiPerolehan: number;
+  nilaiBuku: number;
+  nilaiPermohonan: number;
+  kondisi: string;
+  keterangan: string;
+}
+
 export type StorageState = Record<string, unknown>;
 
 export interface RobotTarget {
@@ -24,6 +40,31 @@ export interface LoginState extends PageInfo {
   message?: string;
   /** PNG base64 gambar CAPTCHA */
   captchaImage?: string;
+}
+
+/** Hasil verifikasi TTE (sama dengan `TteVerifyResult` service robot, `services/robot/src/tte-verify.ts`). */
+export interface TteVerification {
+  verdict: "valid" | "bermasalah" | "tanpa_tte" | "tidak_terbaca";
+  hasSignature: boolean | null;
+  modified: boolean | null;
+  signatureCount: number | null;
+  signers: { name: string; signedAt: string | null }[];
+  psre: string[];
+  details: {
+    signer: string | null;
+    authenticity: string | null;
+    identity: string | null;
+    timestamp: string | null;
+    ltv: string | null;
+    reason: string | null;
+    signedAt: string | null;
+    certificateTrusted: boolean | null;
+    certificateNotExpired: boolean | null;
+    certificateNotRevoked: boolean | null;
+    chain: string[];
+  }[];
+  issues: string[];
+  notes: string[];
 }
 
 /**
@@ -289,6 +330,43 @@ export class RobotClient {
     >("/jobs/srikandi/register/update", target, "POST", 600_000);
   }
 
+  /** SIMAN: baca satu tiket (info, aset, kelengkapan + berkas, analisis, surat, riwayat) — tidak mengubah tiket. */
+  simanTicket(target: RobotTarget & { ticket: string; source: "penetapan" | "permohonan"; documents: boolean }) {
+    return this.json<
+      PageInfo & {
+        storageState: StorageState;
+        status: "ok" | "logged_out" | "role_inactive" | "not_found";
+        roleActivated: boolean;
+        message?: string;
+        info?: Record<string, string>;
+        tables?: Record<string, Record<string, string>[]>;
+        totals?: Record<string, number | null>;
+        texts?: Record<string, string>;
+        assets?: SimanTicketAsset[];
+        summary?: {
+          jumlah: number;
+          nilaiPerolehan: number;
+          nilaiPermohonan: number;
+          cocokDenganKepala: boolean | null;
+          kondisi: Record<string, number>;
+        };
+        files?: { name: string; jenis: string; nomor: string; data: string | null; mimeType: string; note: string }[];
+      }
+    >("/jobs/siman/ticket", target, "POST", 900_000);
+  }
+
+  /** Verifikasi TTE satu PDF di halaman resmi Komdigi (tte.komdigi.go.id/verifyPDF, tanpa login). */
+  tteVerify(fileName: string, fileBase64: string) {
+    return this.json<{
+      status: "ok";
+      verifier: string;
+      result: TteVerification;
+      summary: string;
+      details: string[];
+      screenshot: string | null;
+    }>("/jobs/tte/verify", { fileName, fileBase64 }, "POST", 180_000);
+  }
+
   /** SRIKANDI: daftar Naskah Masuk, Tembusan, Disposisi, Koordinasi, Arahan (hanya halaman daftar; bisa lama). */
   srikandiInbox(target: RobotTarget & { kinds?: string[] }) {
     return this.json<
@@ -297,6 +375,21 @@ export class RobotClient {
         inbox: { kind: string; items: unknown[]; pages?: number; total?: number | null }[];
       }
     >("/jobs/srikandi/inbox", target, "POST", 600_000);
+  }
+
+  /** SIMAN: daftar Permohonan + Penetapan Pengelolaan (tiket di Penetapan = didisposisikan ke akun ini). Baca saja. */
+  simanRequests(target: RobotTarget & { role?: string; maxPages?: number }) {
+    return this.json<
+      PageInfo & {
+        storageState: StorageState;
+        status: "ok" | "logged_out" | "role_inactive" | "not_found";
+        message?: string;
+        roleActivated?: boolean;
+        permohonan?: Record<string, string>[];
+        penetapan?: Record<string, string>[] | null;
+        totals?: { permohonan: number | null; penetapan: number | null };
+      }
+    >("/jobs/siman/requests", target, "POST", 900_000);
   }
 
   /** SRIKANDI: tabel referensi menu Pengguna (semua halaman; bisa lama). */

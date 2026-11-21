@@ -18,6 +18,25 @@ Pengajuan, dan bot WhatsApp — benar-benar terpakai. Ditulis langkah demi langk
 
 ### A. Sekarang (di laptop, tanpa biaya tambahan)
 
+- [ ] **A68** Buka **Approval → pengajuan PSP Letung → Analisis**: satu butir "SPTJM bermeterai dan bertanda tangan" bertanda **Cek manual** —
+      cocokkan dengan lembar asli lalu klik **Lolos** atau **Bermasalah** (AI agent membaca tanda itu). Lalu buka **Approval → Usulan Agen**:
+      ada usulan perubahan skill `verifikasi-tte` dari Hermes — baca perubahannya, **Setujui & tulis** atau **Tolak**.
+- [ ] **A67** Login ulang **SIMAN → Connector** (login otomatis + OTP), lalu kabari Claude agar uji coba workflow Penetapan Letung bersama
+      Hermes dilanjutkan (sekarang berhenti di "sesi SIMAN kedaluwarsa"). Sambil itu periksa **Approval → tombol Kategori**: kategori BMN lama
+      kini bisa diubah, diarsipkan, atau ditambah (mis. kategori tugas baru) beserta kata kunci penentuan otomatis.
+- [ ] **A66** (bila ingin otomatis) Buat **Kebijakan Otomatis** untuk SIMAN: **Approval → Kebijakan Otomatis → Aturan baru** → Sumber
+      **Hasil workflow Penetapan SIMAN** → pilih **Templat Register Naskah Keluar** (entri Register contoh berisi penandatangan,
+      verifikator, klasifikasi untuk KM PSP) → mulai dengan mode **Shadow** (hanya dicatat). Naikkan ke **Otomatis** setelah beberapa
+      tiket hasil shadow sesuai keputusan Anda. Tanpa aturan ini, KM PSP baru bisa ke SRIKANDI setelah Anda **Setujui** pengajuan di
+      Approval. Jalankan ulang workflow tiket Letung agar berkas kelengkapan & daftar aset ikut terlampir di pengajuannya. Pembahasan
+      peningkatan skill telaah & konsep jawaban menyusul.
+- [ ] **A65** Review dokumen hasil tiket **Letung** di **Approval → Antrian Verifikasi** (pengajuan "PSP … Letung – PPL26110408030558728") atau SIMAN → Permohonan → tiket PPL26110408030558728 → **Dokumen hasil** (Dokumen Analisis + Konsep KM PSP, dibuat agen lewat uji): ubah di ONLYOFFICE seperlunya (agen mempelajari suntingan Anda), lalu pilih Konvensional/Digital untuk Analisis dan **Naikkan ke SRIKANDI** untuk KM PSP bila sudah oke. Tiket berikutnya jalankan lewat SIMAN → Workflow.
+- [ ] **A64** Buka **SIMAN → Permohonan** (tab baru): daftar sudah terisi 300 tiket, 23 bertanda **Didispo ke Anda**. Klik satu tiket → tombol **Penetapan SIMAN** membuka workflow dengan tiket terpilih (nomor tiket kini dipilih dari dropdown, tidak diketik). Bila ingin daftar diperbarui otomatis, nyalakan jadwal **Ambil daftar Permohonan & disposisi** di SIMAN → Connector → Otomasi terjadwal.
+- [ ] **A63** Jalankan tiket pertama lewat **SIMAN → Workflow → Penetapan SIMAN → Jalankan** (isi nomor tiket, mis. PPL26110408030558728; halaman penetapan). Hasilnya dilaporkan agen di riwayat run; dokumen dibuat dari templat hanya bila templat Dokumen Analisis / KM PSP sudah Anda unggah (Tools → ONLYOFFICE → Dokumen → Templat dokumen). Tanpa templat, agen menyampaikan isi analisis & konsep sebagai teks.
+- [x] **A62** _(selesai 2026-11-20: kop & jarak disetujui, workflow disetujui)_ Setujui workflow **Penetapan SIMAN** di **Approval → Usulan Agen** (draf dari agen: isian nomor tiket, halaman, catatan). Setelah aktif, tiket dijalankan dari SIMAN → Workflow. Periksa konsep di `_uji/PSP-Letung/` dan `_uji/PSP-Padang/` (Dokumen Analisis berkop Ditjen Hubud + Draft SK; **tidak** diunggah ke mana pun sesuai arahan Anda): Letung LENGKAP (cek meterai SPTJM secara visual), Padang TIDAK LENGKAP (tanpa SPTJM, laporan kondisi, foto; tanggal surat 21 September 2026). Kanwil/KPKNL Letung (KPKNL Tanjungpinang) perlu dicek.
+- [ ] **A61** Periksa konsep PSP Padang di **Tools → ONLYOFFICE → Dokumen**: `Draft-SK-PSP-…Padang.docx` dan `Dokumen-Analisis-PSP-…Padang.docx`. Putuskan: (1) tanggal surat permohonan = 28 September 2026 (SIMAN) atau 21 September (draft lama); (2) Merk/Tipe & nama barang lampiran ikut SIMAN ("PC", "Laptop") atau listing satker ("HP", "Asus Vivo Book"); (3) checklist kelengkapan masih "Perlu dicek" karena isi PDF permohonan belum bisa dibaca robot. Setelah TTE siap: dari editor ONLYOFFICE klik **Register naskah** → isi penandatangan/verifikator → Daftarkan ke SRIKANDI (perlu login SRIKANDI ulang, A59).
+- [ ] **A59** Login SRIKANDI sekali lagi (SRIKANDI → Connector → Login otomatis, ketik CAPTCHA/OTP), lalu **Cek sesi** — sekarang seharusnya tetap aktif. Disarankan ubah **Alamat sistem** SRIKANDI menjadi `https://srikandi.arsip.go.id` (tanpa `/auth/login`).
+- [ ] **A60** Periksa hasil baca 13 tiket SIMAN belum disetujui (2.026 aset): berkas `_uji/siman-aset-belum-disetujui.csv` (buka di Excel). Setelah itu lanjut mengajarkan proses verifikasi PSP (A25): aset apa yang dicek, ke data apa, dan hasil yang diharapkan.
 - [ ] **A58** Siapkan & unggah templat **PSP, SK Penghapusan, SK Penjualan / Pemanfaatan BMN**, dsb. (Tools → ONLYOFFICE → Dokumen → Templat dokumen) dengan penanda `${…}`; penanda yang diisi SRIKANDI tetap dibiarkan. Dipakai saat proses SIMAN/PSP diajarkan (A25).
 - [x] **A57** (selesai 2026-11-19: ringkasan transkrip panjang & mode Makna berhasil) Ulangi **Ringkasan AI** pada Notes AI berisi transkrip panjang yang tadi gagal (batas waktu kini 12 menit; ringkasan rekaman panjang memang bisa makan 4–6 menit — biarkan halaman terbuka). Coba juga Ctrl+K → **Pintar** → mode **Makna** dengan kalimat tanpa kata kunci yang sama (mis. "izin tidak masuk kerja"); hasilnya kini hanya yang relevan.
 - [x] **A56** (selesai 2026-11-19) Pindahkan key AI lama ke Akai: Akasha → **Pengaturan → Model AI** → kartu **Pindahkan key lama ke Akai** → **Pindahkan ke Akai**. Lalu di Akai → Model periksa tugas **Embedding** dan **Transkrip audio** sudah terisi (transkrip wajib sumber **Google Gemini langsung**). Sejak 2026-11-19 semua fitur AI Akasha hanya memakai Akai; sebelum dipindah, indeks makna & transkrip rekaman belum jalan. Setelah itu kabari Claude agar tabel key lama dihapus.
@@ -663,6 +682,8 @@ Telegram Anda yang diizinkan. Minta Claude menyiapkan service otomatis (systemd)
 | 2026-11-16 | A43 baru: DNS email Titan (MX, SPF, DKIM, DMARC) di Rumahweb                                                                            |
 | 2026-11-16 | A43 selesai (DNS email Titan terverifikasi) |
 | 2026-11-16 | A44 baru: coba Akai (sumber model, pembagian tugas) — Akasha memakainya untuk tugas yang diatur di Akai                                 |
+| 2026-11-19 | A61 baru: periksa konsep SK PSP & dokumen analisis Padang |
+| 2026-11-19 | A59 (login ulang SRIKANDI), A60 (periksa data aset SIMAN) baru |
 | 2026-11-19 | A57, A36, A40, A30, A32, A33 selesai; A58 baru (templat PSP/SK); A26 dibahas nanti |
 | 2026-11-19 | A57 baru: ulangi ringkasan transkrip panjang & coba mode Makna |
 | 2026-11-19 | A56 selesai: key dipindah, tabel key lama dihapus; coba transkrip rekaman Notes AI & Pencarian Makna (kini lewat Akai) |

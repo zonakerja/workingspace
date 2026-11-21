@@ -279,8 +279,9 @@ export const MODULES: ModuleDef[] = [
     icon: Landmark,
     sidebarGroup: "connection",
     tabs: [
-      { id: "process", label: "Cara Kerja", icon: Info },
+      { id: "requests", label: "Permohonan", icon: Inbox },
       { id: "workflow", label: "Workflow", icon: Workflow },
+      { id: "process", label: "Cara Kerja", icon: Info },
       { id: "connector", label: "Connector", icon: Bot },
     ],
   },

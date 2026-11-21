@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Loader2, Play, Square } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { useNow } from "@/hooks/use-now";
 import { toast } from "sonner";
 import { Markdown } from "@/components/common/markdown";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { SimanTicketPicker } from "@/features/siman/siman-ticket-picker";
 import { useAgentMenuRuns, useAgentReady, useAgentRunWatcher } from "@/data/use-agent";
+import { useSetSearchParams } from "@/hooks/use-search-param";
 import { queryKeys } from "@/data/query-keys";
 import { useOpenSession } from "@/hooks/use-retained";
 import { errorMessage } from "@/lib/api/client";
@@ -30,18 +33,31 @@ import { getAppIcon } from "@/lib/icons/icon-registry";
  * Satu fitur buatan agen: tombol Jalankan membuka modal yang isiannya ditentukan data fitur (bukan kode di aplikasi),
  * lalu agen mengerjakannya dan hasil yang perlu keputusan masuk ke Approval. Dipakai tab Workflow & menu koneksi.
  */
-export function WorkflowPanel({ menu }: { menu: AgentMenu }) {
+export function WorkflowPanel({ menu, prefill }: { menu: AgentMenu; prefill?: Record<string, string> }) {
   const client = useQueryClient();
   const ready = useAgentReady();
-  const [open, setOpen] = useState(false);
+  const setParams = useSetSearchParams();
+  // Dibuka dari tautan (mis. SIMAN → Permohonan → tombol workflow): modal langsung terbuka dengan isian terisi
+  const [open, setOpen] = useState(!!prefill);
   const [showRuns, setShowRuns] = useState(false);
-  const { data: runs } = useAgentMenuRuns(menu.id, showRuns);
-  const [runId, setRunId] = useState<string | null>(null);
+  // Riwayat selalu dimuat: run yang masih berjalan dikenali dari server, jadi status tidak hilang saat pindah tab/menu
+  const { data: runs } = useAgentMenuRuns(menu.id);
+  const active = runs?.find((r) => r.status === "queued" || r.status === "running");
+  const [started, setStarted] = useState<{ runId: string; at: string } | null>(null);
+  const [finished, setFinished] = useState<string | null>(null);
+  const current =
+    started ?? (active && active.runId !== finished ? { runId: active.runId, at: active.startedAt } : null);
+  const runId = current?.runId ?? null;
   const { run, error } = useAgentRunWatcher(runId, (r) => {
     void client.invalidateQueries({ queryKey: queryKeys.agentMenuRuns(menu.id) });
-    if (r.status === "completed") toast.success(`${menu.label}: agen selesai.`);
-    else toast.error(r.error ?? `Tugas agen berakhir (${r.status}).`);
-    setRunId(null);
+    // Hasil workflow bisa mengubah pengajuan Approval & dokumen tiket SIMAN
+    void client.invalidateQueries({ queryKey: queryKeys.requests });
+    void client.invalidateQueries({ queryKey: ["records"] });
+    void client.invalidateQueries({ queryKey: ["siman"] });
+    if (r.status === "completed") toast.success(`${menu.label}: AI agent selesai.`);
+    else toast.error(r.error ?? `Tugas AI agent berakhir (${r.status}).`);
+    setFinished(r.runId);
+    setStarted(null);
   });
   const Icon = getAppIcon(menu.icon, "bot").icon;
 
@@ -66,12 +82,12 @@ export function WorkflowPanel({ menu }: { menu: AgentMenu }) {
             </Button>
           )}
           <Button size="sm" onClick={() => setOpen(true)} disabled={!!runId || !ready}>
-            {runId ? <Loader2 className="animate-spin" /> : <Play />} Jalankan
+            <Play /> Jalankan
           </Button>
         </div>
       </div>
-      {runId && <p className="text-xs text-muted-foreground">Agen bekerja… {run?.status ?? ""}</p>}
-      {!ready && <p className="text-xs text-warning">Agen Hermes belum siap.</p>}
+      {current && <RunningNote since={current.at} status={run?.status} />}
+      {!ready && <p className="text-xs text-warning">AI agent (Hermes) belum siap.</p>}
       {error && <p className="text-xs text-warning">{error}</p>}
 
       <button
@@ -103,19 +119,44 @@ export function WorkflowPanel({ menu }: { menu: AgentMenu }) {
           ))
         ))}
 
-      <RunDialog menu={menu} open={open} onClose={() => setOpen(false)} onStarted={setRunId} />
+      <RunDialog
+        menu={menu}
+        open={open}
+        prefill={prefill}
+        onClose={() => {
+          setOpen(false);
+          if (prefill) setParams({ run: null, ticket: null });
+        }}
+        onStarted={(id) => setStarted({ runId: id, at: new Date().toISOString() })}
+      />
     </Card>
+  );
+}
+
+/** Keterangan tugas yang sedang dikerjakan + lama berjalan (workflow SIMAN bisa ± 5 menit). */
+function RunningNote({ since, status }: { since: string; status?: string }) {
+  const now = useNow();
+  const minutes = Math.max(0, Math.floor((now.getTime() - new Date(since).getTime()) / 60_000));
+  return (
+    <p className="flex items-center gap-1.5 rounded-lg bg-module-soft px-2.5 py-1.5 text-xs text-module">
+      <Loader2 className="size-3.5 shrink-0 animate-spin" />
+      {status === "queued" ? "Menunggu giliran AI agent" : "AI agent sedang bekerja"} ·{" "}
+      {minutes < 1 ? "baru dimulai" : `${minutes} menit`}. Halaman boleh ditinggal; hasilnya muncul di Riwayat &
+      Approval.
+    </p>
   );
 }
 
 function RunDialog({
   menu,
   open,
+  prefill,
   onClose,
   onStarted,
 }: {
   menu: AgentMenu;
   open: boolean;
+  prefill?: Record<string, string>;
   onClose: () => void;
   onStarted: (runId: string) => void;
 }) {
@@ -123,7 +164,7 @@ function RunDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[94svh] grid-cols-1 overflow-y-auto sm:max-w-lg">
-        {open && <RunForm key={session} menu={menu} onClose={onClose} onStarted={onStarted} />}
+        {open && <RunForm key={session} menu={menu} prefill={prefill} onClose={onClose} onStarted={onStarted} />}
       </DialogContent>
     </Dialog>
   );
@@ -131,14 +172,16 @@ function RunDialog({
 
 function RunForm({
   menu,
+  prefill,
   onClose,
   onStarted,
 }: {
   menu: AgentMenu;
+  prefill?: Record<string, string>;
   onClose: () => void;
   onStarted: (runId: string) => void;
 }) {
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => prefill ?? {});
   const [note, setNote] = useState("");
   const [starting, setStarting] = useState(false);
   const set = (name: string, value: string) => setValues((prev) => ({ ...prev, [name]: value }));
@@ -205,6 +248,8 @@ function FieldInput({
       <Label htmlFor={id}>{label}</Label>
       {field.type === "textarea" ? (
         <Textarea id={id} rows={3} value={value} onChange={(e) => onChange(e.target.value)} />
+      ) : field.type === "siman_ticket" ? (
+        <SimanTicketPicker id={id} value={value} onChange={onChange} />
       ) : field.type === "select" ? (
         <Select value={value || undefined} onValueChange={onChange}>
           <SelectTrigger id={id} className="w-full">

@@ -29,6 +29,7 @@ export const queryKeys = {
   coldFiles: ["drive", "cold", "files"] as const,
   driveBackup: ["drive", "backup"] as const,
   requests: ["requests"] as const,
+  requestCategories: ["request-categories"] as const,
   request: (id: string) => ["requests", "detail", id] as const,
   requestTemplateFields: (id: string) => ["requests", "template-fields", id] as const,
   whatsapp: ["whatsapp"] as const,

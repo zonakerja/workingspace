@@ -6,20 +6,9 @@ import type {
   RequestAutoDecision,
   RequestChecklistItem,
   RequestHistoryEntry,
-  RequestKind,
   RequestStatus,
   RequestSummary,
 } from "@/types/api";
-
-/** Sama dengan `KIND_LABELS` backend (`requests/request-logic.ts`). */
-export const KIND_LABELS: Record<RequestKind, string> = {
-  psp: "PSP BMN",
-  penghapusan: "Penghapusan BMN",
-  pemanfaatan: "Pemanfaatan BMN",
-  surat: "Surat / permintaan",
-  lainnya: "Lainnya",
-};
-export const KIND_OPTIONS = Object.entries(KIND_LABELS) as [RequestKind, string][];
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
   baru: "Baru",
@@ -72,10 +61,15 @@ const normalize = (value: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
-/** Saring daftar pengajuan per tab, jenis, dan kata kunci (judul, pemohon, kode grup, nomor, perihal; per kata, tanpa aksen). */
+/** Saring daftar pengajuan per tab, kategori, dan kata kunci (judul, pemohon, kode grup, nomor, perihal, kategori; per kata, tanpa aksen). */
 export function filterRequests(
   items: RequestSummary[],
-  { tab, kind, query }: { tab: "queue" | "done"; kind: RequestKind | "all"; query: string },
+  {
+    tab,
+    kind,
+    query,
+    labels,
+  }: { tab: "queue" | "done"; kind: string | "all"; query: string; labels?: Map<string, string> },
 ) {
   const words = normalize(query).split(/\s+/).filter(Boolean);
   return items
@@ -84,7 +78,7 @@ export function filterRequests(
     .filter((r) => {
       if (!words.length) return true;
       const hay = normalize(
-        [r.title, r.applicant, r.groupCode, r.letterNumber, r.subject, KIND_LABELS[r.kind]].join(" "),
+        [r.title, r.applicant, r.groupCode, r.letterNumber, r.subject, labels?.get(r.kind) ?? r.kind].join(" "),
       );
       return words.every((w) => hay.includes(w));
     })
@@ -116,7 +110,7 @@ export const defaultDocumentName = (templateName: string, title: string) =>
 
 export const HISTORY_ACTOR: Record<RequestHistoryEntry["by"], string> = {
   user: "Anda",
-  agen: "agen AI",
+  agen: "AI agent",
   kebijakan: "Kebijakan Otomatis",
 };
 
@@ -137,10 +131,11 @@ export const ASSET_FIELD_LABELS: Record<AssetField, string> = {
 export const defaultPolicyInput = (): AgentPolicyInput => ({
   name: "",
   skill: "",
-  requestKind: "surat",
+  requestKind: "",
   groupCodes: [],
   mode: "shadow",
   verifyAssets: false,
+  trigger: "request",
   threshold: 75,
   criticalFields: ["nup", "kodeBarang"],
   valueTolerance: 0,
@@ -157,6 +152,7 @@ export const policyToInput = (p: AgentPolicyInput): AgentPolicyInput => ({
   groupCodes: p.groupCodes,
   mode: p.mode,
   verifyAssets: p.verifyAssets,
+  trigger: p.trigger === "siman" ? "siman" : "request",
   threshold: p.threshold,
   criticalFields: p.criticalFields,
   valueTolerance: p.valueTolerance,

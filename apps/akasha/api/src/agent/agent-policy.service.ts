@@ -20,6 +20,7 @@ import { type OutgoingEntry, registerBlockers } from "../robot/srikandi-register
 import { RobotService } from "../robot/robot.service";
 import { isAgentOwner, policyRunInput } from "./agent-logic";
 import { type AssetCheck, decidePolicy, matchPolicy } from "./agent-policy";
+import { decideSimanPolicy, type SimanFacts } from "./siman-policy";
 
 const AGENT_SEND_QUEUE = "agent-send";
 
@@ -36,6 +37,7 @@ export interface PolicyInput {
   groupCodes: string[];
   mode: string;
   verifyAssets: boolean;
+  trigger?: string;
   threshold: number;
   criticalFields: string[];
   valueTolerance: number;
@@ -172,7 +174,8 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
         throw new UnprocessableEntityException("Entri Register yang dipilih sebagai templat tidak ditemukan.");
       });
     }
-    if (input.mode === "auto" && !input.verifyAssets) {
+    const trigger = input.trigger === "siman" ? "siman" : "request";
+    if (input.mode === "auto" && !input.verifyAssets && trigger !== "siman") {
       throw new UnprocessableEntityException(
         "Mode Otomatis butuh pemeriksaan server. Nyalakan pencocokan data master, atau pakai mode Shadow.",
       );
@@ -181,6 +184,7 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
       ...input,
       groupCodes: input.groupCodes.map((g) => g.trim().toUpperCase()).filter(Boolean),
       registerTemplate: input.registerTemplate || null,
+      trigger,
     };
     if (!id) return this.prisma.agentPolicy.create({ data: { ...data, userId: user.id } });
     await this.own(user.id, id);
@@ -217,7 +221,11 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
     });
     if (!user || user.agentAutoPaused || !isAgentOwner(this.config.get<string>("HERMES_OWNER_EMAIL"), user.email))
       return;
-    const policy = matchPolicy(await this.prisma.agentPolicy.findMany({ where: { userId: request.userId } }), request);
+    // Aturan sumber Workflow SIMAN tidak menjalankan agen atas pengajuan baru (diputuskan saat dokumen SIMAN dibuat)
+    const policy = matchPolicy(
+      await this.prisma.agentPolicy.findMany({ where: { userId: request.userId, trigger: "request" } }),
+      request,
+    );
     if (!policy) return;
     await this.prisma.agentRun.create({
       data: {
@@ -279,6 +287,51 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
     if (decision.apply) await this.scheduleSend(run.userId, updated, policy);
   }
 
+  /**
+   * Hasil workflow Penetapan SIMAN masuk Approval → aturan sumber "siman" (jenis PSP) memutuskan dari fakta yang dihitung
+   * server dari tiket SIMAN. Mode auto & lolos = Disetujui otomatis → entri Register dari templat → konsep SRIKANDI setelah
+   * masa tunda (sama dengan aturan biasa). Tanpa aturan aktif = tidak terjadi apa-apa (pemilik memutuskan di Approval).
+   */
+  async decideSiman(userId: string, requestId: string, facts: SimanFacts) {
+    const owner = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, agentAutoPaused: true },
+    });
+    if (!owner || !isAgentOwner(this.config.get<string>("HERMES_OWNER_EMAIL"), owner.email)) return null;
+    const request = await this.prisma.request.findUnique({ where: { id: requestId } });
+    if (!request) return null;
+    const policy = matchPolicy(
+      await this.prisma.agentPolicy.findMany({ where: { userId, trigger: "siman" } }),
+      request,
+    );
+    if (!policy) return null;
+    const decision = decideSimanPolicy({
+      facts,
+      mode: policy.mode,
+      requestStatus: request.status,
+      paused: !!owner.agentAutoPaused,
+      usedToday: await this.usedToday(userId),
+      dailyLimit: policy.dailyLimit,
+    });
+    if (decision.apply && !policy.registerTemplate) {
+      decision.apply = false;
+      decision.reasons.push("Kebijakan belum punya templat Register Naskah Keluar.");
+    }
+    const autoDecision: AutoDecision = {
+      policyId: policy.id,
+      policyName: policy.name,
+      mode: policy.mode,
+      outcome: decision.outcome,
+      applied: decision.apply,
+      reasons: decision.reasons,
+      score: null,
+      decidedAt: new Date().toISOString(),
+    };
+    const updated = await this.requests.policyDecide(userId, request.id, autoDecision);
+    if (decision.apply) await this.scheduleSend(userId, updated, policy);
+    return autoDecision;
+  }
+
   private async usedToday(userId: string) {
     const since = Date.now() - DAY_MS;
     const rows = await this.prisma.request.findMany({
@@ -300,7 +353,9 @@ export class AgentPolicyService implements OnModuleInit, OnModuleDestroy {
       const copied = Object.fromEntries(
         Object.entries(template.payload as Record<string, unknown>).filter(([key]) => !OWN_FIELDS.includes(key)),
       );
-      const document = asList<{ uploadId: string; name: string }>(request.documents).at(-1)!;
+      // Workflow SIMAN: yang didaftarkan = konsep KM PSP (bukan Dokumen Analisis); selain itu dokumen terakhir
+      const docs = asList<{ uploadId: string; name: string; templateName?: string }>(request.documents);
+      const document = docs.filter((d) => /KM PSP/.test(d.templateName ?? "")).at(-1) ?? docs.at(-1)!;
       const file = {
         uploadId: document.uploadId,
         name: document.name,

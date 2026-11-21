@@ -29,6 +29,8 @@ export const DEFAULT_SCHEDULES: Record<AutomationKind, AutomationSchedule> = {
   ekinerja_session: { mode: "hourly", minute: 30, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
   srikandi_session: { mode: "hourly", minute: 30, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
   siman_session: { mode: "hourly", minute: 30, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },
+  // Daftar Permohonan SIMAN sekali sehari kerja: situs Kemenkeu dijaga firewall, jangan menarik data beruntun
+  siman_requests: { mode: "daily", time: "07:45", days: WEEKDAYS, timezone: TZ },
   ekinerja_skp: { mode: "daily", time: "07:00", days: EVERY_DAY, timezone: TZ },
   ekinerja_renaksi: { mode: "daily", time: "07:05", days: EVERY_DAY, timezone: TZ },
   srikandi_letters: { mode: "hourly", minute: 0, from: 7, to: 17, days: WEEKDAYS, timezone: TZ },

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { requestsApi } from "@/lib/api/endpoints";
-import type { RequestDetail, RequestUpdate } from "@/types/api";
+import { useMemo } from "react";
+import { requestCategoriesApi } from "@/lib/api/endpoints";
+import type { RequestCategory, RequestCategoryInput, RequestDetail, RequestUpdate } from "@/types/api";
 import { queryKeys } from "./query-keys";
 
 /** Semua pengajuan milik user (disaring per tab di frontend; jumlahnya kecil). */
@@ -17,6 +19,35 @@ export function useRequest(id: string | null) {
     refetchInterval: (query) =>
       query.state.data?.files.some((f) => f.extraction === "pending" || f.extraction === "extracting") ? 2_000 : false,
   });
+}
+
+/** Kategori pengajuan milik pemilik + pembaca label (kunci tak dikenal = kunci itu sendiri). */
+export function useRequestCategories() {
+  const query = useQuery({ queryKey: queryKeys.requestCategories, queryFn: requestCategoriesApi.list });
+  const categories = useMemo(() => query.data ?? [], [query.data]);
+  const labels = useMemo(() => new Map(categories.map((c) => [c.key, c.label])), [categories]);
+  return {
+    ...query,
+    categories,
+    /** Kategori yang bisa dipilih untuk pengajuan (tidak diarsipkan) */
+    active: categories.filter((c) => !c.archived),
+    labelOf: (key: string) => labels.get(key) ?? key,
+    labels,
+  };
+}
+
+export function useRequestCategoryMutations() {
+  const client = useQueryClient();
+  const onSuccess = (rows: RequestCategory[]) => client.setQueryData(queryKeys.requestCategories, rows);
+  return {
+    create: useMutation({ mutationFn: requestCategoriesApi.create, onSuccess }),
+    update: useMutation({
+      mutationFn: ({ id, input }: { id: string; input: RequestCategoryInput }) =>
+        requestCategoriesApi.update(id, input),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: requestCategoriesApi.remove, onSuccess }),
+  };
 }
 
 export function useRequestTemplateFields(templateId: string | null) {
@@ -50,6 +81,20 @@ export function useRequestMutations() {
       onSuccess: () => void client.invalidateQueries({ queryKey: queryKeys.requests }),
     }),
     analyze: useMutation({ mutationFn: requestsApi.analyze, onSuccess: (r) => apply(r.request) }),
+    reclassify: useMutation({ mutationFn: requestsApi.reclassify, onSuccess: apply }),
+    checkItem: useMutation({
+      mutationFn: ({
+        id,
+        itemId,
+        ...input
+      }: {
+        id: string;
+        itemId: string;
+        result: "lolos" | "bermasalah" | null;
+        note?: string;
+      }) => requestsApi.checkItem(id, itemId, input),
+      onSuccess: apply,
+    }),
     review: useMutation({ mutationFn: requestsApi.review, onSuccess: (r) => apply(r.request) }),
     suggestValues: useMutation({
       mutationFn: ({ id, templateId }: { id: string; templateId: string }) => requestsApi.suggestValues(id, templateId),

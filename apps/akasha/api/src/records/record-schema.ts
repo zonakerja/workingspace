@@ -402,6 +402,28 @@ export const RECORD_TABLES = {
     indexes: [["kind"], ["date"], ["number"]],
   },
 
+  // Permohonan SIMAN: daftar Permohonan Pengelolaan dibaca robot (ID = nomor tiket); `disposed` = tiket tampil di daftar
+  // Penetapan Pengelolaan akun ini (didisposisikan ke pemilik). Isian lain (kolom asli, disposisi) di `extra`.
+  siman_request: {
+    model: "SimanRequest",
+    table: "siman_requests",
+    titleKey: "ticket",
+    dateKey: "date",
+    fields: [
+      s("ticket"),
+      s("status"),
+      s("tipe"),
+      f("date", "ymd"),
+      s("satkerCode"),
+      s("satkerName"),
+      f("value", "float"),
+      f("disposed", "bool"),
+      f("active", "bool"),
+      f("syncedAt", "timestamp"),
+    ],
+    indexes: [["ticket"], ["disposed"], ["date"]],
+  },
+
   // Register Naskah Keluar: gerbang Akasha sebelum naskah didaftarkan ke SRIKANDI (isian formulir Registrasi Naskah
   // Keluar + berkas mentah dari Approval / Working Space); naskah final dari Daftar Naskah Keluar ditautkan lewat `letterId`
   srikandi_outgoing: {

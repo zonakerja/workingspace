@@ -135,6 +135,7 @@ model User {
   srikandiReferences        SrikandiReference[]
   srikandiLetters           SrikandiLetter[]
   srikandiInboxs            SrikandiInbox[]
+  simanRequests             SimanRequest[]
   srikandiOutgoings         SrikandiOutgoing[]
   archiveClassifications    ArchiveClassification[]
   archiveRetentionSchedules ArchiveRetentionSchedule[]
@@ -155,6 +156,7 @@ model User {
   knowledgeNoteVersions KnowledgeNoteVersion[]
   apiTokens             ApiToken[]
   requests              Request[]
+  requestCategories     RequestCategory[]
   contactGroups         ContactGroup[]
   robotConnectors       RobotConnector[]
   robotRuns             RobotRun[]
@@ -1156,6 +1158,35 @@ model SrikandiInbox {
   @@map("srikandi_inboxes")
 }
 
+/// Record type `siman_request`
+model SimanRequest {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  clientId   String    @map("client_id")
+  ticket     String?
+  status     String?
+  tipe       String?
+  date       DateTime? @db.Date
+  satkerCode String?   @map("satker_code")
+  satkerName String?   @map("satker_name")
+  value      Float?
+  disposed   Boolean?
+  active     Boolean?
+  syncedAt   DateTime? @map("synced_at") @db.Timestamptz(3)
+  extra      Json      @default("{}")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([userId, deletedAt])
+  @@index([userId, ticket])
+  @@index([userId, disposed])
+  @@index([userId, date])
+  @@map("siman_requests")
+}
+
 /// Record type `srikandi_outgoing`
 model SrikandiOutgoing {
   id          String    @id @default(cuid())
@@ -1374,11 +1405,33 @@ model AgentActivityLog {
 
 // ---------------------------------------------------------------- Pengajuan & Antrian Verifikasi
 
+/// Kategori pengajuan milik pemilik (Approval). `requests.kind` = `key`. Bawaan = kategori BMN lama; bisa diubah/diarsipkan/ditambah.
+model RequestCategory {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  /// Kunci stabil (disimpan di requests.kind dan kebijakan otomatis)
+  key         String
+  label       String
+  description String?
+  /// Kata kunci penentuan otomatis (string[])
+  keywords    Json     @default("[]")
+  archived    Boolean  @default(false)
+  /// Kategori untuk pengajuan yang tidak cocok kata kunci mana pun
+  isDefault   Boolean  @default(false) @map("is_default")
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("request_categories")
+}
+
 /// Pengajuan / surat masuk dari pemohon (satker, instansi, masyarakat, …) yang diproses bersama agen.
 model Request {
   id              String   @id @default(cuid())
   userId          String   @map("user_id")
-  /// psp | penghapusan | pemanfaatan | surat | lainnya
+  /// Kunci kategori pengajuan milik pemilik (request_categories.key)
   kind            String
   title           String
   /// Nama pemohon (satker / instansi / perorangan)
@@ -1702,6 +1755,8 @@ model AgentPolicy {
   mode             String   @default("shadow")
   /// Cocokkan daftar aset ke data master (server); tanpa ini hasil agen selalu diserahkan ke pemilik
   verifyAssets     Boolean  @default(false) @map("verify_assets")
+  /// Pemicu: request = pengajuan baru dijalankan agen; siman = hasil workflow Penetapan SIMAN diperiksa server (kelengkapan wajib + kecocokan aset)
+  trigger          String   @default("request")
   /// Persen aset yang harus cocok (0–100)
   threshold        Int      @default(75)
   /// Kolom yang wajib sama persis: ["nup", "kodeBarang", …]

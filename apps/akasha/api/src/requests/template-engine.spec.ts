@@ -128,4 +128,27 @@ describe("template engine", () => {
   it("berkas bukan DOCX ditolak", () => {
     expect(() => analyzeTemplate(Buffer.from("bukan zip"))).toThrow();
   });
+  it("tabel berulang: penanda di dalamnya tidak dihitung kosong, baris diisi dari daftar", () => {
+    const doc = makeDocx([
+      { runs: ["Satker: ${satker}"] },
+      { runs: ["${#aset}"] },
+      { runs: ["${no}. ${nama} Rp${nilai}"] },
+      { runs: ["${/aset}"] },
+      { runs: ["${nama_pengirim}"] },
+    ]);
+    const analysis = analyzeTemplate(doc);
+    expect(analysis.tags).toEqual(["satker", "nama_pengirim"]);
+    expect(analysis.loops).toEqual([{ name: "aset", tags: ["no", "nama", "nilai"] }]);
+    const filled = fillTemplate(doc, {
+      satker: "UPBU Letung",
+      aset: [
+        { no: "1", nama: "Lemari Kayu", nilai: "1.720.500" },
+        { no: "2", nama: "AC", nilai: "4.340.100" },
+      ],
+    });
+    const text = documentText(filled);
+    expect(text).toContain("1. Lemari Kayu Rp1.720.500");
+    expect(text).toContain("2. AC Rp4.340.100");
+    expect(unfilledFields(filled)).toEqual([]);
+  });
 });

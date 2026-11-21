@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useSrikandiOutgoings } from "@/data/collections";
+import { useRequestCategories } from "@/data/use-requests";
 import { useAgentPolicies, useAgentPolicyMutations, useAgentSkills, useAgentStatus } from "@/data/use-agent";
 import { useOpenSession } from "@/hooks/use-retained";
 import { errorMessage } from "@/lib/api/client";
@@ -28,13 +29,12 @@ import type { AgentPolicy, AgentPolicyInput, AgentPolicyMode, AssetField } from 
 import {
   ASSET_FIELD_LABELS,
   defaultPolicyInput,
-  KIND_LABELS,
-  KIND_OPTIONS,
   parseGroupCodes,
   policyAgreement,
   policyToInput,
   POLICY_MODE_LABELS,
 } from "./request-utils";
+import { RequestCategorySelect } from "./request-category-select";
 
 const MODE_TONE: Record<AgentPolicyMode, string> = {
   off: "bg-muted text-muted-foreground",
@@ -169,17 +169,26 @@ function PolicyCard({
   onRemove: () => void;
 }) {
   const agreement = policyAgreement(p.stats);
+  const { labelOf } = useRequestCategories();
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded-xl border bg-card p-3 sm:flex-row sm:items-start">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="min-w-0 truncate font-semibold">{p.name}</span>
           <Badge className={MODE_TONE[p.mode]}>{POLICY_MODE_LABELS[p.mode]}</Badge>
-          <Badge variant="outline">{KIND_LABELS[p.requestKind] ?? p.requestKind}</Badge>
+          <Badge variant="outline">{labelOf(p.requestKind)}</Badge>
+          {p.trigger === "siman" && <Badge variant="secondary">Workflow SIMAN</Badge>}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           Skill <code>{p.skill}</code> · grup {p.groupCodes.length ? p.groupCodes.join(", ") : "semua"}
-          {p.verifyAssets ? (
+          {p.trigger === "siman" ? (
+            <>
+              {" "}
+              · pemeriksaan server: Surat Permohonan & SPTJM di Kelengkapan SIMAN, aset cocok, analisis LENGKAP · maks.{" "}
+              {p.dailyLimit}/hari · tunda {p.holdMinutes} menit
+              {!p.registerTemplate && " · tanpa templat Register (tidak dikirim ke SRIKANDI)"}
+            </>
+          ) : p.verifyAssets ? (
             <>
               {" "}
               · skor ≥ {p.threshold}% · cocok wajib: {p.criticalFields.map((f) => ASSET_FIELD_LABELS[f]).join(", ")} ·
@@ -239,11 +248,22 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
     }));
   const num = (value: string, fallback: number) =>
     value === "" || Number.isNaN(Number(value)) ? fallback : Number(value);
-  const valid = form.name.trim() && form.skill && (!form.verifyAssets || form.criticalFields.length > 0);
+  const siman = form.trigger === "siman";
+  const valid =
+    form.name.trim() && (siman || form.skill) && (siman || !form.verifyAssets || form.criticalFields.length > 0);
 
   const save = () =>
     m.save.mutate(
-      { id: policy?.id, input: { ...form, name: form.name.trim(), groupCodes: parseGroupCodes(groups) } },
+      {
+        id: policy?.id,
+        input: {
+          ...form,
+          name: form.name.trim(),
+          groupCodes: parseGroupCodes(groups),
+          // Sumber Workflow SIMAN: hasil skill penetapan-siman (PSP) diperiksa server, bukan pencocokan data master
+          ...(siman ? { skill: "penetapan-siman", requestKind: "psp" as const, verifyAssets: false } : {}),
+        },
+      },
       {
         onSuccess: () => {
           toast.success("Aturan disimpan.");
@@ -272,23 +292,39 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
             maxLength={120}
           />
         </div>
-        <div className="grid gap-1.5">
-          <Label>Jenis pengajuan</Label>
+        <div className="grid gap-1.5 sm:col-span-2">
+          <Label>Sumber</Label>
           <Select
-            value={form.requestKind}
-            onValueChange={(v) => set("requestKind", v as AgentPolicyInput["requestKind"])}
+            value={form.trigger}
+            onValueChange={(v) =>
+              setForm((f) => ({
+                ...f,
+                trigger: v as AgentPolicyInput["trigger"],
+                ...(v === "siman" ? { requestKind: "psp" as const, skill: "penetapan-siman" } : {}),
+              }))
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {KIND_OPTIONS.map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
+              <SelectItem value="request">Pengajuan baru → dikerjakan AI agent dengan skill</SelectItem>
+              <SelectItem value="siman">Hasil workflow Penetapan SIMAN → diperiksa server</SelectItem>
             </SelectContent>
           </Select>
+          {siman && (
+            <p className="rounded-lg border bg-muted/40 p-2.5 text-xs text-muted-foreground">
+              Saat AI agent selesai membuat Dokumen Analisis & konsep KM PSP, server memeriksa: Surat Permohonan dan
+              SPTJM ada di Kelengkapan SIMAN (berkasnya terambil), aset bukan tanah/bangunan, jumlah nilai daftar aset
+              sama dengan Nilai Permohonan tiket, dan analisis berstatus LENGKAP. Semua terpenuhi + mode Otomatis =
+              pengajuan disetujui dan konsep KM PSP didaftarkan ke SRIKANDI (Simpan konsep) setelah masa tunda; selain
+              itu diserahkan ke Anda di Approval.
+            </p>
+          )}
+        </div>
+        <div className="grid gap-1.5">
+          <Label>Kategori pengajuan</Label>
+          <RequestCategorySelect value={form.requestKind} onChange={(v) => set("requestKind", v)} disabled={siman} />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="policy-groups">Kode grup (kosong = semua)</Label>
@@ -300,8 +336,10 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
           />
         </div>
         <div className="grid gap-1.5">
-          <Label>Skill agen</Label>
-          {akasha.length ? (
+          <Label>Skill AI agent</Label>
+          {siman ? (
+            <Input value="penetapan-siman" disabled />
+          ) : akasha.length ? (
             <Select value={form.skill || undefined} onValueChange={(v) => set("skill", v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Pilih skill" />
@@ -330,68 +368,74 @@ function PolicyForm({ policy, onClose }: { policy: AgentPolicy | null; onClose: 
             </SelectTrigger>
             <SelectContent>
               {(Object.keys(POLICY_MODE_LABELS) as AgentPolicyMode[]).map((mode) => (
-                <SelectItem key={mode} value={mode} disabled={mode === "auto" && !form.verifyAssets}>
+                <SelectItem key={mode} value={mode} disabled={mode === "auto" && !form.verifyAssets && !siman}>
                   {POLICY_MODE_LABELS[mode]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <label className="flex items-start gap-3 rounded-lg border p-3 sm:col-span-2">
-          <Switch
-            checked={form.verifyAssets}
-            onCheckedChange={(v) =>
-              setForm((f) => ({ ...f, verifyAssets: v, mode: !v && f.mode === "auto" ? "shadow" : f.mode }))
-            }
-            aria-label="Cocokkan daftar aset ke data master"
-          />
-          <span className="text-sm">
-            <b>Cocokkan daftar aset ke data master</b>
-            <span className="block text-xs text-muted-foreground">
-              Hanya untuk proses yang memuat daftar aset. Tanpa pemeriksaan ini hasil agen selalu diserahkan ke Anda dan
-              mode Otomatis tidak tersedia.
+        {!siman && (
+          <label className="flex items-start gap-3 rounded-lg border p-3 sm:col-span-2">
+            <Switch
+              checked={form.verifyAssets}
+              onCheckedChange={(v) =>
+                setForm((f) => ({ ...f, verifyAssets: v, mode: !v && f.mode === "auto" ? "shadow" : f.mode }))
+              }
+              aria-label="Cocokkan daftar aset ke data master"
+            />
+            <span className="text-sm">
+              <b>Cocokkan daftar aset ke data master</b>
+              <span className="block text-xs text-muted-foreground">
+                Hanya untuk proses yang memuat daftar aset. Tanpa pemeriksaan ini hasil agen selalu diserahkan ke Anda
+                dan mode Otomatis tidak tersedia.
+              </span>
             </span>
-          </span>
-        </label>
-        {form.verifyAssets && (
+          </label>
+        )}
+        {(form.verifyAssets || siman) && (
           <>
-            <div className="grid gap-1.5">
-              <Label htmlFor="policy-threshold">Skor aset minimal (%)</Label>
-              <Input
-                id="policy-threshold"
-                type="number"
-                min={50}
-                max={100}
-                value={form.threshold}
-                onChange={(e) => set("threshold", num(e.target.value, 75))}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="policy-tolerance">Toleransi selisih nilai (%)</Label>
-              <Input
-                id="policy-tolerance"
-                type="number"
-                min={0}
-                max={20}
-                step={0.5}
-                value={form.valueTolerance}
-                onChange={(e) => set("valueTolerance", num(e.target.value, 0))}
-              />
-            </div>
-            <div className="grid gap-1.5 sm:col-span-2">
-              <Label>Isian yang wajib sama dengan data master</Label>
-              <div className="flex flex-wrap gap-3">
-                {(Object.keys(ASSET_FIELD_LABELS) as AssetField[]).map((field) => (
-                  <label key={field} className="flex items-center gap-1.5 text-sm">
-                    <Checkbox
-                      checked={form.criticalFields.includes(field)}
-                      onCheckedChange={(v) => toggleField(field, v === true)}
-                    />
-                    {ASSET_FIELD_LABELS[field]}
-                  </label>
-                ))}
-              </div>
-            </div>
+            {!siman && (
+              <>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="policy-threshold">Skor aset minimal (%)</Label>
+                  <Input
+                    id="policy-threshold"
+                    type="number"
+                    min={50}
+                    max={100}
+                    value={form.threshold}
+                    onChange={(e) => set("threshold", num(e.target.value, 75))}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="policy-tolerance">Toleransi selisih nilai (%)</Label>
+                  <Input
+                    id="policy-tolerance"
+                    type="number"
+                    min={0}
+                    max={20}
+                    step={0.5}
+                    value={form.valueTolerance}
+                    onChange={(e) => set("valueTolerance", num(e.target.value, 0))}
+                  />
+                </div>
+                <div className="grid gap-1.5 sm:col-span-2">
+                  <Label>Isian yang wajib sama dengan data master</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {(Object.keys(ASSET_FIELD_LABELS) as AssetField[]).map((field) => (
+                      <label key={field} className="flex items-center gap-1.5 text-sm">
+                        <Checkbox
+                          checked={form.criticalFields.includes(field)}
+                          onCheckedChange={(v) => toggleField(field, v === true)}
+                        />
+                        {ASSET_FIELD_LABELS[field]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
             <div className="grid gap-1.5">
               <Label htmlFor="policy-limit">Batas keputusan otomatis per hari</Label>
               <Input
