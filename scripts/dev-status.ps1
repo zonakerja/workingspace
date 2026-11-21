@@ -19,13 +19,15 @@ $components = [ordered]@{
   4200 = "Markdown Converter (Docker, profile converter)"
   8642 = "Hermes (Docker, profile agent)"
 }
-foreach ($port in $components.Keys) {
+foreach ($entry in $components.GetEnumerator()) {
+  # Kunci angka pada OrderedDictionary dibaca sebagai indeks posisi -> ambil lewat enumerator
+  $port = $entry.Key
   $conn = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($conn) {
     $proc = (Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue).ProcessName
-    Write-Host ("[aktif] {0,-5} {1}  ({2})" -f $port, $components[$port], $proc) -ForegroundColor Green
+    Write-Host ("[aktif] {0,-5} {1}  ({2})" -f $port, $entry.Value, $proc) -ForegroundColor Green
   } else {
-    Write-Host ("[mati ] {0,-5} {1}" -f $port, $components[$port]) -ForegroundColor DarkGray
+    Write-Host ("[mati ] {0,-5} {1}" -f $port, $entry.Value) -ForegroundColor DarkGray
   }
 }
 $wsl = (wsl --list --running 2>$null | Out-String) -replace "`0", ""
